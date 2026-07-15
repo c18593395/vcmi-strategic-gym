@@ -1,0 +1,46 @@
+---
+# VCMI Strategic MPPO Training Config
+group_id: strategic
+run_name: "mppo strategic s1 baseline"
+tags: ["strategic", "s1", "StupidAI"]
+
+wandb_project: vcmi-gym-strategic
+run_id: ~
+resume: False
+notes: "Baseline strategic training on s1.vmap"
+
+agent_load_file: ~
+vsteps_total: 5000000
+seconds_total: 0
+rollouts_per_mapchange: 0
+rollouts_per_log: 1
+rollouts_per_table_log: 10
+
+envmaps:
+  - gym/s1.vmap
+
+opponent_sbm_probs: [1, 0, 0]  # 100% StupidAI
+opponent_load_file: ~
+
+save_every: 3600
+permasave_every: 10800
+max_saves: 5
+out_dir_template: "data/{group_id}/{run_id}"
+
+# 战略网络：简单 FC（观测 200 维）
+network:
+  features_extractor:
+    - {t: "Flatten"}
+    - {t: "Linear", in_features: 200, out_features: 512}
+    - {t: "ReLU"}
+    - {t: "Linear", in_features: 512, out_features: 256}
+    - {t: "ReLU"}
+  pi:
+    - {t: "Linear", in_features: 256, out_features: 11}   # 11 actions
+  vf:
+    - {t: "Linear", in_features: 256, out_features: 1}
+
+env:
+  env_name: "VCMI-strategic-v1"
+  mapname: "gym/s1.vmap"
+  max_turns: 28

@@ -38,6 +38,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <unistd.h>
 
+#include "ML/strategic_state.h"
+
+
 #define ASSERT_STATE(id, want) { \
     if((want) != (connstate)) \
         throw VCMIConnectorException(std::string(id) + ": unexpected connector state: want: " + std::to_string(EI(want)) + ", have: " + std::to_string(EI(connstate))); \
@@ -70,6 +73,7 @@
 }
 
 namespace Connector::V13::Thread {
+    void adventure_yourTurn_callback(int playerColor, void* userData);
 
     const std::vector<std::string> Connector::getLogs() {
         return std::vector<std::string>(logs.begin(), logs.end());
@@ -179,17 +183,6 @@ namespace Connector::V13::Thread {
         auto sup = extractSupplementaryData(s);
         assert(sup->getType() == MMAI::Schema::V13::ISupplementaryData::Type::REGULAR);
 
-        // XXX: these do not improve performance, better avoid the const_cast
-        // auto pbs = P_BattlefieldState(bs.size(), const_cast<float*>(bs.data()));
-        // auto patm = P_AttentionMask(attnmask.size(), const_cast<float*>(attnmask.data()));
-
-        // XXX: manually copying the state into py::array_t<float> is
-        //      ~10% faster than storing the BattlefieldState& reference in
-        //      P_State as pybind's STL automatically converts it to a python
-        //      list of python floats, which needs to be converted to a numpy
-        //      array of float32 floats in pyconnector.set_v_result_act()
-        //      (which copies the data anyway and is ultimately slower).
-
         auto cstate = s->getBattlefieldState();
         auto pystate = P_BattlefieldState(cstate->size());
         auto pystatedata = pystate.mutable_data();
@@ -201,10 +194,6 @@ namespace Connector::V13::Thread {
         auto pymaskdata = pymask.mutable_data();
         for (int i=0; i < cmask->size(); ++i)
             pymaskdata[i] = cmask->at(i);
-
-        //
-        // LINKS
-        //
 
         auto pylinks = P_LinksDict();
 
@@ -234,12 +223,6 @@ namespace Connector::V13::Thread {
             const auto dstinds = links->getDstIndex();
             const auto attrs = links->getAttributes();
 
-            // ----------------------------------
-            // view (no copy) -- no speed improvement
-            // auto pyinds = py::array_t<const int64_t>({d0, d1}, inds.data());
-            // auto pyattrs = py::array_t<const float>(d0, attrs.data());
-            // ----------------------------------
-            // copy (safer)
             if (srcinds.size() != dstinds.size())
                 throw std::runtime_error("inds size mismatch: " + std::to_string(srcinds.size()) + " / " + std::to_string(dstinds.size()));
 
@@ -256,9 +239,7 @@ namespace Connector::V13::Thread {
 
             auto pyattrs = py::array_t<float>({n, attrsize});
             std::memcpy(pyattrs.mutable_data(), attrs.data(), flatattrsize*sizeof(float));
-            // ----------------------------------
 
-            // pylinks[pytype] = py::make_tuple(pyinds, pyattrs);
             auto pytypelinks = py::dict();
             pytypelinks[py::str("index")] = pyinds;
             pytypelinks[py::str("attrs")] = pyattrs;
@@ -391,8 +372,6 @@ namespace Connector::V13::Thread {
         // waiting in getState. It was supposed to throw any stored errors
         // If it did not (bug) => throw here
         if (!_error.empty()) {
-            // need to explicitly print the logs here
-            // (this exception won't be handled by python)
             for (auto &msg : logs)
                 std::cerr << msg << "\n";
             throw VCMIConnectorException(_error);
@@ -447,7 +426,6 @@ namespace Connector::V13::Thread {
 
         ReturnCode res;
 
-
         std::function<bool()> pred = [this, expstate] { return connstate == expstate; };
 
         {
@@ -471,14 +449,6 @@ namespace Connector::V13::Thread {
         setvbuf(stdout, NULL, _IONBF, 0);
         LOG("start");
 
-        // struct sigaction sa;
-        // sa.sa_handler = signal_handler;
-        // sa.sa_flags = 0;
-        // sigemptyset(&sa.sa_mask);
-
-        // if (sigaction(SIGINT, &sa, nullptr) == -1)
-        //     throw std::runtime_error("Error installing signal handler.");
-
         LOG("obtain lock2");
         std::unique_lock lock2(m2);
         LOG("obtain lock2: done");
@@ -486,41 +456,49 @@ namespace Connector::V13::Thread {
         LOG("release Python GIL");
         py::gil_scoped_release release;
 
-        std::function<bool()> predicate = [this] {
-            return (connectedClient0 || red != "MMAI_USER")
-                && (connectedClient1 || blue != "MMAI_USER");
-        };
+        // Adventure mode: skip client wait, register callback before init_vcmi
+        bool is_adventure = (initargs.mapname.find("s1") != std::string::npos ||
+                             initargs.mapname.find("mini") != std::string::npos ||
+                             initargs.mapname.find("adventure") != std::string::npos);
 
-        LOGFMT("cond2.wait(lock2, %1%s, predicate)", bootTimeout);
-        auto res = cond_wait(__func__, 2, cond2, lock2, bootTimeout, predicate);
-        if (res == ReturnCode::TIMEOUT) {
-            throw VCMIConnectorException(boost::str(boost::format(
-                "timeout after %ds while waiting for client (red:%s, blue:%s, connectedClient0: %d, connectedClient1: %d)\n") \
-                % bootTimeout % red % blue % connectedClient0 % connectedClient1
-            ));
-            return;
-        } else if (res == ReturnCode::SHUTDOWN) {
-            LOG("connector is shutting down...");
-            return;
-        } else if (res != ReturnCode::OK) {
-            throw VCMIConnectorException(boost::str(boost::format(
-                "unexpected return code from cond_wait: %d\n") % EI(res)
-            ));
-            return;
-        }
+        if (is_adventure) {
+            LOG("Adventure mode — skipping client wait, callback registered in init_vcmi()");
+            _adventure_mode = true;
+        } else {
+            // Battle mode — wait for client connection
+            std::function<bool()> predicate = [this] {
+                return (connectedClient0 || red != "MMAI_USER")
+                    && (connectedClient1 || blue != "MMAI_USER");
+            };
 
-        {
-            // Successfully obtaining these locks means the
-            // clients are ready and waiting for state
-            LOG("obtain lock0");
-            std::unique_lock lock0(m0);
-            LOG("obtain lock0: done");
+            LOGFMT("cond2.wait(lock2, %1%s, predicate)", bootTimeout);
+            auto res = cond_wait(__func__, 2, cond2, lock2, bootTimeout, predicate);
+            if (res == ReturnCode::TIMEOUT) {
+                throw VCMIConnectorException(boost::str(boost::format(
+                    "timeout after %ds while waiting for client") % bootTimeout));
+                return;
+            } else if (res == ReturnCode::SHUTDOWN) {
+                LOG("connector is shutting down...");
+                return;
+            } else if (res != ReturnCode::OK) {
+                throw VCMIConnectorException(boost::str(boost::format(
+                    "unexpected return code from cond_wait: %d") % EI(res)));
+                return;
+            }
 
-            LOG("obtain lock1");
-            std::unique_lock lock1(m1);
-            LOG("obtain lock1: done");
+            {
+                // Successfully obtaining these locks means the
+                // clients are ready and waiting for state
+                LOG("obtain lock0");
+                std::unique_lock lock0(m0);
+                LOG("obtain lock0: done");
 
-            LOG("release lock0 and lock1");
+                LOG("obtain lock1");
+                std::unique_lock lock1(m1);
+                LOG("obtain lock1: done");
+
+                LOG("release lock0 and lock1");
+            }
         }
 
         auto f_getAction0 = [this](const MMAI::Schema::IState* s) {
@@ -545,7 +523,6 @@ namespace Connector::V13::Thread {
         } else if (red == "MMAI_USER") {
             leftModel = new ML::ModelWrappers::Function(version(), "MMAI_USER_GYM", Side::LEFT, f_getAction0, f_getValueDummy);
         } else if (red == "MMAI_MODEL") {
-            // BAI will load the actual model based on leftModel->getName()
             leftModel = new ML::ModelWrappers::Path(redModel);
         } else {
             leftModel = new ML::ModelWrappers::Scripted(red, Side::LEFT);
@@ -556,7 +533,6 @@ namespace Connector::V13::Thread {
         } else if (blue == "MMAI_USER") {
             rightModel = new ML::ModelWrappers::Function(version(), "MMAI_USER_GYM", Side::RIGHT, f_getAction1, f_getValueDummy);
         } else if (blue == "MMAI_MODEL") {
-            // BAI will load the actual model based on rightModel->getName()
             rightModel = new ML::ModelWrappers::Path(blueModel);
         } else {
             rightModel = new ML::ModelWrappers::Scripted(blue, Side::RIGHT);
@@ -579,7 +555,44 @@ namespace Connector::V13::Thread {
             std::cerr << "ERROR: ML::start_vcmi() returned, but shutdown is false";
     }
 
-    void Connector::shutdown() {
+// Adventure mode — VCMI thread calls (from g_adventure_cb callback)
+void adventure_yourTurn_callback(int playerColor, void* userData) {
+    Connector* conn = static_cast<Connector*>(userData);
+    std::unique_lock<std::mutex> lock(conn->_adventure_mutex);
+    conn->_adventure_player = playerColor;
+    conn->_adventure_action_ready = false;
+    std::cerr << "[connector] adventure yourTurn: player=" << playerColor << std::endl;
+    conn->_adventure_cond.notify_all();
+    conn->_adventure_cond.wait(lock, [conn] { return conn->_adventure_action_ready || conn->_shutdown.load(); });
+}
+
+// Python calls: wait for yourTurn callback (registered early in start())
+const std::tuple<int, std::string> Connector::adventureWait() {
+    SHUTDOWN_PYTHON_RETURN("");
+    std::unique_lock lock(_adventure_mutex);
+    {
+        py::gil_scoped_release release;
+        _adventure_cond.wait(lock, [this] { return _adventure_player >= 0 || _shutdown; });
+    }
+    if (_shutdown) return {static_cast<int>(ReturnCode::SHUTDOWN), ""};
+    int player = _adventure_player;
+    _adventure_player = -1;
+    return {static_cast<int>(ReturnCode::OK), std::to_string(player)};
+}
+
+// Python calls: send action and signal VCMI to proceed
+const std::tuple<int, std::string> Connector::adventureAct(int action) {
+    SHUTDOWN_PYTHON_RETURN("");
+    {
+        std::unique_lock lock(_adventure_mutex);
+        _adventure_action = action;
+        _adventure_action_ready = true;
+    }
+    _adventure_cond.notify_all();
+    return {static_cast<int>(ReturnCode::OK), "action_sent"};
+}
+
+void Connector::shutdown() {
         _shutdown = true;
         ML::shutdown_vcmi();
     }

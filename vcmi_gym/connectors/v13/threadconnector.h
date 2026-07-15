@@ -82,6 +82,14 @@ namespace Connector::V13::Thread {
         const MMAI::Schema::Action getActionDummy(MMAI::Schema::IState);
         const MMAI::Schema::V13::ISupplementaryData* extractSupplementaryData(const MMAI::Schema::IState *s);
 
+        // 冒险模式
+        bool _adventure_mode = false;
+        int _adventure_player = -1;
+        bool _adventure_action_ready = false;
+        int _adventure_action = 0;
+        std::mutex _adventure_mutex;
+        std::condition_variable _adventure_cond;
+
         // essentially, all of .reset(), .render() and .step() are a form of getState
         ReturnCode getState(const char* funcname, int side, int action);
 
@@ -116,7 +124,12 @@ namespace Connector::V13::Thread {
         void log(std::string funcname, std::string msg);
 
         // void signal_handler(int signal);
+        friend void adventure_yourTurn_callback(int, void*);
     public:
+        // 冒险模式 — Python 调用来获取/执行动作
+        const std::tuple<int, std::string> adventureWait();  // 阻塞等待 yourTurn
+        const std::tuple<int, std::string> adventureAct(int action); // 执行动作并等待下一帧
+
         Connector(
             int maxlogs,
             int bootTimeout,

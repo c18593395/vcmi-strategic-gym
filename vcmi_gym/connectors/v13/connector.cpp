@@ -97,7 +97,9 @@ namespace Connector::V13 {
             .def("connect", &Thread::Connector::connect)
             .def("step", &Thread::Connector::step)
             .def("render", &Thread::Connector::render)
-            .def("getLogs", &Thread::Connector::getLogs);
+            .def("getLogs", &Thread::Connector::getLogs)
+            .def("adventure_wait", &Thread::Connector::adventureWait)
+            .def("adventure_act", &Thread::Connector::adventureAct);
 
         py::register_exception<Thread::VCMIConnectorException>(m, "PyThreadVCMIConnectorException");
 
