@@ -20,6 +20,7 @@
 #include "schema/v13/constants.h"
 #include "schema/v13/types.h"
 #include "ML/MLClient.h"
+#include "ML/strategic_state.h"
 #include "ML/model_wrappers/function.h"
 #include "ML/model_wrappers/scripted.h"
 #include "ML/model_wrappers/path.h"
@@ -444,6 +445,29 @@ namespace Connector::V13::Thread {
         LOG("release Python GIL");
         py::gil_scoped_release release;
 
+        // --- Adventure mode detection ---
+        std::string mapname = initargs.mapname;
+        auto slash_pos = mapname.find_last_of("/\\");
+        std::string mapfile = (slash_pos != std::string::npos)
+            ? mapname.substr(slash_pos + 1)
+            : mapname;
+
+        for (auto &c : mapfile) c = tolower(c);
+        bool is_adventure = (mapfile.rfind("s1", 0) == 0 ||
+                             mapfile.rfind("mini", 0) == 0 ||
+                             mapfile.rfind("adventure", 0) == 0);
+
+        if (is_adventure) {
+            LOG("Adventure mode detected");
+            _adventure_mode = true;
+            g_adventure_cb = adventure_yourTurn_callback;
+            g_adventure_cb_userdata = this;
+            LOG("g_adventure_cb registered");
+        } else {
+            LOG("Battle mode detected");
+        }
+
+        if (!is_adventure) {
         std::function<bool()> predicate = [this] {
             return (connectedClient0 || red != "MMAI_USER")
                 && (connectedClient1 || blue != "MMAI_USER");
@@ -478,6 +502,9 @@ namespace Connector::V13::Thread {
 
             LOG("release lock0 and lock1");
         }
+
+        } // end if (!is_adventure) — battle client wait
+        LOG(boost::str(boost::format("is_adventure=%d, _adventure_mode=%d") % is_adventure % _adventure_mode));
 
         auto f_getAction0 = [this](const MMAI::Schema::IState* s) {
             return this->getAction(s, 0);
