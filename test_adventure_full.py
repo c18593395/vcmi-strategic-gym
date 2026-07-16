@@ -19,7 +19,7 @@ DEFAULTS = {
     "userTimeout": 99999,
     "red": "MMAI_USER",
     "redModel": "",
-    "blue": "MMAI_MODEL",
+    "blue": "StupidAI",
     "blueModel": "",
     "mapname": "gym/s1.vmap",
     "seed": 0,
@@ -28,8 +28,8 @@ DEFAULTS = {
     "townChance": 0,
     "warmachineChance": 0,
     "randomArmies": False,
-    "randomArmyValueMin": 0,
-    "randomArmyValueMax": 0,
+    "randomArmyValueMin": 5000,
+    "randomArmyValueMax": 5000000,
     "randomArmyTargetVar": 0,
     "tightFormationChance": 0,
     "randomTerrainChance": 0,
@@ -47,7 +47,7 @@ DEFAULTS = {
     "redAllowMlBot": False,
     "blueAllowMlBot": False,
     "statsMode": "disabled",
-    "statsStorage": "",
+    "statsStorage": "-",
     "statsPersistFreq": 0}
 
 # All args via **kwargs — constructor is pybind11 keyword-friendly

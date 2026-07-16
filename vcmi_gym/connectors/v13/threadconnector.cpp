@@ -462,7 +462,9 @@ namespace Connector::V13::Thread {
                              initargs.mapname.find("adventure") != std::string::npos);
 
         if (is_adventure) {
-            LOG("Adventure mode — skipping client wait, callback registered in init_vcmi()");
+            LOG("Adventure mode — skipping client wait, registering callback");
+            g_adventure_cb = adventure_yourTurn_callback;
+            g_adventure_cb_userdata = this;
             _adventure_mode = true;
         } else {
             // Battle mode — wait for client connection
