@@ -1,74 +1,88 @@
-# VCMI-v13 Anchor 训练 — 任务清单
+# VCMI — 总任务清单
 
-> 最后更新: 2026-07-15 12:45 | 模型: v13_ppo 174MB | GPU: RTX3060
+> 最后更新: 2026-07-16 15:30 | GPU: RTX3060
 
-## 训练架构
+---
+
+## Phase A — 冒险 API 开发
 
 ```
-train_anchor.py (编排层) → train_v13_ppo.py (执行层) → eval_orch.py (评估层)
-策略: eval 胜率反馈驱动 — 弱图加重，强图减半
+目标: VCMI adventure_wait/act 联通 → StrategicEnv → 红蓝自博弈
+```
+
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| A6.1 回调迁移 | ✅ 完成 | `g_adventure_cb` 注册从 connector 移到 `init_vcmi()` |
+| A6.2 ctypes验证 | ✅ 完成 | `strategic_state.h` 四结构体 53 字段与 Python 一致 |
+| A7 ServerPlugin修复 | ✅ 完成 | tempOwner / pool匹配 / randomHeroes / 空池检查 4处 |
+| A7 libvcmi保护 | ✅ 完成 | CProxyIOApi/ROIOApi 空指针检查（级联崩溃仍需根因修复）|
+| A7 数据目录 | ✅ 完成 | data-combined 合并 VCMI 源+游戏数据 |
+| A7 端到端测试 | 🔴 阻塞 | VCMI runNetwork segfault (0x628) — 报告已输出到 PHASE_A_SEGFAULT_REPORT.md |
+| **Phase A 代码已提交** | ✅ | main: 460b467 / vcmi: 86b8c2c7a |
+
+---
+
+## Phase B — 战斗训练 (v13 PPO)
+
+```
+架构: train_anchor.py → train_v13_ppo.py → eval_orch.py
+地图: A1-A7 (2×2 战斗 vmap)  动作: MaskablePPO 2312维
+```
+
+| 项目 | 状态 | 说明 |
+|------|------|------|
+| 32轮训练 | ✅ 完成 | 215万步，A1-A7全覆盖 |
+| 评估脚本 | ✅ 完成 | eval_orch.py 7图×100ep |
+| eval 反馈 schedule | ✅ 完成 | 弱图加重、强图减半 |
+| 新 schedule (32轮) | ⏳ 待执行 | R1-R32 日程已规划 |
+| **战斗环境运行** | 🔴 阻塞 | Phase A 改动后 ABI 不兼容，connector 缺 `ML::init_vcmi` 符号 |
+
+### 阻塞原因
+```
+重构 connector_v13.so 时增加了 adventure API 符号，旧 connector 不兼容
+需全部组件从同一源树同时编译
+```
+
+### 恢复命令
+```bash
+wsl -d Ubuntu -- bash -c 'pkill -9 -f train; cd ~/vcmi-workspace && \
+source venv/bin/activate && \
+export LD_LIBRARY_PATH=$PWD/vcmi/rel/bin:$PWD/vcmi_gym/connectors/rel && \
+exec python -u /mnt/d/Bigdata/hero3_fresh/train_anchor.py 2>&1'
 ```
 
 ---
 
-## 📊 上次 32 轮结果 + eval
+## Phase A/B 待完成
 
-| 地图 | 训练ev | eval胜率 | 新权重 | 
-|------|--------|----------|--------|
-| A1 | 0.983 | **0%** | 3→5 ↑ |
-| A2 | 0.970 | **100%** | 17→8 ↓ |
-| A3 | 0.526 | **90%** | 3→4 → |
-| A4 | — | — | 1→2 ↑ |
-| A5 | 0.964 | **0%** | 6→6 → |
-| A6 | 0.953 | **0%** | 1→5 ↑ |
-| A7 | — | — | 1→2 ↑ |
-
-**关键发现**: ev ≠ 胜率 — A1/A5 训练 ev>0.95 但 0% 胜率
-
-## 新 Schedule (32轮)
-
-| Phase | 轮次 | 地图 | 策略 |
-|-------|------|------|------|
-| 1 | R1-6 | A2,A1,A5,A2,A6,A1 | 救弱图 |
-| 2 | R7-12 | A5,A2,A6,A4,A1,A2 | 继续+A4 |
-| 3 | R13-18 | A5,A3,A2,A6,A7,A1 | A3加强+A7 |
-| 4 | R19-24 | A5,A2,A1,A6,A4,A2 | 集中攻克 |
-| 5 | R25-32 | A5,A3,A2,A1,A6,A2,A7,A3 | 平衡收官 |
-
-**权重**: A1=5 A2=8 A3=4 A4=2 A5=6 A6=5 A7=2
-
-恢复命令:
-```
-wsl -d Ubuntu -- bash -c 'pkill -9 -f train; cd ~/vcmi-workspace && source venv/bin/activate && export LD_LIBRARY_PATH=$PWD/vcmi/rel/bin:$PWD/vcmi_gym/connectors/rel && exec python -u /mnt/d/Bigdata/hero3_fresh/train_anchor.py 2>&1'
-```
+| 优先级 | 任务 | 依赖 |
+|--------|------|------|
+| P0 | 🔴 修 VCMI segfault (runNetwork 0x628) | 需要专人（报告已输出） |
+| P0 | 🔴 全量同源编译 (libmlclient+libvcmi+connector) | segfault 修复后 |
+| P1 | Phase A 恢复后 → 验证 adventure_wait 回调 | segfault 修复 |
+| P1 | 战斗训练管线恢复 (train_anchor 跑新 schedule) | ABI 一致 |
+| P2 | 模型导出 TorchScript/ONNX | 训练完成后 |
+| P2 | GNN v15 迁移 | connector 重编译后 |
+| P3 | 超参搜索 Optuna | 训练管线稳定后 |
 
 ---
 
-## ✅ 已完成 (8/12)
+## 代码提交
 
-1. ✅ 换训练地图 — A1-A7 全覆盖
-2. ✅ 增加步数 — 215万+ 步
-3. ✅ GPU 训练 — RTX3060 130fps
-4. ✅ 评估脚本 — eval_orch.py
-5. ✅ 多地图泛化 — 32轮
-6. ✅ 修复 A4/A7 — A1 模板重建
-7. ✅ 模型续训
-8. ✅ eval 胜率反馈 schedule
+| 仓库 | 最新 commit | 备注 |
+|------|------------|------|
+| hero3_fresh (main) | `460b467` | Phase A 测试脚本+工具 |
+| vcmi 子模块 | `86b8c2c7a` | Phase A 核心代码 (12文件) |
 
-## ⬜ 待完成
+---
 
-9. 导出模型 (TorchScript/ONNX)
-10. 超参搜索 (Optuna)
-11. GNN v15 (前置: connector 重编译)
-12. 地图生成
+## 环境
 
-## 执行顺序
-```
-✅ 32轮训练 + eval 
-✅ A4/A7 修复
-✅ eval 反馈 schedule
-  ↓
-⬜ 跑新 schedule → eval → 迭代
-  ↓
-⬜ 模型导出 → 实测
-```
+| 项目 | 值 |
+|------|-----|
+| 编译 | WSL2 Ubuntu, ext4 `/home/administrator/vcmi-native/` |
+| 运行 | `/home/administrator/vcmi-workspace/` |
+| 源文件 | `D:\Bigdata\hero3_fresh\vcmi\` (NTFS → ext4 同步) |
+| 游戏数据 | `/mnt/d/GAMES/Heroes3/` |
+| Python | venv at `/home/administrator/vcmi-workspace/venv/` |
+| GPU | RTX 3060 6GB (CUDA 13.1) |
