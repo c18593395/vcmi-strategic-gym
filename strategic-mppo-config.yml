@@ -41,6 +41,6 @@ network:
     - {t: "Linear", in_features: 256, out_features: 1}
 
 env:
-  env_name: "VCMI-strategic-v1"
+  env_name: "VCMI-strategic-fake-v1"
   mapname: "gym/s1.vmap"
   max_turns: 28

@@ -174,7 +174,6 @@ class VcmiEnv(gym.Env):
         render_each_step: bool = False,
         vcmi_loglevel_global: str = "error",
         vcmi_loglevel_ai: str = "error",
-        vcmi_loglevel_network: str = "error",
         vcmi_loglevel_stats: str = "error",
         vcmienv_loglevel: str = "WARN",
         vcmienv_logtag: str = "VcmiEnv-v13",
@@ -194,24 +193,20 @@ class VcmiEnv(gym.Env):
         town_chance: int = 0,
         warmachine_chance: int = 0,
         random_terrain_chance: int = 0,
-        random_armies: bool = False,
-        random_army_value_min: int = 5000,
-        random_army_value_max: int = 5_000_000,
-        random_army_target_var: int = 30,
+        random_stack_chance: int = 0,
         tight_formation_chance: int = 0,
         vip_chance: int = 0,
         opponent_vip_chance: int = 0,
         battlefield_pattern: str = "",
         mana_min: int = 0,
         mana_max: int = 0,
-        random_primary_skills: int = 0,
         swap_sides: int = 0,
         allow_retreat: bool = False,
         reward_err_exclusive: float = -10,
         # Applied on every step:
         reward_step_fixed: float = -1,          # reward = value
 
-        # These requires BATTLE_ROUND in obs (to add in future env version)
+        # These require BATTLE_ROUND in obs (to add in future env version)
         # See RewardConfig for more info
         reward_prog_base: float = 0.1,
         reward_prog_trigger: int = 9,
@@ -345,10 +340,10 @@ class VcmiEnv(gym.Env):
             randomObstacles=random_obstacles,
             townChance=town_chance,
             warmachineChance=warmachine_chance,
-            randomArmies=random_armies,
-            randomArmyValueMin=random_army_value_min,
-            randomArmyValueMax=random_army_value_max,
-            randomArmyTargetVar=random_army_target_var,
+            randomArmies=bool(random_stack_chance),
+            randomArmyValueMin=500,
+            randomArmyValueMax=1000,
+            randomArmyTargetVar=0,
             tightFormationChance=tight_formation_chance,
             randomTerrainChance=random_terrain_chance,
             leftVipChance=attacker_vip_chance,
@@ -356,11 +351,11 @@ class VcmiEnv(gym.Env):
             battlefieldPattern=battlefield_pattern,
             manaMin=mana_min,
             manaMax=mana_max,
-            randomPrimarySkills=random_primary_skills,
+            randomPrimarySkills=0,
             swapSides=swap_sides,
             loglevelGlobal=vcmi_loglevel_global,
             loglevelAI=vcmi_loglevel_ai,
-            loglevelNetwork=vcmi_loglevel_network,
+            loglevelNetwork="error",
             loglevelStats=vcmi_loglevel_stats,
             red=attacker,
             blue=defender,
@@ -421,7 +416,7 @@ class VcmiEnv(gym.Env):
 
         bf = Decoder.decode(res.state, only_global=True)
         term = bf.global_stats.BATTLE_WINNER.v is not None
-        trunc = False
+        trunc = bf.global_stats.BATTLE_ROUND.v == MAX_ROUNDS  # vcmi should have retreated
         rewvals = VcmiEnv.calc_reward(res.errcode, term, trunc, bf, self.bf, self.reward_cfg)
         rew = sum(rewvals)
         res.mask[0] = False  # prevent retreats for now
@@ -447,7 +442,7 @@ class VcmiEnv(gym.Env):
         if self.render_each_step:
             print(self.render())
 
-        info = {"side": self.side, "round": 0}
+        info = {"side": self.side, "round": bf.global_stats.BATTLE_ROUND.v}
         return obs, info
 
     @tracelog
@@ -606,7 +601,9 @@ class VcmiEnv(gym.Env):
         self.bf = bf
 
     def _reset_vars(self, res, obs, bf):
-        self.side = bf.global_stats.BATTLE_SIDE
+        # Workaround for the legacy BATTLE_SIDE (now replaced by BATTLE_ROUND)
+        # Since active player may change at battle end => store it at start
+        self.side = bf.global_stats.BATTLE_SIDE_ACTIVE_PLAYER
 
         self.last_action = None
         self.steps_this_episode = 0
@@ -637,13 +634,13 @@ class VcmiEnv(gym.Env):
         if not (term or trunc):
             return dict(
                 side=side,
-                round=0,
+                round=bf.global_stats.BATTLE_ROUND.v,
                 step=steps_this_episode
             )
 
         return dict(
             side=side,
-            round=0,
+            round=bf.global_stats.BATTLE_ROUND.v,
             step=steps_this_episode,
 
             net_value=bf.enemy_stats.VALUE_LOST_ACC_REL0.v - bf.my_stats.VALUE_LOST_ACC_REL0.v,
@@ -680,7 +677,7 @@ class VcmiEnv(gym.Env):
         b = cfg.prog_trigger
         c = cfg.prog_exponent
         d = cfg.prog_limit
-        x = 0  # BATTLE_ROUND not available in v13
+        x = bf.global_stats.BATTLE_ROUND.v
         prog = -min(a*(max(b, int(x)) - b)**c, d)
 
         done = term or trunc

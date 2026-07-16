@@ -4,6 +4,13 @@
 
 #include "threadconnector.h"
 
+// StrategicState is defined in the ML module (libmlclient.so) with extern "C" linkage
+// We only need the pointer value, not the struct layout
+struct StrategicState;
+extern "C" {
+    extern StrategicState* g_strategic_state;
+}
+
 namespace Connector::V13 {
     namespace py = pybind11;
 
@@ -99,7 +106,10 @@ namespace Connector::V13 {
             .def("render", &Thread::Connector::render)
             .def("getLogs", &Thread::Connector::getLogs)
             .def("adventure_wait", &Thread::Connector::adventureWait)
-            .def("adventure_act", &Thread::Connector::adventureAct);
+            .def("adventure_act", &Thread::Connector::adventureAct)
+            .def_static("get_strategic_state_ptr", []() -> int64_t {
+                return reinterpret_cast<int64_t>(g_strategic_state);
+            });
 
         py::register_exception<Thread::VCMIConnectorException>(m, "PyThreadVCMIConnectorException");
 

@@ -1,0 +1,632 @@
+# =============================================================================
+# strategic_env.py — VCMI 战略层 RL 环境 (gymnasium.Env)
+#
+# 基于冒险 API (adventure_wait/act) 实现红蓝自博弈训练。
+# 观测：StrategicState 结构体 (ctypes 直读 libmlclient.so 的 g_strategic_state)
+# 动作：Discrete(11) — 8方向移动 + 交互 + 下一英雄 + 结束回合
+# 奖励：资源变化 + 领地扩张 + 英雄经验 + 胜利
+# =============================================================================
+
+import ctypes
+import os
+import threading
+import time
+from typing import Optional, Dict, Any
+
+import gymnasium as gym
+import numpy as np
+
+from ..util import log
+from ...connectors.rel import connector_v13
+
+# 从 strategic_reader.py 导入 ctypes 结构体
+# (位于项目根目录，提供 StrategicState ctypes 绑定)
+try:
+    # 尝试直接导入（从根目录运行时）
+    import strategic_reader as _sr
+except ImportError:
+    # 通过 sys.path 回退
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "strategic_reader",
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "strategic_reader.py")
+    )
+    _sr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(spec.name)
+
+StrategicState = _sr.StrategicState
+StrategicPlayer = _sr.StrategicPlayer
+StrategicHero = _sr.StrategicHero
+StrategicTown = _sr.StrategicTown
+
+TRACE = os.getenv("VCMIGYM_DEBUG", "0") == "1"
+MAXLEN = 80
+
+# =============================================================================
+# 常量
+# =============================================================================
+
+# 动作空间
+MOVE_RIGHT = 0
+MOVE_DOWN_RIGHT = 1
+MOVE_DOWN = 2
+MOVE_DOWN_LEFT = 3
+MOVE_LEFT = 4
+MOVE_UP_LEFT = 5
+MOVE_UP = 6
+MOVE_UP_RIGHT = 7
+INTERACT = 8       # 拾取/对话/攻击
+NEXT_HERO = 9      # 切换到下一英雄
+END_TURN = 10      # 结束当前回合
+
+N_ACTIONS = 11
+
+# 观测向量维度
+OBS_DIM = 256
+
+# StrategicState 最大实体数
+MAX_PLAYERS = 8
+MAX_HEROES = 8
+MAX_TOWNS = 8
+
+
+# =============================================================================
+# 辅助函数
+# =============================================================================
+
+def tracelog(func, maxlen=MAXLEN):
+    """调试日志装饰器"""
+    if not TRACE:
+        return func
+
+    def wrapper(*args, **kwargs):
+        this = args[0]
+        this.logger.debug("Begin: %s (args=%s, kwargs=%s)" % (
+            func.__name__, args[1:], log.trunc(repr(kwargs), maxlen)))
+        result = func(*args, **kwargs)
+        this.logger.debug("End: %s (return %s)" % (
+            func.__name__, log.trunc(repr(result), maxlen)))
+        return result
+
+    return wrapper
+
+
+def _read_strategic_state(lib_path: str = None):
+    """从 libmlclient.so 读取 g_strategic_state，返回 StrategicState 实例或 None"""
+    if lib_path is None:
+        # 默认 WSL2 路径 — 可通过环境变量覆盖
+        lib_path = os.environ.get(
+            "STRATEGIC_STATE_LIB",
+            os.path.join(os.path.dirname(__file__), "..", "..", "..",
+                         "vcmi", "rel", "bin", "libmlclient.so")
+        )
+
+    if not os.path.exists(lib_path):
+        # 尝试备用路径（直接从 WSL 内部）
+        wsl_path = "/home/administrator/vcmi-workspace/vcmi/rel/bin/libmlclient.so"
+        lib_path = os.environ.get("STRATEGIC_STATE_LIB") or wsl_path
+
+    try:
+        libml = ctypes.CDLL(lib_path)
+        ptr = ctypes.c_void_p.in_dll(libml, "g_strategic_state")
+        if not ptr.value:
+            return None
+        return StrategicState.from_address(ptr.value)
+    except Exception:
+        return None
+
+
+def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
+    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量"""
+    obs = np.zeros(OBS_DIM, dtype=np.float32)
+    idx = 0
+
+    # --- Global (8) ---
+    obs[idx] = state.day;             idx += 1
+    obs[idx] = state.week;            idx += 1
+    obs[idx] = state.month;           idx += 1
+    obs[idx] = state.current_player;  idx += 1
+    obs[idx] = state.map_width;       idx += 1
+    obs[idx] = state.map_height;      idx += 1
+    obs[idx] = state.has_underground;  idx += 1
+    obs[idx] = state.player_count;    idx += 1
+
+    # --- Players (8 * 12 = 96) ---
+    for pi in range(MAX_PLAYERS):
+        p = state.players[pi]
+        if pi < state.player_count:
+            obs[idx] = p.color;        idx += 1
+            obs[idx] = p.human;        idx += 1
+            obs[idx] = p.gold;         idx += 1
+            obs[idx] = p.wood;         idx += 1
+            obs[idx] = p.mercury;      idx += 1
+            obs[idx] = p.ore;          idx += 1
+            obs[idx] = p.sulfur;       idx += 1
+            obs[idx] = p.crystal;      idx += 1
+            obs[idx] = p.gems;         idx += 1
+            obs[idx] = p.hero_count;   idx += 1
+            obs[idx] = p.town_count;   idx += 1
+            obs[idx] = p.alive;        idx += 1
+        else:
+            idx += 12  # skip
+
+    # --- Heroes (8 * 30 = 240, but capped by OBS_DIM) ---
+    # Note: StrategicHero has 30 c_int32 fields (incl. army_type[7], name[32]).
+    # We write the first 23 (id through in_battle, excluding army_type).
+    _HERO_FIELDS = 23
+    for hi in range(MAX_HEROES):
+        h = state.heroes[hi]
+        if h.id >= 0 and idx + _HERO_FIELDS <= OBS_DIM:
+            obs[idx] = h.id;           idx += 1
+            obs[idx] = h.owner;        idx += 1
+            obs[idx] = h.pos_x;        idx += 1
+            obs[idx] = h.pos_y;        idx += 1
+            obs[idx] = h.pos_z;        idx += 1
+            obs[idx] = h.movement;     idx += 1
+            obs[idx] = h.max_movement; idx += 1
+            obs[idx] = h.level;        idx += 1
+            obs[idx] = h.attack;       idx += 1
+            obs[idx] = h.defense;      idx += 1
+            obs[idx] = h.power;        idx += 1
+            obs[idx] = h.knowledge;    idx += 1
+            obs[idx] = h.mana;         idx += 1
+            obs[idx] = h.max_mana;     idx += 1
+            obs[idx] = h.exp;          idx += 1
+            # army (7 slots)
+            for ai in range(7):
+                obs[idx] = h.army_count[ai]; idx += 1
+            obs[idx] = h.in_battle;    idx += 1
+        else:
+            idx += _HERO_FIELDS if idx + _HERO_FIELDS <= OBS_DIM else 0
+
+    # Pad remaining with zeros (should already be zero from np.zeros)
+    return obs
+
+
+# =============================================================================
+# StrategicEnv
+# =============================================================================
+
+class StrategicEnv(gym.Env):
+    """
+    VCMI 冒险地图战略层 RL 环境
+
+    使用 connector_v13.ThreadConnector 的 adventure_wait/act API
+    与 VCMI 进程通信，通过 ctypes 读取 StrategicState 结构体获取观测。
+    """
+
+    metadata = {"render_modes": ["ansi"], "render_fps": 10}
+
+    # 暴露常量供外部使用
+    N_ACTIONS = N_ACTIONS
+    OBS_DIM = OBS_DIM
+    MAX_PLAYERS = MAX_PLAYERS
+    MAX_HEROES = MAX_HEROES
+    MAX_TOWNS = MAX_TOWNS
+
+    def __init__(
+        self,
+        mapname: str = "adventure-A1.vmap",
+        seed: Optional[int] = None,
+        max_turns: int = 28,
+        vcmi_loglevel_global: str = "warn",
+        vcmi_loglevel_ai: str = "error",
+        vcmienv_loglevel: str = "WARN",
+        vcmienv_logtag: str = "StrategicEnv-v1",
+        red: str = "MMAI_USER",
+        blue: str = "StupidAI",
+        red_allow_mlbot: bool = False,
+        blue_allow_mlbot: bool = False,
+        random_heroes: int = 1,
+        boot_timeout: int = 120,
+        vcmi_timeout: int = 99999,
+        user_timeout: int = 99999,
+        libml_path: Optional[str] = None,
+        # 奖励系数
+        reward_gold_mult: float = 0.001,
+        reward_town_mult: float = 30.0,
+        reward_hero_mult: float = 10.0,
+        reward_win: float = 200.0,
+        reward_step_fixed: float = -0.1,
+    ):
+        super().__init__()
+
+        # 确保地图名含冒险前缀
+        assert any(kw in mapname.lower() for kw in ["s1", "mini", "adventure"]), (
+            f"Map '{mapname}' must contain 's1', 'mini', or 'adventure' for adventure mode"
+        )
+
+        # --- 空间定义 ---
+        self.action_space = gym.spaces.Discrete(N_ACTIONS)
+        self.observation_space = gym.spaces.Box(
+            low=-1e6, high=1e6, shape=(OBS_DIM,), dtype=np.float32
+        )
+
+        # --- 参数 ---
+        self.mapname = mapname
+        self.seed = seed or 0
+        self.max_turns = max_turns
+        self.render_mode = "ansi"
+        self.libml_path = libml_path
+
+        # --- 日志 ---
+        self.logger = log.get_logger(vcmienv_logtag, vcmienv_loglevel)
+        self.logger.debug("Initializing StrategicEnv...")
+
+        # --- 奖励配置 ---
+        self.reward_gold_mult = reward_gold_mult
+        self.reward_town_mult = reward_town_mult
+        self.reward_hero_mult = reward_hero_mult
+        self.reward_win = reward_win
+        self.reward_step_fixed = reward_step_fixed
+
+        # --- 创建连接器 ---
+        self.connector = connector_v13.ThreadConnector(
+            maxlogs=100,
+            bootTimeout=boot_timeout,
+            vcmiTimeout=vcmi_timeout,
+            userTimeout=user_timeout,
+            red=red,
+            redModel="",
+            blue=blue,
+            blueModel="",
+            mapname=mapname,
+            seed=self.seed,
+            randomHeroes=random_heroes,
+            randomObstacles=0,
+            townChance=0,
+            warmachineChance=0,
+            randomArmies=False,
+            randomArmyValueMin=500,
+            randomArmyValueMax=1000,
+            randomArmyTargetVar=0,
+            tightFormationChance=0,
+            randomTerrainChance=0,
+            leftVipChance=0,
+            rightVipChance=0,
+            battlefieldPattern="",
+            manaMin=0,
+            manaMax=0,
+            randomPrimarySkills=0,
+            swapSides=0,
+            loglevelGlobal=vcmi_loglevel_global,
+            loglevelAI=vcmi_loglevel_ai,
+            loglevelNetwork="error",
+            loglevelStats=vcmi_loglevel_global,
+            redAllowMlBot=red_allow_mlbot,
+            blueAllowMlBot=blue_allow_mlbot,
+            statsMode="disabled",
+            statsStorage="-",
+            statsPersistFreq=100,
+        )
+        self.logger.debug("ThreadConnector created")
+
+        # --- VCMI 启动 (在后台线程) ---
+        self._vcmi_started = False
+        self._vcmithread = None
+
+        # --- g_strategic_state 读取 ---
+        # 启动后由 VCMI 线程填充，这里先初始化
+        self._state_cache = None  # 缓存的 StrategicState 指针
+
+        # --- 回合状态 ---
+        self._turn = 0
+        self._prev_player0 = {}   # P0 (red) 上一帧关键指标
+        self._prev_player1 = {}   # P1 (blue) 上一帧关键指标
+        self._last_state = None   # 上次读取的 StrategicState
+
+        # --- 终止标志 ---
+        self._terminated = False
+        self._truncated = False
+        self._game_over = 0
+
+    # ------------------------------------------------------------------
+    # gymnasium.Env 接口
+    # ------------------------------------------------------------------
+
+    @tracelog
+    def reset(self, seed=None, options=None):
+        """启动 VCMI，等待 yourTurn 回调，返回初始观测"""
+        super().reset(seed=seed)
+
+        self._turn = 0
+        self._terminated = False
+        self._truncated = False
+        self._game_over = 0
+
+        # 启动 VCMI（如果尚未启动）
+        self._ensure_vcmi_running()
+
+        # 等待第一个 yourTurn 回调
+        self.logger.debug("Waiting for first yourTurn callback...")
+        self._adventure_wait()
+
+        # 读取初始状态
+        state = self._read_state()
+        obs = self._build_obs(state)
+
+        # 初始化奖励跟踪基线
+        self._init_baselines(state)
+
+        info = {
+            "day": state.day if state else 1,
+            "current_player": state.current_player if state else 0,
+            "turn": self._turn,
+        }
+        return obs, info
+
+    @tracelog
+    def step(self, action: int):
+        """
+        执行动作，返回 (obs, reward, terminated, truncated, info)
+
+        动作 0-7: 移动方向
+        动作 8:    交互 (拾取/对话/攻击)
+        动作 9:    切换到下一英雄
+        动作 10:   结束回合
+        """
+        if self._terminated or self._truncated:
+            raise RuntimeError("Episode is done. Call reset() first.")
+
+        # 解析动作
+        # TODO: 当前 adventure_act(0) 被解释为"结束回合/继续"
+        # 需要实现完整的动作编码映射
+        if action == END_TURN:
+            adventure_action = 0  # "end turn"
+        else:
+            # 非结束动作 — 冒险模式暂用 0，后续需实现动作编码
+            # adventure_act 接受一个 int，由 C++ 侧 yourTurn 回调返回
+            adventure_action = action
+
+        # 发送动作
+        code, msg = self.connector.adventure_act(adventure_action)
+        if code != 0:
+            self.logger.error(f"adventure_act failed: code={code}, msg={msg}")
+            self._terminated = True
+
+        # 等待下一个 yourTurn（AI 处理自己的回合）
+        try:
+            self._adventure_wait()
+        except RuntimeError as e:
+            # adventure_wait 超时 — 强制结束 episode，返回零值 obs
+            self.logger.error(f"adventure_wait timed out: {e} — forcing episode end")
+            self._terminated = True
+            obs = np.zeros(OBS_DIM, dtype=np.float32)
+            reward = 0.0
+            info = {
+                "day": 0,
+                "current_player": -1,
+                "game_over": 0,
+                "turn": self._turn + 1,
+                "timeout": True,
+            }
+            return obs, reward, self._terminated, self._truncated, info
+
+        self._turn += 1
+
+        # 读取新状态
+        state = self._read_state()
+        obs = self._build_obs(state)
+
+        # 计算奖励
+        reward = self._calc_reward(state)
+
+        # 检测终止
+        self._terminated, self._truncated = self._check_done(state)
+
+        info = {
+            "day": state.day if state else 1,
+            "current_player": state.current_player if state else 0,
+            "game_over": self._game_over,
+            "turn": self._turn,
+        }
+        if self._terminated or self._truncated:
+            self.logger.info(
+                f"Episode done: turn={self._turn}, "
+                f"terminated={self._terminated}, truncated={self._truncated}, "
+                f"game_over={self._game_over}"
+            )
+
+        return obs, reward, self._terminated, self._truncated, info
+
+    @tracelog
+    def render(self):
+        """返回简单文本状态描述"""
+        state = self._read_state()
+        if not state:
+            return "State: None\n"
+
+        lines = []
+        lines.append(f"Day {state.day}.{state.week}.{state.month} | "
+                     f"Player: P{state.current_player} | "
+                     f"Turn: {self._turn}/{self.max_turns}")
+        for pi in range(state.player_count):
+            p = state.players[pi]
+            lines.append(f"  P{pi}: gold={p.gold} wood={p.wood} ore={p.ore} "
+                         f"heroes={p.hero_count} towns={p.town_count} "
+                         f"alive={p.alive}")
+
+        for hi in range(MAX_HEROES):
+            h = state.heroes[hi]
+            if h.id >= 0:
+                lines.append(f"  H{hi}: id={h.id} owner=P{h.owner} "
+                             f"pos=({h.pos_x},{h.pos_y},{h.pos_z}) "
+                             f"lvl={h.level} mv={h.movement}/{h.max_movement} "
+                             f"army={sum(h.army_count)}")
+
+        return "\n".join(lines) + "\n"
+
+    @tracelog
+    def close(self):
+        """关闭连接器"""
+        self.logger.info("Closing StrategicEnv...")
+        self.connector.shutdown()
+        if self._vcmithread and self._vcmithread.is_alive():
+            self._vcmithread.join(timeout=5)
+
+        for handler in self.logger.handlers:
+            self.logger.removeHandler(handler)
+            handler.close()
+
+    def __del__(self):
+        self.close()
+
+    # ------------------------------------------------------------------
+    # 内部方法
+    # ------------------------------------------------------------------
+
+    def _ensure_vcmi_running(self):
+        """确保 VCMI 已在后台线程启动"""
+        if self._vcmi_started:
+            return
+
+        self.logger.debug("Starting VCMI in background thread...")
+        self._vcmithread = threading.Thread(
+            target=self.connector.start,
+            name="StrategicVCMI",
+            daemon=True,
+        )
+        self._vcmithread.start()
+        # 给 VCMI 初始化一些时间
+        time.sleep(2)
+        self._vcmi_started = True
+        self.logger.debug("VCMI started")
+
+    def _adventure_wait(self, timeout=300):
+        """包装 adventure_wait，添加超时和错误处理
+
+        使用 threading.Event 包装阻塞的 adventure_wait 调用，
+        避免 C++ 侧回调永不返回时永久挂起。
+        """
+        t0 = time.time()
+        remaining = timeout
+
+        while remaining > 0:
+            result = [None]
+            done = threading.Event()
+
+            def _blocking_call():
+                try:
+                    code, player_str = self.connector.adventure_wait()
+                    result[0] = (code, player_str)
+                finally:
+                    done.set()
+
+            thread = threading.Thread(target=_blocking_call, daemon=True)
+            thread.start()
+
+            if done.wait(remaining):
+                code, player_str = result[0]
+                if code == 0:
+                    elapsed = time.time() - t0
+                    player = int(player_str) if player_str else -1
+                    self.logger.debug(f"yourTurn: player={player} ({elapsed:.1f}s)")
+                    return  # success
+                # code != 0: retry
+                self.logger.debug(f"adventure_wait retrying (code={code})...")
+                remaining = timeout - (time.time() - t0)
+            else:
+                raise RuntimeError(
+                    f"adventure_wait timed out after {timeout}s"
+                )
+
+        raise RuntimeError(
+            f"adventure_wait exhausted retries after {timeout}s"
+        )
+
+    def _read_state(self) -> Optional[StrategicState]:
+        """读取当前的 StrategicState"""
+        # 每次读取重新加载库（DBus/nfs 场景下可靠）
+        state = _read_strategic_state(self.libml_path)
+        if state is not None:
+            self._last_state = state
+            self._game_over = state.game_over
+        return state
+
+    def _build_obs(self, state: Optional[StrategicState]) -> np.ndarray:
+        """从 StrategicState 构建观测向量"""
+        if state is None:
+            return np.zeros(OBS_DIM, dtype=np.float32)
+        return _strategic_state_to_obs(state)
+
+    def _init_baselines(self, state: Optional[StrategicState]):
+        """初始化奖励基线值"""
+        self._prev_player0 = {"gold": 0, "towns": 0, "heroes": 0}
+        self._prev_player1 = {"gold": 0, "towns": 0, "heroes": 0}
+        if state is None:
+            return
+        for pi in range(state.player_count):
+            p = state.players[pi]
+            prev = self._prev_player0 if pi == 0 else self._prev_player1
+            prev["gold"] = p.gold
+            prev["towns"] = p.town_count
+            prev["heroes"] = p.hero_count
+
+    def _calc_reward(self, state: Optional[StrategicState]) -> float:
+        """计算基于资源变化的奖励"""
+        if state is None:
+            return 0.0
+
+        reward = self.reward_step_fixed
+
+        # 本方 P0 (red) 的资源变化奖励
+        if state.player_count >= 1:
+            p0 = state.players[0]
+            prev0 = self._prev_player0
+            reward += (p0.gold - prev0["gold"]) * self.reward_gold_mult
+            reward += (p0.town_count - prev0["towns"]) * self.reward_town_mult
+            reward += (p0.hero_count - prev0["heroes"]) * self.reward_hero_mult
+            self._prev_player0 = {
+                "gold": p0.gold,
+                "towns": p0.town_count,
+                "heroes": p0.hero_count,
+            }
+
+        # 胜利奖励
+        if self._game_over == 1:  # red wins
+            reward += self.reward_win
+        elif self._game_over == 2:  # blue wins
+            reward -= self.reward_win  # punish for losing
+
+        return float(reward)
+
+    def _check_done(self, state: Optional[StrategicState]):
+        """检查是否终止"""
+        terminated = False
+        truncated = False
+
+        if state is not None:
+            # 游戏结束
+            if state.game_over != 0:
+                terminated = True
+
+        # 回合上限
+        if self._turn >= self.max_turns:
+            truncated = True
+
+        return terminated, truncated
+
+    # ------------------------------------------------------------------
+    # 工具方法
+    # ------------------------------------------------------------------
+
+    def random_action(self):
+        """返回随机有效动作（用于测试）"""
+        if self._terminated or self._truncated:
+            return None
+        return int(self.action_space.sample())
+
+    def get_state_raw(self) -> Optional[StrategicState]:
+        """返回原始 StrategicState 结构体（用于高级分析）"""
+        return self._read_state()
+
+
+# =============================================================================
+# 注册环境
+# =============================================================================
+
+gym.register(
+    id="VCMI-strategic-v1",
+    entry_point="vcmi_gym.envs.v13.strategic_env:StrategicEnv",
+    disable_env_checker=True,
+)
