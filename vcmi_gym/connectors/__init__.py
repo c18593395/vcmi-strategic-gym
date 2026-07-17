@@ -1,0 +1,1 @@
+"""VCMI Gym connectors package"""

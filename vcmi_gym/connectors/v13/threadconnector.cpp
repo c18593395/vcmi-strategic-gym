@@ -40,6 +40,9 @@
 
 #include "ML/strategic_state.h"
 
+// 跨库回调 — extern "C" 确保函数指针 ABI 一致
+extern "C" void adventure_yourTurn_callback_c(int playerColor, void* userData);
+
 
 #define ASSERT_STATE(id, want) { \
     if((want) != (connstate)) \
@@ -459,11 +462,12 @@ namespace Connector::V13::Thread {
         // Adventure mode: skip client wait, register callback before init_vcmi
         bool is_adventure = (initargs.mapname.find("s1") != std::string::npos ||
                              initargs.mapname.find("mini") != std::string::npos ||
-                             initargs.mapname.find("adventure") != std::string::npos);
+                             initargs.mapname.find("adventure") != std::string::npos ||
+                             initargs.mapname.find(".h3m") != std::string::npos);
 
         if (is_adventure) {
             LOG("Adventure mode — skipping client wait, registering callback");
-            g_adventure_cb = adventure_yourTurn_callback;
+            g_adventure_cb = adventure_yourTurn_callback_c;
             g_adventure_cb_userdata = this;
             _adventure_mode = true;
         } else {
@@ -556,10 +560,16 @@ namespace Connector::V13::Thread {
         if (!_shutdown)
             std::cerr << "ERROR: ML::start_vcmi() returned, but shutdown is false";
     }
+}  // namespace Connector::V13::Thread
 
-// Adventure mode — VCMI thread calls (from g_adventure_cb callback)
-void adventure_yourTurn_callback(int playerColor, void* userData) {
-    Connector* conn = static_cast<Connector*>(userData);
+// 跨库回调 — 在命名空间外定义，确保 extern "C" 兼容
+extern "C" void adventure_yourTurn_callback_c(int playerColor, void* userData) {
+    Connector::V13::Thread::Connector::handleAdventureCallback(playerColor, userData);
+}
+
+namespace Connector::V13::Thread {
+void Connector::handleAdventureCallback(int playerColor, void* userData) {
+    auto* conn = static_cast<Connector*>(userData);
     std::unique_lock<std::mutex> lock(conn->_adventure_mutex);
     conn->_adventure_player = playerColor;
     conn->_adventure_action_ready = false;
@@ -568,7 +578,6 @@ void adventure_yourTurn_callback(int playerColor, void* userData) {
     conn->_adventure_cond.wait(lock, [conn] { return conn->_adventure_action_ready || conn->_shutdown.load(); });
 }
 
-// Python calls: wait for yourTurn callback (registered early in start())
 const std::tuple<int, std::string> Connector::adventureWait() {
     SHUTDOWN_PYTHON_RETURN("");
     std::unique_lock lock(_adventure_mutex);

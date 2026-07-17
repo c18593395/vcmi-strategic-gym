@@ -232,7 +232,7 @@ class StrategicEnv(gym.Env):
         super().__init__()
 
         # 确保地图名含冒险前缀
-        assert any(kw in mapname.lower() for kw in ["s1", "mini", "adventure"]), (
+        assert any(kw in mapname.lower() for kw in ["s1", "mini", "adventure", "h3m"]), (
             f"Map '{mapname}' must contain 's1', 'mini', or 'adventure' for adventure mode"
         )
 
@@ -340,6 +340,9 @@ class StrategicEnv(gym.Env):
         # 等待第一个 yourTurn 回调
         self.logger.debug("Waiting for first yourTurn callback...")
         self._adventure_wait()
+
+        # 告知 VCMI 可以继续（回调内等待 action，必须先发一个信号）
+        self.connector.adventure_act(0)
 
         # 读取初始状态
         state = self._read_state()

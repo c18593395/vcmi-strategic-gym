@@ -126,6 +126,9 @@ namespace Connector::V13::Thread {
         // void signal_handler(int signal);
         friend void adventure_yourTurn_callback(int, void*);
     public:
+        // 冒险模式 — 回调入口（ extern "C" 包装器）
+        static void handleAdventureCallback(int playerColor, void* userData);
+
         // 冒险模式 — Python 调用来获取/执行动作
         const std::tuple<int, std::string> adventureWait();  // 阻塞等待 yourTurn
         const std::tuple<int, std::string> adventureAct(int action); // 执行动作并等待下一帧
