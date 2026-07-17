@@ -12,7 +12,8 @@ VCMI_GYM = "/home/administrator/vcmi-workspace/vcmi_gym"
 VENV_PYTHON = "/home/administrator/vcmi-workspace/venv/bin/python"
 
 os.environ.setdefault("LD_LIBRARY_PATH", f"{VCMI_REL}:{CONN_REL}")
-sys.path.insert(0, VCMI_GYM)
+WORKSPACE = "/home/administrator/vcmi-workspace"
+sys.path.insert(0, WORKSPACE)
 sys.path.insert(0, CONN_REL)
 
 # ---- 测试 StrategicEnv ----
