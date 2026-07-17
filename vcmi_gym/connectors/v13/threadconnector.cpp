@@ -20,7 +20,6 @@
 #include "schema/v13/constants.h"
 #include "schema/v13/types.h"
 #include "ML/MLClient.h"
-#include "ML/strategic_state.h"
 #include "ML/model_wrappers/function.h"
 #include "ML/model_wrappers/scripted.h"
 #include "ML/model_wrappers/path.h"
@@ -39,6 +38,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <unistd.h>
 
+#include "ML/strategic_state.h"
+
+
 #define ASSERT_STATE(id, want) { \
     if((want) != (connstate)) \
         throw VCMIConnectorException(std::string(id) + ": unexpected connector state: want: " + std::to_string(EI(want)) + ", have: " + std::to_string(EI(connstate))); \
@@ -47,6 +49,7 @@
 // Python does not know about some threads and exceptions thrown there
 // result in abrupt program termination.
 // => use this to set a member var `_error`
+//    (the exception must be constructed and thrown in python-aware thread)
 #define SET_ERROR(msg) { \
     if (!_shutdown) { \
         std::cerr << boost::str(boost::format("ERROR (only recorded): %1%") % msg); \
@@ -70,18 +73,7 @@
 }
 
 namespace Connector::V13::Thread {
-
-    // ====================================================================
-    // Adventure mode callback - called by VCMI thread when it is the
-    // user's turn on the adventure map.
-    // ====================================================================
-    void adventure_yourTurn_callback(int player, void* ctx) {
-        auto* conn = static_cast<Connector*>(ctx);
-        std::unique_lock lock(conn->_adventure_mutex);
-        conn->_adventure_player = player;
-        conn->_adventure_action_ready = true;
-        conn->_adventure_cond.notify_all();
-    }
+    void adventure_yourTurn_callback(int playerColor, void* userData);
 
     const std::vector<std::string> Connector::getLogs() {
         return std::vector<std::string>(logs.begin(), logs.end());
@@ -91,9 +83,19 @@ namespace Connector::V13::Thread {
 #if VERBOSE || LOGCOLLECT
         boost::posix_time::ptime t = boost::posix_time::microsec_clock::universal_time();
 
+        // std::string entry = boost::str(boost::format("++ %1% <%2%>[%3%][%4%] <%5%> %6%") \
+        //     % boost::posix_time::to_iso_extended_string(t)
+        //     % std::this_thread::get_id()
+        //     % std::filesystem::path(__FILE__).filename().string()
+        //     % (PyGILState_Check() ? "GIL=1" : "GIL=0")
+        //     % funcname
+        //     % msg
+        // );
+
         std::string entry = boost::str(boost::format("++ %s <%ld/%s>[GIL=%d] <%s> %s")
             % boost::posix_time::to_iso_extended_string(t)
             % static_cast<long>(getpid())
+            // % std::this_thread::get_id()
             % to_base36(native_thread_id())
             % PyGILState_Check()
             % funcname
@@ -107,32 +109,28 @@ namespace Connector::V13::Thread {
                 logs.pop_front();
             logs.push_back(entry);
         }
-#endif
+#endif // LOGCOLLECT
 
 #if VERBOSE
         {
             std::unique_lock lock(mlog);
             std::cout << entry << "\n";
         }
-#endif
-#endif
-    }
-
-    void Connector::maybeThrowError() {
-        if (!_error.empty()) {
-            auto e = _error;
-            _error = "";
-            throw VCMIConnectorException(e);
-        }
+#endif // VERBOSE
+#endif // VERBOSE || LOGCOLLECT
     }
 
     ReturnCode Connector::_cond_wait(const char* funcname, int id, std::condition_variable &cond, std::unique_lock<std::mutex> &l, int timeoutSeconds, std::function<bool()> &checker) {
         ReturnCode res;
+        int i = 0;
         auto start = std::chrono::high_resolution_clock::now();
 
         while (true) {
+            // LOG(boost::str(boost::format("[%s] cond%d.wait/2: checker()...") % funcname % id));
             auto fres = checker();
+            // LOG(boost::str(boost::format("[%s] cond%d.wait/2: checker -> %d") % funcname % id % static_cast<int>(fres)));
 
+            // XXX: shutdown is not really supported
             if (_shutdown) {
                 LOG("shutdown requested");
                 res = ReturnCode::SHUTDOWN;
@@ -164,14 +162,17 @@ namespace Connector::V13::Thread {
         return _cond_wait(funcname, id, cond, l, timeoutSeconds, checker);
     }
 
+    // EOF TEST SIGNAL HANDLING
+
     const MMAI::Schema::V13::ISupplementaryData* Connector::extractSupplementaryData(const MMAI::Schema::IState *s) {
         LOG("Extracting supplementary data...");
         auto any = s->getSupplementaryData();
         if(!any.has_value()) throw std::runtime_error("extractSupplementaryData: supdata is empty");
+        auto &t = typeid(const MMAI::Schema::V13::ISupplementaryData*);
         auto err = MMAI::Schema::AnyCastError(any, typeid(const MMAI::Schema::V13::ISupplementaryData*));
 
         if(!err.empty()) {
-            LOGFMT("anycast error: %s", err);
+            LOGFMT("anycast for getSumpplementaryData error: %s", err);
         }
 
         return std::any_cast<const MMAI::Schema::V13::ISupplementaryData*>(s->getSupplementaryData());
@@ -230,7 +231,7 @@ namespace Connector::V13::Thread {
             ssize_t flatattrsize = n * attrsize;
 
             if (attrs.size() != flatattrsize)
-                throw std::runtime_error("attrs size mismatch: " + std::to_string(attrs.size()) + " / " + std::to_string(flatattrsize));
+                throw std::runtime_error("attrs size mismatch: " + std::to_string(attrs.size()) + " / " + std::to_string(flatattrsize) + " / ");
 
             auto pyinds = py::array_t<int64_t>({ssize_t(2), n});
             std::memcpy(pyinds.mutable_data(), srcinds.data(), n*sizeof(int64_t));
@@ -312,7 +313,7 @@ namespace Connector::V13::Thread {
     }
 
     const std::tuple<int, P_State> Connector::reset(int side) {
-        SHUTDOWN_PYTHON_RETURN(convertState(state));
+        SHUTDOWN_PYTHON_RETURN(convertState(state)); // reuse last state if shutting down
         auto code = getState(__func__, side, MMAI::Schema::ACTION_RESET);
         auto pstate = convertState(state);
         LOG("return P_State");
@@ -320,13 +321,18 @@ namespace Connector::V13::Thread {
     }
 
     const std::tuple<int, P_State> Connector::step(int side, MMAI::Schema::Action a) {
-        SHUTDOWN_PYTHON_RETURN(convertState(state));
+        SHUTDOWN_PYTHON_RETURN(convertState(state)); // reuse last state if shutting down
         auto code = getState(__func__, side, a);
         auto pstate = convertState(state);
         LOG("return P_State");
         return {static_cast<int>(code), pstate};
     }
 
+    // this is called by a VCMI thread (the runNetwork thread)
+    // Python does not know about this thread and exceptions thrown here
+    // result in abrupt program termination.
+    // => set a member var `_error` to be thrown by python-aware threads
+    // Only throw here if this var was previously set and still not thrown
     MMAI::Schema::Action Connector::getAction(const MMAI::Schema::IState* s, int side) {
         SHUTDOWN_VCMI_RETURN(MMAI::Schema::ACTION_RESET);
 
@@ -355,12 +361,16 @@ namespace Connector::V13::Thread {
 
         std::function<bool()> pred = [this] { return connstate == ConnectorState::AWAITING_STATE || _shutdown; };
 
+        // Now wait again (will unblock once step/reset have been called)
         LOGFMT("cond%1%.wait(lock%1%)", side);
         auto res = cond_wait(__func__, side, cond, lock, userTimeout, pred);
         LOGFMT("cond%1%.wait(lock%1%): done", side);
 
         SHUTDOWN_VCMI_RETURN(MMAI::Schema::ACTION_RESET);
 
+        // the above cond_wait gave priority to a python thread which was
+        // waiting in getState. It was supposed to throw any stored errors
+        // If it did not (bug) => throw here
         if (!_error.empty()) {
             for (auto &msg : logs)
                 std::cerr << msg << "\n";
@@ -382,6 +392,7 @@ namespace Connector::V13::Thread {
         return action;
     }
 
+    // initial connect is a special case and cannot reuse getState()
     const std::tuple<int, P_State> Connector::connect(int side) {
         LOG("connect called with side=" + std::to_string(side));
 
@@ -445,66 +456,52 @@ namespace Connector::V13::Thread {
         LOG("release Python GIL");
         py::gil_scoped_release release;
 
-        // --- Adventure mode detection ---
-        std::string mapname = initargs.mapname;
-        auto slash_pos = mapname.find_last_of("/\\");
-        std::string mapfile = (slash_pos != std::string::npos)
-            ? mapname.substr(slash_pos + 1)
-            : mapname;
-
-        for (auto &c : mapfile) c = tolower(c);
-        bool is_adventure = (mapfile.rfind("s1", 0) == 0 ||
-                             mapfile.rfind("mini", 0) == 0 ||
-                             mapfile.rfind("adventure", 0) == 0);
+        // Adventure mode: skip client wait, register callback before init_vcmi
+        bool is_adventure = (initargs.mapname.find("s1") != std::string::npos ||
+                             initargs.mapname.find("mini") != std::string::npos ||
+                             initargs.mapname.find("adventure") != std::string::npos);
 
         if (is_adventure) {
-            LOG("Adventure mode detected");
-            _adventure_mode = true;
+            LOG("Adventure mode — skipping client wait, registering callback");
             g_adventure_cb = adventure_yourTurn_callback;
             g_adventure_cb_userdata = this;
-            LOG("g_adventure_cb registered");
+            _adventure_mode = true;
         } else {
-            LOG("Battle mode detected");
+            // Battle mode — wait for client connection
+            std::function<bool()> predicate = [this] {
+                return (connectedClient0 || red != "MMAI_USER")
+                    && (connectedClient1 || blue != "MMAI_USER");
+            };
+
+            LOGFMT("cond2.wait(lock2, %1%s, predicate)", bootTimeout);
+            auto res = cond_wait(__func__, 2, cond2, lock2, bootTimeout, predicate);
+            if (res == ReturnCode::TIMEOUT) {
+                throw VCMIConnectorException(boost::str(boost::format(
+                    "timeout after %ds while waiting for client") % bootTimeout));
+                return;
+            } else if (res == ReturnCode::SHUTDOWN) {
+                LOG("connector is shutting down...");
+                return;
+            } else if (res != ReturnCode::OK) {
+                throw VCMIConnectorException(boost::str(boost::format(
+                    "unexpected return code from cond_wait: %d") % EI(res)));
+                return;
+            }
+
+            {
+                // Successfully obtaining these locks means the
+                // clients are ready and waiting for state
+                LOG("obtain lock0");
+                std::unique_lock lock0(m0);
+                LOG("obtain lock0: done");
+
+                LOG("obtain lock1");
+                std::unique_lock lock1(m1);
+                LOG("obtain lock1: done");
+
+                LOG("release lock0 and lock1");
+            }
         }
-
-        if (!is_adventure) {
-        std::function<bool()> predicate = [this] {
-            return (connectedClient0 || red != "MMAI_USER")
-                && (connectedClient1 || blue != "MMAI_USER");
-        };
-
-        LOGFMT("cond2.wait(lock2, %ds, predicate)", bootTimeout);
-        auto res = cond_wait(__func__, 2, cond2, lock2, bootTimeout, predicate);
-        if (res == ReturnCode::TIMEOUT) {
-            throw VCMIConnectorException(boost::str(boost::format(
-                "timeout after %ds while waiting for client (red:%s, blue:%s, connectedClient0: %d, connectedClient1: %d)\n") \
-                % bootTimeout % red % blue % connectedClient0 % connectedClient1
-            ));
-            return;
-        } else if (res == ReturnCode::SHUTDOWN) {
-            LOG("connector is shutting down...");
-            return;
-        } else if (res != ReturnCode::OK) {
-            throw VCMIConnectorException(boost::str(boost::format(
-                "unexpected return code from cond_wait: %d\n") % EI(res)
-            ));
-            return;
-        }
-
-        {
-            LOG("obtain lock0");
-            std::unique_lock lock0(m0);
-            LOG("obtain lock0: done");
-
-            LOG("obtain lock1");
-            std::unique_lock lock1(m1);
-            LOG("obtain lock1: done");
-
-            LOG("release lock0 and lock1");
-        }
-
-        } // end if (!is_adventure) — battle client wait
-        LOG(boost::str(boost::format("is_adventure=%d, _adventure_mode=%d") % is_adventure % _adventure_mode));
 
         auto f_getAction0 = [this](const MMAI::Schema::IState* s) {
             return this->getAction(s, 0);
@@ -522,8 +519,6 @@ namespace Connector::V13::Thread {
         auto f_getRandomAction = [](const MMAI::Schema::IState* s) {
             return RandomValidAction(s);
         };
-
-        using Side = MMAI::Schema::Side;
 
         if (red == "MMAI_RANDOM") {
             leftModel = new ML::ModelWrappers::Function(version(), "MMAI_RANDOM", Side::LEFT, f_getRandomAction, f_getValueDummy);
@@ -545,6 +540,7 @@ namespace Connector::V13::Thread {
             rightModel = new ML::ModelWrappers::Scripted(blue, Side::RIGHT);
         }
 
+        // This must happen in the main thread (SDL requires it)
         LOG("call init_vcmi(...)");
         init_vcmi(leftModel, rightModel, initargs);
 
@@ -561,78 +557,45 @@ namespace Connector::V13::Thread {
             std::cerr << "ERROR: ML::start_vcmi() returned, but shutdown is false";
     }
 
-    void Connector::shutdown() {
-        _shutdown = true;
+// Adventure mode — VCMI thread calls (from g_adventure_cb callback)
+void adventure_yourTurn_callback(int playerColor, void* userData) {
+    Connector* conn = static_cast<Connector*>(userData);
+    std::unique_lock<std::mutex> lock(conn->_adventure_mutex);
+    conn->_adventure_player = playerColor;
+    conn->_adventure_action_ready = false;
+    std::cerr << "[connector] adventure yourTurn: player=" << playerColor << std::endl;
+    conn->_adventure_cond.notify_all();
+    conn->_adventure_cond.wait(lock, [conn] { return conn->_adventure_action_ready || conn->_shutdown.load(); });
+}
 
-        // Unblock any adventure waiters so they can observe _shutdown
-        _adventure_cond.notify_all();
-
-        // *** FIX: Signal VCMI to exit gracefully ***
-        //
-        // Previously shutdown() only set _shutdown and notified _adventure_cond.
-        // It did NOT call ML::shutdown_vcmi(), so the VCMI thread stayed
-        // blocked inside cond_shutdown.wait() inside ML::start_vcmi().
-        //
-        // When Python later destroyed the Connector object, the VCMI thread
-        // was still running, causing a segfault/terminate during cleanup.
-        //
-        // ML::shutdown_vcmi() signals cond_shutdown, which unblocks
-        // ML::start_vcmi(), allows it to join the VCMI thread and exit
-        // cleanly via quitApplicationImmediately(0).
-        ML::shutdown_vcmi();
+// Python calls: wait for yourTurn callback (registered early in start())
+const std::tuple<int, std::string> Connector::adventureWait() {
+    SHUTDOWN_PYTHON_RETURN("");
+    std::unique_lock lock(_adventure_mutex);
+    {
+        py::gil_scoped_release release;
+        _adventure_cond.wait(lock, [this] { return _adventure_player >= 0 || _shutdown; });
     }
+    if (_shutdown) return {static_cast<int>(ReturnCode::SHUTDOWN), ""};
+    int player = _adventure_player;
+    _adventure_player = -1;
+    return {static_cast<int>(ReturnCode::OK), std::to_string(player)};
+}
 
-    // ====================================================================
-    // Adventure mode
-    // ====================================================================
-
-    const std::tuple<int, std::string> Connector::adventureWait() {
-        LOG("adventureWait: waiting for yourTurn callback...");
-
+// Python calls: send action and signal VCMI to proceed
+const std::tuple<int, std::string> Connector::adventureAct(int action) {
+    SHUTDOWN_PYTHON_RETURN("");
+    {
         std::unique_lock lock(_adventure_mutex);
-
-        std::function<bool()> pred = [this] {
-            return _adventure_action_ready || _shutdown;
-        };
-
-        auto res = cond_wait(__func__, 9, _adventure_cond, lock, vcmiTimeout, pred);
-
-        if (_shutdown)
-            return {static_cast<int>(ReturnCode::SHUTDOWN), ""};
-
-        if (res != ReturnCode::OK)
-            return {static_cast<int>(res), ""};
-
-        _adventure_action_ready = false;
-
-        LOGFMT("adventureWait: player=%d", _adventure_player);
-        return {static_cast<int>(ReturnCode::OK), std::to_string(_adventure_player)};
-    }
-
-    const std::tuple<int, std::string> Connector::adventureAct(int action) {
-        LOGFMT("adventureAct: action=%d", action);
-
-        std::unique_lock lock(_adventure_mutex);
-
         _adventure_action = action;
-        _adventure_action_ready = false;
-        _adventure_cond.notify_all();
+        _adventure_action_ready = true;
+    }
+    _adventure_cond.notify_all();
+    return {static_cast<int>(ReturnCode::OK), "action_sent"};
+}
 
-        std::function<bool()> pred = [this] {
-            return _adventure_action_ready || _shutdown;
-        };
-
-        auto res = cond_wait(__func__, 10, _adventure_cond, lock, vcmiTimeout, pred);
-
-        if (_shutdown)
-            return {static_cast<int>(ReturnCode::SHUTDOWN), ""};
-
-        if (res != ReturnCode::OK)
-            return {static_cast<int>(res), ""};
-
-        _adventure_action_ready = false;
-
-        LOGFMT("adventureAct: player=%d", _adventure_player);
-        return {static_cast<int>(ReturnCode::OK), std::to_string(_adventure_player)};
+void Connector::shutdown() {
+        _shutdown = true;
+        ML::shutdown_vcmi();
     }
 }
