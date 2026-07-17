@@ -97,13 +97,12 @@ def _read_strategic_state(lib_path: str = None):
         # 默认 WSL2 路径 — 可通过环境变量覆盖
         lib_path = os.environ.get(
             "STRATEGIC_STATE_LIB",
-            os.path.join(os.path.dirname(__file__), "..", "..", "..",
-                         "vcmi", "rel", "bin", "libmlclient.so")
+            "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
         )
 
     if not os.path.exists(lib_path):
         # 尝试备用路径（直接从 WSL 内部）
-        wsl_path = "/home/administrator/vcmi-workspace/vcmi/rel/bin/libmlclient.so"
+        wsl_path = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
         lib_path = os.environ.get("STRATEGIC_STATE_LIB") or wsl_path
 
     try:
@@ -248,6 +247,18 @@ class StrategicEnv(gym.Env):
         self.max_turns = max_turns
         self.render_mode = "ansi"
         self.libml_path = libml_path
+        
+        # 保存 connector 参数（用于重启）
+        self._boot_timeout = boot_timeout
+        self._vcmi_timeout = vcmi_timeout
+        self._user_timeout = user_timeout
+        self._red = red
+        self._blue = blue
+        self._red_allow_mlbot = red_allow_mlbot
+        self._blue_allow_mlbot = blue_allow_mlbot
+        self._random_heroes = random_heroes
+        self._vcmi_loglevel_global = vcmi_loglevel_global
+        self._vcmi_loglevel_ai = vcmi_loglevel_ai
 
         # --- 日志 ---
         self.logger = log.get_logger(vcmienv_logtag, vcmienv_loglevel)
@@ -308,6 +319,7 @@ class StrategicEnv(gym.Env):
         # --- g_strategic_state 读取 ---
         # 启动后由 VCMI 线程填充，这里先初始化
         self._state_cache = None  # 缓存的 StrategicState 指针
+        self._libml = None        # ctypes 加载的 libmlclient，用于 atomic 通信
 
         # --- 回合状态 ---
         self._turn = 0
@@ -335,14 +347,23 @@ class StrategicEnv(gym.Env):
         self._game_over = 0
 
         # 启动 VCMI（如果尚未启动）
+        self._libml = None  # 清理旧 libml 引用
         self._ensure_vcmi_running()
 
         # 等待第一个 yourTurn 回调
+        # 如果是重启（VCMI 已运行），yourTurn 可能不会到来，超时后返回默认 obs
         self.logger.debug("Waiting for first yourTurn callback...")
-        self._adventure_wait()
+        try:
+            self._adventure_wait()
+        except RuntimeError:
+            # 超时 = 游戏已结束
+            self.logger.warning("YourTurn timed out — game may have ended")
+            obs = np.zeros(OBS_DIM, dtype=np.float32)
+            info = {"day": 0, "current_player": -1, "turn": 0}
+            return obs, info
 
         # 告知 VCMI 可以继续（回调内等待 action，必须先发一个信号）
-        self.connector.adventure_act(0)
+        self._send_action(0)
 
         # 读取初始状态
         state = self._read_state()
@@ -382,11 +403,8 @@ class StrategicEnv(gym.Env):
             adventure_action = action
 
         # 发送动作
-        code, msg = self.connector.adventure_act(adventure_action)
-        if code != 0:
-            self.logger.error(f"adventure_act failed: code={code}, msg={msg}")
-            self._terminated = True
-
+        self._send_action(adventure_action)
+        
         # 等待下一个 yourTurn（AI 处理自己的回合）
         try:
             self._adventure_wait()
@@ -461,18 +479,32 @@ class StrategicEnv(gym.Env):
 
     @tracelog
     def close(self):
-        """关闭连接器"""
+        """关闭连接器（非阻塞）"""
         self.logger.info("Closing StrategicEnv...")
-        self.connector.shutdown()
+        # 后台线程 shutdown，带超时避免卡死
+        def _try_shutdown():
+            try:
+                self.connector.shutdown()
+            except Exception:
+                pass
+        t = threading.Thread(target=_try_shutdown, daemon=True)
+        t.start()
+        t.join(timeout=3)
+        
         if self._vcmithread and self._vcmithread.is_alive():
-            self._vcmithread.join(timeout=5)
+            self._vcmithread.join(timeout=2)
+        self._vcmithread = None
+        self._vcmi_started = False
 
         for handler in self.logger.handlers:
             self.logger.removeHandler(handler)
             handler.close()
 
     def __del__(self):
-        self.close()
+        try:
+            self.close()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # 内部方法
@@ -481,6 +513,7 @@ class StrategicEnv(gym.Env):
     def _ensure_vcmi_running(self):
         """确保 VCMI 已在后台线程启动"""
         if self._vcmi_started:
+            self.logger.warning("VCMI already running, call close() first")
             return
 
         self.logger.debug("Starting VCMI in background thread...")
@@ -490,52 +523,73 @@ class StrategicEnv(gym.Env):
             daemon=True,
         )
         self._vcmithread.start()
-        # 给 VCMI 初始化一些时间
         time.sleep(2)
         self._vcmi_started = True
         self.logger.debug("VCMI started")
 
-    def _adventure_wait(self, timeout=300):
-        """包装 adventure_wait，添加超时和错误处理
+    def _adventure_wait(self, timeout=30):
+        """包装 adventure_wait，通过 ctypes 调用 libmlclient 内的原子变量等待
 
-        使用 threading.Event 包装阻塞的 adventure_wait 调用，
-        避免 C++ 侧回调永不返回时永久挂起。
+        不经过 connector（避免跨库函数指针调用崩溃），直接用 ctypes 调用
+        adventure_wait_for_turn() 和 adventure_send_action()。
         """
+        self._ensure_libml_loaded()
+        if self._libml is None:
+            raise RuntimeError("libmlclient.so not loaded")
+
+        # 在后台线程中调用 C 函数（避免 C 层无限循环阻塞 Python）
+        import threading as _thr
+        result = []
+        def _wait():
+            try:
+                r = self._libml.adventure_wait_for_turn()
+                result.append(r)
+            except Exception:
+                result.append(-3)
+
+        t = _thr.Thread(target=_wait, daemon=True)
         t0 = time.time()
-        remaining = timeout
+        t.start()
+        t.join(timeout)
+        
+        if not result:
+            # 超时 - C 函数仍在循环，忽略它（daemon thread 会在进程结束时退出）
+            self.logger.warning(f"adventure_wait timed out after {timeout}s")
+            raise RuntimeError(f"adventure_wait timed out after {timeout}s")
+        
+        r = result[0]
+        if r >= 0:
+            self.logger.debug(f"yourTurn: player={r} ({time.time()-t0:.1f}s)")
+            return
+        elif r == -3:
+            raise RuntimeError("adventure_wait: exception in C call")
+        else:
+            raise RuntimeError(f"adventure_wait: unexpected return {r}")
 
-        while remaining > 0:
-            result = [None]
-            done = threading.Event()
+    def _send_action(self, action: int):
+        """通过 ctypes 向 libmlclient 发送 action"""
+        self._ensure_libml_loaded()
+        if self._libml is not None:
+            self._libml.adventure_send_action(int(action))
 
-            def _blocking_call():
-                try:
-                    code, player_str = self.connector.adventure_wait()
-                    result[0] = (code, player_str)
-                finally:
-                    done.set()
-
-            thread = threading.Thread(target=_blocking_call, daemon=True)
-            thread.start()
-
-            if done.wait(remaining):
-                code, player_str = result[0]
-                if code == 0:
-                    elapsed = time.time() - t0
-                    player = int(player_str) if player_str else -1
-                    self.logger.debug(f"yourTurn: player={player} ({elapsed:.1f}s)")
-                    return  # success
-                # code != 0: retry
-                self.logger.debug(f"adventure_wait retrying (code={code})...")
-                remaining = timeout - (time.time() - t0)
-            else:
-                raise RuntimeError(
-                    f"adventure_wait timed out after {timeout}s"
-                )
-
-        raise RuntimeError(
-            f"adventure_wait exhausted retries after {timeout}s"
-        )
+    def _ensure_libml_loaded(self):
+        if self._libml is None:
+            # 使用 RTLD_NOLOAD 获取已加载的 libmlclient 实例（VCMI 已加载）
+            # 避免 ctypes 创建新实例导致静态变量隔离
+            import ctypes.util
+            lib_name = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+            try:
+                # 先用 CDLL 加载（如果尚未加载，RTLD_NOLOAD 方式不可靠）
+                lib_path = self.libml_path or os.environ.get("STRATEGIC_STATE_LIB",
+                    "/home/administrator/vcmi-native/rel/bin/libmlclient.so")
+                if lib_path and os.path.exists(lib_path):
+                    self._libml = ctypes.CDLL(lib_path)
+                else:
+                    self._libml = ctypes.CDLL(lib_name)
+                self._libml.adventure_wait_for_turn.restype = ctypes.c_int
+            except Exception as e:
+                self.logger.error(f"Failed to load libmlclient: {e}")
+                self._libml = None
 
     def _read_state(self) -> Optional[StrategicState]:
         """读取当前的 StrategicState"""
