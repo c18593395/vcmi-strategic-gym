@@ -1,27 +1,25 @@
-"""adventure-A1.vmap + randomHeroes=1"""
-import sys, os, time, numpy as np
-sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
-os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+"""Key to Victory.h3m — single test"""
+import sys,os,time,numpy as np
+sys.path.insert(0,'/mnt/d/Bigdata/hero3_fresh')
+os.environ['STRATEGIC_STATE_LIB']='/home/administrator/vcmi-native/rel/bin/libmlclient.so'
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
-env = StrategicEnv(mapname="adventure-A1.vmap", max_turns=5,
-    vcmi_loglevel_global="warn", vcmi_loglevel_ai="error",
-    vcmienv_loglevel="WARN", red="MMAI_USER", blue="StupidAI",
-    random_heroes=1, boot_timeout=60)
-print("RESET")
-obs, info = env.reset()
-print(f"OK nz={np.count_nonzero(obs)} day={info['day']}")
+env = StrategicEnv(mapname="Key to Victory.h3m",max_turns=3,
+    vcmi_loglevel_global="warn",vcmi_loglevel_ai="error",
+    vcmienv_loglevel="WARN",red="MMAI_USER",blue="StupidAI",
+    random_heroes=1,boot_timeout=60)
 
-print("STEP1")
+obs,info=env.reset()
+print(f"reset nz={np.count_nonzero(obs)} day={info['day']}")
+
 t0=time.time()
-obs, r, t, tr, info = env.step(10)
-print(f"OK nz={np.count_nonzero(obs)} dt={time.time()-t0:.1f}s t={t} tr={tr}")
+obs,r,t,tr,info=env.step(10)
+print(f"step  nz={np.count_nonzero(obs)} dt={time.time()-t0:.1f}s t={t}")
 
-if not t and not tr:
-    print("STEP2")
+if not t:
     t0=time.time()
-    obs, r, t, tr, info = env.step(10)
-    print(f"OK nz={np.count_nonzero(obs)} dt={time.time()-t0:.1f}s t={t}")
+    obs,r,t,tr,info=env.step(10)
+    print(f"step2 nz={np.count_nonzero(obs)} dt={time.time()-t0:.1f}s t={t}")
 
 env.close()
 print("PASS")
