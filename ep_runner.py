@@ -8,8 +8,9 @@ from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
 max_turns = int(sys.argv[1]) if len(sys.argv) > 1 else 20
 outfile = sys.argv[2] if len(sys.argv) > 2 else "/mnt/d/Bigdata/hero3_fresh/traj_latest.pkl"
+mapname = sys.argv[3] if len(sys.argv) > 3 else "adventure-A1.vmap"
 
-env = StrategicEnv(mapname="adventure-A1.vmap", max_turns=max_turns,
+env = StrategicEnv(mapname=mapname, max_turns=max_turns,
     vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
     vcmienv_loglevel="ERROR", red="MMAI_USER", blue="StupidAI",
     random_heroes=1, boot_timeout=60)
