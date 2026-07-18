@@ -6,13 +6,13 @@ os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/lib
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
-N_EPISODES, MAX_TURNS = 100, 30
+N_EPISODES, MAX_TURNS = 100, 50
 LR, GAMMA, CLIP, EPOCHS = 3e-4, 0.99, 0.2, 4
+MAPNAME = "Key to Victory.h3m"
 TRAJ_PKL = "/mnt/d/Bigdata/hero3_fresh/traj_latest.pkl"
 TRAJ_JSON = "/mnt/d/Bigdata/hero3_fresh/traj_latest.json"
 MODEL = "/mnt/d/Bigdata/hero3_fresh/c2_model.pt"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner.py"
-MAPNAME = "adventure-A1.vmap"  # fast test, switch to Key to Victory.h3m for real
 
 class Net(nn.Module):
     def __init__(self):
@@ -24,13 +24,15 @@ class Net(nn.Module):
         h = self.fc(x)
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
-def run_episode(turns):
+def run_episode(turns, model_path=""):
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
     proc = None
+    args = [sys.executable, "-u", RUNNER, str(turns), TRAJ_PKL, MAPNAME]
+    if model_path:
+        args.append(model_path)
     try:
-        proc = subprocess.Popen([sys.executable, "-u", RUNNER, str(turns), TRAJ_PKL, MAPNAME],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
         proc.wait(timeout=20)
     except subprocess.TimeoutExpired:
         if proc: proc.kill()
@@ -45,12 +47,16 @@ def run_episode(turns):
 
 model = Net()
 opt = torch.optim.Adam(model.parameters(), lr=LR)
-print(f"C2 PPO — {N_EPISODES}ep x {MAX_TURNS}t  map={MAPNAME}", flush=True)
+WARMUP = 10  # first 10 episodes use random exploration
+print(f"C2 PPO — {N_EPISODES}ep x {MAX_TURNS}t  map={MAPNAME}  warmup={WARMUP}", flush=True)
 t_start = time.time()
 
 for ep in range(N_EPISODES):
     t0 = time.time()
-    info = run_episode(MAX_TURNS)
+    # First WARMUP episodes: random exploration
+    # After warmup: use model policy
+    model_arg = MODEL if ep >= WARMUP else ""
+    info = run_episode(MAX_TURNS, model_arg)
     if info["steps"] == 0:
         print(f"  ep{ep:03d} NO_DATA", flush=True); continue
 
@@ -78,6 +84,8 @@ for ep in range(N_EPISODES):
     dt = time.time() - t0
     eta = (time.time() - t_start) / (ep + 1) * (N_EPISODES - ep - 1)
     print(f"  ep{ep:03d} s={info['steps']} r={info['rew']:+.1f} L={loss.item():.3f} dt={dt:.0f}s ETA={eta:.0f}s", flush=True)
+    # Save model for next episode to use
+    torch.save(model.state_dict(), MODEL)
 
 torch.save(model.state_dict(), MODEL)
 print(f"Saved {MODEL} total={time.time()-t_start:.0f}s", flush=True)
