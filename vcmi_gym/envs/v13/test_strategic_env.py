@@ -30,7 +30,7 @@ from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
 print("\n[1] 创建环境 (map=s1.vmap)...")
 env = StrategicEnv(
-    mapname="s1.vmap",
+    mapname="adventure-A1.vmap",
     seed=42,
     max_turns=5,
     random_heroes=0,

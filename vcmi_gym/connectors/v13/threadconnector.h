@@ -84,9 +84,9 @@ namespace Connector::V13::Thread {
 
         // 冒险模式
         bool _adventure_mode = false;
-        int _adventure_player = -1;
-        bool _adventure_action_ready = false;
-        int _adventure_action = 0;
+        std::atomic<int> _adventure_player{-1};
+        std::atomic<bool> _adventure_action_ready{false};
+        std::atomic<int> _adventure_action{0};
         std::mutex _adventure_mutex;
         std::condition_variable _adventure_cond;
 
