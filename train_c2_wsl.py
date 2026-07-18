@@ -27,11 +27,17 @@ class Net(nn.Module):
 def run_episode(turns):
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
+    proc = None
     try:
-        r = subprocess.run([sys.executable, "-u", RUNNER, str(turns), TRAJ_PKL, MAPNAME],
-            capture_output=True, timeout=20, env=env)
+        proc = subprocess.Popen([sys.executable, "-u", RUNNER, str(turns), TRAJ_PKL, MAPNAME],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        proc.wait(timeout=20)
     except subprocess.TimeoutExpired:
-        pass
+        if proc: proc.kill()
+    finally:
+        if proc:
+            try: proc.kill()
+            except: pass
     try:
         with open(TRAJ_JSON, 'r') as f: return json.load(f)
     except:
