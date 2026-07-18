@@ -40,8 +40,12 @@
 
 #include "ML/strategic_state.h"
 
-// 跨库回调 — extern "C" 确保函数指针 ABI 一致
-extern "C" void adventure_yourTurn_callback_c(int playerColor, void* userData);
+// 跨库回调 trampoline — 定义在 libmlclient.so 中
+// 调用不跨库，g_adventure_cb 指向同库函数，ABI 安全
+extern "C" void adventure_cb_trampoline(int playerColor, void* userData);
+extern "C" void register_adventure_delegate(void (*delegate)(int, void*), void* userdata);
+extern "C" int adventure_wait_for_turn();
+extern "C" void adventure_send_action(int action);
 
 
 #define ASSERT_STATE(id, want) { \
@@ -467,8 +471,10 @@ namespace Connector::V13::Thread {
 
         if (is_adventure) {
             LOG("Adventure mode — skipping client wait, registering callback");
-            g_adventure_cb = adventure_yourTurn_callback_c;
+            std::cerr << "[DBG] setting g_adventure_cb" << std::endl;
+            g_adventure_cb = adventure_cb_trampoline;
             g_adventure_cb_userdata = this;
+            register_adventure_delegate(handleAdventureCallback, (void*)this);
             _adventure_mode = true;
         } else {
             // Battle mode — wait for client connection
@@ -555,7 +561,7 @@ namespace Connector::V13::Thread {
         lock2.unlock();
 
         LOG("launch VCMI (will never return)");
-        ML::start_vcmi();
+    ML::start_vcmi();
 
         if (!_shutdown)
             std::cerr << "ERROR: ML::start_vcmi() returned, but shutdown is false";
@@ -570,41 +576,35 @@ extern "C" void adventure_yourTurn_callback_c(int playerColor, void* userData) {
 namespace Connector::V13::Thread {
 void Connector::handleAdventureCallback(int playerColor, void* userData) {
     auto* conn = static_cast<Connector*>(userData);
-    std::unique_lock<std::mutex> lock(conn->_adventure_mutex);
-    conn->_adventure_player = playerColor;
-    conn->_adventure_action_ready = false;
-    std::cerr << "[connector] adventure yourTurn: player=" << playerColor << std::endl;
+    // 使用原子变量避免 mutex 死锁（adventure_wait 也在抢同一把锁）
+    conn->_adventure_player.store(playerColor);
+    conn->_adventure_action_ready.store(false);
     conn->_adventure_cond.notify_all();
-    conn->_adventure_cond.wait(lock, [conn] { return conn->_adventure_action_ready || conn->_shutdown.load(); });
+    // 轮询等待 action（不 hold mutex）
+    while (!conn->_adventure_action_ready.load() && !conn->_shutdown.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
 
+// adventureWait: 用原子变量检查，不用 mutex
 const std::tuple<int, std::string> Connector::adventureWait() {
     SHUTDOWN_PYTHON_RETURN("");
-    std::unique_lock lock(_adventure_mutex);
-    {
-        py::gil_scoped_release release;
-        _adventure_cond.wait(lock, [this] { return _adventure_player >= 0 || _shutdown; });
-    }
+    // 通过 libmlclient.so 的原子变量通信 API 等待回合
+    int player = adventure_wait_for_turn();
     if (_shutdown) return {static_cast<int>(ReturnCode::SHUTDOWN), ""};
-    int player = _adventure_player;
-    _adventure_player = -1;
     return {static_cast<int>(ReturnCode::OK), std::to_string(player)};
 }
 
-// Python calls: send action and signal VCMI to proceed
+// adventureAct: 设置 action 信号
 const std::tuple<int, std::string> Connector::adventureAct(int action) {
     SHUTDOWN_PYTHON_RETURN("");
-    {
-        std::unique_lock lock(_adventure_mutex);
-        _adventure_action = action;
-        _adventure_action_ready = true;
-    }
-    _adventure_cond.notify_all();
+    // 通过 libmlclient.so 的原子变量通信 API 发送 action
+    adventure_send_action(action);
     return {static_cast<int>(ReturnCode::OK), "action_sent"};
 }
 
 void Connector::shutdown() {
-        _shutdown = true;
-        ML::shutdown_vcmi();
-    }
+    _shutdown = true;
+    ML::shutdown_vcmi();
+}
 }

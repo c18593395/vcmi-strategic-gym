@@ -16,6 +16,11 @@ from typing import Optional, Dict, Any
 import gymnasium as gym
 import numpy as np
 
+# Set RTLD_GLOBAL for ALL subsequent dlopen calls
+import sys as _sys
+_ctypes = __import__("ctypes")
+_sys.setdlopenflags(_sys.getdlopenflags() | _ctypes.RTLD_GLOBAL)
+
 from ..util import log
 from ...connectors.rel import connector_v13
 
@@ -527,12 +532,14 @@ class StrategicEnv(gym.Env):
         self._vcmi_started = True
         self.logger.debug("VCMI started")
 
-    def _adventure_wait(self, timeout=30):
+    def _adventure_wait(self, timeout=None):
         """包装 adventure_wait，通过 ctypes 调用 libmlclient 内的原子变量等待
 
         不经过 connector（避免跨库函数指针调用崩溃），直接用 ctypes 调用
         adventure_wait_for_turn() 和 adventure_send_action()。
         """
+        if timeout is None:
+            timeout = min(self._vcmi_timeout, 120)
         self._ensure_libml_loaded()
         if self._libml is None:
             raise RuntimeError("libmlclient.so not loaded")
