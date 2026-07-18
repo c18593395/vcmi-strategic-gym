@@ -671,7 +671,7 @@ class StrategicEnv(gym.Env):
         elif self._game_over == 2:  # blue wins
             reward -= self.reward_win  # punish for losing
 
-        return float(reward)
+        return float(np.clip(reward, -10, 10))
 
     def _check_done(self, state: Optional[StrategicState]):
         """检查是否终止"""
