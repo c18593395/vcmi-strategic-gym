@@ -319,6 +319,7 @@ class StrategicEnv(gym.Env):
 
         # --- VCMI 启动 (在后台线程) ---
         self._vcmi_started = False
+        self._vcmi_just_started = False  # DummyVecEnv 短路标志
         self._vcmithread = None
 
         # --- g_strategic_state 读取 ---
@@ -328,8 +329,8 @@ class StrategicEnv(gym.Env):
 
         # --- 回合状态 ---
         self._turn = 0
-        self._prev_player0 = {}   # P0 (red) 上一帧关键指标
-        self._prev_player1 = {}   # P1 (blue) 上一帧关键指标
+        self._prev_player0 = {"gold": 0, "towns": 0, "heroes": 0}  # 防御性初始化
+        self._prev_player1 = {"gold": 0, "towns": 0, "heroes": 0}
         self._last_state = None   # 上次读取的 StrategicState
 
         # --- 终止标志 ---
@@ -354,6 +355,22 @@ class StrategicEnv(gym.Env):
         # 启动 VCMI（如果尚未启动）
         self._libml = None  # 清理旧 libml 引用
         self._ensure_vcmi_running()
+
+        # DummyVecEnv 短路：PPO 构造时 _wrap_env → DummyVecEnv.__init__
+        # 会调用 self.reset()，此时 VCMI 刚启动但 yourTurn 回调尚未到达。
+        # 检测：如果 VCMI 刚由本次 reset 启动（_vcmi_just_started），
+        # 跳过 adventure_wait，直接返回哑观测，避免阻塞 30-60s。
+        # 真正的 reset 由 PPO collect_rollouts 在训练开始前调用，
+        # 此时 _vcmi_just_started=False，正常等待 yourTurn。
+        if self._vcmi_just_started:
+            self._vcmi_just_started = False  # 清除，下次 reset 走正常流程
+            self.logger.debug("DummyVecEnv probe reset — VCMI just started, returning dummy obs")
+            obs = np.zeros(OBS_DIM, dtype=np.float32)
+            info = {"day": 0, "current_player": -1, "turn": 0, "_dummy": True}
+            return obs, info
+
+        # 初始化奖励跟踪基线（必须在 adventure_wait 之前，防止超时跳过）
+        self._init_baselines(None)
 
         # 等待第一个 yourTurn 回调
         # 如果是重启（VCMI 已运行），yourTurn 可能不会到来，超时后返回默认 obs
@@ -500,6 +517,7 @@ class StrategicEnv(gym.Env):
             self._vcmithread.join(timeout=2)
         self._vcmithread = None
         self._vcmi_started = False
+        self._vcmi_just_started = False
 
         for handler in self.logger.handlers:
             self.logger.removeHandler(handler)
@@ -530,6 +548,7 @@ class StrategicEnv(gym.Env):
         self._vcmithread.start()
         time.sleep(2)
         self._vcmi_started = True
+        self._vcmi_just_started = True  # 标记本次启动，供 reset() 短路用
         self.logger.debug("VCMI started")
 
     def _adventure_wait(self, timeout=None):
