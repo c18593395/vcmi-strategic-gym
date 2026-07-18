@@ -55,7 +55,7 @@ for ep in range(N_EPISODES):
         print(f"  ep{ep:03d} NO_DATA", flush=True); continue
 
     with open(TRAJ_PKL, "rb") as f: traj = pickle.load(f)
-    obs = torch.tensor(traj["obs"], dtype=torch.float32)
+    obs = torch.tensor(traj["obs"], dtype=torch.float32).clamp(-100, 100)
     acts = torch.tensor(traj["act"], dtype=torch.long)
     rews = torch.tensor(traj["rew"], dtype=torch.float32)
     dones = torch.tensor(traj["done"], dtype=torch.float32)
