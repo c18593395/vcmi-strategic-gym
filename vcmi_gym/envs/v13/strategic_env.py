@@ -356,19 +356,6 @@ class StrategicEnv(gym.Env):
         self._libml = None  # 清理旧 libml 引用
         self._ensure_vcmi_running()
 
-        # DummyVecEnv 短路：PPO 构造时 _wrap_env → DummyVecEnv.__init__
-        # 会调用 self.reset()，此时 VCMI 刚启动但 yourTurn 回调尚未到达。
-        # 检测：如果 VCMI 刚由本次 reset 启动（_vcmi_just_started），
-        # 跳过 adventure_wait，直接返回哑观测，避免阻塞 30-60s。
-        # 真正的 reset 由 PPO collect_rollouts 在训练开始前调用，
-        # 此时 _vcmi_just_started=False，正常等待 yourTurn。
-        if self._vcmi_just_started:
-            self._vcmi_just_started = False  # 清除，下次 reset 走正常流程
-            self.logger.debug("DummyVecEnv probe reset — VCMI just started, returning dummy obs")
-            obs = np.zeros(OBS_DIM, dtype=np.float32)
-            info = {"day": 0, "current_player": -1, "turn": 0, "_dummy": True}
-            return obs, info
-
         # 初始化奖励跟踪基线（必须在 adventure_wait 之前，防止超时跳过）
         self._init_baselines(None)
 
@@ -424,10 +411,10 @@ class StrategicEnv(gym.Env):
             # adventure_act 接受一个 int，由 C++ 侧 yourTurn 回调返回
             adventure_action = action
 
-        # 发送动作
-        self._send_action(adventure_action)
-        
         # 等待下一个 yourTurn（AI 处理自己的回合）
+        # 注意：必须先 WAIT 再 SEND。如果先 SEND，s_turn_action_ready 可能
+        # 被空闲消费（adventure_process_turn 尚未进入忙等），导致后续 WAIT
+        # 永久阻塞。reset() 已经是 WAIT→SEND 顺序，step() 要保持一致。
         try:
             self._adventure_wait()
         except RuntimeError as e:
@@ -444,6 +431,9 @@ class StrategicEnv(gym.Env):
                 "timeout": True,
             }
             return obs, reward, self._terminated, self._truncated, info
+
+        # 发送动作（WAIT 返回后才发送，此时 C++ 已在 adventure_process_turn 忙等）
+        self._send_action(adventure_action)
 
         self._turn += 1
 
