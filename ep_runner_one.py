@@ -12,7 +12,7 @@ try:
     env = StrategicEnv(
         mapname=mapname, max_turns=max_turns,
         vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
-        vcmienv_loglevel="ERROR", red="MMAI_USER", blue="StupidAI",
+        vcmienv_loglevel="ERROR", red="MMAI_USER", blue="MMAI_USER",
         random_heroes=1, boot_timeout=60, vcmi_timeout=15
     )
     obs, _ = env.reset()
