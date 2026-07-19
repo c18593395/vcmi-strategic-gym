@@ -227,7 +227,7 @@ class StrategicEnv(gym.Env):
         user_timeout: int = 99999,
         libml_path: Optional[str] = None,
         # 奖励系数
-        reward_gold_mult: float = 0.001,
+        reward_gold_mult: float = 0.01,    # 100g = +1 reward
         reward_town_mult: float = 30.0,
         reward_hero_mult: float = 10.0,
         reward_win: float = 200.0,
@@ -624,16 +624,22 @@ class StrategicEnv(gym.Env):
 
     def _init_baselines(self, state: Optional[StrategicState]):
         """初始化奖励基线值"""
-        self._prev_player0 = {"gold": 0, "towns": 0, "heroes": 0}
-        self._prev_player1 = {"gold": 0, "towns": 0, "heroes": 0}
+        self._prev_player0 = {"gold": 0, "wood": 0, "mercury": 0, "ore": 0,
+                              "sulfur": 0, "crystal": 0, "gems": 0,
+                              "towns": 0, "heroes": 0, "hero_exp": 0}
+        self._prev_player1 = dict(self._prev_player0)
         if state is None:
             return
         for pi in range(state.player_count):
             p = state.players[pi]
             prev = self._prev_player0 if pi == 0 else self._prev_player1
             prev["gold"] = p.gold
+            prev["wood"] = p.wood; prev["mercury"] = p.mercury
+            prev["ore"] = p.ore; prev["sulfur"] = p.sulfur
+            prev["crystal"] = p.crystal; prev["gems"] = p.gems
             prev["towns"] = p.town_count
             prev["heroes"] = p.hero_count
+            prev["hero_exp"] = sum(h.exp for h in state.heroes if h.id >= 0 and h.owner == pi)
 
     def _calc_reward(self, state: Optional[StrategicState]) -> float:
         """计算基于资源变化的奖励"""
@@ -647,12 +653,20 @@ class StrategicEnv(gym.Env):
             p0 = state.players[0]
             prev0 = self._prev_player0
             reward += (p0.gold - prev0["gold"]) * self.reward_gold_mult
+            reward += (p0.wood - prev0["wood"]) * self.reward_gold_mult * 0.5
+            reward += (p0.ore - prev0["ore"]) * self.reward_gold_mult * 0.5
+            reward += (p0.mercury + p0.sulfur + p0.crystal + p0.gems -
+                       prev0["mercury"] - prev0["sulfur"] - prev0["crystal"] - prev0["gems"]) * self.reward_gold_mult * 2
             reward += (p0.town_count - prev0["towns"]) * self.reward_town_mult
             reward += (p0.hero_count - prev0["heroes"]) * self.reward_hero_mult
+            # hero experience
+            cur_exp = sum(h.exp for h in state.heroes if h.id >= 0 and h.owner == 0)
+            reward += (cur_exp - prev0["hero_exp"]) * 0.001
             self._prev_player0 = {
-                "gold": p0.gold,
-                "towns": p0.town_count,
-                "heroes": p0.hero_count,
+                "gold": p0.gold, "wood": p0.wood, "mercury": p0.mercury,
+                "ore": p0.ore, "sulfur": p0.sulfur, "crystal": p0.crystal, "gems": p0.gems,
+                "towns": p0.town_count, "heroes": p0.hero_count,
+                "hero_exp": cur_exp,
             }
 
         # 胜利奖励
