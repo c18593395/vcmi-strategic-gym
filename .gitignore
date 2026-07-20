@@ -1,3 +1,6 @@
+*.vmap
+__pycache__/
+*.pyc
 !vcmi-gym.sublime-project
 .venv
 build

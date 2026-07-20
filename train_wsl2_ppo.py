@@ -1,24 +1,39 @@
 #!/usr/bin/env python3
-"""WSL2 PPO — 多步自对弈训练 (GPU)"""
+"""WSL2 PPO — 多步自对弈训练 (GPU) — C3.2+C4.2"""
 import subprocess, json, time, os, random
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
-# === 扩规模 ===
-N_EPISODES, BATCH, STEPS_PER_EP = 500, 64, 20
+# === C4.2: 扩规模 ===
+N_EPISODES, BATCH, STEPS_PER_EP = 2000, 128, 50
 LR, CLIP, EPOCHS = 3e-4, 0.2, 4
 GAMMA = 0.99
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# === C3.2: 对手池 ===
+OPPONENT_POOL_SIZE = 10
+
+# === C4.2: MAPS 从 available_maps.json 加载，失败则 fallback ===
 MAPS = [
     "Key to Victory.h3m", "Elbow Room.h3m", "Emerald Isles.h3m",
     "Golems Aplenty.h3m", "A Warm and Familiar Place.h3m",
     "All for One.h3m", "A Viking We Shall Go.h3m", "Dead and Buried.h3m",
 ]
+maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
+try:
+    with open(maps_json_path) as f:
+        loaded = json.load(f)
+        if "maps" in loaded and len(loaded["maps"]) > 0:
+            MAPS = loaded["maps"]
+            print(f"Loaded {len(MAPS)} maps from available_maps.json", flush=True)
+except Exception as e:
+    print(f"Could not load available_maps.json ({e}), using hardcoded {len(MAPS)} maps", flush=True)
+
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
 TRAJ = "/tmp/traj_one.json"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -29,12 +44,17 @@ class Net(nn.Module):
         h = self.fc(x)
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
-def run_episode(mapname):
+
+def run_episode(mapname, blue_model=None):
+    """Run one episode. If blue_model is given, pass --blue_model to ep_runner_one."""
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+    cmd = [VENV, RUNNER, str(STEPS_PER_EP), TRAJ, mapname]
+    if blue_model:
+        cmd.extend(["--blue_model", blue_model])
     proc = subprocess.Popen(
-        [VENV, RUNNER, str(STEPS_PER_EP), TRAJ, mapname],
+        cmd,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env
     )
     try: proc.wait(timeout=STEPS_PER_EP*3 + 15)
@@ -44,6 +64,7 @@ def run_episode(mapname):
         if d.get("steps",0)>0 and not d.get("error"): return d
     except: pass
     return None
+
 
 model = Net().to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=LR)
@@ -55,14 +76,30 @@ if os.path.exists(MODEL_PATH):
     except: pass
 
 buffer = {"obs":[],"act":[],"rew":[],"nobs":[],"done":[]}
-total_steps, ep_count, best_vloss = 0, 0, float("inf")
+total_steps, ep_count, best_vloss, last_ckpt_step = 0, 0, float("inf"), 0
+
+# === C3.2: 对手池初始化 ===
+opponent_pool = []
 
 print(f"WSL2 PPO — {N_EPISODES}eps×{STEPS_PER_EP}steps batch={BATCH} maps={len(MAPS)} device={DEVICE}", flush=True)
-print(f" 自对弈: red=MMAI_USER blue=MMAI_USER", flush=True)
+print(f" 自对弈: red=MMAI_USER blue=MMAI_USER/对手池", flush=True)
 t0 = time.time()
 
 for ep in range(N_EPISODES):
-    traj = run_episode(random.choice(MAPS))
+    # === C3.2: 选择对手 ===
+    blue_model = None
+    if opponent_pool:
+        r = random.random()
+        if r < 0.7:
+            blue_model = None          # 当前模型
+        elif r < 0.9:
+            # 早期版本（池中前半部分）
+            blue_model = random.choice(opponent_pool[:max(1, len(opponent_pool)//2)])
+        else:
+            blue_model = random.choice(opponent_pool)  # 随机旧版
+    # 对手池为空时 blue_model 保持 None，用当前模型自对弈
+
+    traj = run_episode(random.choice(MAPS), blue_model=blue_model)
     ep_count += 1
     if traj is None: continue
     for i in range(traj["steps"]):
@@ -101,6 +138,29 @@ for ep in range(N_EPISODES):
         if vloss.item() < best_vloss:
             best_vloss = vloss.item()
             torch.save(model.state_dict(), MODEL_PATH)
+
+        # === checkpoint: 每 200 step 保存，保留最近 OPPONENT_POOL_SIZE 个 ===
+        ckpt_dir = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
+        os.makedirs(ckpt_dir, exist_ok=True)
+        if total_steps - last_ckpt_step >= 200:
+            last_ckpt_step = total_steps
+            ckpt_path = os.path.join(ckpt_dir, f"wsl2_ckpt_{total_steps}.pt")
+            torch.save(model.state_dict(), ckpt_path)
+
+            # C3.2: 把新 checkpoint 加入对手池
+            if ckpt_path not in opponent_pool:
+                opponent_pool.append(ckpt_path)
+            if len(opponent_pool) > OPPONENT_POOL_SIZE:
+                opponent_pool.pop(0)
+
+            # 保留最近 OPPONENT_POOL_SIZE 个文件，删除旧的
+            ckpts = sorted(
+                [f for f in os.listdir(ckpt_dir)
+                 if f.startswith("wsl2_ckpt_") and f.endswith(".pt")],
+                key=lambda f: int(f.replace("wsl2_ckpt_", "").replace(".pt", ""))
+            )
+            for f in ckpts[:-OPPONENT_POOL_SIZE]:
+                os.remove(os.path.join(ckpt_dir, f))
 
 elapsed = time.time() - t0
 print(f"\nDONE: {ep_count}eps {total_steps}steps {elapsed:.0f}s best_vloss={best_vloss:.0f}", flush=True)

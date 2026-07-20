@@ -1,22 +1,32 @@
-import sys, os, json
+import sys, os, json, argparse
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
-max_turns = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-outfile = sys.argv[2] if len(sys.argv) > 2 else "/tmp/traj_one.json"
-mapname = sys.argv[3] if len(sys.argv) > 3 else "Key to Victory.h3m"
+parser = argparse.ArgumentParser()
+parser.add_argument("max_turns", nargs="?", type=int, default=10)
+parser.add_argument("outfile", nargs="?", type=str, default="/tmp/traj_one.json")
+parser.add_argument("mapname", nargs="?", type=str, default="Key to Victory.h3m")
+parser.add_argument("--blue_model", type=str, default=None,
+                    help="Path to blue model checkpoint")
+args = parser.parse_args()
+
+# C3.2: if --blue_model is given, switch blue from MMAI_USER to ML_USER
+blue = "MMAI_USER"
+if args.blue_model:
+    blue = "ML_USER"
+    os.environ["ML_MODEL_PATH"] = args.blue_model
 
 traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "steps": 0, "total_rew": 0.0}
 try:
     env = StrategicEnv(
-        mapname=mapname, max_turns=max_turns,
+        mapname=args.mapname, max_turns=args.max_turns,
         vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
-        vcmienv_loglevel="ERROR", red="MMAI_USER", blue="MMAI_USER",
+        vcmienv_loglevel="ERROR", red="MMAI_USER", blue=blue,
         random_heroes=1, boot_timeout=60, vcmi_timeout=15
     )
     obs, _ = env.reset()
-    for _ in range(max_turns):
+    for _ in range(args.max_turns):
         a = int(env.action_space.sample())
         nobs, r, done, trunc, _ = env.step(a)
         traj["obs"].append(obs.tolist())
@@ -31,6 +41,6 @@ except Exception as e:
     traj["error"] = str(e)
 
 traj["total_rew"] = sum(traj["rew"])
-with open(outfile, "w") as f:
+with open(args.outfile, "w") as f:
     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
 os._exit(0)
