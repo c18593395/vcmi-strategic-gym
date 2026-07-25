@@ -185,6 +185,10 @@ for ep in range(N_EPISODES):
             buffer[k].append(traj[k][i])
         total_steps += 1
 
+    # 每局一行日志
+    ep_rew = np.mean(traj["rew"]) if traj["steps"] > 0 else 0.0
+    print(f"  step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} time={time.time()-t0:.0f}s", flush=True)
+
     if len(buffer["obs"]) >= BATCH:
         obs_t  = torch.tensor(np.array(buffer["obs"][:BATCH]), dtype=torch.float32, device=DEVICE)
         act_t  = torch.tensor(buffer["act"][:BATCH], dtype=torch.long, device=DEVICE)
