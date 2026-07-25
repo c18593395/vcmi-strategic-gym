@@ -1,0 +1,35 @@
+[
+  {
+    "time": "2026-07-21T23:55:25.920360",
+    "step": 2000,
+    "baseline_type": "stupidai",
+    "win_rate": 0.6667,
+    "avg_reward": 3.63,
+    "current_wins": 2,
+    "baseline_wins": 1,
+    "draws": 0,
+    "total_games": 3
+  },
+  {
+    "time": "2026-07-22T00:04:56.591376",
+    "step": 4800,
+    "baseline_type": "stupidai",
+    "win_rate": 0.5,
+    "avg_reward": -9.72,
+    "current_wins": 3,
+    "baseline_wins": 3,
+    "draws": 0,
+    "total_games": 6
+  },
+  {
+    "time": "2026-07-22T01:21:55.663198",
+    "step": 15626,
+    "baseline_type": "stupidai",
+    "win_rate": 0.5,
+    "avg_reward": 1.09,
+    "current_wins": 3,
+    "baseline_wins": 3,
+    "draws": 0,
+    "total_games": 6
+  }
+]

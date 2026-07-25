@@ -1,0 +1,1116 @@
+{
+  "maps": [
+    {
+      "name": "A Viking We Shall Go Allied.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "A Viking We Shall Go.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "A Warm and Familiar Place.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Adventures of Jared Haret.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "All for One.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "And One for All.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Arrogance Allied.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Arrogance.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Ascension.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Back For Revenge - Allied.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Back For Revenge.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Barbarian Breakout.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Barbarian BreakoutA.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Battle of the Sexes Allied.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Battle of the Sexes.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Brave New World(Allies).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Brave New World.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Buried Treasure.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Carpe Diem - Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Carpe Diem.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Caught in the Middle.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Chasing a Dream.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Crimson and Clover.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Crimson and CloverA.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Darwin's Prize(Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Darwin's Prize.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dawn of War.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dead and Buried.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Deluge.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Divided Loyalties.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Divided LoyaltiesA.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dragon Orb.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dragon Pass (Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dragon Pass.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dungeon Keeper.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Dwarven Gold.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Dwarven Tunnels(Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Dwarven Tunnels.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Elbow Room(Allies).h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Elbow Room.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Emerald Isles.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Emerald IslesA.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Faeries.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "For Sale.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Fort Noxis.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Free for All.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Freedom.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Gelea's Champions (Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Gelea's Champions.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Goblins in the Pantry.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Golems Aplenty Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Golems Aplenty.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Good Witch, Bad Witch.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Good to Go.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Gorlam's Tentacle Swampland.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Hatchet Axe and Saw.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Heroes of Might not Magic Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Heroes of Might not Magic.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Hoard(Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Hoard.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Hold the middle.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Irrational Hostility.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Island King Allied.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Island King.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Island of Fire.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Islands and Caves.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Jihad.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Judgement Day.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Just A Visit.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Key to Victory.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "King of Pain.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Kingdom for sale(allies).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Kingdom for sale.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Knee Deep in the Dead.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Knight of Darkness.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Land of Titans (Allied).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Land of Titans.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Last Chance Allies.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Last Chance.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Loss of Innocence(Allies).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Loss of Innocence.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Manifest Destiny.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Marshland Menace.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Meeting in Muzgob(Allies).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Meeting in Muzgob.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Merchant Princes Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Merchant Princes.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Middletown.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Monk's Retreat Allied.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Monk's Retreat.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Noahs Ark.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "One Bad Day - Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Overthrow Thy Neighbors.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Pandora's Box .h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Peaceful Ending - Allied.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Peaceful Ending.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Peacemaker.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Pestilence Lake Allies.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Pestilence Lake.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Pirates.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Race for Ardintinny.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Race for the Town.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Ready or Not.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Realm of Chaos.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Realm of ChaosA.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Rebellion.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Reclamation Allied.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Reclamation.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Rediscovery.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Resource War Allies.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Resource War.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Rise of the Phoenix Allied.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Rise of the Phoenix.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Rumble in the Bogs.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Rumble in the BogsA.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Sands of Blood.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Sangraal's Thief Allied.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Sangraal's Thief.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Search for the Grail.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Serpents Treasure.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Shadow Valleys.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "South of Hell (Allies).h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "South of Hell.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Southern Cross.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Step by Step (Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Step by Step.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Tale of two lands (Allies).h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Tale of two lands.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Terrible Rumor.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "The Battle of Daeyan's Ford.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "The Challenge.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "The Five Rings.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "The Gauntlet.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "The Great Race.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "The Mandate of Heaven.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "The Newcomers.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Thousand Islands (allies).h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Thousand Islands.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Time's Up.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Titans Winter.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Too Many Monsters.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Tovar's Fortress (Allies).h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Tovar's Fortress.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Treasure Hunt.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Twins.h3m",
+      "w": 36,
+      "h": 36,
+      "tiles": 1296,
+      "cat": "tiny"
+    },
+    {
+      "name": "Undead Unrest.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Unexpected Inheritance.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Unholy Quest.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Valleys of War.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Vial of Life.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "War of the Mighty (Allies).h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "War of the Mighty.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "Warlords.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "WarlordsA.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    },
+    {
+      "name": "Warmongers.h3m",
+      "w": 144,
+      "h": 144,
+      "tiles": 20736,
+      "cat": "large"
+    },
+    {
+      "name": "When Dragons Clash.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Wings of War.h3m",
+      "w": 72,
+      "h": 72,
+      "tiles": 5184,
+      "cat": "small"
+    },
+    {
+      "name": "Xathras Prize.h3m",
+      "w": 108,
+      "h": 108,
+      "tiles": 11664,
+      "cat": "medium"
+    }
+  ],
+  "summary": {
+    "large": 18,
+    "tiny": 31,
+    "small": 71,
+    "medium": 38
+  }
+}

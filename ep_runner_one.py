@@ -9,13 +9,18 @@ parser.add_argument("outfile", nargs="?", type=str, default="/tmp/traj_one.json"
 parser.add_argument("mapname", nargs="?", type=str, default="Key to Victory.h3m")
 parser.add_argument("--blue_model", type=str, default=None,
                     help="Path to blue model checkpoint")
+parser.add_argument("--blue_ai", type=str, default=None,
+                    help="AI type for blue player (MMAI_USER, StupidAI, etc.)")
 args = parser.parse_args()
 
-# C3.2: if --blue_model is given, switch blue from MMAI_USER to ML_USER
+# --blue_model: use ML model as blue
 blue = "MMAI_USER"
 if args.blue_model:
     blue = "ML_USER"
     os.environ["ML_MODEL_PATH"] = args.blue_model
+# --blue_ai: directly override blue AI type (takes precedence)
+if args.blue_ai:
+    blue = args.blue_ai
 
 traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "steps": 0, "total_rew": 0.0}
 try:

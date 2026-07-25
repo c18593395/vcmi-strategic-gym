@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """WSL2 PPO — 多步自对弈训练 (GPU) — C3.2+C4.2"""
-import subprocess, json, time, os, random, signal, sys
+import subprocess, json, time, os, random
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
@@ -33,7 +33,6 @@ VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
 TRAJ = "/tmp/traj_one.json"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt"  # 模型+优化器联合保存
 
 
 REWARD_SCALE = 1.0  # 奖励值 [-10,10] 无需缩放
@@ -79,84 +78,30 @@ def is_clean():
             return False
     return True
 
-def save_train_state(path, step=0):
-    """保存模型+优化器+step计数"""
-    torch.save({
-        "model": model.state_dict(),
-        "optimizer": opt.state_dict(),
-        "step": step,
-    }, path)
-
-def save_shutdown(*args):
-    """SIGTERM/SIGINT 时保存"""
-    print("\n  Shutdown, saving train state...", flush=True)
-    ckpt = f"/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_shutdown_ckpt.pt"
-    save_train_state(ckpt, total_steps)
-    print(f"  Saved {ckpt}", flush=True)
-    sys.exit(0)
-
-signal.signal(signal.SIGTERM, save_shutdown)
-signal.signal(signal.SIGINT, save_shutdown)
-
-
 def restore_clean():
-    """从最近的干净 checkpoint 恢复，没有则从零开始。重置 optimizer。"""
-    global opt
+    """从最近的干净 checkpoint 恢复，没有则从零开始"""
     ckpt_dir = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
-    ckpts = sorted([f for f in os.listdir(ckpt_dir) if f.startswith("wsl2_ckpt_") and f.endswith(".pt") and "_model." not in f],
+    ckpts = sorted([f for f in os.listdir(ckpt_dir) if f.startswith("wsl2_ckpt_") and f.endswith(".pt")],
                    key=lambda f: int(f.replace("wsl2_ckpt_", "").replace(".pt", "")))
     for ckpt in reversed(ckpts):
         path = os.path.join(ckpt_dir, ckpt)
-        if "_model." in ckpt:  # 跳过模型only文件（用于对手池，不是完整 checkpoint）
-            continue
         try:
-            sd = torch.load(path, map_location=DEVICE, weights_only=False)
-            if "model" in sd:  # 新格式：dict 含 model/optimizer/step
-                model.load_state_dict(sd["model"])
-            else:  # 旧格式：直接是 state_dict
-                model.load_state_dict(sd)
+            sd = torch.load(path, map_location=DEVICE, weights_only=True)
+            model.load_state_dict(sd)
             if is_clean():
                 print(f"  Restored clean checkpoint: {ckpt}", flush=True)
-                # 重置 optimizer 防止 Adam 动量 NaN 残留
-                global opt
-                opt = torch.optim.Adam(model.parameters(), lr=LR)
                 return
         except: pass
     # 全部失败则初始化新权重
     model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
     print("  No clean checkpoint found, reinitialized model", flush=True)
 
-# 尝试加载已有模型续训（优先加载联合状态 STATE_PATH）
-if os.path.exists(STATE_PATH):
-    try:
-        sd = torch.load(STATE_PATH, map_location=DEVICE, weights_only=False)
-        model.load_state_dict(sd["model"])
-        if is_clean():
-            opt.load_state_dict(sd["optimizer"])
-            resume_step = sd.get("step", 0)
-            print(f"Loaded train state (model+optimizer, step={resume_step})", flush=True)
-        else:
-            print("Loaded state has NaN model, restoring clean checkpoint...", flush=True)
-            restore_clean()
-    except Exception as e:
-        print(f"Failed to load train state ({e}), falling back to model...", flush=True)
-        # fallback to model-only
-        if os.path.exists(MODEL_PATH):
-            try:
-                model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
-                if is_clean():
-                    print("Loaded existing model, continuing training", flush=True)
-                else:
-                    print("Loaded model contains NaN, restoring clean checkpoint...")
-                    restore_clean()
-            except:
-                print("Failed to load model, restoring clean checkpoint...")
-                restore_clean()
-elif os.path.exists(MODEL_PATH):
+# 尝试加载已有模型续训
+if os.path.exists(MODEL_PATH):
     try:
         model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
         if is_clean():
-            print("Loaded existing model, continuing training (fresh optimizer)", flush=True)
+            print("Loaded existing model, continuing training", flush=True)
         else:
             print("Loaded model contains NaN, restoring clean checkpoint...", flush=True)
             restore_clean()
@@ -248,7 +193,7 @@ for ep in range(N_EPISODES):
 
         if vloss.item() < best_vloss and is_clean():
             best_vloss = vloss.item()
-            save_train_state(STATE_PATH, total_steps)
+            torch.save(model.state_dict(), MODEL_PATH)
         elif not is_clean():
             print("  NaN detected in model, restoring clean checkpoint...", flush=True)
             restore_clean()
@@ -259,28 +204,22 @@ for ep in range(N_EPISODES):
         if total_steps - last_ckpt_step >= 200:
             last_ckpt_step = total_steps
             ckpt_path = os.path.join(ckpt_dir, f"wsl2_ckpt_{total_steps}.pt")
-            model_only = ckpt_path.replace(".pt", "_model.pt")
-            save_train_state(ckpt_path, total_steps)
-            torch.save(model.state_dict(), model_only)
+            torch.save(model.state_dict(), ckpt_path)
 
-            # C3.2: 把 model-only 新 checkpoint 加入对手池
-            if model_only not in opponent_pool:
-                opponent_pool.append(model_only)
+            # C3.2: 把新 checkpoint 加入对手池
+            if ckpt_path not in opponent_pool:
+                opponent_pool.append(ckpt_path)
             if len(opponent_pool) > OPPONENT_POOL_SIZE:
                 opponent_pool.pop(0)
 
-            # 保留最近 OPPONENT_POOL_SIZE 个联合文件，删除旧的
+            # 保留最近 OPPONENT_POOL_SIZE 个文件，删除旧的
             ckpts = sorted(
                 [f for f in os.listdir(ckpt_dir)
-                 if f.startswith("wsl2_ckpt_") and f.endswith(".pt") and "_model." not in f],
+                 if f.startswith("wsl2_ckpt_") and f.endswith(".pt")],
                 key=lambda f: int(f.replace("wsl2_ckpt_", "").replace(".pt", ""))
             )
             for f in ckpts[:-OPPONENT_POOL_SIZE]:
                 os.remove(os.path.join(ckpt_dir, f))
-                # 同时删除对应的 model-only 文件
-                mf = f.replace(".pt", "_model.pt")
-                if os.path.exists(os.path.join(ckpt_dir, mf)):
-                    os.remove(os.path.join(ckpt_dir, mf))
 
             # 清理对手池中已被删除的引用
             opponent_pool = [p for p in opponent_pool if os.path.exists(p)]
@@ -291,9 +230,8 @@ if is_clean():
     sd = model.state_dict()
     has_bad = any(torch.isnan(v).any() or torch.isinf(v).any() for v in sd.values())
     if not has_bad:
-        save_train_state(STATE_PATH, total_steps)
         torch.save(sd, MODEL_PATH)
-        print("Final model+optimizer saved", flush=True)
+        print("Final model saved", flush=True)
     else:
         print("Final model has NaN, not saving", flush=True)
 else:

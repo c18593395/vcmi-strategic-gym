@@ -19,7 +19,7 @@
 - 说 **"按当前任务清单去训练"** → 执行 Track 1 任务
 - 说 **"按当前任务清单去测试实际游戏"** → 执行 Track 2 任务
 
-**训练进程在 WSL 长期运行（不依赖任何 Hermes 会话）。当前使用 V2 训练脚本（GAE λ=0.95 + grad_clip=1.0）。**
+**训练进程在 WSL 长期运行（不依赖任何 Hermes 会话）。V1 稳定后才考虑切 V2，否则一直用 V1。**
 
 ---
 
@@ -28,50 +28,51 @@
 ### 📋 下次开机启动（快速恢复训练）
 
 ```bash
-# 1. 启动 WSL 训练
+# 1. 恢复干净 checkpoint
+MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash -c '\
+  cp /mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_16390.pt \
+     /mnt/d/Bigdata/hero3_fresh/wsl2_model.pt'
+
+# 2. 启动训练（V1 脚本）
 MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /mnt/d/Bigdata/hero3_fresh/train_loop.sh &
 
-# 2. 确认运行
+# 3. 确认运行
 MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- ps aux | grep train_wsl2_ppo
 MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- tail -5 /mnt/d/Bigdata/hero3_fresh/train_loop.log
 ```
 
-**脚本自动处理：** 加载 STATE_PATH（完整模型+优化器）→ 续训；不存在则从 MODEL_PATH 加载权重。
-
-**当前参数：** STEPS_PER_EP=200（每局 200 步游戏天，约 28h/轮）
-
 **或说 "按当前任务清单去训练"**
 
-### 训练状态（2026-07-25）
+### 训练状态（2026-07-23）
 
 ```
-当前训练: V2（train_wsl2_ppo_v2.py）— 从 MODEL_PATH 续训
-V2 参数: STEPS_PER_EP=200（2026-07-25 从 50 改为 200，适配大地图）
-当前进度: step ~1800, ep ~125/1000, avg_r=1.1, vloss=195, 已跑 ~51min
 V1 总计: Round 1 ✅ + Round 2 ✅ = ~32h, best_vloss=12
+V2 总计: 3 轮全部 NaN crash，已弃用
+当前: V1 训练（从干净 checkpoint step 16390 续训，1000ep）
 
-总训练时长: ~50h+
+总训练时长: ~50h
 ```
 
 ### ⚠️ 关键规则
-- **使用 V2 训练脚本**（train_wsl2_ppo_v2.py），GAE λ=0.95 + grad_clip=1.0，无 NaN 问题
-- 脚本自动处理：NaN 梯度检测 → restore_clean；信号保存：SIGTERM/SIGINT → save STATE_PATH
-- 训练步数 N_EPISODES = **1000**（~28h/轮，STEPS_PER_EP=200）
-- 改 Python 源码后必须清 pyc 缓存
+- **使用 V1 训练脚本**（train_wsl2_ppo.py），不用 V2（有 NaN bug）
+- 只有 V1 达到 avg_r 中枢 ≥1.0 且连续 300ep 无下滑，才考虑切 V2
+- 脚本已加 NaN 防护：加载时检测 NaN → 自动回退干净 checkpoint；保存前检测 NaN → 跳过保存
+- 训练步数 N_EPISODES = **1000**（~10h/轮）
 
 ### 训练参数
 
 | 参数 | 值 |
-|---|---|---|
+|---|---|
 | N_EPISODES | 1000 |
-| STEPS_PER_EP | **200**（2026-07-25 从 50 改为 200，适配 1v7 大地图） |
+| STEPS_PER_EP | 50 |
 | BATCH | 128 |
 | device | cuda (RTX3060) |
 | 地图 | 110 张 H3M 轮换 |
-| 对手 | MMAI_USER（红蓝自对弈 + 对手池） |
+| 对手 | Nullkiller2 (king 难度: maxPass=40, maxRoamingHeroes=4) |
 | 对手池 | 70%当前 / 20%早期 / 10%随机 |
-| Checkpoint | 每 50 step, 保留 10 个 |
+| Checkpoint | 每 200 step, 保留 10 个 |
 | 监控 | cron `training-report` 每 20min |
+| Round 3+ | **V1 稳定后再切 V2**: avg_r≥1.0 中枢且 300ep 无下滑 |
 
 ### ⏳ C5: 训练升级（待办）
 
@@ -83,15 +84,6 @@ V1 总计: Round 1 ✅ + Round 2 ✅ = ~32h, best_vloss=12
 | C5.4 | 多英雄管理 | StrategicEnv 支持多英雄控制 | 🟡 中 | ⬜ |
 | C5.5 | ELO 固定基线评估 | eval_elo.py 新增 --baseline_type=stupidai | 🟢 低 | ✅ 已完成 |
 | C5.6 | **跑一次基线评估** | 已测三次：R2最终50% / 当前最佳50% / vs King NK = 0% | 🟢 低 | ✅ 已完成 |
-
-### ⏳ C6: 大地图适配（进行中）
-
-| # | 任务 | 说明 | 难度 | 状态 |
-|---|------|------|------|------|
-| C6.1 | **STEPS_PER_EP 50→200** | 增加每局步数，让模型见到中期游戏 | 🟢 低 | ✅ 已改（2026-07-25） |
-| C6.2 | STEPS_PER_EP 200 首轮验证 | 观察 200 步下稳定性（无 NaN、不崩） | 🟢 低 | ⬜ 等下一轮重启 |
-| C6.3 | Reward 工程 | 探路奖、兵力成长奖（确认 200 步稳定后再做） | 🟡 中 | ⬜ 等待 |
-| C6.4 | 500 步 / 1v7 评估 | 根据 200 步效果决定是否再扩 | 🟡 中 | ⬜ 等待 |
 
 ### ✅ 已完成
 
