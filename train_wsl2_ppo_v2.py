@@ -65,7 +65,11 @@ def run_episode(mapname, blue_model=None):
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
     try:
         with open(TRAJ) as f: d = json.load(f)
-        if d.get("steps",0)>0 and not d.get("error"): return d
+        if d.get("steps",0)>0 and not d.get("error"):
+            # 打印英雄位置变化
+            if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
+                print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={d.get('act',[])}", flush=True)
+            return d
     except: pass
     return None
 

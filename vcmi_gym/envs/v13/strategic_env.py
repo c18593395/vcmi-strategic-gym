@@ -22,6 +22,9 @@ _ctypes = __import__("ctypes")
 _sys.setdlopenflags(_sys.getdlopenflags() | _ctypes.RTLD_GLOBAL)
 
 from ..util import log
+# Preload libmlclient.so with RTLD_GLOBAL so dlsym finds our version first
+import os as _os
+_ctypes.CDLL(_os.environ.get("STRATEGIC_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so"), mode=_ctypes.RTLD_GLOBAL)
 from ...connectors.rel import connector_v13
 
 # 从 strategic_reader.py 导入 ctypes 结构体
@@ -359,22 +362,17 @@ class StrategicEnv(gym.Env):
         # 初始化奖励跟踪基线（必须在 adventure_wait 之前，防止超时跳过）
         self._init_baselines(None)
 
-        # 等待第一个 yourTurn 回调
-        # 如果是重启（VCMI 已运行），yourTurn 可能不会到来，超时后返回默认 obs
+        # 等待第一个 yourTurn 回调（此时 state_update 已执行）
         self.logger.debug("Waiting for first yourTurn callback...")
         try:
             self._adventure_wait()
         except RuntimeError:
-            # 超时 = 游戏已结束
             self.logger.warning("YourTurn timed out — game may have ended")
             obs = np.zeros(OBS_DIM, dtype=np.float32)
             info = {"day": 0, "current_player": -1, "turn": 0}
             return obs, info
 
-        # 告知 VCMI 可以继续（回调内等待 action，必须先发一个信号）
-        self._send_action(10)  # 10=end turn，reset 阶段不移动英雄
-
-        # 读取初始状态
+        # 读取初始状态（VCMI 已在 process_turn 阻塞，状态已更新）
         state = self._read_state()
         obs = self._build_obs(state)
 
@@ -397,28 +395,22 @@ class StrategicEnv(gym.Env):
         动作 8:    交互 (拾取/对话/攻击)
         动作 9:    切换到下一英雄
         动作 10:   结束回合
+
+        顺序: SEND → WAIT → READ
+        - SEND: 将上一步决定的 action 发给 VCMI
+        - WAIT: 等 VCMI 处理完 action 并进入下一轮 process_turn
+        - READ: 此时 state_update 已执行完毕，状态保证为新
         """
         if self._terminated or self._truncated:
             raise RuntimeError("Episode is done. Call reset() first.")
 
-        # 解析动作
-        # TODO: 当前 adventure_act(0) 被解释为"结束回合/继续"
-        # 需要实现完整的动作编码映射
-        if action == END_TURN:
-            adventure_action = 0  # "end turn"
-        else:
-            # 非结束动作 — 冒险模式暂用 0，后续需实现动作编码
-            # adventure_act 接受一个 int，由 C++ 侧 yourTurn 回调返回
-            adventure_action = action
+        # 发送动作（VCMI 当前阻塞在 process_turn，立即处理）
+        self._send_action(action)
 
-        # 等待下一个 yourTurn（AI 处理自己的回合）
-        # 注意：必须先 WAIT 再 SEND。如果先 SEND，s_turn_action_ready 可能
-        # 被空闲消费（adventure_process_turn 尚未进入忙等），导致后续 WAIT
-        # 永久阻塞。reset() 已经是 WAIT→SEND 顺序，step() 要保持一致。
+        # 等待 VCMI 处理完 action 并进入下一轮 process_turn
         try:
             self._adventure_wait()
         except RuntimeError as e:
-            # adventure_wait 超时 — 强制结束 episode，返回零值 obs
             self.logger.error(f"adventure_wait timed out: {e} — forcing episode end")
             self._terminated = True
             obs = np.zeros(OBS_DIM, dtype=np.float32)
@@ -432,12 +424,11 @@ class StrategicEnv(gym.Env):
             }
             return obs, reward, self._terminated, self._truncated, info
 
-        # 发送动作（WAIT 返回后才发送，此时 C++ 已在 adventure_process_turn 忙等）
-        self._send_action(adventure_action)
+        # 只在 END_TURN 时递增 VCMI 回合计数
+        if action == END_TURN:
+            self._turn += 1
 
-        self._turn += 1
-
-        # 读取新状态
+        # 读取新状态（VCMI 已执行 state_update，保证为最新）
         state = self._read_state()
         obs = self._build_obs(state)
 
