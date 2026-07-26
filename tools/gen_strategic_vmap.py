@@ -120,7 +120,9 @@ class StrategicMapGenerator:
             self.terrain.append(row)
     
     def generate_road(self, start, end):
-        """Draw a rough road from start to end (Manhattan path with randomness)."""
+        """Draw a rough road from start to end (Manhattan path with randomness).
+        NOTE: Uses GRASS tiles, not road tiles — VCMI vmap format doesn't support
+        standalone road terrain codes ("roXX_" is not a valid terrain type)."""
         x, y = start
         ex, ey = end
         path = []
@@ -138,7 +140,7 @@ class StrategicMapGenerator:
         
         for px, py in path:
             if 0 <= px < self.size and 0 <= py < self.size:
-                tile = random.choice(ROAD_TILES)
+                tile = random.choice(GRASS_TILES)  # VCMI vmap uses terrain-only, not standalone road codes
                 self.terrain[py][px] = tile
     
     def add_player_setup(self, player_color, town_pos, hero_pos):
