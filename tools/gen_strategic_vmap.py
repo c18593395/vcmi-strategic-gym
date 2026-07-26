@@ -165,15 +165,15 @@ class StrategicMapGenerator:
                     "formations": "random",
                     "owner": player_color,
                 },
-                "subtype": random.choice(["core:castle", "core:rampart", "core:tower", 
-                                          "core:inferno", "core:necropolis", "core:dungeon",
-                                          "core:stronghold", "core:fortress", "core:conflux"]),
+                "subtype": random.choice(["castle", "rampart", "tower", 
+                                          "inferno", "necropolis", "dungeon",
+                                          "stronghold", "fortress", "conflux"]),
                 "template": {
                     "animation": "",
                     "mask": ["VVVVV", "VVAVV", "VVVVV"],
                     "visitableFrom": ["+++++", "++-++", "+++++"]
                 },
-                "type": "core:town",
+                "type": "town",
                 "x": tx,
                 "y": ty
             }
@@ -215,7 +215,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "core:hero",
+            "type": "hero",
             "x": hero_pos[0],
             "y": hero_pos[1],
         }
@@ -236,7 +236,7 @@ class StrategicMapGenerator:
                 "mask": ["V"],
                 "visitableFrom": ["+", "-", "+"]
             },
-            "type": "core:resource",
+            "type": "resource",
             "x": pos[0],
             "y": pos[1],
         }
@@ -257,7 +257,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV", "VVV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "core:monster",
+            "type": "monster",
             "x": pos[0],
             "y": pos[1],
         }
@@ -275,7 +275,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV", "VVV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "core:mine",
+            "type": "mine",
             "x": pos[0],
             "y": pos[1],
         }
@@ -296,7 +296,7 @@ class StrategicMapGenerator:
                 "mask": ["V"],
                 "visitableFrom": ["+", "-", "+"]
             },
-            "type": "core:artifact",
+            "type": "artifact",
             "x": pos[0],
             "y": pos[1],
         }
@@ -316,7 +316,7 @@ class StrategicMapGenerator:
                 "mask": ["VVVVV", "VVAVV", "VVVVV"],
                 "visitableFrom": ["+++++", "++-++", "+++++"]
             },
-            "type": "core:garrison",
+            "type": "garrison",
             "x": pos[0],
             "y": pos[1],
         }
