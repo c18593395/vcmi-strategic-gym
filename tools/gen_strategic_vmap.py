@@ -36,39 +36,39 @@ SAND_TILES  = [f"sa{i:02d}_" for i in range(0, 10)]   # sand variants
 
 # Monster types (easy → hard)
 MONSTERS_EASY = [
-    "peasant", "imp", "gremlin", "skeleton",
-    "pixie", "centaur", "gnoll", "troglodyte",
+    "core:peasant", "core:imp", "core:gremlin", "core:skeleton",
+    "core:pixie", "core:centaur", "core:gnoll", "core:troglodyte",
 ]
 MONSTERS_MEDIUM = [
-    "harpy", "gargoyle", "golem", "wolfRider",
-    "orc", "ogre", "roc", "nomad",
+    "core:stoneGolem", "core:ironGolem", "core:harpy", "core:gargoyle",
+    "core:orc", "core:ogre", "core:roc", "core:nomad",
 ]
 MONSTERS_HARD = [
-    "griffin", "minotaur", "hydra", "angel",
-    "blackKnight", "boneDragon", "redDragon",
+    "core:griffin", "core:minotaur", "core:hydra", "core:angel",
+    "core:blackKnight", "core:boneDragon", "core:redDragon",
 ]
 
 # Mine types
 MINE_TYPES = [
-    ("core:goldMine", 2000),       # 金矿最值钱
-    ("core:sawmill", 1000),        # 锯木厂
-    ("core:orePit", 1000),         # 矿坑
-    ("core:alchemistLab", 1500),   # 炼金实验室
-    ("core:sulfurDune", 1500),     # 硫磺沙丘
-    ("core:crystalCavern", 1500),  # 水晶洞穴
-    ("core:gemPond", 1500),        # 宝石池
+    ("goldMine", 2000),       # 金矿最值钱
+    ("sawmill", 1000),        # 锯木厂
+    ("orePit", 1000),         # 矿坑
+    ("alchemistLab", 1500),   # 炼金实验室
+    ("sulfurDune", 1500),     # 硫磺沙丘
+    ("crystalCavern", 1500),  # 水晶洞穴
+    ("gemPond", 1500),        # 宝石池
 ]
 
 # Artifact types
 ARTIFACTS = [
-    "core:centaurAxe", "core:blackshardOfTheDeadKnight",
-    "core:greaterGnollsFlail", "core:ogresClubOfHavoc",
-    "core:swordOfHellfire", "core:titansGladius",
-    "core:shieldOfTheYawningDead", "core:breastplateOfPetrifiedWood",
-    "core:ribCage", "core:scalesOfTheGreaterBasilisk",
-    "core:helmOfChaos", "core:crownOfTheSupremeMagi",
-    "core:pendantOfFreeWill", "core:badgeOfCourage",
-    "core:ringOfInfiniteGems", "core:capeOfVelocity",
+    "centaurAxe", "blackshardOfTheDeadKnight",
+    "greaterGnollsFlail", "ogresClubOfHavoc",
+    "swordOfHellfire", "titansGladius",
+    "shieldOfTheYawningDead", "breastplateOfPetrifiedWood",
+    "ribCage", "scalesOfTheGreaterBasilisk",
+    "helmOfChaos", "crownOfTheSupremeMagi",
+    "pendantOfFreeWill", "badgeOfCourage",
+    "ringOfInfiniteGems", "capeOfVelocity",
 ]
 
 # ============================================================
