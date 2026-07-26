@@ -62,6 +62,7 @@ class StrategicState(ctypes.Structure):
         ("towns", StrategicTown * MAX_TOWNS),
         ("game_over", ctypes.c_int32),
         ("_version", ctypes.c_int32),
+        ("passable", ctypes.c_int32 * 8),
     ]
 
 class StrategicReader:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WSL2 PPO v2 — GAE λ=0.95 + 梯度裁剪 1.0 — 多步自对弈训练 (GPU)"""
+"""WSL2 PPO v2 — GAE λ=0.90 + 梯度裁剪 1.0 — 多步自对弈训练 (GPU)"""
 import subprocess, json, time, os, random, signal, sys
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
@@ -7,7 +7,7 @@ from torch.distributions import Categorical
 # === C4.2: 扩规模 ===
 N_EPISODES, BATCH, STEPS_PER_EP = 1000, 128, 200
 LR, CLIP, EPOCHS = 5e-5, 0.2, 4
-GAMMA, GAE_LAMBDA = 0.99, 0.95
+GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
 EXTREME_ADV_CLIP = 10.0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,7 +33,6 @@ except Exception as e:
 
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
-TRAJ = "/tmp/traj_one.json"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_state.pt"
 CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
@@ -42,19 +41,25 @@ CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(256,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        self.fc = nn.Sequential(nn.Linear(264,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
         self.actor, self.critic = nn.Linear(128,11), nn.Linear(128,1)
     def forward(self, x):
         h = self.fc(x)
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
 
+EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
+
 def run_episode(mapname, blue_model=None):
-    """Run one episode. If blue_model is given, pass --blue_model to ep_runner_one."""
+    """Run one episode using current model policy (not random).
+    Saves model to temp file, spawns isolated subprocess."""
+    # Save current model to temp checkpoint for the subprocess
+    ep_ckpt = f"/tmp/hermes_ep_model_{os.getpid()}.pt"
+    torch.save(model.state_dict(), ep_ckpt)
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
-    cmd = [VENV, RUNNER, str(STEPS_PER_EP), TRAJ, mapname]
+    cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     proc = subprocess.Popen(
@@ -64,9 +69,11 @@ def run_episode(mapname, blue_model=None):
     try: proc.wait(timeout=STEPS_PER_EP*3 + 15)
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
     try:
-        with open(TRAJ) as f: d = json.load(f)
+        # Clean up temp checkpoint
+        if os.path.exists(ep_ckpt):
+            os.remove(ep_ckpt)
+        with open(EP_TRAJ) as f: d = json.load(f)
         if d.get("steps",0)>0 and not d.get("error"):
-            # 打印英雄位置变化
             if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
                 print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={d.get('act',[])}", flush=True)
             return d

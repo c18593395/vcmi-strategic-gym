@@ -70,7 +70,7 @@ END_TURN = 10      # 结束当前回合
 N_ACTIONS = 11
 
 # 观测向量维度
-OBS_DIM = 256
+OBS_DIM = 264
 
 # StrategicState 最大实体数
 MAX_PLAYERS = 8
@@ -187,6 +187,11 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
             idx += _HERO_FIELDS if idx + _HERO_FIELDS <= OBS_DIM else 0
 
     # Pad remaining with zeros (should already be zero from np.zeros)
+    
+    # --- Passability (8) ---
+    for di in range(8):
+        obs[idx] = state.passable[di]; idx += 1
+    
     return obs
 
 
