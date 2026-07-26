@@ -188,9 +188,10 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
 
     # Pad remaining with zeros (should already be zero from np.zeros)
     
-    # --- Passability (8) ---
+    # --- Passability (8) — always at OBS_DIM-8 regardless of hero overflow ---
+    pidx = OBS_DIM - 8
     for di in range(8):
-        obs[idx] = state.passable[di]; idx += 1
+        obs[pidx + di] = state.passable[di]
     
     return obs
 

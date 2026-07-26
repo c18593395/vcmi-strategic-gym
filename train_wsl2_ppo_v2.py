@@ -15,21 +15,13 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
-# === C4.2: MAPS ===
+# === C4.2: MAPS — only maps with verified open starting positions ===
 MAPS = [
-    "Key to Victory.h3m", "Elbow Room.h3m", "Emerald Isles.h3m",
-    "Golems Aplenty.h3m", "A Warm and Familiar Place.h3m",
-    "All for One.h3m", "A Viking We Shall Go.h3m", "Dead and Buried.h3m",
+    "For Sale.h3m", "Elbow Room.h3m", "Elbow Room(Allies).h3m",
+    "Deluge.h3m",
 ]
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
-try:
-    with open(maps_json_path) as f:
-        loaded = json.load(f)
-        if "maps" in loaded and len(loaded["maps"]) > 0:
-            MAPS = loaded["maps"]
-            print(f"Loaded {len(MAPS)} maps from available_maps.json", flush=True)
-except Exception as e:
-    print(f"Could not load available_maps.json ({e}), using hardcoded {len(MAPS)} maps", flush=True)
+# Not loading from JSON — using verified-open maps only
 
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"

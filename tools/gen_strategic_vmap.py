@@ -36,16 +36,16 @@ SAND_TILES  = [f"sa{i:02d}_" for i in range(0, 10)]   # sand variants
 
 # Monster types (easy → hard)
 MONSTERS_EASY = [
-    "core:peasant", "core:imp", "core:gremlin", "core:skeleton",
-    "core:pixie", "core:centaur", "core:gnoll", "core:troglodyte",
+    "peasant", "imp", "gremlin", "skeleton",
+    "pixie", "centaur", "gnoll", "troglodyte",
 ]
 MONSTERS_MEDIUM = [
-    "core:harpy", "core:gargoyle", "core:golem", "core:wolfRider",
-    "core:orc", "core:ogre", "core:roc", "core:nomad",
+    "harpy", "gargoyle", "golem", "wolfRider",
+    "orc", "ogre", "roc", "nomad",
 ]
 MONSTERS_HARD = [
-    "core:griffin", "core:minotaur", "core:hydra", "core:angel",
-    "core:blackKnight", "core:boneDragon", "core:redDragon",
+    "griffin", "minotaur", "hydra", "angel",
+    "blackKnight", "boneDragon", "redDragon",
 ]
 
 # Mine types
@@ -171,7 +171,7 @@ class StrategicMapGenerator:
                     "mask": ["VVVVV", "VVAVV", "VVVVV"],
                     "visitableFrom": ["+++++", "++-++", "+++++"]
                 },
-                "type": "town",
+                "type": "core:town",
                 "x": tx,
                 "y": ty
             }
@@ -213,7 +213,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "hero",
+            "type": "core:hero",
             "x": hero_pos[0],
             "y": hero_pos[1],
         }
@@ -234,7 +234,7 @@ class StrategicMapGenerator:
                 "mask": ["V"],
                 "visitableFrom": ["+", "-", "+"]
             },
-            "type": "resource",
+            "type": "core:resource",
             "x": pos[0],
             "y": pos[1],
         }
@@ -255,7 +255,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV", "VVV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "monster",
+            "type": "core:monster",
             "x": pos[0],
             "y": pos[1],
         }
@@ -273,7 +273,7 @@ class StrategicMapGenerator:
                 "mask": ["VVV", "VAV", "VVV"],
                 "visitableFrom": ["+++", "+-+", "+++"]
             },
-            "type": "mine",
+            "type": "core:mine",
             "x": pos[0],
             "y": pos[1],
         }
@@ -294,7 +294,7 @@ class StrategicMapGenerator:
                 "mask": ["V"],
                 "visitableFrom": ["+", "-", "+"]
             },
-            "type": "artifact",
+            "type": "core:artifact",
             "x": pos[0],
             "y": pos[1],
         }
@@ -308,13 +308,13 @@ class StrategicMapGenerator:
                 "owner": player_color,
                 "formations": "random",
             },
-            "subtype": "core:garrison",
+            "subtype": "garrison",
             "template": {
                 "animation": "",
                 "mask": ["VVVVV", "VVAVV", "VVVVV"],
                 "visitableFrom": ["+++++", "++-++", "+++++"]
             },
-            "type": "garrison",
+            "type": "core:garrison",
             "x": pos[0],
             "y": pos[1],
         }
@@ -341,8 +341,7 @@ class StrategicMapGenerator:
         mid_x = self.size // 2
         for y in range(5, self.size - 5, 3):
             if random.random() < 0.3:
-                # Strategic chokepoint with garrison
-                self.add_garrison((mid_x, y), "red" if y < self.size // 2 else "blue")
+                pass  # garrison DISABLED (type unresolved)
         
         # Scatter resources in each player's territory
         for _ in range(int(self.size * self.resource_density)):
@@ -435,7 +434,7 @@ class StrategicMapGenerator:
         header = {
             "allowedArtifacts": {"anyOf": ["core:pendantOfFreeWill"]},
             "defeatIconIndex": 3,
-            "description": f"Strategic training map {self.size}x{self.size} — seed={self.seed}",
+            "description": f"Strategic training map {self.size}x{self.size} seed={self.seed}",
             "difficulty": "NORMAL",
             "mapLevels": {
                 "surface": {
