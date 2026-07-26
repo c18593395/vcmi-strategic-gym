@@ -217,7 +217,7 @@ class StrategicEnv(gym.Env):
         vcmi_loglevel_ai: str = "error",
         vcmienv_loglevel: str = "WARN",
         vcmienv_logtag: str = "StrategicEnv-v1",
-        red: str = "MMAI_USER",
+        red: str = "Nullkiller2",
         blue: str = "StupidAI",
         red_allow_mlbot: bool = False,
         blue_allow_mlbot: bool = False,
@@ -372,7 +372,7 @@ class StrategicEnv(gym.Env):
             return obs, info
 
         # 告知 VCMI 可以继续（回调内等待 action，必须先发一个信号）
-        self._send_action(0)
+        self._send_action(10)  # 10=end turn，reset 阶段不移动英雄
 
         # 读取初始状态
         state = self._read_state()
@@ -586,6 +586,12 @@ class StrategicEnv(gym.Env):
         """通过 ctypes 向 libmlclient 发送 action"""
         self._ensure_libml_loaded()
         if self._libml is not None:
+            # 先把动作写入共享全局变量 g_rl_action（C++ yourTurn 从此读取，不改变 struct 尺寸）
+            try:
+                g_rl = ctypes.c_int32.in_dll(self._libml, "g_rl_action")
+                g_rl.value = int(action)
+            except Exception:
+                pass
             self._libml.adventure_send_action(int(action))
 
     def _ensure_libml_loaded(self):
