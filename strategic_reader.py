@@ -61,6 +61,7 @@ class StrategicState(ctypes.Structure):
         ("heroes", StrategicHero * MAX_HEROES),
         ("towns", StrategicTown * MAX_TOWNS),
         ("game_over", ctypes.c_int32),
+        ("action", ctypes.c_int32),
         ("_version", ctypes.c_int32),
         ("passable", ctypes.c_int32 * 8),
     ]
