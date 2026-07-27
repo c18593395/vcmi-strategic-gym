@@ -235,6 +235,9 @@ class StrategicEnv(gym.Env):
         vcmi_timeout: int = 99999,
         user_timeout: int = 99999,
         libml_path: Optional[str] = None,
+        # 对手池模型路径
+        red_model_path: str = "",
+        blue_model_path: str = "",
         # 奖励系数
         reward_gold_mult: float = 0.01,    # 100g = +1 reward
         reward_town_mult: float = 30.0,
@@ -292,9 +295,9 @@ class StrategicEnv(gym.Env):
             vcmiTimeout=vcmi_timeout,
             userTimeout=user_timeout,
             red=red,
-            redModel="",
+            redModel=red_model_path,
             blue=blue,
-            blueModel="",
+            blueModel=blue_model_path,
             mapname=mapname,
             seed=self.seed,
             randomHeroes=random_heroes,

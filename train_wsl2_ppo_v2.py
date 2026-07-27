@@ -159,7 +159,7 @@ opponent_pool = []
 
 print(f"WSL2 PPO v2 — {N_EPISODES}eps×{STEPS_PER_EP}steps batch={BATCH} maps={len(MAPS)} device={DEVICE}", flush=True)
 print(f"  GAE λ={GAE_LAMBDA}  grad_clip={GRAD_CLIP_MAX}  gamma={GAMMA}", flush=True)
-print(f"  自对弈: red=MMAI blue=MMAI_USER/对手池", flush=True)
+print(f"  自对弈: red=MMAI_USER blue=MMAI_USER/对手池", flush=True)
 t0 = time.time()
 # LR 预热：从 MODEL_PATH 加载（新鲜优化器）时前 5 batch 渐增 LR，防止 NaN
 warmup_until_load = (resume_step == 0)
