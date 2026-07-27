@@ -348,7 +348,7 @@ namespace Connector::V15::Thread {
         return res;
     }
 
-    std::tuple<int, const std::string> Connector::render(int side) {
+    std::tuple<int, std::string> Connector::render(int side) {
         SHUTDOWN_PYTHON_RETURN("");
         auto code = getState(__func__, side, MMAI::Schema::ACTION_RENDER_ANSI);
         const auto * sup = extractSupplementaryData(state);
@@ -357,7 +357,7 @@ namespace Connector::V15::Thread {
         return {static_cast<int>(code), sup->getAnsiRender()};
     }
 
-    std::tuple<int, const py::dict> Connector::reset(int side) {
+    std::tuple<int, py::dict> Connector::reset(int side) {
         SHUTDOWN_PYTHON_RETURN(buildObsDict(state)); // reuse last state if shutting down
         auto code = getState(__func__, side, MMAI::Schema::ACTION_RESET);
         const auto p_dict = buildObsDict(state);
@@ -365,7 +365,7 @@ namespace Connector::V15::Thread {
         return {static_cast<int>(code), p_dict};
     }
 
-    std::tuple<int, const py::dict> Connector::step(int side, MMAI::Schema::Action a) {
+    std::tuple<int, py::dict> Connector::step(int side, MMAI::Schema::Action a) {
         SHUTDOWN_PYTHON_RETURN(buildObsDict(state)); // reuse last state if shutting down
         auto code = getState(__func__, side, a);
         const auto p_dict = buildObsDict(state);
@@ -440,7 +440,7 @@ namespace Connector::V15::Thread {
     }
 
     // initial connect is a special case and cannot reuse getState()
-    std::tuple<int, const py::dict> Connector::connect(int side) {
+    std::tuple<int, py::dict> Connector::connect(int side) {
         LOG("connect called with side=" + std::to_string(side));
 
         LOG("obtain lock2");
@@ -593,8 +593,27 @@ namespace Connector::V15::Thread {
         // auto oldcwd = std::filesystem::current_path();
 
         // This must happen in the main thread (SDL requires it)
+        initargs = std::make_unique<ML::InitArgs>(
+            _mapname, leftModel, rightModel,
+            _redAllowMlBot, _blueAllowMlBot,
+            0,                      // maxBattles (hardcoded, matching old behavior)
+            _seed,
+            _randomHeroes, _randomObstacles, _townChance, _warmachineChance,
+            _randomArmies ? 100 : 0,  // randomStackChance (mapped from v15's randomArmies bool)
+            _tightFormationChance,
+            _randomTerrainChance,
+            _leftVipChance, _rightVipChance,
+            _battlefieldPattern,
+            _manaMin, _manaMax,
+            _swapSides,
+            _loglevelGlobal, _loglevelAI, _loglevelStats,
+            _statsMode, _statsStorage,
+            60000,                  // statsTimeout (hardcoded, matching old behavior)
+            _statsPersistFreq,
+            true                    // headless
+        );
         LOG("call init_vcmi(...)");
-        init_vcmi(leftModel, rightModel, initargs);
+        ML::init_vcmi((void*)initargs.get());
 
         LOG("set connstate = AWAITING_STATE");
         connstate = ConnectorState::AWAITING_STATE;

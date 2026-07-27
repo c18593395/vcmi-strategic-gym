@@ -464,14 +464,13 @@ namespace Connector::V13::Thread {
         py::gil_scoped_release release;
 
         // Adventure mode: skip client wait, register callback before init_vcmi
-        bool is_adventure = (initargs.mapname.find("s1") != std::string::npos ||
-                             initargs.mapname.find("mini") != std::string::npos ||
-                             initargs.mapname.find("adventure") != std::string::npos ||
-                             initargs.mapname.find(".h3m") != std::string::npos);
+        bool is_adventure = (initargs->mapname.find("s1") != std::string::npos ||
+                             initargs->mapname.find("mini") != std::string::npos ||
+                             initargs->mapname.find("adventure") != std::string::npos ||
+                             initargs->mapname.find(".h3m") != std::string::npos);
 
         if (is_adventure) {
             LOG("Adventure mode — skipping client wait, registering callback");
-            std::cerr << "[DBG] setting g_adventure_cb" << std::endl;
             g_adventure_cb = adventure_cb_trampoline;
             g_adventure_cb_userdata = this;
             register_adventure_delegate(handleAdventureCallback, (void*)this);
@@ -551,8 +550,27 @@ namespace Connector::V13::Thread {
         }
 
         // This must happen in the main thread (SDL requires it)
+        initargs = std::make_unique<ML::InitArgs>(
+            _mapname, leftModel, rightModel,
+            _redAllowMlBot, _blueAllowMlBot,
+            0,                      // maxBattles (hardcoded, matching old behavior)
+            _seed,
+            _randomHeroes, _randomObstacles, _townChance, _warmachineChance,
+            _randomArmies ? 100 : 0,  // randomStackChance (mapped from v13's randomArmies bool)
+            _tightFormationChance,
+            _randomTerrainChance,
+            _leftVipChance, _rightVipChance,
+            _battlefieldPattern,
+            _manaMin, _manaMax,
+            _swapSides,
+            _loglevelGlobal, _loglevelAI, _loglevelStats,
+            _statsMode, _statsStorage,
+            60000,                  // statsTimeout (hardcoded, matching old behavior)
+            _statsPersistFreq,
+            true                    // headless
+        );
         LOG("call init_vcmi(...)");
-        init_vcmi(leftModel, rightModel, initargs);
+        ML::init_vcmi((void*)initargs.get());
 
         LOG("set connstate = AWAITING_STATE");
         connstate = ConnectorState::AWAITING_STATE;

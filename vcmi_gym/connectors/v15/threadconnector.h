@@ -22,11 +22,11 @@
 #include <deque>
 
 #include "ML/MLClient.h"
-#include "schema/v15/types.h"
+#include "common.h"
 #include "exporter.h"
 
 namespace Connector::V15::Thread {
-    enum ConnectorState : uint8_t{
+    enum ConnectorState {
         NEW,
         AWAITING_ACTION_0,
         AWAITING_ACTION_1,
@@ -36,8 +36,8 @@ namespace Connector::V15::Thread {
     class VCMIConnectorException : public std::exception {
         std::string msg_;
     public:
-        explicit VCMIConnectorException(const std::string& message) : msg_(message) {}
-        const char* what() const noexcept override { return msg_.c_str(); }
+        VCMIConnectorException(const std::string& message) : msg_(message) {}
+        virtual const char* what() const noexcept override { return msg_.c_str(); }
     };
 
     class Connector {
@@ -59,7 +59,7 @@ namespace Connector::V15::Thread {
         std::string _error;
 
         ConnectorState connstate = ConnectorState::NEW;
-        std::deque<std::string> logs;
+        std::deque<std::string> logs {};
 
         const int maxlogs;
         const int bootTimeout;
@@ -69,19 +69,49 @@ namespace Connector::V15::Thread {
         const std::string blue;
         const std::string redModel;
         const std::string blueModel;
-        const ML::InitArgs initargs;
+        std::unique_ptr<ML::InitArgs> initargs;
+
+        // Params stored for InitArgs construction in start()
+        const std::string _mapname;
+        const int _seed;
+        const int _randomHeroes;
+        const int _randomObstacles;
+        const int _townChance;
+        const int _warmachineChance;
+        const bool _randomArmies;
+        const int _randomArmyValueMin;
+        const int _randomArmyValueMax;
+        const int _randomArmyTargetVar;
+        const int _tightFormationChance;
+        const int _randomTerrainChance;
+        const int _leftVipChance;
+        const int _rightVipChance;
+        const std::string _battlefieldPattern;
+        const int _manaMin;
+        const int _manaMax;
+        const int _randomPrimarySkills;
+        const int _swapSides;
+        const std::string _loglevelGlobal;
+        const std::string _loglevelAI;
+        const std::string _loglevelNetwork;
+        const std::string _loglevelStats;
+        const bool _redAllowMlBot;
+        const bool _blueAllowMlBot;
+        const std::string _statsMode;
+        const std::string _statsStorage;
+        const int _statsPersistFreq;
 
         std::thread vcmithread;
         MMAI::Schema::IModel* leftModel = nullptr;
         MMAI::Schema::IModel* rightModel = nullptr;
-        int action = -666;
-        const MMAI::Schema::IState * state = nullptr;
+        MMAI::Schema::Action action;
+        const MMAI::Schema::IState * state;
 
-        py::dict buildObsDict(const MMAI::Schema::IState * s);
-        MMAI::Schema::Action getAction(const MMAI::Schema::IState * s, int side);
-        MMAI::Schema::Action getActionDummy(MMAI::Schema::IState);
+        MMAI::Schema::Action getAction(const MMAI::Schema::IState * r, int side);
+        const MMAI::Schema::Action getActionDummy(MMAI::Schema::IState);
         const MMAI::Schema::V15::ISupplementaryData* extractSupplementaryData(const MMAI::Schema::IState *s);
 
+        py::dict buildObsDict(const MMAI::Schema::IState * s);
         // essentially, all of .reset(), .render() and .step() are a form of getState
         ReturnCode getState(const char* funcname, int side, int action);
 
@@ -163,72 +193,46 @@ namespace Connector::V15::Thread {
         , redModel(redModel)
         , blue(blue)
         , blueModel(blueModel)
-        , initargs(ML::InitArgs{
-            .leftAllowMlBot=redAllowMlBot,
-            .rightAllowMlBot=blueAllowMlBot,
-            .mapname=mapname,
-            .maxBattles=0,
-            .seed=seed,
-            .randomHeroes=randomHeroes,
-            .randomObstacles=randomObstacles,
-            .townChance=townChance,
-            .warmachineChance=warmachineChance,
-            .randomArmies=randomArmies,
-            .randomArmyValueMin=randomArmyValueMin,
-            .randomArmyValueMax=randomArmyValueMax,
-            .randomArmyTargetVar=randomArmyTargetVar,
-            .tightFormationChance=tightFormationChance,
-            .randomTerrainChance=randomTerrainChance,
-            .leftVipChance=leftVipChance,
-            .rightVipChance=rightVipChance,
-            .battlefieldPattern=battlefieldPattern,
-            .manaMin=manaMin,
-            .manaMax=manaMax,
-            .randomPrimarySkills=randomPrimarySkills,
-            .swapSides=swapSides,
-            .loglevelGlobal=loglevelGlobal,
-            .loglevelAI=loglevelAI,
-            .loglevelNetwork=loglevelNetwork,
-            .loglevelStats=loglevelStats,
-            .statsMode=statsMode,
-            .statsStorage=statsStorage,
-            .statsTimeout=60000,
-            .statsPersistFreq=statsPersistFreq,
-            .headless=true,
-        })
+        , _mapname(mapname)
+        , _seed(seed)
+        , _randomHeroes(randomHeroes)
+        , _randomObstacles(randomObstacles)
+        , _townChance(townChance)
+        , _warmachineChance(warmachineChance)
+        , _randomArmies(randomArmies)
+        , _randomArmyValueMin(randomArmyValueMin)
+        , _randomArmyValueMax(randomArmyValueMax)
+        , _randomArmyTargetVar(randomArmyTargetVar)
+        , _tightFormationChance(tightFormationChance)
+        , _randomTerrainChance(randomTerrainChance)
+        , _leftVipChance(leftVipChance)
+        , _rightVipChance(rightVipChance)
+        , _battlefieldPattern(battlefieldPattern)
+        , _manaMin(manaMin)
+        , _manaMax(manaMax)
+        , _randomPrimarySkills(randomPrimarySkills)
+        , _swapSides(swapSides)
+        , _loglevelGlobal(loglevelGlobal)
+        , _loglevelAI(loglevelAI)
+        , _loglevelNetwork(loglevelNetwork)
+        , _loglevelStats(loglevelStats)
+        , _redAllowMlBot(redAllowMlBot)
+        , _blueAllowMlBot(blueAllowMlBot)
+        , _statsMode(statsMode)
+        , _statsStorage(statsStorage)
+        , _statsPersistFreq(statsPersistFreq)
         {};
-
-
-        // Observation structure (step(), reset()):
-        // {
-        //      "nodes": {
-        //          "Hex":  [[...], [...], ...],    // shape (num_nodes, D)
-        //          "Unit": [[...], [...], ...],    // shape (num_nodes, D)
-        //          ...
-        //      },
-        //      "edges": {
-        //          ("Hex", "Adjacent", "Hex"): {
-        //              "index": [                      // shape (2, num_edges)
-        //                  [srcId0, srcId1, ...],
-        //                  [dstId0, dstId1, ...]
-        //              ],
-        //              "attrs": [[...], [...], ...],   // shape (num_edges, D)
-        //          },
-        //          ...
-        //      }
-        // }
-        const py::dict obs;
 
         // timeouts are in seconds
         void start();
-        std::tuple<int, const py::dict> connect(int side);
-        std::tuple<int, const py::dict> reset(int side);
-        std::tuple<int, const py::dict> step(int side, MMAI::Schema::Action a);
-        std::tuple<int, const std::string> render(int side);
+        std::tuple<int, py::dict> connect(int side);
+        std::tuple<int, py::dict> reset(int side);
+        std::tuple<int, py::dict> step(int side, const MMAI::Schema::Action a);
+        std::tuple<int, std::string> render(int side);
         void shutdown();
         std::vector<std::string> getLogs();
 
-        virtual int version() { return 15; };
+        virtual const int version() { return 15; };
         virtual ~Connector() = default;
     };
 }

@@ -563,8 +563,27 @@ namespace Connector::V14::Thread {
         }
 
         // This must happen in the main thread (SDL requires it)
+        initargs = std::make_unique<ML::InitArgs>(
+            _mapname, leftModel, rightModel,
+            _redAllowMlBot, _blueAllowMlBot,
+            0,                      // maxBattles (hardcoded, matching old behavior)
+            _seed,
+            _randomHeroes, _randomObstacles, _townChance, _warmachineChance,
+            _randomArmies ? 100 : 0,  // randomStackChance (mapped from v14's randomArmies bool)
+            _tightFormationChance,
+            _randomTerrainChance,
+            _leftVipChance, _rightVipChance,
+            _battlefieldPattern,
+            _manaMin, _manaMax,
+            _swapSides,
+            _loglevelGlobal, _loglevelAI, _loglevelStats,
+            _statsMode, _statsStorage,
+            60000,                  // statsTimeout (hardcoded, matching old behavior)
+            _statsPersistFreq,
+            true                    // headless
+        );
         LOG("call init_vcmi(...)");
-        init_vcmi(leftModel, rightModel, initargs);
+        ML::init_vcmi((void*)initargs.get());
 
         LOG("set connstate = AWAITING_STATE");
         connstate = ConnectorState::AWAITING_STATE;
