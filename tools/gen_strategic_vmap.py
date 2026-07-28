@@ -445,7 +445,7 @@ class StrategicMapGenerator:
                     "width": self.size,
                 }
             },
-            "mods": None,
+            "mods": {},
             "name": f"strategic-{self.size}",
             "players": {
                 "blue": {
