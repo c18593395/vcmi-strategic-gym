@@ -54,9 +54,10 @@ def run_episode(mapname, blue_model=None):
     cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
+    ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env
+        stdout=open(ep_log, "w"), stderr=subprocess.STDOUT, env=env
     )
     try: proc.wait(timeout=STEPS_PER_EP*3 + 15)
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
@@ -67,7 +68,9 @@ def run_episode(mapname, blue_model=None):
         with open(EP_TRAJ) as f: d = json.load(f)
         if d.get("steps",0)>0 and not d.get("error"):
             if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
-                print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={d.get('act',[])}", flush=True)
+                obs_nz = np.count_nonzero(d["obs"][0])
+                acts = d.get("act", [])
+                print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={acts} obs_nz={obs_nz}", flush=True)
             return d
     except: pass
     return None
