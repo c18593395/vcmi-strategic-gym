@@ -17,7 +17,7 @@ if [ -f "$V2_FLAG" ]; then
     TRAINER=$TRAINER_V2
 fi
 
-export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel
+export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-native/rel/bin/AI:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel
 export STRATEGIC_STATE_LIB=/home/administrator/vcmi-native/rel/bin/libmlclient.so
 
 # 清 pyc 缓存
