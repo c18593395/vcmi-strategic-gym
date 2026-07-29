@@ -551,3 +551,38 @@ Python → 读 g_strategic_state (ctypes)
 
 **训练重启：** 清旧模型（wsl2_model.pt + checkpoints）后重启 train_loop.sh，`obs_nz=61`（含 day/map_size 填充），V2 PPO 在跑。
 
+---
+
+## 九、C8 行为克隆计划（2026-07-29 讨论）
+
+### 动机
+自对弈（red=MMAI_USER, blue=MMAI_USER）双方只会 act=10（END_TURN），模型塌缩。根因不是奖励函数，而是对手死了。
+
+### 新路径
+行为克隆（BC）预训练 → PPO 微调。
+
+**Step 1:** Nullkiller2 双开采集数据（red=Nullkiller2, blue=Nullkiller2）
+**Step 2:** 从 Nullkiller2 的移动推断 action（dx/dy → 方向映射表）
+**Step 3:** 行为克隆训练（CrossEntropyLoss, 只训 actor）
+**Step 4:** PPO 微调（加载 BC 权重, blue=Nullkiller2 作为对手）
+
+### 优点
+- Nullkiller2 能探索、占矿、攻城、城镇管理
+- 模型从真实行为学习策略，不是从零随机探索
+- 零训练时间浪费在"学 END_TURN 不动"
+
+### Nullkiller2 城镇管理评估
+- 建筑顺序：保守但合理（城堡→兵营），不够优但不影响 BC
+- 招兵策略：全招满，不挑
+- 多英雄控制：会招第二个但分配一般
+- 对 BC 阶段：**足够产生有意义数据**
+
+### 1v7 最终需求分析（讨论总结）
+当前架构受限的三个根本问题：
+1. **模型是瞎子**—obs 缺地图探索、敌方位置、已探索区域、战争迷雾
+2. **PPO 无记忆**—MLP 不记得上周做了什么
+3. **单 Agent 限制**—多英雄协调/分工超出当前 PPO 能力
+
+需要扩展的维度：探索格点地图、敌方感知、切英雄动作、记忆网络（LSTM/RNN）。
+详见 `总任务.md` 的 1v7 需求清单。
+
