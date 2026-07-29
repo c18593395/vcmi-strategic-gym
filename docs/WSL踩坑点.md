@@ -523,3 +523,23 @@
   1. 改用  的  — 可能绕过 query 限制，且是 public 接口
   2. 加全局 CGameState* 指针，async task 中设置
   3. 在 async task（selectionMade 后）调用 strategic_state_update
+
+### 60. g_ml_player_cb — 全局 CCallback 指针传参
+- **现象**:  收到  即使  传了 
+- **根因**: 部署版 MMAI AAIs 的  成员在  时可能为空（shared_ptr 未初始化或已移动）
+- **解决**: 在  定义 ， 中先  再调 
+-  中  双保险
+- **涉及文件**: , 
+
+### 61. CGameInfoCallback 比 getHeroesInfo 更可靠
+- **现象**:  在  前返回空
+- **根因**:  在 query 未回答时返回空列表
+- **解决方案**: 用  的  替代，这些 public 方法绕过 query 限制，直接从 game state 读取
+- **可用 public 方法**: , , 
+- **局限性**: ,  在部署版不可用或 protected
+
+### 62. VCMI stdout 重定向吞掉 Python print
+- **现象**: Python  输出在 timeout: failed to run command ‘python’: No such file or directory 中不显示
+- **根因**: VCMI 的  +  可能重定向 fd 1
+- **诊断方法**: 重定向到文件  后检查文件内容
+- **已知影响**: 临时文件路径下跑测试 stdout 不可见；直接 WSL 终端下正常

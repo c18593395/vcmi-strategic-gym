@@ -468,3 +468,36 @@ Python → 读 g_strategic_state (ctypes)
 
 **方案 C**: Python 侧 fallback。
 
+
+## 十五、obs_nz 修复 — CGameInfoCallback 方案 (2026-07-29)
+
+**obs_nz: 8 → 34，奖励: -0.1 → +6.15**
+
+### 根因
+
+部署版  结构：
+
+
+ 中  → 空（query 未答）。
+ 的  是 public 方法，绕过 query 限制。
+
+### 修复
+
+1.  —  改用  public 方法：
+   -  → player + heroes
+   -  → hero 数据
+   -  → 资源
+
+2.  — 全局  指针：
+   -  中 
+   -  读取该指针
+
+3. 重编 2 个 .so： + 
+
+### 局限性
+- （callback 只能看到红方自己，看不到蓝方）
+-  未填充（ 和  在部署版不可用）
+-  Python 侧计算
+
+### 验证
+
