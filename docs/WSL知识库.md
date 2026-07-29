@@ -432,17 +432,39 @@ Python → 读 g_strategic_state (ctypes)
 - 工作组合全部用最新重建产物（见 `WSL踩坑点.md` 第十~十一节）
 
 **当前剩余：** obs_nz=8 仅 passable。`getHeroesInfo()` 返回空（地图无初始英雄），`fill_state_from_cb` 需迭代。
+```
 
-```
-Phase A: VCMI 冒险地图 API    ✅ 完成
-Phase B: 战略 Gym 环境        ✅ 完成
-Phase C: 自对弈 PPO 训练      🟢 C4 运行中
-  ├ C1-C3: 基础训练 + 对手池 + ELO  ✅
-  ├ C4: 长程训练 (2000ep×50步)        🟢 运行中
-  └ C5: 训练升级 (多玩家/强对手)       ⬜
-Phase D: 战斗集成              ⬜
-Phase E: 真实游戏部署           ⬜ Track 2
-Phase F: 你 vs AI (1v1)       ⬜
-Phase G: 1v7 战胜你            ⬜
-v15 架构迁移                   ⬜ Phase G 前（图状态 + GNN + py::dict）
-```
+
+## 十四、StrategicEnv 循环打通 (2026-07-29)
+
+**env.reset() + step() 循环完整可跑通**，战斗自动解析。
+
+### 关键修复
+
+| 问题 | 修复 |
+|------|------|
+| battle 卡死 (MMAI_USER 等待 step 回调) |  战斗自动解析，不通过 connector 回调 |
+| obs_nz=8 (状态数据空) | 根因已定位： 在  前调  → 空 |
+
+### 验证结果
+
+
+### 待修：obs_nz=8 根因
+
+ 结构：
+
+
+ 在 async task 之前同步执行，此时 query 未答 →  空。
+
+### 修复路线
+
+**方案 A（推荐）**:  中  改用  public 方法：
+-  → day/week/month
+-  → player + heroes via 
+-  → resources
+- 不需要 CGameState 访问权限，可能绕过 query 限制
+
+**方案 B**: 加全局 CGameState* 指针， 的 async task 设置， 读取。
+
+**方案 C**: Python 侧 fallback。
+

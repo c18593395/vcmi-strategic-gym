@@ -500,3 +500,26 @@
 
 ## 九、CGameState 空问题修复（2026-07-28）【已移到上方】
 
+
+### 57. MMAI_USER battle hang — env 无 battle step 回调
+- **现象**: env.reset() 后 installNewBattleInterface 四色全部 EXIT OK，然后  静等 15s 超时
+- **特征**: 战斗接口全部初始化 OK，但游戏再也进不了冒险回合
+- **根因**:  时 leftModel=Function(f_getAction0)，战斗需要 python 调  才能返回 action。但 strategic_env 不驱动战斗（只调 adventure_wait/act），战斗永远挂起
+- **解决**: 改为 （或 Nullkiller/BattleAI），战斗自动解析不通过 connector 回调
+- **影响**: 冒险测试不能用 MMAI_USER，只能用 auto-battle AI
+- **副作用**:  和  参数当前无用（blue 也固定 StupidAI）
+
+### 58. VCMIGYM_DEBUG=1 导致 importerror
+- **现象**:  报 
+- **根因**:  导入 v14，v14 的 pyconnector 在  时从  导入 exporter_v14，但 build/ 目录只有 connector .so 没有 exporter .so
+- **解决**: 不要设 ，默认从  导入（有完整 exporter_v13/14/15.so）
+- **涉及文件**: 
+
+### 59. getHeroesInfo() 在 selectionMade 前返回空
+- **现象**:  内  返回空（size=0）
+- **根因**: 部署版  结构： 同步调用（selectionMade 前）→ async task 中  后才可访问英雄
+- **影响**: StrategicState 全零（obs_nz=8 仅 passability），英雄/资源/日期数据缺失
+- **候选方案**:
+  1. 改用  的  — 可能绕过 query 限制，且是 public 接口
+  2. 加全局 CGameState* 指针，async task 中设置
+  3. 在 async task（selectionMade 后）调用 strategic_state_update

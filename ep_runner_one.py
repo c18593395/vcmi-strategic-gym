@@ -44,21 +44,12 @@ if args.model and os.path.exists(args.model):
         except:
             red_model = None
 
-# --blue_model: use ML model as blue (MMAI_MODEL triggers model inference in C++)
-blue = "MMAI_USER"
-if args.blue_model:
-    blue = "MMAI_MODEL"
-    os.environ["ML_MODEL_PATH"] = args.blue_model
-# --blue_ai: directly override blue AI type (takes precedence)
-if args.blue_ai:
-    blue = args.blue_ai
-
 traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "steps": 0, "total_rew": 0.0}
 try:
     env = StrategicEnv(
         mapname=args.mapname, max_turns=args.max_turns,
         vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
-        vcmienv_loglevel="ERROR", red="MMAI_USER", blue=blue,
+        vcmienv_loglevel="ERROR", red="StupidAI", blue="StupidAI",
         random_heroes=1, boot_timeout=60, vcmi_timeout=15,
         red_model_path=args.model or "",
         blue_model_path=args.blue_model or "",
