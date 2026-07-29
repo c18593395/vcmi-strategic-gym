@@ -510,9 +510,25 @@ Python → 读 g_strategic_state (ctypes)
 3. 重编 2 个 .so： + 
 
 ### 局限性
-- （callback 只能看到红方自己，看不到蓝方）
--  未填充（ 和  在部署版不可用）
--  Python 侧计算
+- `player_lib` 模式只能看到红方自己，看不到蓝方（callback 权限限制）
+- 修复前 `map_size`/`day` 未填充（`adventure_process_turn` 缺失日历和地图信息）
+- `passability` 在 Python 侧计算（`obs[-8:]`，不受 C++ 影响）
 
 ### 验证
+
+---
+
+## 七、connector 日历/地图填充（2026-07-29）
+
+**问题：** `adventure_process_turn()`（connector 路径）不填 `day`/`week`/`month`/`map_width`/`map_height`/`has_underground`，只有 `strategic_state_update()`（dlsym 路径）会填。
+
+**影响：** 训练缺时间感知（周/月信息），可通行性方向计算缺地图边界验证。
+
+**修复：**
+- `strategic_state.cpp:adventure_process_turn()` 加两个填充块：
+  1. 日历：`gicb->gameState().day` → `state.day/week/month`（匹配 `strategic_state_update` 的 `(gs.day-1)/7+1` 算法）
+  2. 地图尺寸：`gicb->getMapSize()` → `state.map_width/height/has_underground`
+- 同步到 WSL2 4 个副本（`hero3_vcmi`/`vcmi-native`/`vcmi-native-build`/`vcmi-build-latest`）
+
+**原则：** 避免用 `getCalendar()`（部署版不可用），改用 `gameState().day` 直接访问 `CGameState::day`。
 

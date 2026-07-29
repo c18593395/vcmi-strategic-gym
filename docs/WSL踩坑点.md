@@ -564,3 +564,12 @@
 - **根因**: VCMI 的  +  可能重定向 fd 1
 - **诊断方法**: 重定向到文件  后检查文件内容
 - **已知影响**: 临时文件路径下跑测试 stdout 不可见；直接 WSL 终端下正常
+
+### 63. adventure_process_turn 缺日历/地图填充
+- **现象**: `StrategicState.day/week/month/map_width/map_height/has_underground` 全0
+- **根因**: `adventure_process_turn()` 只填 player/hero/passability/game_over，没写日历和地图字段。`strategic_state_update()`（dlsym 路径）有填，但 connector 路径不走那个函数。
+- **影响**: 训练缺时间感知；地图尺寸缺失导致 passability 方向验越界不完整
+- **修复**: 在 `adventure_process_turn()` 加：
+  1. `gicb->gameState().day` → day/week/month（不用 `getCalendar()`，部署版没有）
+  2. `gicb->getMapSize()` → map_width/map_height/has_underground
+- **注意事项**: 改的是 `vcmi/ML/strategic_state.cpp`，须同步到 WSL2 所有副本（`hero3_vcmi`/`vcmi-native`/`vcmi-native-build`/`vcmi-build-latest`）
