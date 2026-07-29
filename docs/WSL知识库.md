@@ -36,7 +36,22 @@
 
 ## 三、关键技术决策
 
-### 3.1 两段式设计
+### 3.1 Passability（通行性）系统 (2026-07-29)
+
+**方向映射规则**：全系统统一 N-start 顺时针
+```
+dx = {0, 1, 1, 1, 0, -1, -1, -1}
+dy = {-1, -1, 0, 1, 1, 1, 0, -1}
+```
+0=N, 1=NE, 2=E, 3=SE, 4=S, 5=SW, 6=W, 7=NW。三处 must match：`strategic_state.cpp` passability、`AAI.cpp` moveHero、Python。不一致则模型坍缩。
+
+**计算方法**：`tile.isClear(heroTile)` 通过 `CGameInfoCallback::getTile()` 获取，替代 `CCallback::canMoveBetween()`（太宽松，只查 `isBlockedVisitable`，漏地形/障碍）。
+
+**waitTillRealize 陷阱**：`cb->waitTillRealize = true` 下 `moveHero()`/`endTurn()` 同步等服务器确认，失败时不返回→线程卡死。修复：调用前设 false，调用后恢复。
+
+**Non-red 处理**：MMAI 为三方注册实例。blue/tan 的 yourTurn 必须立即 `selectionMade` + `endTurn`（设 false），否则卡死循环。`AAI.cpp` `AAI::yourTurn()` 实现。
+
+### 3.2 两段式设计
 
 ```
 训练端 (WSL2):  /home/administrator/vcmi-workspace/, MMAI ON, RTX 3060

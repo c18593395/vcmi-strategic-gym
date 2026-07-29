@@ -431,7 +431,28 @@
 
 ---
 
-## 十一、#46 installNewBattleInterface segfault（2026-07-29）
+## 十一、Passability 修复总结（2026-07-29）
+
+### 1. 方向映射不统一 → 模型坍缩
+- **现象**：200步全选同一方向，r=-89.5/ep，vloss→0
+- **根因**：`strategic_state.cpp` passability 用的 E-start 方向，`AAI.cpp` moveHero 用的 N-start。passable[0] 检查 East，action=0 移动 North → 模型认为"方向0可通"但"选方向0走不通"
+- **修复**：全系统统一 `dx={0,1,1,1,0,-1,-1,-1} dy={-1,-1,0,1,1,1,0,-1}`（N-start CW）
+- **三处必须一致**：`strategic_state.cpp` passability、`AAI.cpp` moveHero、Python 侧
+
+### 2. canMoveBetween 太宽松 → passability 全1
+- **现象**：`obs[-8:] = [1,1,1,1,1,1,1,1]` 永远全可通
+- **根因**：`CCallback::canMoveBetween()` 只查 `isBlockedVisitable()`，不查 `terrain.isPassable()` 和障碍物。且客户端 CGameState 在 yourTurn 时数据不完整
+- **修复**：改用 `CGameInfoCallback::getTile(target, false)->isClear(heroTile)`，检查实际地形+障碍物
+
+### 3. waitTillRealize=true → moveHero/endTurn 卡死
+- **现象**：`cb->moveHero()` 和 `cb->endTurn()` 永远不返回
+- **根因**：`cb->waitTillRealize = true` 时，moveHero 同步等待服务器确认。被拒绝的 move 不返回确认 → 线程卡
+- **修复**：调用前 `cb->waitTillRealize = false`，调用完恢复
+
+### 4. Non-red 玩家不处理 → step 超时
+- **现象**：step() 等待 30s 后 timeout
+- **根因**：red endTurn 后 game 调 blue/tan 的 yourTurn，但旧代码用 asyncTasks 异步处理且不 endTurn → 卡住
+- **修复**：`AAI::yourTurn` 对非红方立即 selectionMade + doEndTurn（设 waitTillRealize=false）
 
 ### 50. installNewBattleInterface 中性玩家 crash
 - **现象**: env.reset() 在 "Initializing the battle interface for player neutral" 后 segfault
