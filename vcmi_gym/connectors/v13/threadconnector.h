@@ -28,6 +28,7 @@
 namespace Connector::V13::Thread {
     enum ConnectorState {
         NEW,
+        INITIALIZED,
         AWAITING_ACTION_0,
         AWAITING_ACTION_1,
         AWAITING_STATE,
@@ -240,6 +241,7 @@ namespace Connector::V13::Thread {
         {};
 
         // timeouts are in seconds
+        void init(); // call on main thread (creates models + init_vcmi)
         void start();
         const std::tuple<int, P_State> connect(int side);
         const std::tuple<int, P_State> reset(int side);

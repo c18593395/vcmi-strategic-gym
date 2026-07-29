@@ -92,6 +92,7 @@ namespace Connector::V13 {
                 py::arg("statsPersistFreq")
             )
             .def("shutdown", &Thread::Connector::shutdown)
+            .def("init", &Thread::Connector::init)
             .def("start", &Thread::Connector::start)
             .def("reset", &Thread::Connector::reset)
             .def("connect", &Thread::Connector::connect)

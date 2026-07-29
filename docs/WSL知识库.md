@@ -416,6 +416,23 @@ Python → 读 g_strategic_state (ctypes)
 
 **改代码后必须同步两份**：`cp vcni-native/* vcmi-native-build/*`。不然改了 vcmi-native 的 .cpp，编译的还是 vcmi-native-build 的旧代码。
 
+**RUNPATH 陷阱**：`libmlclient.so` 和 `vcmiserver` 的 RUNPATH 指向 `/home/administrator/vcmi-native-build/rel/bin/`，运行时优先从 build 目录加载 `.so`。部署到 `rel/` 后靠 `LD_LIBRARY_PATH` 覆盖。
+
+**#46 修复关键**：重建三件套（vcmiserver + libmlclient.so + libMMAI.so）后 segfault 消失。installNewBattleInterface 全流程通过（加 fprintf 确认）。工作组合见 `WSL踩坑点.md` 第50项。
+
+**当前阻塞（2026-07-29）**：installNewBattleInterface 修复后通，但 game main loop 启动时 segfault。非代码改动导致，WSL 重启后稳定复现，所有组件版本组合均崩。需 gdb backtrace 定位。另 `adventure_wait_for_turn()` 信号量机制不工作（`AAI::yourTurn` 不设原子变量），`obs_nz=0` 的根本原因。
+
+===
+
+✅ **2026-07-29 全线打通**：env.reset() 返回 obs_nz=8/264！全部修复：
+- Discord null dereference（`GameEngine::hasDiscord()` guard）
+- 信号量通信（`AAI::yourTurn` 调 `adventure_process_turn()`）
+- Hero pool even 检查（`pop_back` 替代 throw）
+- step() 5 步无崩溃
+- 工作组合全部用最新重建产物（见 `WSL踩坑点.md` 第十~十一节）
+
+**当前剩余：** obs_nz=8 仅 passable。`getHeroesInfo()` 返回空（地图无初始英雄），`fill_state_from_cb` 需迭代。
+
 ```
 Phase A: VCMI 冒险地图 API    ✅ 完成
 Phase B: 战略 Gym 环境        ✅ 完成

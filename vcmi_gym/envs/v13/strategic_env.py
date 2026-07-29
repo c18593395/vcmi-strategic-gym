@@ -329,6 +329,10 @@ class StrategicEnv(gym.Env):
         )
         self.logger.debug("ThreadConnector created")
 
+        # 在主线程初始化 VCMI（SDL 需要主线程）
+        self.connector.init()
+        self.logger.debug("VCMI init OK (main thread)")
+
         # --- VCMI 启动 (在后台线程) ---
         self._vcmi_started = False
         self._vcmi_just_started = False  # DummyVecEnv 短路标志
