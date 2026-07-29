@@ -573,3 +573,22 @@
   1. `gicb->gameState().day` → day/week/month（不用 `getCalendar()`，部署版没有）
   2. `gicb->getMapSize()` → map_width/map_height/has_underground
 - **注意事项**: 改的是 `vcmi/ML/strategic_state.cpp`，须同步到 WSL2 所有副本（`hero3_vcmi`/`vcmi-native`/`vcmi-native-build`/`vcmi-build-latest`）
+
+### 64. EEXIST — boost::create_directories 对符号链接失败
+- **现象**: `boost::filesystem::create_directories: File exists [system:17]: "./data"`
+- **根因**: `rel/bin/data` 是 cmake POST_BUILD 创建的符号链接（`data -> ../../data`），指向 `/home/administrator/data` 不存在。boost::create_directories 先 stat（跟符号链接 → ENOENT）后 mkdir（发现已有 symlink 条目 → EEXIST）
+- **影响**: 阻塞 v15 connector 初始化，无法使用 v15 架构
+- **修复**: 删符号链接，建真实目录，内部 ln -sf 具体文件：
+  ```bash
+  rm -rf rel/bin/data && mkdir -p rel/bin/data && cd rel/bin/data
+  ln -sf /home/administrator/vcmi-native-build/data/H3bitmap.lod .
+  # 同理其他文件...
+  ```
+- **cmake 陷阱**: 每次 `cmake --build` 重建 mlclient 时 POST_BUILD 重新创建符号链接。必须重建后重新修复
+- **同时修复**: 所有 config 目录写入有效 JSON + 删除递归 config 符号链接
+
+### 65. 旧模型权重编码旧 obs 模式 — 清权重才能受益于新 obs
+- **现象**: 修好 passability/day/map_size 填充后，旧模型仍然 act=[10,10,...]（END_TURN），不探索
+- **根因**: 旧模型在 obs_nz=29（缺数据）上训练了 73000+ step，权重编码了"obs 大部分为零 → 无用信息 → 执行 END_TURN"
+- **修复**: `rm wsl2_model.pt wsl2_model_state.pt; rm checkpoints/*.pt`，重启训练
+- **验证**: 新随机模型首次 ep 就 obs_nz=61（数据完整），avg_r 从随机水平开始正常学习

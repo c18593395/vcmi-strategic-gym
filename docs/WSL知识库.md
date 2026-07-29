@@ -532,3 +532,22 @@ Python → 读 g_strategic_state (ctypes)
 
 **原则：** 避免用 `getCalendar()`（部署版不可用），改用 `gameState().day` 直接访问 `CGameState::day`。
 
+---
+
+## 八、#45 EEXIST 解锁 + v15 connector 重建（2026-07-29）
+
+**问题：** `boost::filesystem::create_directories: File exists [system:17]: "./data"` 在 v15 connector 初始化时抛异常。
+
+**根因：** `vcmi-native-build/rel/bin/data` 是 cmake POST_BUILD 创建的坏符号链接（`data -> ../../data` 指向 `/home/administrator/data` 不存在）。`boost::create_directories` 对已存在的符号链接抛 EEXIST。
+
+**修复：**
+- 删符号链接，建真实目录 `rel/bin/data/`，内部用 `ln -sf` 链接具体文件
+- 同时修复：所有 config 目录的所有大小写变体写入有效 JSON
+- 删除递归 config 符号链接（`config/config -> ../../config`）
+
+**v15 connector 重建：** 清 CMakeCache 后 `cmake .. -DVCMI_DIR=/home/administrator/vcmi-native` 重建成功（681KB）
+
+**已知问题：** v15 VcmiEnv init 后在中立玩家 `installNewBattleInterface` 后 segfault（独立问题，不阻塞 #45）
+
+**训练重启：** 清旧模型（wsl2_model.pt + checkpoints）后重启 train_loop.sh，`obs_nz=61`（含 day/map_size 填充），V2 PPO 在跑。
+
