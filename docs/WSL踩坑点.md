@@ -592,3 +592,44 @@
 - **根因**: 旧模型在 obs_nz=29（缺数据）上训练了 73000+ step，权重编码了"obs 大部分为零 → 无用信息 → 执行 END_TURN"
 - **修复**: `rm wsl2_model.pt wsl2_model_state.pt; rm checkpoints/*.pt`，重启训练
 - **验证**: 新随机模型首次 ep 就 obs_nz=61（数据完整），avg_r 从随机水平开始正常学习
+
+---
+
+## 2026-07-31 — C8.2 Nullkiller2 验证修复链（5 个阻塞）
+
+### 1. MLClient.h InitArgs 头文件与 .so 布局漂移
+- **现象**: connector_v13 编译报 `cannot convert string to bool`（_mapname → bool leftAllowMlBot）
+- **根因**: 某会话把 MLClient.h InitArgs 重构成 33 字段 string 版（git a15789690），但 libmlclient.so 实际是 28 字段 IModel* 版（MLClient.cpp 引用 `a.leftModel`，.o 未重编）→ 头文件与 .so ABI 分裂
+- **诊断**: `gdb -batch -ex 'ptype ML::InitArgs' libmlclient.so` 直接读出 .so 内部真实布局（298MB .so 含 debug info）
+- **修复**: 头文件恢复 28 字段 IModel* 布局 + `init_vcmi(void*)` 单参声明。三副本（vcmi-native / vcmi-native-build / 项目源）同步
+- **教训**: 改 MLClient.h 布局必须同步重建 libmlclient.so + connector，否则静默 ABI 分裂。头文件与 .so 的真理以 gdb ptype 为准
+
+### 2. connector_v13.so 本体丢失
+- **现象**: `rel/connector_v13.so` 不存在（只剩 .current/.bak/.new），strategic_env.py `from ...connectors.rel import connector_v13` 必 ImportError
+- **根因**: 23:35 cmake 重配后 v13 target 未被构建（只建了 v14/v15），旧产物被清
+- **修复**: 恢复头文件后 `cmake --build rel --target connector_v13` 重建
+
+### 3. adventureAlliedAI/EnemyAI 全被改成 Nullkiller2 → red 失联
+- **现象**: env reset 后 adventure_wait 超时；日志显示 `NK2AI::AIGateway::makingTurn` 处理 red 的回合（"Player 0 (red) ended turn"）
+- **根因**: MLClient.cpp 把 `adventureAlliedAI` 和 `adventureEnemyAI` 都写成 "Nullkiller2"（C8.1 改的）→ **所有玩家**冒险 AI 都是 NK2 → MMAI 的 AAI::yourTurn（模型注入）永不触发
+- **修复**: `adventureAlliedAI="MMAI"`（red 注入路径），`adventureEnemyAI="Nullkiller2"`（blue/tan 真 AI 对手）
+
+### 4. build 目录 ServerPlugin 缺野怪保护 → NK2 打野 abort
+- **现象**: `Exception: Both hero1 and hero2 are required` + std::unexpected abort（BattleProcessor::startBattle）
+- **根因**: build 目录 ServerPlugin.cpp 是旧版（startBattleHook 强制双英雄）；项目源新版已有 `if (!(hero1 && hero2)) return` 保护
+- **修复**: build 旧版补齐 startBattleHook/endBattleHook 野怪保护（battlecounter++ 保留）
+- **教训**: 项目源（git）与 build 目录长期分叉，编译真理在 build 目录，但新修复往往只在项目源。改 build 前先 diff
+
+### 5. onlyai 下无 human → 所有玩家走 adventureEnemyAI
+- **现象**: 即使 AlliedAI=MMAI，red 仍被 NK2 接管
+- **根因**: Client.cpp `initPlayerInterfaces`：`onlyai=true` 时 debugStartTest 主动把 host 从玩家颜色移除 → 无 human 玩家 → `alliedToHuman` 恒 false → 全部 `adventureEnemyAI`
+- **修复**: Client.cpp 强制 `color == PlayerColor(0)` 用 `adventureAlliedAI`（MMAI），其他玩家走原逻辑（NK2）
+- **机制**: VCMI AI 名选择 = `aiNameForPlayer(ps)`：ps.name（仅识别 Nullkiller2/EmptyAI）> alliedToHuman ? adventureAlliedAI : adventureEnemyAI
+- **构建链坑**: Client.cpp 编进 `vcmiclientcommon` → **链接进 libmlclient.so**（不是 vcmiserver！）。改 Client.cpp 后必须 `make vcmiclientcommon && make mlclient`，vcmiserver md5 不变是正常（它不含 client 代码）
+
+### 6. 采集子进程无 watchdog → NK2 启动阶段卡死挂起整条采集
+- **现象**: collect_bc.py 主进程 `subprocess.run(cmd)` 无限等待；ep1 (Key to Victory.h3m) 子进程卡 `futex_do_wait` 1h27m，CPU 仅 19s，无 npz 产出，输出进 pipe 无人读（日志全丢）
+- **根因**: NK2 chain 重试死循环（已知 ~50% 概率）可发生在 **reset 启动阶段**——`connector.init()`/首个 yourTurn 等待无超时兜底（boot_timeout/vcmi_timeout/wait_timeout 只覆盖采集循环），子进程永久挂起，主进程 `subprocess.run` 无 timeout 跟着无限等
+- **修复**: 主进程 `subprocess.run(..., timeout=900)` 整局硬超时，`TimeoutExpired` → kill 跳局 continue；重启采集并 `> collect.log 2>&1` 落盘日志
+- **验证**: 修复后 ep0 正常落盘 44KB，ep1（之前卡死图）reset OK 正常采集
+- **教训**: 所有子进程隔离式脚本必须有**整局级** watchdog（覆盖启动+运行全程），不能只依赖 env 内部各阶段 timeout；后台进程 stdout 必须重定向到日志文件

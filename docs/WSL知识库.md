@@ -586,3 +586,69 @@ Python → 读 g_strategic_state (ctypes)
 需要扩展的维度：探索格点地图、敌方感知、切英雄动作、记忆网络（LSTM/RNN）。
 详见 `总任务.md` 的 1v7 需求清单。
 
+
+---
+
+## C8.2 验证结论 — Nullkiller2 对手链路打通 (2026-07-31)
+
+### VCMI 玩家 AI 分配机制（关键架构认知）
+
+```
+CClient::initPlayerInterfaces (client/Client.cpp)
+  └─ onlyai=true → 所有玩家都创建 AI 接口
+     └─ aiNameForPlayer(ps, battleAI=false, alliedToHuman)
+        ├─ ps.name 非空且 isAvailableAdventureAI(ps.name)  → 用 ps.name（仅 "Nullkiller2"/"EmptyAI"）
+        └─ 否则: alliedToHuman ? adventureAlliedAI : adventureEnemyAI
+           ├─ alliedToHuman = 玩家与某个 human 玩家同队
+           └─ onlyai 时 debugStartTest 把 host 从玩家颜色移除 → 无 human → 全走 adventureEnemyAI
+```
+
+**当前部署配置**（MLClient.cpp processArguments）:
+- `adventureAlliedAI = "MMAI"` → 玩家0（red）= 模型注入（AAI::yourTurn）
+- `adventureEnemyAI = "Nullkiller2"` → 其他玩家 = 真 AI 对手
+- `combatAlliedAI = "MMAI"`（战斗自动解析）
+
+**构建依赖链**: Client.cpp → libvcmiclientcommon.a → **libmlclient.so**（ML/CMakeLists line 30: mlclient PUBLIC vcmi vcmiclientcommon MMAI）。vcmiserver 不含 client 代码，改 Client.cpp 后重链 libmlclient.so 即可，vcmiserver 无需动
+
+### InitArgs ABI 真理来源
+
+- 头文件布局 ≠ .so 实际布局（33 字段 string 版 vs 28 字段 IModel* 版）
+- 真理 = `gdb -batch -ex 'ptype ML::InitArgs' <libmlclient.so>`（debug build 含 DWARF）
+- 部署 .so 是 28 字段（MLClient.cpp 引用 a.leftModel 证实），connector 调用也按 28 字段
+
+### 战斗集成状态
+
+- **英雄 vs 英雄**: ServerPlugin startBattleHook 完整逻辑（random heroes/vips/armies/mana/swap）
+- **英雄 vs 野怪**: 跳过双英雄逻辑，VCMI autofight 处理（startBattleHook/endBattleHook 保护）
+- **已知未解决**: v15 VcmiEnv 中立玩家 installNewBattleInterface segfault（Phase D）
+
+### NK2 对手特征（For Sale.h3m 实测）
+
+- 单回合耗时: 数十秒级（多线程 TBB 规划，HeroMoved/tileRevealed 高频）
+- 活动: 移动/探索/城镇建设/买兵/招募英雄全链条
+- **3 人图问题**: tan 玩家也是 NK2（adventureEnemyAI）→ 额外拖慢。C8.3 需确定 2 人训练图集（For Sale 有 tan；Elbow Room 6 人不可用；h3m 2 人图待扫描）
+- obs 限制: StrategicState 只含己方（player_count=1），敌方英雄位置不可见（1v7 需求项 #2 待解决）
+
+### C8.3-C8.5 BC 预训练链路（2026-08-01 推进）
+
+**采集管道（C8.3）**
+- 架构: red=Nullkiller2 自主玩（学习对象），blue=MMAI 自动 endTurn；NK2 每个决策点（moveHeroToTile/endTurn）阻塞采集 (obs, action)
+- C++: `adventure_capture_turn()`（填 obs + 记录 NK2 action + 阻塞等 Python）；MLClient.h InitArgs 末尾加 red/blue 冒险 AI 字符串（带默认值保持 28 位置参数兼容）；AIGateway.cpp moveHeroToTile + endTurn 采集 hook；makeTurn catch-all 补 endTurn()（NK2 异常防卡死）
+- NK2 卡死特征: `Unable to complete chain. Expected hero X to arrive to (y z w) in 0 turns` 循环 → chain 重试死循环（~50% 概率）→ 子进程永久挂起
+- 2 人图集: Dungeon Keeper / Key to Victory / Good Witch, Bad Witch / Fort Noxis（scan_players_v2.py 158 张全解析，slots=[0,1]）
+
+**Watchdog 机制（2026-08-01 修复）**
+- 子进程隔离 + 整局硬超时: `subprocess.run(timeout=900)`，TimeoutExpired → kill 跳局
+- 关键: NK2 卡死可发生在 reset 启动阶段（env 内部 boot_timeout/vcmi_timeout 只覆盖采集循环），必须有子进程级兜底
+- 后台进程 stdout 必须重定向日志文件（否则输出进 pipe 无人读，排查全靠猜）
+
+**BC 训练（C8.4）**
+- bc_train.py: CrossEntropy 11 分类，网络与 PPO Net 一致（fc 264→128→128, actor 11, critic 1），critic 随机保留
+- 24 局 435 pairs 出 bc_model.pt（best_val=5.4），预测分布覆盖 9 类动作（不塌缩）
+- 数据少（<500 pairs）只 WARNING 不阻断；类权重 1/count 加权少数类
+
+**PPO 微调（C8.5）**
+- train_wsl2_ppo_v2.py: BC_PATH 存在则 fc+actor 用 BC 权重，critic 随机（`sd.pop("critic.*")` + strict=False）
+- 关键坑: 旧 wsl2_model_state.pt 存在会抢占加载路径（resume_step>0 跳过 BC）→ 启动前必须删/挪 state 文件
+- 配置: MAPS=4 张 2 人图（无 tan 拖慢），blue_adventure_ai=Nullkiller2 真对手，reward_explore=1.0（新格子 +1），1000eps×200steps
+- 奖励原则落地: 探索奖励用 env 内 _visited 集合（每局 reset），reward_explore>0 才启用

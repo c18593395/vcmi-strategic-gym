@@ -512,6 +512,8 @@ namespace Connector::V13::Thread {
             _statsPersistFreq,
             true                    // headless
         );
+        initargs->red = redAdventureAI;      // 冒险AI: red 玩家 (adventureAlliedAI)
+        initargs->blue = blueAdventureAI;    // 冒险AI: blue/其他 (adventureEnemyAI)
         LOG("call init_vcmi");
         // Workaround: boost::filesystem::create_directories on symlink fails
         // Set XDG_DATA_HOME to a real directory before VCMI init

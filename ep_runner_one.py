@@ -24,6 +24,10 @@ parser.add_argument("--blue_model", type=str, default=None,
                     help="Path to blue model checkpoint")
 parser.add_argument("--blue_ai", type=str, default=None,
                     help="AI type for blue player (MMAI_USER, StupidAI, etc.)")
+parser.add_argument("--blue_adventure_ai", type=str, default="Nullkiller2",
+                    help="冒险AI for blue player (C8.5: Nullkiller2 真对手)")
+parser.add_argument("--reward_explore", type=float, default=0.0,
+                    help="探索奖励: 访问新格子 +N (C8.5)")
 args = parser.parse_args()
 
 # Load red model if provided
@@ -53,6 +57,8 @@ try:
         random_heroes=1, boot_timeout=60, vcmi_timeout=15,
         red_model_path=args.model or "",
         blue_model_path=args.blue_model or "",
+        blue_adventure_ai=args.blue_adventure_ai,
+        reward_explore=args.reward_explore,
     )
     obs, _ = env.reset()
     for _ in range(args.max_turns):

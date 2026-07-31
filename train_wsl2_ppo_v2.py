@@ -15,10 +15,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
-# === C4.2: MAPS — only maps with verified open starting positions ===
+# === C8.5: MAPS — 2 人图 (blue=Nullkiller2 真对手, 无 tan 拖慢) ===
 MAPS = [
-    "For Sale.h3m", "Elbow Room.h3m", "Elbow Room(Allies).h3m",
-    "Deluge.h3m",
+    "Dungeon Keeper.h3m", "Key to Victory.h3m",
+    "Good Witch, Bad Witch.h3m", "Fort Noxis.h3m",
 ]
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 # Not loading from JSON — using verified-open maps only
@@ -52,6 +52,10 @@ def run_episode(mapname, blue_model=None):
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
     cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
+    # C8.5: blue 用 Nullkiller2 真 AI 对手（不再是自对弈）
+    cmd.extend(["--blue_adventure_ai", "Nullkiller2"])
+    # C8.5: 探索奖励 (新格子 +1)
+    cmd.extend(["--reward_explore", "1.0"])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
@@ -78,6 +82,8 @@ def run_episode(mapname, blue_model=None):
 
 model = Net().to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=LR)
+# C8.5: BC 权重路径 — 存在则优先于旧 MODEL_PATH 初始化 (fc+actor 有 NK2 行为知识)
+BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model.pt"
 # 尝试加载已有模型续训（优先完整状态，含优化器）
 resume_step = 0
 if os.path.exists(STATE_PATH):
@@ -89,11 +95,22 @@ if os.path.exists(STATE_PATH):
         print(f"Loaded train state (model+optimizer, step={resume_step})", flush=True)
     except:
         print("Failed to load STATE_PATH, falling back to MODEL_PATH", flush=True)
-if resume_step == 0 and os.path.exists(MODEL_PATH):
-    try:
-        model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
-        print("Loaded existing model (weights only), continuing training", flush=True)
-    except: pass
+if resume_step == 0:
+    bc_loaded = False
+    if os.path.exists(BC_PATH):
+        try:
+            sd = torch.load(BC_PATH, map_location=DEVICE, weights_only=True)
+            sd.pop("critic.weight", None); sd.pop("critic.bias", None)  # critic 保持随机, PPO 从头学
+            model.load_state_dict(sd, strict=False)
+            bc_loaded = True
+            print("Loaded BC weights (fc+actor), critic random — C8.5 微调起点", flush=True)
+        except Exception as e:
+            print(f"BC load failed: {e}, fallback to MODEL_PATH", flush=True)
+    if not bc_loaded and os.path.exists(MODEL_PATH):
+        try:
+            model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
+            print("Loaded existing model (weights only), continuing training", flush=True)
+        except: pass
 
 def is_clean():
     for p in model.parameters():

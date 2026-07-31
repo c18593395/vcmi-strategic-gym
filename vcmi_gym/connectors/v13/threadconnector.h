@@ -68,6 +68,8 @@ namespace Connector::V13::Thread {
         const int userTimeout;
         const std::string red;
         const std::string blue;
+        const std::string redAdventureAI;
+        const std::string blueAdventureAI;
         const std::string redModel;
         const std::string blueModel;
         std::unique_ptr<ML::InitArgs> initargs;
@@ -201,7 +203,9 @@ namespace Connector::V13::Thread {
             bool blueAllowMlBot,
             const std::string & statsMode,
             const std::string & statsStorage,
-            int statsPersistFreq)
+            int statsPersistFreq,
+            const std::string & redAdventureAI,
+            const std::string & blueAdventureAI)
         : maxlogs(maxlogs)
         , bootTimeout(bootTimeout)
         , vcmiTimeout(vcmiTimeout)
@@ -238,6 +242,8 @@ namespace Connector::V13::Thread {
         , _statsMode(statsMode)
         , _statsStorage(statsStorage)
         , _statsPersistFreq(statsPersistFreq)
+        , redAdventureAI(redAdventureAI)
+        , blueAdventureAI(blueAdventureAI)
         {};
 
         // timeouts are in seconds

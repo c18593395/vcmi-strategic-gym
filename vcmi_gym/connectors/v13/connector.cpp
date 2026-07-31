@@ -52,7 +52,9 @@ namespace Connector::V13 {
                 bool,                   // blueAllowMlBot
                 const std::string &,    // statsMode
                 const std::string &,    // statsStorage
-                int                     // statsPersistFreq
+                int,                    // statsPersistFreq
+                const std::string &,    // redAdventureAI
+                const std::string &     // blueAdventureAI
             >(),
                 py::arg("maxlogs"),
                 py::arg("bootTimeout"),
@@ -89,7 +91,9 @@ namespace Connector::V13 {
                 py::arg("blueAllowMlBot"),
                 py::arg("statsMode"),
                 py::arg("statsStorage"),
-                py::arg("statsPersistFreq")
+                py::arg("statsPersistFreq"),
+                py::arg("redAdventureAI") = "MMAI",
+                py::arg("blueAdventureAI") = "Nullkiller2"
             )
             .def("shutdown", &Thread::Connector::shutdown)
             .def("init", &Thread::Connector::init)

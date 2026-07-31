@@ -1,0 +1,5589 @@
+{
+ "by_players": {
+  "6": [
+   "A Viking We Shall Go Allied.h3m",
+   "A Viking We Shall Go.h3m",
+   "Carpe Diem - Allied.h3m",
+   "Carpe Diem.h3m",
+   "Dawn of War.h3m",
+   "Elbow Room(Allies).h3m",
+   "Elbow Room.h3m",
+   "Heroes of Might not Magic Allied.h3m",
+   "Heroes of Might not Magic.h3m",
+   "Islands and Caves.h3m",
+   "Loss of Innocence(Allies).h3m",
+   "Loss of Innocence.h3m",
+   "Monk's Retreat Allied.h3m",
+   "Monk's Retreat.h3m",
+   "Peaceful Ending - Allied.h3m",
+   "Peaceful Ending.h3m",
+   "Resource War Allies.h3m",
+   "Resource War.h3m",
+   "Step by Step (Allies).h3m",
+   "Step by Step.h3m",
+   "Terrible Rumor.h3m",
+   "The Battle of Daeyan's Ford.h3m",
+   "The Five Rings.h3m",
+   "The Gauntlet.h3m",
+   "Titans Winter.h3m",
+   "Warmongers.h3m"
+  ],
+  "2": [
+   "A Warm and Familiar Place.h3m",
+   "Dungeon Keeper.h3m",
+   "Faeries.h3m",
+   "Fort Noxis.h3m",
+   "Good Witch, Bad Witch.h3m",
+   "Gorlam's Tentacle Swampland.h3m",
+   "Hatchet Axe and Saw.h3m",
+   "Key to Victory.h3m",
+   "Knee Deep in the Dead.h3m",
+   "Twins.h3m",
+   "Unexpected Inheritance.h3m",
+   "Unholy Quest.h3m",
+   "When Dragons Clash.h3m"
+  ],
+  "3": [
+   "Adventures of Jared Haret.h3m",
+   "All for One.h3m",
+   "Ascension.h3m",
+   "Chasing a Dream.h3m",
+   "Dead and Buried.h3m",
+   "Deluge.h3m",
+   "Dwarven Gold.h3m",
+   "For Sale.h3m",
+   "Freedom.h3m",
+   "Goblins in the Pantry.h3m",
+   "Judgement Day.h3m",
+   "King of Pain.h3m",
+   "Noahs Ark.h3m",
+   "Overthrow Thy Neighbors.h3m",
+   "Pestilence Lake Allies.h3m",
+   "Pestilence Lake.h3m",
+   "Ready or Not.h3m",
+   "Rebellion.h3m",
+   "South of Hell (Allies).h3m",
+   "South of Hell.h3m",
+   "The Challenge.h3m",
+   "Treasure Hunt.h3m",
+   "Undead Unrest.h3m"
+  ],
+  "4": [
+   "And One for All.h3m",
+   "Arrogance Allied.h3m",
+   "Arrogance.h3m",
+   "Barbarian Breakout.h3m",
+   "Barbarian BreakoutA.h3m",
+   "Battle of the Sexes Allied.h3m",
+   "Battle of the Sexes.h3m",
+   "Buried Treasure.h3m",
+   "Crimson and Clover.h3m",
+   "Crimson and CloverA.h3m",
+   "Darwin's Prize(Allies).h3m",
+   "Darwin's Prize.h3m",
+   "Divided Loyalties.h3m",
+   "Divided LoyaltiesA.h3m",
+   "Dragon Orb.h3m",
+   "Dragon Pass (Allies).h3m",
+   "Dragon Pass.h3m",
+   "Dwarven Tunnels(Allies).h3m",
+   "Dwarven Tunnels.h3m",
+   "Emerald Isles.h3m",
+   "Emerald IslesA.h3m",
+   "Golems Aplenty Allied.h3m",
+   "Golems Aplenty.h3m",
+   "Good to Go.h3m",
+   "Hoard(Allies).h3m",
+   "Hoard.h3m",
+   "Hold the middle.h3m",
+   "Irrational Hostility.h3m",
+   "Just A Visit.h3m",
+   "Knight of Darkness.h3m",
+   "Land of Titans (Allied).h3m",
+   "Land of Titans.h3m",
+   "Last Chance Allies.h3m",
+   "Last Chance.h3m",
+   "Merchant Princes Allied.h3m",
+   "Merchant Princes.h3m",
+   "Middletown.h3m",
+   "One Bad Day - Allied.h3m",
+   "Rediscovery.h3m",
+   "Rise of the Phoenix Allied.h3m",
+   "Rise of the Phoenix.h3m",
+   "Sands of Blood.h3m",
+   "Search for the Grail.h3m",
+   "Tale of two lands (Allies).h3m",
+   "Tale of two lands.h3m",
+   "The Great Race.h3m",
+   "The Newcomers.h3m",
+   "Thousand Islands.h3m",
+   "Too Many Monsters.h3m",
+   "Valleys of War.h3m",
+   "Vial of Life.h3m"
+  ],
+  "8": [
+   "Back For Revenge - Allied.h3m",
+   "Back For Revenge.h3m",
+   "Brave New World(Allies).h3m",
+   "Brave New World.h3m",
+   "Free for All.h3m",
+   "Manifest Destiny.h3m",
+   "Meeting in Muzgob(Allies).h3m",
+   "Meeting in Muzgob.h3m",
+   "Realm of Chaos.h3m",
+   "Realm of ChaosA.h3m",
+   "Warlords.h3m",
+   "WarlordsA.h3m"
+  ],
+  "5": [
+   "Caught in the Middle.h3m",
+   "Gelea's Champions (Allies).h3m",
+   "Gelea's Champions.h3m",
+   "Kingdom for sale(allies).h3m",
+   "Kingdom for sale.h3m",
+   "Marshland Menace.h3m",
+   "Pandora's Box .h3m",
+   "Peacemaker.h3m",
+   "Pirates.h3m",
+   "Race for Ardintinny.h3m",
+   "Race for the Town.h3m",
+   "Rumble in the Bogs.h3m",
+   "Rumble in the BogsA.h3m",
+   "Shadow Valleys.h3m",
+   "Southern Cross.h3m",
+   "The Mandate of Heaven.h3m",
+   "Tovar's Fortress (Allies).h3m",
+   "Tovar's Fortress.h3m",
+   "War of the Mighty (Allies).h3m",
+   "War of the Mighty.h3m",
+   "Wings of War.h3m"
+  ],
+  "7": [
+   "Island King Allied.h3m",
+   "Island King.h3m",
+   "Jihad.h3m",
+   "Reclamation Allied.h3m",
+   "Reclamation.h3m",
+   "Sangraal's Thief Allied.h3m",
+   "Sangraal's Thief.h3m",
+   "Serpents Treasure.h3m",
+   "Thousand Islands (allies).h3m",
+   "Time's Up.h3m",
+   "Xathras Prize.h3m"
+  ],
+  "1": [
+   "Island of Fire.h3m"
+  ]
+ },
+ "detail": {
+  "A Viking We Shall Go Allied.h3m": {
+   "version": "0x1c",
+   "name": "维京风暴(结盟)",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 306,
+   "file_size": 47919
+  },
+  "A Viking We Shall Go.h3m": {
+   "version": "0x1c",
+   "name": "维京风暴！",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 302,
+   "file_size": 47913
+  },
+  "A Warm and Familiar Place.h3m": {
+   "version": "0x1c",
+   "name": "竞争上岗",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 210,
+   "file_size": 9310
+  },
+  "Adventures of Jared Haret.h3m": {
+   "version": "0x1c",
+   "name": "胜利逃亡",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 348,
+   "file_size": 10337
+  },
+  "All for One.h3m": {
+   "version": "0x0e",
+   "name": "臣服",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 186,
+   "file_size": 29324
+  },
+  "And One for All.h3m": {
+   "version": "0x1c",
+   "name": "一统江山",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 232,
+   "file_size": 12663
+  },
+  "Arrogance Allied.h3m": {
+   "version": "0x1c",
+   "name": "傲气冲天(结盟)",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 332,
+   "file_size": 11315
+  },
+  "Arrogance.h3m": {
+   "version": "0x1c",
+   "name": "傲气冲天",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 326,
+   "file_size": 11291
+  },
+  "Ascension.h3m": {
+   "version": "0x0e",
+   "name": "即位",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 182,
+   "file_size": 16057
+  },
+  "Back For Revenge - Allied.h3m": {
+   "version": "0x1c",
+   "name": "卷土重来(结盟)",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 388,
+   "file_size": 57792
+  },
+  "Back For Revenge.h3m": {
+   "version": "0x1c",
+   "name": "卷土重来",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 382,
+   "file_size": 57774
+  },
+  "Barbarian Breakout.h3m": {
+   "version": "0x0e",
+   "name": "野蛮人的攻击",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 207,
+   "file_size": 10040
+  },
+  "Barbarian BreakoutA.h3m": {
+   "version": "0x0e",
+   "name": "野蛮人的攻击(可以结盟)",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 217,
+   "file_size": 10132
+  },
+  "Battle of the Sexes Allied.h3m": {
+   "version": "0x1c",
+   "name": "阴阳争霸(结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 384,
+   "file_size": 39036
+  },
+  "Battle of the Sexes.h3m": {
+   "version": "0x1c",
+   "name": "阴阳争霸",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 378,
+   "file_size": 38992
+  },
+  "Brave New World(Allies).h3m": {
+   "version": "0x15",
+   "name": "奇迹时代(可以结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 228,
+   "file_size": 39949
+  },
+  "Brave New World.h3m": {
+   "version": "0x15",
+   "name": "奇迹时代",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 218,
+   "file_size": 39945
+  },
+  "Buried Treasure.h3m": {
+   "version": "0x0e",
+   "name": "藏宝",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 189,
+   "file_size": 26294
+  },
+  "Carpe Diem - Allied.h3m": {
+   "version": "0x1c",
+   "name": "及时行乐(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 330,
+   "file_size": 29057
+  },
+  "Carpe Diem.h3m": {
+   "version": "0x1c",
+   "name": "及时行乐",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 314,
+   "file_size": 29030
+  },
+  "Caught in the Middle.h3m": {
+   "version": "0x1c",
+   "name": "左右为难(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 391,
+   "file_size": 26086
+  },
+  "Chasing a Dream.h3m": {
+   "version": "0x1c",
+   "name": "出人头地",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 285,
+   "file_size": 9044
+  },
+  "Crimson and Clover.h3m": {
+   "version": "0x0e",
+   "name": "深红的苜蓿",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 269,
+   "file_size": 22740
+  },
+  "Crimson and CloverA.h3m": {
+   "version": "0x0e",
+   "name": "深红的苜蓿(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 279,
+   "file_size": 22883
+  },
+  "Darwin's Prize(Allies).h3m": {
+   "version": "0x15",
+   "name": "龙争虎斗(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 276,
+   "file_size": 20649
+  },
+  "Darwin's Prize.h3m": {
+   "version": "0x15",
+   "name": "龙争虎斗",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 276,
+   "file_size": 16638
+  },
+  "Dawn of War.h3m": {
+   "version": "0x15",
+   "name": "战争黎明",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 227,
+   "file_size": 17870
+  },
+  "Dead and Buried.h3m": {
+   "version": "0x0e",
+   "name": "死人和被埋葬的人",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 156,
+   "file_size": 9866
+  },
+  "Deluge.h3m": {
+   "version": "0x1c",
+   "name": "洪水滔天",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 371,
+   "file_size": 8249
+  },
+  "Divided Loyalties.h3m": {
+   "version": "0x0e",
+   "name": "分裂",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 187,
+   "file_size": 32933
+  },
+  "Divided LoyaltiesA.h3m": {
+   "version": "0x0e",
+   "name": "分裂(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 193,
+   "file_size": 33005
+  },
+  "Dragon Orb.h3m": {
+   "version": "0x0e",
+   "name": "龙珠",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 201,
+   "file_size": 28051
+  },
+  "Dragon Pass (Allies).h3m": {
+   "version": "0x15",
+   "name": "龙族宝藏(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 258,
+   "file_size": 27231
+  },
+  "Dragon Pass.h3m": {
+   "version": "0x15",
+   "name": "龙族宝藏",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 248,
+   "file_size": 27240
+  },
+  "Dungeon Keeper.h3m": {
+   "version": "0x15",
+   "name": "恶魔城主",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 246,
+   "file_size": 11286
+  },
+  "Dwarven Gold.h3m": {
+   "version": "0x1c",
+   "name": "矮人宝藏",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 0,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 366,
+   "file_size": 11496
+  },
+  "Dwarven Tunnels(Allies).h3m": {
+   "version": "0x15",
+   "name": "秘密隧道(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 240,
+   "file_size": 27552
+  },
+  "Dwarven Tunnels.h3m": {
+   "version": "0x15",
+   "name": "秘密隧道",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 230,
+   "file_size": 27536
+  },
+  "Elbow Room(Allies).h3m": {
+   "version": "0x15",
+   "name": "拥挤的世界(可以结盟)",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 250,
+   "file_size": 4997
+  },
+  "Elbow Room.h3m": {
+   "version": "0x15",
+   "name": "拥挤的世界",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 240,
+   "file_size": 4979
+  },
+  "Emerald Isles.h3m": {
+   "version": "0x0e",
+   "name": "翡翠岛",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 197,
+   "file_size": 14527
+  },
+  "Emerald IslesA.h3m": {
+   "version": "0x0e",
+   "name": "翡翠岛(可以结盟)",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 219,
+   "file_size": 14548
+  },
+  "Faeries.h3m": {
+   "version": "0x15",
+   "name": "精灵",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 0,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 211,
+   "file_size": 30894
+  },
+  "For Sale.h3m": {
+   "version": "0x1c",
+   "name": "倾家荡产",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 341,
+   "file_size": 8309
+  },
+  "Fort Noxis.h3m": {
+   "version": "0x15",
+   "name": "围城",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 211,
+   "file_size": 11641
+  },
+  "Free for All.h3m": {
+   "version": "0x0e",
+   "name": "混战",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 229,
+   "file_size": 45392
+  },
+  "Freedom.h3m": {
+   "version": "0x15",
+   "name": "独立",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 232,
+   "file_size": 8984
+  },
+  "Gelea's Champions (Allies).h3m": {
+   "version": "0x15",
+   "name": "勇者之路(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 251,
+   "file_size": 34205
+  },
+  "Gelea's Champions.h3m": {
+   "version": "0x15",
+   "name": "勇者之路",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 225,
+   "file_size": 34175
+  },
+  "Goblins in the Pantry.h3m": {
+   "version": "0x1c",
+   "name": "任人宰割",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 283,
+   "file_size": 19236
+  },
+  "Golems Aplenty Allied.h3m": {
+   "version": "0x1c",
+   "name": "千军万马(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 374,
+   "file_size": 25950
+  },
+  "Golems Aplenty.h3m": {
+   "version": "0x1c",
+   "name": "千军万马",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 368,
+   "file_size": 25940
+  },
+  "Good Witch, Bad Witch.h3m": {
+   "version": "0x1c",
+   "name": "水火不容",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 387,
+   "file_size": 34672
+  },
+  "Good to Go.h3m": {
+   "version": "0x0e",
+   "name": "好好干",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 223,
+   "file_size": 4891
+  },
+  "Gorlam's Tentacle Swampland.h3m": {
+   "version": "0x1c",
+   "name": "荒原苍茫",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 302,
+   "file_size": 20517
+  },
+  "Hatchet Axe and Saw.h3m": {
+   "version": "0x1c",
+   "name": "逐“木”之战",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 274,
+   "file_size": 17130
+  },
+  "Heroes of Might not Magic Allied.h3m": {
+   "version": "0x1c",
+   "name": "英雄气短(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 388,
+   "file_size": 32753
+  },
+  "Heroes of Might not Magic.h3m": {
+   "version": "0x1c",
+   "name": "英雄气短",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 382,
+   "file_size": 32737
+  },
+  "Hoard(Allies).h3m": {
+   "version": "0x15",
+   "name": "兵来将挡(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 294,
+   "file_size": 29613
+  },
+  "Hoard.h3m": {
+   "version": "0x15",
+   "name": "兵来将挡",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 284,
+   "file_size": 29733
+  },
+  "Hold the middle.h3m": {
+   "version": "0x15",
+   "name": "坚持到底",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 202,
+   "file_size": 24771
+  },
+  "Irrational Hostility.h3m": {
+   "version": "0x15",
+   "name": "征服者",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 210,
+   "file_size": 8809
+  },
+  "Island King Allied.h3m": {
+   "version": "0x1c",
+   "name": "骨肉相残(结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 390,
+   "file_size": 35943
+  },
+  "Island King.h3m": {
+   "version": "0x1c",
+   "name": "骨肉相残",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 384,
+   "file_size": 35924
+  },
+  "Island of Fire.h3m": {
+   "version": "0x0e",
+   "name": "火岛",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 164,
+   "file_size": 24399
+  },
+  "Islands and Caves.h3m": {
+   "version": "0x0e",
+   "name": "岛屿与洞穴",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 261,
+   "file_size": 39305
+  },
+  "Jihad.h3m": {
+   "version": "0x15",
+   "name": "战争风暴",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 253,
+   "file_size": 8590
+  },
+  "Judgement Day.h3m": {
+   "version": "0x0e",
+   "name": "审判之日",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 198,
+   "file_size": 5010
+  },
+  "Just A Visit.h3m": {
+   "version": "0x1c",
+   "name": "真命天子",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 370,
+   "file_size": 18311
+  },
+  "Key to Victory.h3m": {
+   "version": "0x0e",
+   "name": "取胜的关键",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 0,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 167,
+   "file_size": 8384
+  },
+  "King of Pain.h3m": {
+   "version": "0x1c",
+   "name": "丧心病狂",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 385,
+   "file_size": 21569
+  },
+  "Kingdom for sale(allies).h3m": {
+   "version": "0x15",
+   "name": "购买领土(可以结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 249,
+   "file_size": 37734
+  },
+  "Kingdom for sale.h3m": {
+   "version": "0x15",
+   "name": "购买领土",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 239,
+   "file_size": 37712
+  },
+  "Knee Deep in the Dead.h3m": {
+   "version": "0x0e",
+   "name": "救世主",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 165,
+   "file_size": 6805
+  },
+  "Knight of Darkness.h3m": {
+   "version": "0x0e",
+   "name": "黑暗骑士",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 157,
+   "file_size": 28046
+  },
+  "Land of Titans (Allied).h3m": {
+   "version": "0x15",
+   "name": "泰坦大陆(可以结盟)",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 240,
+   "file_size": 48622
+  },
+  "Land of Titans.h3m": {
+   "version": "0x15",
+   "name": "泰坦大陆 ",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 231,
+   "file_size": 48639
+  },
+  "Last Chance Allies.h3m": {
+   "version": "0x1c",
+   "name": "殊死一搏(结盟)",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 316,
+   "file_size": 9893
+  },
+  "Last Chance.h3m": {
+   "version": "0x1c",
+   "name": "殊死一搏",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 322,
+   "file_size": 9864
+  },
+  "Loss of Innocence(Allies).h3m": {
+   "version": "0x15",
+   "name": "和平的希望(可以结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 301,
+   "file_size": 30140
+  },
+  "Loss of Innocence.h3m": {
+   "version": "0x15",
+   "name": "和平的希望",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 280,
+   "file_size": 30092
+  },
+  "Manifest Destiny.h3m": {
+   "version": "0x0e",
+   "name": "宿命",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 201,
+   "file_size": 9808
+  },
+  "Marshland Menace.h3m": {
+   "version": "0x1c",
+   "name": "远古封印",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 337,
+   "file_size": 25956
+  },
+  "Meeting in Muzgob(Allies).h3m": {
+   "version": "0x15",
+   "name": "乱世英雄(可以结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 278,
+   "file_size": 32808
+  },
+  "Meeting in Muzgob.h3m": {
+   "version": "0x15",
+   "name": "乱世英雄",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 268,
+   "file_size": 32805
+  },
+  "Merchant Princes Allied.h3m": {
+   "version": "0x1c",
+   "name": "尔虞我诈(结盟)",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 251,
+   "file_size": 16585
+  },
+  "Merchant Princes.h3m": {
+   "version": "0x1c",
+   "name": "尔虞我诈",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 245,
+   "file_size": 16566
+  },
+  "Middletown.h3m": {
+   "version": "0x0e",
+   "name": "中心城",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 227,
+   "file_size": 41528
+  },
+  "Monk's Retreat Allied.h3m": {
+   "version": "0x1c",
+   "name": "负隅顽抗(结盟)",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 342,
+   "file_size": 50696
+  },
+  "Monk's Retreat.h3m": {
+   "version": "0x1c",
+   "name": "负隅顽抗",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 336,
+   "file_size": 50682
+  },
+  "Noahs Ark.h3m": {
+   "version": "0x0e",
+   "name": "诺亚方舟",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 144,
+   "file_size": 38998
+  },
+  "One Bad Day - Allied.h3m": {
+   "version": "0x1c",
+   "name": "好事多磨(结盟)",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 452,
+   "file_size": 21276
+  },
+  "Overthrow Thy Neighbors.h3m": {
+   "version": "0x0e",
+   "name": "邻里之战",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 136,
+   "file_size": 27203
+  },
+  "Pandora's Box .h3m": {
+   "version": "0x15",
+   "name": "潘多拉之盒",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 495,
+   "file_size": 122063
+  },
+  "Peaceful Ending - Allied.h3m": {
+   "version": "0x1c",
+   "name": "重归于好(结盟)",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 376,
+   "file_size": 44064
+  },
+  "Peaceful Ending.h3m": {
+   "version": "0x1c",
+   "name": "重归于好",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 370,
+   "file_size": 44133
+  },
+  "Peacemaker.h3m": {
+   "version": "0x0e",
+   "name": "和事佬",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 196,
+   "file_size": 15285
+  },
+  "Pestilence Lake Allies.h3m": {
+   "version": "0x1c",
+   "name": "归隐田园(结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 373,
+   "file_size": 31287
+  },
+  "Pestilence Lake.h3m": {
+   "version": "0x1c",
+   "name": "归隐田园",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 4,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 361,
+   "file_size": 31358
+  },
+  "Pirates.h3m": {
+   "version": "0x0e",
+   "name": "海盗！",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 215,
+   "file_size": 13822
+  },
+  "Race for Ardintinny.h3m": {
+   "version": "0x0e",
+   "name": "争夺阿第尼城",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 260,
+   "file_size": 65220
+  },
+  "Race for the Town.h3m": {
+   "version": "0x1c",
+   "name": "比武招亲",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 364,
+   "file_size": 17934
+  },
+  "Ready or Not.h3m": {
+   "version": "0x15",
+   "name": "一触即发",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 183,
+   "file_size": 24386
+  },
+  "Realm of Chaos.h3m": {
+   "version": "0x0e",
+   "name": "混乱的国土",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 221,
+   "file_size": 35342
+  },
+  "Realm of ChaosA.h3m": {
+   "version": "0x0e",
+   "name": "混乱的国土(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 231,
+   "file_size": 35447
+  },
+  "Rebellion.h3m": {
+   "version": "0x0e",
+   "name": "反叛",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 163,
+   "file_size": 18048
+  },
+  "Reclamation Allied.h3m": {
+   "version": "0x1c",
+   "name": "重归故土(结盟)",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 364,
+   "file_size": 53579
+  },
+  "Reclamation.h3m": {
+   "version": "0x1c",
+   "name": "重归故土",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 358,
+   "file_size": 53566
+  },
+  "Rediscovery.h3m": {
+   "version": "0x15",
+   "name": "征战不休",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 230,
+   "file_size": 34054
+  },
+  "Resource War Allies.h3m": {
+   "version": "0x1c",
+   "name": "各取所需(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 404,
+   "file_size": 22161
+  },
+  "Resource War.h3m": {
+   "version": "0x1c",
+   "name": "各取所需",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 398,
+   "file_size": 22155
+  },
+  "Rise of the Phoenix Allied.h3m": {
+   "version": "0x1c",
+   "name": "凤凰涅磐(结盟)",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 370,
+   "file_size": 48034
+  },
+  "Rise of the Phoenix.h3m": {
+   "version": "0x1c",
+   "name": "凤凰涅磐",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 360,
+   "file_size": 48009
+  },
+  "Rumble in the Bogs.h3m": {
+   "version": "0x0e",
+   "name": "沼泽地里的声音",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 174,
+   "file_size": 22034
+  },
+  "Rumble in the BogsA.h3m": {
+   "version": "0x0e",
+   "name": "沼泽地里的声音(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 190,
+   "file_size": 22008
+  },
+  "Sands of Blood.h3m": {
+   "version": "0x15",
+   "name": "碧血黄沙",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 226,
+   "file_size": 7670
+  },
+  "Sangraal's Thief Allied.h3m": {
+   "version": "0x1c",
+   "name": "妙手空空(结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 268,
+   "file_size": 30373
+  },
+  "Sangraal's Thief.h3m": {
+   "version": "0x1c",
+   "name": "妙手空空",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 262,
+   "file_size": 30355
+  },
+  "Search for the Grail.h3m": {
+   "version": "0x0e",
+   "name": "搜寻神器",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 156,
+   "file_size": 20843
+  },
+  "Serpents Treasure.h3m": {
+   "version": "0x0e",
+   "name": "毒蛇的财宝",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 179,
+   "file_size": 62032
+  },
+  "Shadow Valleys.h3m": {
+   "version": "0x1c",
+   "name": "瓮中捉鳖",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 309,
+   "file_size": 21994
+  },
+  "South of Hell (Allies).h3m": {
+   "version": "0x15",
+   "name": "地狱恶魔(可以结盟)",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 265,
+   "file_size": 41505
+  },
+  "South of Hell.h3m": {
+   "version": "0x15",
+   "name": "地狱恶魔",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 255,
+   "file_size": 41521
+  },
+  "Southern Cross.h3m": {
+   "version": "0x0e",
+   "name": "越过南海",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 176,
+   "file_size": 39266
+  },
+  "Step by Step (Allies).h3m": {
+   "version": "0x15",
+   "name": "步步紧逼(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 226,
+   "file_size": 27421
+  },
+  "Step by Step.h3m": {
+   "version": "0x15",
+   "name": "步步紧逼",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 216,
+   "file_size": 27405
+  },
+  "Tale of two lands (Allies).h3m": {
+   "version": "0x15",
+   "name": "野心之战(可以结盟)",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 232,
+   "file_size": 72940
+  },
+  "Tale of two lands.h3m": {
+   "version": "0x15",
+   "name": "野心之战",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 222,
+   "file_size": 72922
+  },
+  "Terrible Rumor.h3m": {
+   "version": "0x1c",
+   "name": "谣言惑众",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 336,
+   "file_size": 11383
+  },
+  "The Battle of Daeyan's Ford.h3m": {
+   "version": "0x1c",
+   "name": "惊天一战",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 316,
+   "file_size": 51549
+  },
+  "The Challenge.h3m": {
+   "version": "0x15",
+   "name": "放手一搏",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 272,
+   "file_size": 20669
+  },
+  "The Five Rings.h3m": {
+   "version": "0x0e",
+   "name": "五环之战",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 148,
+   "file_size": 50130
+  },
+  "The Gauntlet.h3m": {
+   "version": "0x15",
+   "name": "考验",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 351,
+   "file_size": 48687
+  },
+  "The Great Race.h3m": {
+   "version": "0x1c",
+   "name": "生死时速",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 396,
+   "file_size": 21805
+  },
+  "The Mandate of Heaven.h3m": {
+   "version": "0x0e",
+   "name": "天堂之令",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 3,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 180,
+   "file_size": 70534
+  },
+  "The Newcomers.h3m": {
+   "version": "0x15",
+   "name": "寸土必争",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 251,
+   "file_size": 14372
+  },
+  "Thousand Islands (allies).h3m": {
+   "version": "0x15",
+   "name": "千岛之战(可以结盟)",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 290,
+   "file_size": 50558
+  },
+  "Thousand Islands.h3m": {
+   "version": "0x15",
+   "name": "千岛之战",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 280,
+   "file_size": 50539
+  },
+  "Time's Up.h3m": {
+   "version": "0x15",
+   "name": "英雄本色",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 233,
+   "file_size": 11052
+  },
+  "Titans Winter.h3m": {
+   "version": "0x0e",
+   "name": "泰坦的冬天",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 199,
+   "file_size": 30357
+  },
+  "Too Many Monsters.h3m": {
+   "version": "0x1c",
+   "name": "兽性大发",
+   "width": 36,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 250,
+   "file_size": 7592
+  },
+  "Tovar's Fortress (Allies).h3m": {
+   "version": "0x15",
+   "name": "海盗的财宝(可以结盟)",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 280,
+   "file_size": 29092
+  },
+  "Tovar's Fortress.h3m": {
+   "version": "0x15",
+   "name": "海盗的财宝",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 270,
+   "file_size": 29073
+  },
+  "Treasure Hunt.h3m": {
+   "version": "0x15",
+   "name": "争夺矿产",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 186,
+   "file_size": 19522
+  },
+  "Twins.h3m": {
+   "version": "0x15",
+   "name": "双胞胎",
+   "width": 36,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 202,
+   "file_size": 10901
+  },
+  "Undead Unrest.h3m": {
+   "version": "0x15",
+   "name": "消灭亡灵",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 231,
+   "file_size": 26232
+  },
+  "Unexpected Inheritance.h3m": {
+   "version": "0x15",
+   "name": "继承人",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 262,
+   "file_size": 28156
+  },
+  "Unholy Quest.h3m": {
+   "version": "0x0e",
+   "name": "可怕的远征",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 229,
+   "file_size": 53845
+  },
+  "Valleys of War.h3m": {
+   "version": "0x15",
+   "name": "远征",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 222,
+   "file_size": 32143
+  },
+  "Vial of Life.h3m": {
+   "version": "0x0e",
+   "name": "生命之瓶",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 185,
+   "file_size": 30339
+  },
+  "War of the Mighty (Allies).h3m": {
+   "version": "0x15",
+   "name": "先发制人(可以结盟)",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 285,
+   "file_size": 75153
+  },
+  "War of the Mighty.h3m": {
+   "version": "0x15",
+   "name": "先发制人",
+   "width": 144,
+   "has_ug": true,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 265,
+   "file_size": 75111
+  },
+  "Warlords.h3m": {
+   "version": "0x0e",
+   "name": "群雄逐鹿",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 233,
+   "file_size": 25817
+  },
+  "WarlordsA.h3m": {
+   "version": "0x0e",
+   "name": "群雄逐鹿(可以结盟)",
+   "width": 108,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 243,
+   "file_size": 25975
+  },
+  "Warmongers.h3m": {
+   "version": "0x0e",
+   "name": "战争贩子",
+   "width": 144,
+   "has_ug": false,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 233,
+   "file_size": 49401
+  },
+  "When Dragons Clash.h3m": {
+   "version": "0x0e",
+   "name": "龙族的纷争",
+   "width": 72,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    }
+   ],
+   "header_end": 171,
+   "file_size": 25115
+  },
+  "Wings of War.h3m": {
+   "version": "0x0e",
+   "name": "战争之翼",
+   "width": 72,
+   "has_ug": false,
+   "difficulty": 2,
+   "players": [
+    {
+     "idx": 0,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": false,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 7,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 176,
+   "file_size": 14065
+  },
+  "Xathras Prize.h3m": {
+   "version": "0x0e",
+   "name": "泽沙思的悬赏",
+   "width": 108,
+   "has_ug": true,
+   "difficulty": 1,
+   "players": [
+    {
+     "idx": 0,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 1,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 2,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 3,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 4,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 5,
+     "human": true,
+     "ai": true
+    },
+    {
+     "idx": 6,
+     "human": false,
+     "ai": true
+    }
+   ],
+   "header_end": 202,
+   "file_size": 45577
+  }
+ },
+ "errors": []
+}

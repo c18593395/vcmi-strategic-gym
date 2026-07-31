@@ -228,6 +228,8 @@ class StrategicEnv(gym.Env):
         vcmienv_logtag: str = "StrategicEnv-v1",
         red: str = "Nullkiller2",
         blue: str = "StupidAI",
+        red_adventure_ai: str = "MMAI",
+        blue_adventure_ai: str = "Nullkiller2",
         red_allow_mlbot: bool = False,
         blue_allow_mlbot: bool = False,
         random_heroes: int = 1,
@@ -244,6 +246,7 @@ class StrategicEnv(gym.Env):
         reward_hero_mult: float = 10.0,
         reward_win: float = 200.0,
         reward_step_fixed: float = -0.1,
+        reward_explore: float = 0.0,   # 探索奖励: 访问新格子 (C8.5)
     ):
         super().__init__()
 
@@ -287,6 +290,8 @@ class StrategicEnv(gym.Env):
         self.reward_hero_mult = reward_hero_mult
         self.reward_win = reward_win
         self.reward_step_fixed = reward_step_fixed
+        self.reward_explore = reward_explore
+        self._visited = set()  # 已访问格子 (探索奖励)
 
         # --- 创建连接器 ---
         self.connector = connector_v13.ThreadConnector(
@@ -298,6 +303,8 @@ class StrategicEnv(gym.Env):
             redModel=red_model_path,
             blue=blue,
             blueModel=blue_model_path,
+            redAdventureAI=red_adventure_ai,
+            blueAdventureAI=blue_adventure_ai,
             mapname=mapname,
             seed=self.seed,
             randomHeroes=random_heroes,
@@ -367,6 +374,7 @@ class StrategicEnv(gym.Env):
         self._terminated = False
         self._truncated = False
         self._game_over = 0
+        self._visited = set()  # 探索奖励: 每局重置
 
         # 启动 VCMI（如果尚未启动）
         self._libml = None  # 清理旧 libml 引用
@@ -657,6 +665,15 @@ class StrategicEnv(gym.Env):
             return 0.0
 
         reward = self.reward_step_fixed
+
+        # 探索奖励: red 英雄访问新格子 (C8.5)
+        if self.reward_explore > 0:
+            for h in state.heroes:
+                if h.id >= 0 and h.owner == 0:
+                    pos = (h.pos_x, h.pos_y, h.pos_z)
+                    if pos not in self._visited:
+                        self._visited.add(pos)
+                        reward += self.reward_explore
 
         # 本方 P0 (red) 的资源变化奖励
         if state.player_count >= 1:
