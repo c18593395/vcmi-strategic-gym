@@ -241,7 +241,7 @@ class StrategicEnv(gym.Env):
         red_model_path: str = "",
         blue_model_path: str = "",
         # 奖励系数
-        reward_gold_mult: float = 0.01,    # 100g = +1 reward
+        reward_gold_mult: float = 0.0,     # C8.5: 禁被动 gold per-step (100g=+1 导致 END_TURN 坚守: day推进被动收入每步+5~10)
         reward_town_mult: float = 30.0,
         reward_hero_mult: float = 10.0,
         reward_win: float = 200.0,
