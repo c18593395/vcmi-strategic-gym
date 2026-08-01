@@ -13,11 +13,6 @@ MAX_HEROES = 8
 MAX_TOWNS = 8
 MAX_PLAYERS = 8
 
-# OBS schema v2 常量（与 C 头 strategic_state.h 一致）
-LOCAL_WIN = 15     # local_tiles 窗口边长
-GLOBAL_GRID = 32   # global_explored 网格边长
-MAX_LEVELS = 2     # 地图层数 (地上/地下)
-
 class StrategicHero(ctypes.Structure):
     _fields_ = [
         ("id", ctypes.c_int32),
@@ -69,10 +64,6 @@ class StrategicState(ctypes.Structure):
         ("action", ctypes.c_int32),
         ("_version", ctypes.c_int32),
         ("passable", ctypes.c_int32 * 8),
-        # --- OBS schema v2: 态势感知扩展 (与 C 头完全一致) ---
-        ("active_hero", ctypes.c_int32),
-        ("local_tiles", ctypes.c_int8 * LOCAL_WIN * LOCAL_WIN),
-        ("global_explored", ctypes.c_int8 * GLOBAL_GRID * GLOBAL_GRID * MAX_LEVELS),
     ]
 
 class StrategicReader:
@@ -145,5 +136,4 @@ class StrategicReader:
             "heroes": hero_list,
             "towns": town_list,
             "game_over": state.game_over,
-            "active_hero": state.active_hero,
         }

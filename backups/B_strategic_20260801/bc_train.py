@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-C8.4 BC 训练 — obs(2689) → 11 动作分类 (CrossEntropy)
-网络结构与 train_wsl2_ppo_v2.py 的 Net 完全一致 (fc 2689→128→128, actor 11, critic 1),
+C8.4 BC 训练 — obs(264) → 11 动作分类 (CrossEntropy)
+网络结构与 train_wsl2_ppo_v2.py 的 Net 完全一致 (fc 264→128→128, actor 11, critic 1),
 C8.5 PPO 微调可直接加载 bc_model.pt 初始化权重。
 """
 import glob
@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-OBS_DIM = 2689
+OBS_DIM = 264
 N_ACTIONS = 11
 
 
@@ -21,7 +21,7 @@ class Net(nn.Module):
     """与 train_wsl2_ppo_v2.py 完全一致 — state_dict key 必须匹配"""
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(OBS_DIM, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU())
+        self.fc = nn.Sequential(nn.Linear(264, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU())
         self.actor, self.critic = nn.Linear(128, 11), nn.Linear(128, 1)
 
     def forward(self, x):

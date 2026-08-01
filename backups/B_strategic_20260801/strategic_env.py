@@ -69,18 +69,13 @@ END_TURN = 10      # 结束当前回合
 
 N_ACTIONS = 11
 
-# 观测向量维度 (OBS schema v2: 8+96+184+112+225+2048+8+8 = 2689)
-OBS_DIM = 2689
+# 观测向量维度
+OBS_DIM = 264
 
 # StrategicState 最大实体数
 MAX_PLAYERS = 8
 MAX_HEROES = 8
 MAX_TOWNS = 8
-
-# OBS schema v2 态势感知段常量 (与 strategic_reader.py / C 头一致)
-LOCAL_WIN = getattr(_sr, "LOCAL_WIN", 15)      # local_tiles 窗口边长
-GLOBAL_GRID = getattr(_sr, "GLOBAL_GRID", 32)  # global_explored 网格边长
-MAX_LEVELS = getattr(_sr, "MAX_LEVELS", 2)     # 地图层数
 
 
 # =============================================================================
@@ -129,18 +124,7 @@ def _read_strategic_state(lib_path: str = None):
 
 
 def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
-    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量 (OBS schema v2, 2689 维)
-
-    布局 (索引从 0 开始):
-      [0:8]      global          day,week,month,current_player,map_w,map_h,has_underground,player_count
-      [8:104]    players         8 x 12
-      [104:288]  heroes          8 x 23 (id..exp, army_count[7], in_battle)
-      [288:400]  towns           8 x 14 (id,owner,pos xyz,buildings,garrison[7],gold_income)
-      [400:625]  local window    15 x 15 = 225, state.local_tiles 行主序
-      [625:2673] global explored 32 x 32 x 2 = 2048, 先 z=0 层再 z=1 层
-      [2673:2681] active_hero    obs[2673]=state.active_hero, 其余保留 0
-      [2681:2689] passable       永远在 OBS_DIM-8
-    """
+    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量"""
     obs = np.zeros(OBS_DIM, dtype=np.float32)
     idx = 0
 
@@ -171,13 +155,15 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
             obs[idx] = p.town_count;   idx += 1
             obs[idx] = p.alive;        idx += 1
         else:
-            idx += 12  # 空槽位保持 0
+            idx += 12  # skip
 
-    # --- Heroes (8 * 23 = 184) — 8 个英雄全装下, 无 264 维度截断 ---
+    # --- Heroes (8 * 30 = 240, but capped by OBS_DIM) ---
+    # Note: StrategicHero has 30 c_int32 fields (incl. army_type[7], name[32]).
+    # We write the first 23 (id through in_battle, excluding army_type).
     _HERO_FIELDS = 23
     for hi in range(MAX_HEROES):
         h = state.heroes[hi]
-        if h.id >= 0:
+        if h.id >= 0 and idx + _HERO_FIELDS <= OBS_DIM:
             obs[idx] = h.id;           idx += 1
             obs[idx] = h.owner;        idx += 1
             obs[idx] = h.pos_x;        idx += 1
@@ -198,51 +184,15 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
                 obs[idx] = h.army_count[ai]; idx += 1
             obs[idx] = h.in_battle;    idx += 1
         else:
-            idx += _HERO_FIELDS  # 空槽位保持 0
+            idx += _HERO_FIELDS if idx + _HERO_FIELDS <= OBS_DIM else 0
 
-    # --- Towns (8 * 14 = 112) — 无城镇槽位填 0 ---
-    _TOWN_FIELDS = 14
-    for ti in range(MAX_TOWNS):
-        t = state.towns[ti]
-        if t.id != 0:
-            obs[idx] = t.id;           idx += 1
-            obs[idx] = t.owner;        idx += 1
-            obs[idx] = t.pos_x;        idx += 1
-            obs[idx] = t.pos_y;        idx += 1
-            obs[idx] = t.pos_z;        idx += 1
-            obs[idx] = t.buildings;    idx += 1
-            # garrison (7 slots)
-            for ai in range(7):
-                obs[idx] = t.garrison[ai]; idx += 1
-            obs[idx] = t.gold_income;  idx += 1
-        else:
-            idx += _TOWN_FIELDS  # 空槽位保持 0
-
-    # --- Local window (15 * 15 = 225) — 行主序 (li 行, lj 列) ---
-    # 注: ctypes 多维数组 (c_int8*15*15) 线性索引返回子数组, 需双重索引取标量
-    for li in range(LOCAL_WIN):
-        row = state.local_tiles[li]
-        for lj in range(LOCAL_WIN):
-            obs[idx] = row[lj]
-            idx += 1
-
-    # --- Global explored (32 * 32 * 2 = 2048) — 先 z=0 层 1024 维, 再 z=1 层 ---
-    for z in range(MAX_LEVELS):
-        layer = state.global_explored[z]
-        for gy in range(GLOBAL_GRID):
-            row = layer[gy]
-            for gx in range(GLOBAL_GRID):
-                obs[idx] = row[gx]
-                idx += 1
-
-    # --- Active hero (8) — obs[2673] 为 active_hero (int32, -1 或索引), [2674:2681] 保留 0 ---
-    obs[OBS_DIM - 16] = state.active_hero
-
-    # --- Passability (8) — 永远在 OBS_DIM-8 ---
+    # Pad remaining with zeros (should already be zero from np.zeros)
+    
+    # --- Passability (8) — always at OBS_DIM-8 regardless of hero overflow ---
     pidx = OBS_DIM - 8
     for di in range(8):
         obs[pidx + di] = state.passable[di]
-
+    
     return obs
 
 

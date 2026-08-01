@@ -669,3 +669,20 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 交互（act=8）含英雄升级经验奖励（exp×0.001）→ 免费正奖励（+2.9）→ 模型"交互一次→END_TURN 刷到底"
 - 对局 200 步固定、END_TURN 不结束 → -0.1/步是最低损耗 → 无事件奖励（占矿/杀敌）时模型无主动做事动力
 - **结论**: PPO 微调无 KL 约束会偏离 BC 塌缩；事件奖励（占矿+10/杀敌+100/占城+50）是主动行为驱动（需 strategic_state 矿归属/战斗结果扩展）；态势感知（#1-4/#8/#13）是 1v7 最小阻塞集
+
+**VCMI 上游研究（2026-08-01, GitHub 实查）**
+- 官方 vcmi/vcmi: 最新 release 1.7.4（2026-05），develop=1.8.0 开发线；本地仓库 remote 即 smanolloff/vcmi fork `develop+v15+ml` tip（+37 本地提交），已对齐无需升级基线
+- **fmt 依赖**: 只在 `client/CMakeLists.txt` 的 `if(ENABLE_DISCORD)` 块内 find_package（与 glaze 一起，供 discord-presence）→ 训练构建 `-DENABLE_DISCORD=OFF` 直接跳过，无需装 libfmt-dev
+- **MMAI v15 "Graphmind" PR #7654**（2026-07-31 draft）: 图节点观察（Global/Player/Unit/Hex/Action）+ GNN，vs BattleAI 镜像 89%（v13 80%）；无施法/无 tactics；v15 模型由 vcmi-mods/mmai mod 发布。官方 develop 只合入 v13（onnxruntime 后端）；#7654 合入后官方原生支持 v15 → Phase D 战斗集成对齐此方向
+- **vcmi-gym 官方 RL 项目**（smanolloff/vcmi-gym, 2026-07-31 活跃）: v13/v14/v15 环境 + MPPO/MPPG/PPO-DNA/MQRDQN/MuZero 全家桶，PBT+W&B；**官方经验: flat CNN+FCN 效果最好，self-attention/residual/LSTM 反而更差，Transformer 不适用（观察近 Markovian）**——⚠️ 挑战我们 1v7 阻塞集 #13（RNN/LSTM 记忆），但注意这是**战斗层**结论（回合内局部观察），战略层（地图探索/长期规划）记忆需求可能不同，需验证
+- **战略层 RL 是空白**: 官方/社区无现成战略层方案 → 我们的 strategic_state + 战略 PPO 是独有资产；1.8 Lua scripting（modding API TODO）未来可能提供更干净集成接口
+- **NK2 修复**: #7504 Dimension Door（07-01 合入）、#7413 传送门探索（06-06）、#7352 守卫拾取物绕行（07-04）、**#7613 路线失败循环（open 07-20）— 合入后 BC 采集 ~50% deadloop 概率应显著下降**、#7632 寻路提速（open）
+- 行动项: 跟踪 #7654 合入后评估本地 37 提交从 fork 迁官方 develop；NK2 对手升级等 #7613 合入后 rebase
+
+**B 态势感知实现要点（2026-08-01）**
+- StrategicState 扩展字段放**结构体末尾**（现有字段偏移不动 → 旧 ctypes 定义仍对齐，ABI 安全）；_version 从 1→2
+- fill_exploration() 读 `team->fogOfWarMap[int3(x,y,z)]`（TeamState per-player，非全知）⚠️ 待验证：VCMI 注释 visible vs 累计 explored，影响"走过又离开视野"的格子
+- local_tiles 15×15 编码 0=未知/1=可通行/2=障碍（物体与 1 合并，宁简勿错）；global_explored 32×32×2 下采样 ceil 块，块内任一探索=1
+- active_hero 跨 .so 共享走 extern "C" 全局（g_ml_player_cb 同模式）；AAI.cpp act==9 切换 g_active_hero=(g_active_hero+1)%n，移动用 heroes[g_active_hero]
+- cmake POST_BUILD create_symlink 对**已存在目录**失败（目录 ≠ symlink）→ data 是真目录时需先移走再 build，build 后手动 ln -s 指向游戏数据
+- CMakeCache 损坏重配后，vcmi-native 编译目录必须与项目源逐文件 diff 对齐（user_agents/、MLClient.cpp 都可能旧版）

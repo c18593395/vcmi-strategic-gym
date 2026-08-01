@@ -33,7 +33,7 @@ CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(2689,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        self.fc = nn.Sequential(nn.Linear(264,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
         self.actor, self.critic = nn.Linear(128,11), nn.Linear(128,1)
     def forward(self, x):
         h = self.fc(x)
