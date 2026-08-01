@@ -686,3 +686,12 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - active_hero 跨 .so 共享走 extern "C" 全局（g_ml_player_cb 同模式）；AAI.cpp act==9 切换 g_active_hero=(g_active_hero+1)%n，移动用 heroes[g_active_hero]
 - cmake POST_BUILD create_symlink 对**已存在目录**失败（目录 ≠ symlink）→ data 是真目录时需先移走再 build，build 后手动 ln -s 指向游戏数据
 - CMakeCache 损坏重配后，vcmi-native 编译目录必须与项目源逐文件 diff 对齐（user_agents/、MLClient.cpp 都可能旧版）
+
+**采集排障新陷阱（2026-08-01）**
+- **VCMI settings 写读层不一致**: `Settings(settings.write({"ai", ...}))` 写 session 层, Client.cpp `settings["ai"][...]` 读配置层 → 写入不生效（读默认值）。训练没暴露（red 默认 MMAI 恰好正确），采集（NK2）暴露。**跨 .so 直传方案**: `extern "C" char g_adventure_allied_ai[64]`（MLClient 定义+strncpy / Client.cpp 读）——g_ml_player_cb 同模式
+- **extern "C" 语法**: `extern "C" extern char x[64];` 非法（invalid use of 'extern' in linkage specification）；函数内 `extern "C"` 也非法（只能命名空间作用域）。正确: 文件作用域 `extern "C" { extern char x[64]; }`
+- **TerrainTile::isClear(from) 的 from 不能为 nullptr**: VCMI 实现里 from->getTerrain() 解引用 → segfault。必须传有效 tile（英雄所在格）
+- **fill 无锁直读 CGameState = 数据竞争**: fill 在 NK2/MMAI 后台线程执行, 直读 gs.getMap()/fogOfWarMap 与 AI 规划线程竞争 → NK2 决策损坏（症状: moveHero 全被服务器拒的死循环, 非崩溃）。必须 `std::shared_lock gsLock(CGameState::mutex)`（AAI.cpp 同模式）
+- **编译树 vs 项目源版本漂移**: vcmi-native（编译树）AI/MMAI 只有 v13, 项目源是 fork tip（v14/v15 Graphmind draft）→ 不能全量同步 MMAI（编译风险）；router.cpp 等关键修复文件单独同步。AIGateway.cpp 采集 hook 在项目源但编译树没有 → 重编 libNullkiller2.so 前必须同步
+- **NK2 卡死（chain retry）是固有的**: ~50% 概率, day 4+ 后常见（moveHero blocked 死循环）。采集用 watchdog 900s + 子进程隔离跳局, 属正常流程（C8.3 同）
+- **collect close 阶段 segfault**: SAVED 之后 close() 崩溃（dumped core）——数据已落盘, 不影响采集（C8.3 已知, 子进程隔离处理）
