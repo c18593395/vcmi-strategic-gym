@@ -633,3 +633,18 @@
 - **修复**: 主进程 `subprocess.run(..., timeout=900)` 整局硬超时，`TimeoutExpired` → kill 跳局 continue；重启采集并 `> collect.log 2>&1` 落盘日志
 - **验证**: 修复后 ep0 正常落盘 44KB，ep1（之前卡死图）reset OK 正常采集
 - **教训**: 所有子进程隔离式脚本必须有**整局级** watchdog（覆盖启动+运行全程），不能只依赖 env 内部各阶段 timeout；后台进程 stdout 必须重定向到日志文件
+
+### 7. 战斗 AI 三选一全废 (C8.5 训练卡死根因链)
+- **现象**: NK2(blue) 打野怪 → 战斗开始 → 卡死或崩溃, ep_steps=1~2
+- **根因链** (逐层定位):
+  1. `combatEnemyAI/NeutralAI` 设置在 **"server" 路径** (无效) → 实际用 schema 默认 **BattleAI** → headless 下等待回调卡死
+  2. 换 **StupidAI** → `libStupidAI.so does not export GetNewAI` (ABI 不匹配, 只有 GetNewBattleAI 无 GetNewAI) → 冒险 AI 加载崩
+  3. 换 **MMAI** → battleStarted → Router::battleStart → `ASSERT(cb->getPlayerID()->hasValue())` — **neutral 玩家无 playerID → 抛异常 → 穿过 noexcept 边界 → std::unexpected 崩溃**
+- **修复**: ① 战斗 AI 键改 `{"ai", ...}` 路径 + 全用 MMAI (leftModel/rightModel=Scripted("StupidAI") 自动裁决) ② Router::battleStart neutral 无 playerID 时用 modelRight + 整体 try-catch fallback StupidAI ③ 战斗结果对话框 `IFML(true,false)` 禁用 (ML 模式 AI 不回答 CBattleDialogQuery → 永久卡) — **server 代码链接进 libmlclient.so, 改 BattleResultProcessor 必须 make mlclient 而非 vcmiserver**
+- **教训**: 进程内 server (useProcess=false) — server 代码在 libmlclient.so; 改 server 逻辑后验证二进制归属 (grep -acl "消息文本" rel/bin/*)
+
+### 8. WSL 内存崩溃 (E_UNEXPECTED)
+- **现象**: 训练/diag 跑一段时间后 `wsl bash` 全部返回 `Wsl/Service/E_UNEXPECTED` 乱码 — WSL 服务崩溃
+- **根因**: 主机 16GB 内存仅剩 3.9GB 空闲 → WSL2 默认 50% 配额吃满 → VCMI+Python 重负载 OOM → WSL 整体崩
+- **修复**: `C:\Users\Administrator\.wslconfig` 限制 `memory=6GB swap=4GB processors=8`
+- **教训**: 训练机内存紧张, 监控 free -h; 训练进程死亡先查 WSL 是否崩溃 (watchdog 检测进程消失 + WSL 探测)
