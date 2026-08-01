@@ -52,8 +52,8 @@ def run_episode(mapname, blue_model=None):
     env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
     cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
-    # C8.5: blue 用 Nullkiller2 真 AI 对手（不再是自对弈）
-    cmd.extend(["--blue_adventure_ai", "Nullkiller2"])
+    # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
+    cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
     cmd.extend(["--reward_explore", "1.0"])
     if blue_model:
@@ -63,7 +63,7 @@ def run_episode(mapname, blue_model=None):
         cmd,
         stdout=open(ep_log, "w"), stderr=subprocess.STDOUT, env=env
     )
-    try: proc.wait(timeout=STEPS_PER_EP*3 + 15)
+    try: proc.wait(timeout=STEPS_PER_EP*60 + 300)  # C8.5: NK2 对手回合 15-60s, 原 *3+15 必误杀
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
     try:
         # Clean up temp checkpoint
