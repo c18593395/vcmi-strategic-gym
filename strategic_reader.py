@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 MAX_HEROES = 8
 MAX_TOWNS = 8
 MAX_PLAYERS = 8
+MAX_MINES = 64   # A+B: 矿场最大数量 (与 C 头 strategic_state.h 一致)
 
 # OBS schema v2 常量（与 C 头 strategic_state.h 一致）
 LOCAL_WIN = 15     # local_tiles 窗口边长
@@ -55,6 +56,15 @@ class StrategicPlayer(ctypes.Structure):
         ("alive", ctypes.c_int32),
     ]
 
+class StrategicMine(ctypes.Structure):
+    """A+B: 矿场 (与 C 头 strategic_state.h 的 StrategicMine 一致)"""
+    _fields_ = [
+        ("id", ctypes.c_int32),
+        ("type", ctypes.c_int32),
+        ("owner", ctypes.c_int32),
+        ("pos_x", ctypes.c_int32), ("pos_y", ctypes.c_int32), ("pos_z", ctypes.c_int32),
+    ]
+
 class StrategicState(ctypes.Structure):
     _fields_ = [
         ("day", ctypes.c_int32), ("week", ctypes.c_int32), ("month", ctypes.c_int32),
@@ -73,6 +83,11 @@ class StrategicState(ctypes.Structure):
         ("active_hero", ctypes.c_int32),
         ("local_tiles", ctypes.c_int8 * LOCAL_WIN * LOCAL_WIN),
         ("global_explored", ctypes.c_int8 * GLOBAL_GRID * GLOBAL_GRID * MAX_LEVELS),
+        # --- A+B: 事件奖励扩展 (StrategicState 末尾追加, 与 C 头一致) ---
+        # 注意: 以下字段只用于奖励计算, 不进 obs (obs 保持 2689 维)
+        ("mine_count", ctypes.c_int32),
+        ("mines", StrategicMine * MAX_MINES),
+        ("battle_result", ctypes.c_int32),   # 0=无 1=red赢 2=red输 3=平局
     ]
 
 class StrategicReader:
@@ -137,6 +152,15 @@ class StrategicReader:
                 "towns": [t for t in town_list if t["owner"] == p.color],
             })
 
+        # A+B: 矿场列表 (只用于奖励/调试, 不进 obs)
+        mine_list = []
+        for i in range(state.mine_count):
+            m = state.mines[i]
+            mine_list.append({
+                "id": m.id, "type": m.type, "owner": m.owner,
+                "pos": (m.pos_x, m.pos_y, m.pos_z),
+            })
+
         return {
             "day": state.day, "week": state.week, "month": state.month,
             "current_player": state.current_player,
@@ -144,6 +168,8 @@ class StrategicReader:
             "players": player_list,
             "heroes": hero_list,
             "towns": town_list,
+            "mines": mine_list,
+            "battle_result": state.battle_result,
             "game_over": state.game_over,
             "active_hero": state.active_hero,
         }

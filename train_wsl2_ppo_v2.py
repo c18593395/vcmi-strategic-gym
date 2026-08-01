@@ -20,6 +20,9 @@ MAPS = [
     "Dungeon Keeper.h3m", "Key to Victory.h3m",
     "Good Witch, Bad Witch.h3m", "Fort Noxis.h3m",
 ]
+
+# === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
+KL_COEF = 0.05
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 # Not loading from JSON — using verified-open maps only
 
@@ -111,6 +114,25 @@ if resume_step == 0:
             model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
             print("Loaded existing model (weights only), continuing training", flush=True)
         except: pass
+
+# === A+B: KL 约束 BC — 冻结 BC 参考网络, PPO 更新时对策略分布加 KL 正则 ===
+USE_KL = False
+kl_ref = None
+if bc_loaded:
+    try:
+        kl_ref = Net().to(DEVICE)
+        # 加载完整 BC 权重 (fc+actor+critic); 只取 actor 分布做 KL, critic 无影响
+        kl_ref.load_state_dict(torch.load(BC_PATH, map_location=DEVICE, weights_only=True), strict=False)
+        kl_ref.requires_grad_(False)  # 冻结: 不进优化器, 不参与反向传播
+        kl_ref.eval()
+        USE_KL = True
+        print(f"  KL constraint ON: KL_COEF={KL_COEF}, kl_ref frozen from BC (fc+actor)", flush=True)
+    except Exception as e:
+        USE_KL = False
+        kl_ref = None
+        print(f"  KL constraint OFF (ref load failed: {e}) — 从零训练不约束", flush=True)
+else:
+    print(f"  KL constraint OFF (no BC base loaded) — 从零训练不约束", flush=True)
 
 def is_clean():
     for p in model.parameters():
@@ -241,6 +263,7 @@ for ep in range(N_EPISODES):
         # GAE returns for value targets
         returns = (gaes + val_old).clamp(-EXTREME_ADV_CLIP * 3, EXTREME_ADV_CLIP * 3)
 
+        kl_item = 0.0  # A+B: KL 日志 (USE_KL 关闭时恒为 0)
         for _ in range(EPOCHS):
             pi, val = model(obs_t)
             logp = pi.log_prob(act_t)
@@ -251,6 +274,16 @@ for ep in range(N_EPISODES):
             # v2: value loss against GAE returns instead of TD target
             vloss = nn.MSELoss()(val, returns.detach())
             loss = surr + 0.5*vloss - 0.01*pi.entropy().mean()
+            # === A+B: KL 约束 BC — 当前策略分布 vs 冻结的 BC 参考策略 ===
+            # kl = Σ_a π(a) * (log π(a) - log π_ref(a)); kl_ref 前向在 no_grad 下
+            if USE_KL:
+                with torch.no_grad():
+                    ref_pi, _ = kl_ref(obs_t)
+                    ref_logp = ref_pi.logits.log_softmax(-1)
+                cur_logp = pi.logits.log_softmax(-1)
+                kl = (pi.probs * (cur_logp - ref_logp)).sum(-1).mean()
+                loss = loss + KL_COEF * kl
+                kl_item = kl.item()
             opt.zero_grad()
             loss.backward()
             # NaN 梯度检测：一旦发现立即回退干净 checkpoint
@@ -278,7 +311,8 @@ for ep in range(N_EPISODES):
 
         for k in buffer: buffer[k] = buffer[k][BATCH:]
         elapsed = time.time() - t0
-        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.0f} loss={loss.item():.0f} ep={ep_count} time={elapsed:.0f}s", flush=True)
+        kl_str = f" kl={kl_item:.3f}" if USE_KL else ""
+        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.0f} loss={loss.item():.0f}{kl_str} ep={ep_count} time={elapsed:.0f}s", flush=True)
 
         if vloss.item() < best_vloss:
             best_vloss = vloss.item()

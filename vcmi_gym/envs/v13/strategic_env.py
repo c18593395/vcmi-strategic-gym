@@ -297,6 +297,10 @@ class StrategicEnv(gym.Env):
         reward_win: float = 200.0,
         reward_step_fixed: float = -0.1,
         reward_explore: float = 0.0,   # 探索奖励: 访问新格子 (C8.5)
+        # A+B: 事件奖励 (占矿/打赢战斗/英雄升级)
+        reward_mine_mult: float = 10.0,    # 占矿 (owner !=0 → 0)
+        reward_battle_mult: float = 100.0, # 打赢战斗 (battle_result 0/2/3 → 1)
+        reward_level_mult: float = 10.0,   # 英雄升级
     ):
         super().__init__()
 
@@ -341,6 +345,10 @@ class StrategicEnv(gym.Env):
         self.reward_win = reward_win
         self.reward_step_fixed = reward_step_fixed
         self.reward_explore = reward_explore
+        # A+B: 事件奖励系数
+        self.reward_mine_mult = reward_mine_mult
+        self.reward_battle_mult = reward_battle_mult
+        self.reward_level_mult = reward_level_mult
         self._visited = set()  # 已访问格子 (探索奖励)
 
         # --- 创建连接器 ---
@@ -694,8 +702,13 @@ class StrategicEnv(gym.Env):
         """初始化奖励基线值"""
         self._prev_player0 = {"gold": 0, "wood": 0, "mercury": 0, "ore": 0,
                               "sulfur": 0, "crystal": 0, "gems": 0,
-                              "towns": 0, "heroes": 0, "hero_exp": 0}
+                              "towns": 0, "heroes": 0}
         self._prev_player1 = dict(self._prev_player0)
+        # A+B: 事件奖励基线 (每局重置)
+        self._prev_mines = {}         # mine_id -> owner
+        self._prev_levels = {}        # hero_id -> level
+        self._last_battle_result = 0  # 0=无 1=red赢 2=red输 3=平局
+        self._visited = set()         # 探索奖励: 每局重置
         if state is None:
             return
         for pi in range(state.player_count):
@@ -707,10 +720,24 @@ class StrategicEnv(gym.Env):
             prev["crystal"] = p.crystal; prev["gems"] = p.gems
             prev["towns"] = p.town_count
             prev["heroes"] = p.hero_count
-            prev["hero_exp"] = sum(h.exp for h in state.heroes if h.id >= 0 and h.owner == pi)
+        # A+B: 记录初始矿归属与英雄等级 (只用于奖励计算, 不进 obs)
+        for i in range(state.mine_count):
+            m = state.mines[i]
+            self._prev_mines[m.id] = m.owner
+        for h in state.heroes:
+            if h.id > 0:   # id<=0 为空槽位哨兵 (-1/0), 排除
+                self._prev_levels[h.id] = h.level
+        self._last_battle_result = state.battle_result
+        # A+B: 探索预填出生区 — red(owner==0) 英雄出生位置为中心 3×3 (dx,dy∈[-1,1] 同层)
+        # 解决出生区基线问题: 模型必须在出生区外探索才有奖励
+        for h in state.heroes:
+            if h.id > 0 and h.owner == 0:
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        self._visited.add((h.pos_x + dx, h.pos_y + dy, h.pos_z))
 
     def _calc_reward(self, state: Optional[StrategicState]) -> float:
-        """计算基于资源变化的奖励"""
+        """计算基于资源变化的奖励 (A+B: 矿/战斗/升级事件奖励)"""
         if state is None:
             return 0.0
 
@@ -725,6 +752,19 @@ class StrategicEnv(gym.Env):
                         self._visited.add(pos)
                         reward += self.reward_explore
 
+        # A+B: 矿奖励 — owner 从 !=0 变为 0 (red 新占矿) → +reward_mine_mult
+        for i in range(state.mine_count):
+            m = state.mines[i]
+            prev_owner = self._prev_mines.get(m.id, m.owner)  # 新出现的矿不奖励
+            if prev_owner != 0 and m.owner == 0:
+                reward += self.reward_mine_mult
+            self._prev_mines[m.id] = m.owner
+
+        # A+B: 战斗奖励 — battle_result 从非1变为1 (red 打赢) → +reward_battle_mult
+        if self._last_battle_result != 1 and state.battle_result == 1:
+            reward += self.reward_battle_mult
+        self._last_battle_result = state.battle_result
+
         # 本方 P0 (red) 的资源变化奖励
         if state.player_count >= 1:
             p0 = state.players[0]
@@ -736,15 +776,20 @@ class StrategicEnv(gym.Env):
                        prev0["mercury"] - prev0["sulfur"] - prev0["crystal"] - prev0["gems"]) * self.reward_gold_mult * 2
             reward += (p0.town_count - prev0["towns"]) * self.reward_town_mult
             reward += (p0.hero_count - prev0["heroes"]) * self.reward_hero_mult
-            # hero experience
-            cur_exp = sum(h.exp for h in state.heroes if h.id >= 0 and h.owner == 0)
-            reward += (cur_exp - prev0["hero_exp"]) * 0.001
+            # C8.5 教训: exp per-step 奖励已删除 (交互漏洞: act=8 白拿 exp 奖励) — 改为升级事件奖励
             self._prev_player0 = {
                 "gold": p0.gold, "wood": p0.wood, "mercury": p0.mercury,
                 "ore": p0.ore, "sulfur": p0.sulfur, "crystal": p0.crystal, "gems": p0.gems,
                 "towns": p0.town_count, "heroes": p0.hero_count,
-                "hero_exp": cur_exp,
             }
+
+        # A+B: 升级奖励 — red 英雄 level 增加 → +reward_level_mult
+        for h in state.heroes:
+            if h.id > 0 and h.owner == 0:   # id<=0 为空槽位哨兵
+                prev_lvl = self._prev_levels.get(h.id)
+                if prev_lvl is not None and h.level > prev_lvl:
+                    reward += self.reward_level_mult
+                self._prev_levels[h.id] = h.level
 
         # 胜利奖励
         if self._game_over == 1:  # red wins
@@ -752,7 +797,9 @@ class StrategicEnv(gym.Env):
         elif self._game_over == 2:  # blue wins
             reward -= self.reward_win  # punish for losing
 
-        return float(np.clip(reward, -10, 10))
+        # 注意: clip 上限放宽到 300 以容纳事件奖励 (战斗+100 / 胜利+200 同帧可达 300),
+        # 原 clip(-10,10) 会把 +100 战斗奖励压到 +10, 使事件奖励失效
+        return float(np.clip(reward, -10, 300))
 
     def _check_done(self, state: Optional[StrategicState]):
         """检查是否终止"""
