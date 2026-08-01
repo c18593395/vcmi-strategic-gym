@@ -648,3 +648,21 @@
 - **根因**: 主机 16GB 内存仅剩 3.9GB 空闲 → WSL2 默认 50% 配额吃满 → VCMI+Python 重负载 OOM → WSL 整体崩
 - **修复**: `C:\Users\Administrator\.wslconfig` 限制 `memory=6GB swap=4GB processors=8`
 - **教训**: 训练机内存紧张, 监控 free -h; 训练进程死亡先查 WSL 是否崩溃 (watchdog 检测进程消失 + WSL 探测)
+
+### 9. 被动资源收入做 per-step 奖励 → 模型坚守 END_TURN (C8.5)
+- **现象**: 训练 200 步全 act=10 (END_TURN), r=2000/局 (每步 +10)
+- **根因**: reward_gold_mult=0.01 → END_TURN → day 推进 → 城镇被动 gold 收入 → 每步 +5~10 白拿 → 坚守 END_TURN 最优
+- **修复**: reward_gold_mult=0.0 (被动收入只做终局奖励)
+- **教训**: 任何被动收入 (gold/town/资源产出) 都不能做 per-step 奖励; 主动行为驱动必须用事件奖励 (占矿/杀敌/占城) + 态势感知
+
+### 10. 进程内 server 代码在 libmlclient.so (C8.5)
+- **现象**: 改 BattleResultProcessor (server 逻辑) 后 make vcmiserver 部署无效
+- **根因**: useProcess=false → server 代码链接进 libmlclient.so (vcmiservercommon → libmlclient)
+- **修复**: make mlclient 部署 libmlclient.so
+- **教训**: 改 server 逻辑先验证二进制归属: grep -acl "代码内字符串" rel/bin/*
+
+### 11. 无 playerID 的玩家 (neutral) 触发 MMAI ASSERT 崩溃 (C8.5)
+- **现象**: NK2 打野怪 → battleStarted → std::unexpected 崩溃 (VCMI 死)
+- **根因**: Router::battleStart `ASSERT(cb->getPlayerID()->hasValue())` — neutral 玩家无 playerID → throw → 穿 noexcept → unexpected
+- **修复**: neutral 无 playerID 时用 modelRight + 整体 try-catch fallback StupidAI
+- **教训**: MMAI 代码假定"无 neutral 玩家参战" (注释 XXX: dev mode assumes there are no neutral players in battle) — 训练打野怪必然触发

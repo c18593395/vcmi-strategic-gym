@@ -652,3 +652,20 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 关键坑: 旧 wsl2_model_state.pt 存在会抢占加载路径（resume_step>0 跳过 BC）→ 启动前必须删/挪 state 文件
 - 配置: MAPS=4 张 2 人图（无 tan 拖慢），blue_adventure_ai=Nullkiller2 真对手，reward_explore=1.0（新格子 +1），1000eps×200steps
 - 奖励原则落地: 探索奖励用 env 内 _visited 集合（每局 reset），reward_explore>0 才启用
+
+**C8.5 战斗系统修复链（2026-08-01 夜~晨）**
+- **进程内 server**: useProcess=false → server 代码链接进 **libmlclient.so**（改 BattleResultProcessor 等 server 逻辑必须 make mlclient，不是 vcmiserver！验证: grep -acl "消息文本" rel/bin/*）
+- **战斗 AI 三选一全废**: ① settings 键在 `"ai"` 路径（`{"server",...}` 无效路径 → 用 schema 默认 BattleAI → headless 等待回调卡死）② libStupidAI.so 只有 GetNewBattleAI 无 GetNewAI（冒险 AI 加载崩）③ MMAI battleStarted 崩（Router::battleStart `ASSERT(cb->getPlayerID()->hasValue())` — neutral 无 playerID → throw 穿 noexcept → std::unexpected）
+- **修复**: 战斗 AI 全走 MMAI 体系（leftModel/rightModel=Scripted("StupidAI") 自动裁决，即 #46 机制）；Router neutral 无 playerID 用 modelRight + 整体 try-catch fallback StupidAI；战斗结果对话框 `IFML(true,false)` 禁用（ML 模式 AI 不回答 CBattleDialogQuery → 永久卡）
+- **moveHero 等待**: AAI::yourTurn moveHero 后轮询位置（最多 2s）再 endTurn（异步未实现就切回合 → 卡死）；NK2 用 waitTillFree（等 heroMoved）正常
+
+**NK2 内存炸弹（2026-08-01 09:22）**
+- NK2 单局内存 3.7-7.5GB（1 分钟 430MB→3.7GB 膨胀）→ WSL 8GB OOM 崩溃；EmptyAI 430MB / MMAI_RANDOM 493MB 正常 → NK2 确凿
+- nk2ai-settings.json（config/ai/nk2ai/）openMap 已全关、bucket 小 → settings 无解；TBB global_control 限 4 线程无效 → 根因未明（Phase D 深挖：疑似 Nullkiller analyze/memory 累积）
+- **替代对手**: MMAI_RANDOM（自动随机行动，内存 493MB，每步 2s）— ep_runner `--blue_ai MMAI_RANDOM --blue_adventure_ai MMAI`
+
+**C8.5 奖励结构教训（2026-08-01 10:00）**
+- **被动 gold 收入不能做 per-step 奖励**: reward_gold_mult=0.01 → END_TURN 后 day 推进被动 gold +500~1000 → 每步 +5~10 → 模型坚守 END_TURN（r=2000/200 步全是 act=10）→ 改 0.0
+- 交互（act=8）含英雄升级经验奖励（exp×0.001）→ 免费正奖励（+2.9）→ 模型"交互一次→END_TURN 刷到底"
+- 对局 200 步固定、END_TURN 不结束 → -0.1/步是最低损耗 → 无事件奖励（占矿/杀敌）时模型无主动做事动力
+- **结论**: PPO 微调无 KL 约束会偏离 BC 塌缩；事件奖励（占矿+10/杀敌+100/占城+50）是主动行为驱动（需 strategic_state 矿归属/战斗结果扩展）；态势感知（#1-4/#8/#13）是 1v7 最小阻塞集
