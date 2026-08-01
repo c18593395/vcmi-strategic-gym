@@ -666,3 +666,34 @@
 - **根因**: Router::battleStart `ASSERT(cb->getPlayerID()->hasValue())` — neutral 玩家无 playerID → throw → 穿 noexcept → unexpected
 - **修复**: neutral 无 playerID 时用 modelRight + 整体 try-catch fallback StupidAI
 - **教训**: MMAI 代码假定"无 neutral 玩家参战" (注释 XXX: dev mode assumes there are no neutral players in battle) — 训练打野怪必然触发
+
+### 12. TerrainTile::isClear() 无 from 参数 → segfault (2026-08-01)
+- **现象**: 采集/训练 reset 后静默 segfault（无 traceback, 进程 Aborted）
+- **根因**: `tile.isClear()` 默认 from=nullptr → VCMI 内部 `from->getTerrain()` 解引用 null → 崩
+- **定位**: gdb --batch -ex run -ex "bt" --args python collect_bc.py（拿 C++ 栈: fill_exploration → isClear → entrableTerrain → getTerrain this=0x0）
+- **修复**: `tile.isClear(&from_tile)`（传英雄所在格, 对齐 passability 写法）
+- **教训**: VCMI 的 isClear(from) 的 from 必须有效; 新代码调用前查 API 默认参数
+
+### 13. fill 无锁直读 CGameState → NK2 决策损坏 (2026-08-01)
+- **现象**: NK2 所有 moveHero 被服务器拒 ("destination tile is blocked" 死循环), 非崩溃
+- **根因**: fill_exploration/fill_mines 在 NK2 后台线程直读 gs.getMap()/fogOfWarMap（无锁）→ 与 NK2 规划线程数据竞争 → NK2 决策数据损坏
+- **定位**: H2 隔离实验（注释 fill 调用 → NK2 恢复 100 pairs 正常）
+- **修复**: fill_exploration/fill_mines 内部 `std::shared_lock gsLock(CGameState::mutex)`（AAI.cpp 同模式）
+- **教训**: 回调里直读 CGameState 必须加锁; callback API（getTile 等）内部有锁, 直读 gs 没有
+
+### 14. VCMI settings 写读层不一致 → AI 分配失效 (2026-08-01)
+- **现象**: red_adventure_ai="Nullkiller2" 但 Opening 全是 MMAI, act=-1（MMAI 的 send_action(-1)）
+- **根因**: `Settings(settings.write({"ai",...}))` 写 session 层, Client.cpp `settings["ai"][...]` 读配置层 → 写入不生效（读默认 MMAI）。C8.5 训练没暴露（默认 MMAI 恰好正确）
+- **修复**: 跨 .so 全局 `extern "C" char g_adventure_allied_ai[64]`（MLClient strncpy 写 / Client.cpp 读, g_ml_player_cb 同模式）
+- **教训**: 验证 settings 写入生效用运行时日志（friendlyAI/playerAI 打印的是 combat/冒险 AI 别混淆）; 写入非默认值才暴露层问题
+
+### 15. extern "C" 语法两坑 (2026-08-01)
+- **坑1**: `extern "C" extern char x[64];` → "invalid use of 'extern' in linkage specification"
+- **坑2**: 函数内 `extern "C"` → 非法（只能命名空间作用域）
+- **正确**: 文件作用域 `extern "C" { extern char x[64]; }`（块形式）
+
+### 16. 编译树 MMAI 旧版陷阱 (2026-08-01)
+- **现象**: 战斗崩溃（neutral ASSERT, 踩坑 #11 的修复在项目源但编译树没有）
+- **根因**: vcmi-native（编译树）AI/MMAI 只有 v13 结构, 项目源是 fork tip（含 v14/v15 Graphmind draft）→ 全量同步 MMAI 有编译风险; router.cpp 等关键修复文件没同步
+- **修复**: 只同步关键修复文件（router.cpp neutral guard）→ 重编 MMAI
+- **教训**: 编译树与项目源版本漂移是常态（AI/ML 目录: AIGateway hook、MLClient、router 都可能旧）; 编译前 diff 关键文件, 按需同步
