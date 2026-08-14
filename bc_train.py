@@ -39,6 +39,13 @@ def load_data(pattern: str):
         act_list.append(d["actions"])
     obs = np.concatenate(obs_list).astype(np.float32)
     acts = np.concatenate(act_list).astype(np.int64)
+    # 2026-08-02: 丢弃 act=8 (INTERACT) 帧 — C++ AAI.cpp 无交互实现, act=8 执行=空转 endTurn(与 act=10 相同)。
+    # 采集时 NK2 的 act=8 是真实拾取资源, 训练环境无法执行 → 模型学到"开局态→假交互"死循环 (act=[8×200])。
+    # 丢弃 38 帧(5%) 让模型不再输出 8; 等 Phase D 实现交互后再恢复该动作。
+    drop8 = acts != 8
+    if (~drop8).sum() > 0:
+        print(f"dropping {(~drop8).sum()} act=8 frames (unimplemented INTERACT)")
+        obs, acts = obs[drop8], acts[drop8]
     return obs, acts
 
 

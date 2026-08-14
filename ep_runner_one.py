@@ -8,7 +8,7 @@ from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(264,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        self.fc = nn.Sequential(nn.Linear(2689,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
         self.actor, self.critic = nn.Linear(128,11), nn.Linear(128,1)
     def forward(self, x):
         h = self.fc(x)
@@ -79,8 +79,11 @@ try:
         nobs, r, done, trunc, _ = env.step(a)
         # 非法方向惩扣：move 后英雄位置没变（服务器拒绝），给 -0.5
         if a < 8 and traj["steps"] > 0:
-            prev_pos = (int(traj["obs"][-1][106]), int(traj["obs"][-1][107]))
-            cur_pos = (int(nobs[106]), int(nobs[107]))
+            # B 态势感知: 用 active_hero (obs[2673]) 定位当前英雄, heroes 段起点 104, 每英雄 23 字段, pos 在字段 2,3,4
+            ah = int(nobs[2673]) if nobs[2673] >= 0 else 0
+            base = 104 + ah * 23
+            prev_pos = (int(traj["obs"][-1][base+2]), int(traj["obs"][-1][base+3]), int(traj["obs"][-1][base+4]))
+            cur_pos = (int(nobs[base+2]), int(nobs[base+3]), int(nobs[base+4]))
             if prev_pos == cur_pos:
                 r = -0.5
         traj["obs"].append(obs.tolist())

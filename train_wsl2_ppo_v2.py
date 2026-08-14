@@ -89,6 +89,7 @@ opt = torch.optim.Adam(model.parameters(), lr=LR)
 BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v2689.pt"
 # 尝试加载已有模型续训（优先完整状态，含优化器）
 resume_step = 0
+bc_loaded = False  # 无条件初始化: resume 路径跳过下方 BC 块时 line 121 不再 NameError
 if os.path.exists(STATE_PATH):
     try:
         sd = torch.load(STATE_PATH, map_location=DEVICE, weights_only=False)
@@ -118,7 +119,8 @@ if resume_step == 0:
 # === A+B: KL 约束 BC — 冻结 BC 参考网络, PPO 更新时对策略分布加 KL 正则 ===
 USE_KL = False
 kl_ref = None
-if bc_loaded:
+# resume 路径 (resume_step>0) 同样重建 kl_ref: KL 约束不能因断点续训而丢失
+if bc_loaded or resume_step > 0:
     try:
         kl_ref = Net().to(DEVICE)
         # 加载完整 BC 权重 (fc+actor+critic); 只取 actor 分布做 KL, critic 无影响

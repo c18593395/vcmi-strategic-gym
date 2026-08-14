@@ -69,26 +69,18 @@ END_TURN = 10      # 结束当前回合
 
 N_ACTIONS = 11
 
-# 观测向量维度 (OBS schema v3: 8+120+208+144+675+2048+8+8+32+64+7+4+4+134 = 3464)
-OBS_DIM = 3464
+# 观测向量维度 (OBS schema v2: 8+96+184+112+225+2048+8+8 = 2689)
+OBS_DIM = 2689
 
 # StrategicState 最大实体数
 MAX_PLAYERS = 8
 MAX_HEROES = 8
 MAX_TOWNS = 8
 
-# OBS schema v3 段常量 (与 strategic_reader.py / C 头一致)
+# OBS schema v2 态势感知段常量 (与 strategic_reader.py / C 头一致)
 LOCAL_WIN = getattr(_sr, "LOCAL_WIN", 15)      # local_tiles 窗口边长
-LOCAL_CH = getattr(_sr, "LOCAL_CH", 3)         # v3: 通道数
 GLOBAL_GRID = getattr(_sr, "GLOBAL_GRID", 32)  # global_explored 网格边长
 MAX_LEVELS = getattr(_sr, "MAX_LEVELS", 2)     # 地图层数
-NAV_SIZE = getattr(_sr, "NAV_SIZE", 32)
-TARGET_LIST = getattr(_sr, "TARGET_LIST", 8)
-TARGET_DIM = getattr(_sr, "TARGET_DIM", 8)
-ENEMY_THREAT = getattr(_sr, "ENEMY_THREAT", 7)
-BATTLE_PRED = getattr(_sr, "BATTLE_PRED", 4)
-EVENTS_SIZE = getattr(_sr, "EVENTS_SIZE", 4)
-RESERVED_SIZE = getattr(_sr, "RESERVED_SIZE", 134)
 
 
 # =============================================================================
@@ -137,23 +129,17 @@ def _read_strategic_state(lib_path: str = None):
 
 
 def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
-    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量 (OBS schema v3, 3456 维)
+    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量 (OBS schema v2, 2689 维)
 
     布局 (索引从 0 开始):
       [0:8]      global          day,week,month,current_player,map_w,map_h,has_underground,player_count
-      [8:128]    players         8 x 15 = 120
-      [128:336]  heroes          8 x 26 = 208
-      [336:480]  towns           8 x 18 = 144
-      [480:1155] local window    15 x 15 x 3 = 675 (ch 外层: 0=可通行 1=对象类型 2=守卫战力)
-      [1155:3203] global explored 32 x 32 x 2 = 2048, 先 z=0 层再 z=1 层
-      [3203:3211] active_hero    obs[3203]=state.active_hero, 其余保留 0
-      [3211:3219] passable       8 (不再在末尾, 固定偏移)
-      [3219:3251] nav            32
-      [3251:3315] target_list    64 (8x8, v2 启用)
-      [3315:3322] enemy_threat   7
-      [3322:3326] battle_pred    4
-      [3326:3330] events         4
-      [3330:3464] reserved       134
+      [8:104]    players         8 x 12
+      [104:288]  heroes          8 x 23 (id..exp, army_count[7], in_battle)
+      [288:400]  towns           8 x 14 (id,owner,pos xyz,buildings,garrison[7],gold_income)
+      [400:625]  local window    15 x 15 = 225, state.local_tiles 行主序
+      [625:2673] global explored 32 x 32 x 2 = 2048, 先 z=0 层再 z=1 层
+      [2673:2681] active_hero    obs[2673]=state.active_hero, 其余保留 0
+      [2681:2689] passable       永远在 OBS_DIM-8
     """
     obs = np.zeros(OBS_DIM, dtype=np.float32)
     idx = 0
@@ -168,7 +154,7 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
     obs[idx] = state.has_underground;  idx += 1
     obs[idx] = state.player_count;    idx += 1
 
-    # --- Players (8 * 15 = 120) ---
+    # --- Players (8 * 12 = 96) ---
     for pi in range(MAX_PLAYERS):
         p = state.players[pi]
         if pi < state.player_count:
@@ -184,14 +170,11 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
             obs[idx] = p.hero_count;   idx += 1
             obs[idx] = p.town_count;   idx += 1
             obs[idx] = p.alive;        idx += 1
-            obs[idx] = p.total_power;  idx += 1
-            obs[idx] = p.weekly_income; idx += 1
-            obs[idx] = p.relation_to_me; idx += 1
         else:
-            idx += 15  # 空槽位保持 0
+            idx += 12  # 空槽位保持 0
 
-    # --- Heroes (8 * 26 = 208) ---
-    _HERO_FIELDS = 26
+    # --- Heroes (8 * 23 = 184) — 8 个英雄全装下, 无 264 维度截断 ---
+    _HERO_FIELDS = 23
     for hi in range(MAX_HEROES):
         h = state.heroes[hi]
         if h.id >= 0:
@@ -214,14 +197,11 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
             for ai in range(7):
                 obs[idx] = h.army_count[ai]; idx += 1
             obs[idx] = h.in_battle;    idx += 1
-            obs[idx] = h.total_power;  idx += 1
-            obs[idx] = h.is_garrisoned; idx += 1
-            obs[idx] = h.has_commander; idx += 1
         else:
             idx += _HERO_FIELDS  # 空槽位保持 0
 
-    # --- Towns (8 * 18 = 144) ---
-    _TOWN_FIELDS = 18
+    # --- Towns (8 * 14 = 112) — 无城镇槽位填 0 ---
+    _TOWN_FIELDS = 14
     for ti in range(MAX_TOWNS):
         t = state.towns[ti]
         if t.id != 0:
@@ -235,22 +215,18 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
             for ai in range(7):
                 obs[idx] = t.garrison[ai]; idx += 1
             obs[idx] = t.gold_income;  idx += 1
-            obs[idx] = t.recruit_mask_lo; idx += 1
-            obs[idx] = t.recruit_mask_hi; idx += 1
-            obs[idx] = t.build_mask_lo;   idx += 1
-            obs[idx] = t.build_mask_hi;   idx += 1
         else:
             idx += _TOWN_FIELDS  # 空槽位保持 0
 
-    # --- Local window (15*15*3=675) — ch 外层, 行主序 ---
-    for ch in range(LOCAL_CH):
-        for li in range(LOCAL_WIN):
-            row = state.local_tiles[ch][li]
-            for lj in range(LOCAL_WIN):
-                obs[idx] = row[lj]
-                idx += 1
+    # --- Local window (15 * 15 = 225) — 行主序 (li 行, lj 列) ---
+    # 注: ctypes 多维数组 (c_int8*15*15) 线性索引返回子数组, 需双重索引取标量
+    for li in range(LOCAL_WIN):
+        row = state.local_tiles[li]
+        for lj in range(LOCAL_WIN):
+            obs[idx] = row[lj]
+            idx += 1
 
-    # --- Global explored (32 * 32 * 2 = 2048) — 先 z=0 层再 z=1 层 ---
+    # --- Global explored (32 * 32 * 2 = 2048) — 先 z=0 层 1024 维, 再 z=1 层 ---
     for z in range(MAX_LEVELS):
         layer = state.global_explored[z]
         for gy in range(GLOBAL_GRID):
@@ -259,35 +235,13 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
                 obs[idx] = row[gx]
                 idx += 1
 
-    # --- Active hero (8) — 固定偏移 3203 ---
-    obs[3203] = state.active_hero
+    # --- Active hero (8) — obs[2673] 为 active_hero (int32, -1 或索引), [2674:2681] 保留 0 ---
+    obs[OBS_DIM - 16] = state.active_hero
 
-    # --- Passability (8) — 固定偏移 3211 (不再在末尾!) ---
+    # --- Passability (8) — 永远在 OBS_DIM-8 ---
+    pidx = OBS_DIM - 8
     for di in range(8):
-        obs[3211 + di] = state.passable[di]
-
-    # --- Nav (32) — 3219:3251 ---
-    for i in range(NAV_SIZE):
-        obs[3219 + i] = state.nav[i]
-
-    # --- Target list (64) — 3251:3315 ---
-    for i in range(TARGET_LIST):
-        for j in range(TARGET_DIM):
-            obs[3251 + i * TARGET_DIM + j] = state.target_list[i][j]
-
-    # --- Enemy threat (7) — 3315:3322 ---
-    for i in range(ENEMY_THREAT):
-        obs[3315 + i] = state.enemy_threat[i]
-
-    # --- Battle pred (4) — 3322:3326 ---
-    for i in range(BATTLE_PRED):
-        obs[3322 + i] = state.battle_pred[i]
-
-    # --- Events (4) — 3326:3330 ---
-    for i in range(EVENTS_SIZE):
-        obs[3326 + i] = state.events[i]
-
-    # --- Reserved (134) — 3330:3464, 保持 0 ---
+        obs[pidx + di] = state.passable[di]
 
     return obs
 
@@ -341,7 +295,7 @@ class StrategicEnv(gym.Env):
         reward_town_mult: float = 30.0,
         reward_hero_mult: float = 10.0,
         reward_win: float = 200.0,
-        reward_step_fixed: float = -1.5,  # 2026-08-02: -0.1 太弱致 END_TURN 刷底无成本 (用户原则 -1.0~-2.0 压制不动)
+        reward_step_fixed: float = -0.1,
         reward_explore: float = 0.0,   # 探索奖励: 访问新格子 (C8.5)
         # A+B: 事件奖励 (占矿/打赢战斗/英雄升级)
         reward_mine_mult: float = 10.0,    # 占矿 (owner !=0 → 0)
@@ -479,7 +433,6 @@ class StrategicEnv(gym.Env):
         self._truncated = False
         self._game_over = 0
         self._visited = set()  # 探索奖励: 每局重置
-        self._consecutive_endturn = 0  # 2026-08-02: 连续 END_TURN 计数 (防刷底)
 
         # 启动 VCMI（如果尚未启动）
         self._libml = None  # 清理旧 libml 引用
@@ -553,9 +506,6 @@ class StrategicEnv(gym.Env):
         # 只在 END_TURN 时递增 VCMI 回合计数
         if action == END_TURN:
             self._turn += 1
-            self._consecutive_endturn += 1
-        else:
-            self._consecutive_endturn = 0
 
         # 读取新状态（VCMI 已执行 state_update，保证为最新）
         state = self._read_state()
@@ -563,9 +513,6 @@ class StrategicEnv(gym.Env):
 
         # 计算奖励
         reward = self._calc_reward(state)
-        # 2026-08-02: 连续 END_TURN 惩罚 — 第 3 次起每次固定 -5 (C8.5 塌缩刷底无成本根因; 固定值避免 n 递增爆炸 -32889)
-        if self._consecutive_endturn >= 3:
-            reward -= 5.0
 
         # 检测终止
         self._terminated, self._truncated = self._check_done(state)

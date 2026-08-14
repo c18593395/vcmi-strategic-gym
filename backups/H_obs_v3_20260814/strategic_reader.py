@@ -14,18 +14,10 @@ MAX_TOWNS = 8
 MAX_PLAYERS = 8
 MAX_MINES = 64   # A+B: 矿场最大数量 (与 C 头 strategic_state.h 一致)
 
-# OBS schema v3 常量（与 C 头 strategic_state.h 一致）
+# OBS schema v2 常量（与 C 头 strategic_state.h 一致）
 LOCAL_WIN = 15     # local_tiles 窗口边长
-LOCAL_CH = 3       # v3: 通道数 (0=可通行性 1=对象类型 2=守卫战力)
 GLOBAL_GRID = 32   # global_explored 网格边长
 MAX_LEVELS = 2     # 地图层数 (地上/地下)
-NAV_SIZE = 32
-TARGET_LIST = 8    # 目标槽数
-TARGET_DIM = 8     # 每目标维度
-ENEMY_THREAT = 7
-BATTLE_PRED = 4
-EVENTS_SIZE = 4
-RESERVED_SIZE = 134
 
 class StrategicHero(ctypes.Structure):
     _fields_ = [
@@ -41,10 +33,6 @@ class StrategicHero(ctypes.Structure):
         ("army_count", ctypes.c_int32 * 7), ("army_type", ctypes.c_int32 * 7),
         ("in_battle", ctypes.c_int32),
         ("name", ctypes.c_char * 32),
-        # --- v3 扩展 ---
-        ("total_power", ctypes.c_int32),   # 该英雄总战力 (army × AIValue)
-        ("is_garrisoned", ctypes.c_int32), # 0=野外 1=驻守
-        ("has_commander", ctypes.c_int32), # 0=无 1=有指挥官
     ]
 
 class StrategicTown(ctypes.Structure):
@@ -55,11 +43,6 @@ class StrategicTown(ctypes.Structure):
         ("garrison", ctypes.c_int32 * 7),
         ("gold_income", ctypes.c_int32),
         ("name", ctypes.c_char * 32),
-        # --- v3 扩展 ---
-        ("recruit_mask_lo", ctypes.c_int32),  # 可招募兵种 bitmask 低16位
-        ("recruit_mask_hi", ctypes.c_int32),  # 可招募兵种 bitmask 高16位
-        ("build_mask_lo", ctypes.c_int32),    # 可建建筑 bitmask 低16位
-        ("build_mask_hi", ctypes.c_int32),    # 可建建筑 bitmask 高16位
     ]
 
 class StrategicPlayer(ctypes.Structure):
@@ -71,10 +54,6 @@ class StrategicPlayer(ctypes.Structure):
         ("crystal", ctypes.c_int32), ("gems", ctypes.c_int32),
         ("hero_count", ctypes.c_int32), ("town_count", ctypes.c_int32),
         ("alive", ctypes.c_int32),
-        # --- v3 扩展 ---
-        ("total_power", ctypes.c_int32),   # 该玩家总战力
-        ("weekly_income", ctypes.c_int32), # 金币周收入
-        ("relation_to_me", ctypes.c_int32) # 0=中立 1=敌对 2=结盟
     ]
 
 class StrategicMine(ctypes.Structure):
@@ -100,23 +79,15 @@ class StrategicState(ctypes.Structure):
         ("action", ctypes.c_int32),
         ("_version", ctypes.c_int32),
         ("passable", ctypes.c_int32 * 8),
-        # --- OBS schema v3: 态势感知 + H 扩展 (与 C 头完全一致) ---
-        # ctypes 左结合: 最右乘数=最外层, 与 C 声明 [ch][y][x] / [z][gy][gx] 对齐
+        # --- OBS schema v2: 态势感知扩展 (与 C 头完全一致) ---
         ("active_hero", ctypes.c_int32),
-        ("local_tiles", ctypes.c_int8 * LOCAL_WIN * LOCAL_WIN * LOCAL_CH),
+        ("local_tiles", ctypes.c_int8 * LOCAL_WIN * LOCAL_WIN),
         ("global_explored", ctypes.c_int8 * GLOBAL_GRID * GLOBAL_GRID * MAX_LEVELS),
         # --- A+B: 事件奖励扩展 (StrategicState 末尾追加, 与 C 头一致) ---
-        # 注意: 以下字段只用于奖励计算, 不进 obs
+        # 注意: 以下字段只用于奖励计算, 不进 obs (obs 保持 2689 维)
         ("mine_count", ctypes.c_int32),
         ("mines", StrategicMine * MAX_MINES),
         ("battle_result", ctypes.c_int32),   # 0=无 1=red赢 2=red输 3=平局
-        # --- H 扩展 (v3): obs 3456 ---
-        ("nav", ctypes.c_int32 * NAV_SIZE),
-        ("target_list", ctypes.c_int32 * TARGET_LIST * TARGET_DIM),
-        ("enemy_threat", ctypes.c_int32 * ENEMY_THREAT),
-        ("battle_pred", ctypes.c_int32 * BATTLE_PRED),
-        ("events", ctypes.c_int32 * EVENTS_SIZE),
-        ("reserved", ctypes.c_int32 * RESERVED_SIZE),
     ]
 
 class StrategicReader:
