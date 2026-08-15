@@ -8,8 +8,8 @@ from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(2689,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
-        self.actor, self.critic = nn.Linear(128,11), nn.Linear(128,1)
+        self.fc = nn.Sequential(nn.Linear(3464,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        self.actor, self.critic = nn.Linear(128,25), nn.Linear(128,1)
     def forward(self, x):
         h = self.fc(x)
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
@@ -66,8 +66,8 @@ try:
             with torch.no_grad():
                 obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
                 pi, _ = red_model(obs_t)
-                # Passability mask: obs[-8:] = 8方向可通行性
-                passable = torch.tensor(obs[-8:], dtype=torch.bool)
+                # Passability mask: OBS v3 obs[3211:3219] = 8方向可通行性
+                passable = torch.tensor(obs[3211:3219], dtype=torch.bool)
                 logits = pi.logits[0].clone()
                 if passable.any():
                     logits[:8][~passable] = float('-inf')  # 非法方向概率归零
@@ -79,9 +79,9 @@ try:
         nobs, r, done, trunc, _ = env.step(a)
         # 非法方向惩扣：move 后英雄位置没变（服务器拒绝），给 -0.5
         if a < 8 and traj["steps"] > 0:
-            # B 态势感知: 用 active_hero (obs[2673]) 定位当前英雄, heroes 段起点 104, 每英雄 23 字段, pos 在字段 2,3,4
-            ah = int(nobs[2673]) if nobs[2673] >= 0 else 0
-            base = 104 + ah * 23
+            # B 态势感知: 用 active_hero (obs[3203]) 定位当前英雄, heroes 段起点 128, 每英雄 26 字段 (OBS v3), pos 在字段 2,3,4
+            ah = int(nobs[3203]) if nobs[3203] >= 0 else 0
+            base = 128 + ah * 26
             prev_pos = (int(traj["obs"][-1][base+2]), int(traj["obs"][-1][base+3]), int(traj["obs"][-1][base+4]))
             cur_pos = (int(nobs[base+2]), int(nobs[base+3]), int(nobs[base+4]))
             if prev_pos == cur_pos:

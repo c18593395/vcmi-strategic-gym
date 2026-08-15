@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-C8.4 BC 训练 — obs(2689) → 11 动作分类 (CrossEntropy)
-网络结构与 train_wsl2_ppo_v2.py 的 Net 完全一致 (fc 2689→128→128, actor 11, critic 1),
+C8.4 BC 训练 — obs(3464) → 25 动作分类 (CrossEntropy)
+网络结构与 train_wsl2_ppo_v2.py 的 Net 完全一致 (fc 3464→128→128, actor 25, critic 1),
 C8.5 PPO 微调可直接加载 bc_model.pt 初始化权重。
 """
 import glob
@@ -13,8 +13,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-OBS_DIM = 2689
-N_ACTIONS = 11
+OBS_DIM = 3464
+N_ACTIONS = 25
 
 
 class Net(nn.Module):
@@ -22,7 +22,7 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc = nn.Sequential(nn.Linear(OBS_DIM, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU())
-        self.actor, self.critic = nn.Linear(128, 11), nn.Linear(128, 1)
+        self.actor, self.critic = nn.Linear(128, 25), nn.Linear(128, 1)
 
     def forward(self, x):
         f = self.fc(x)
@@ -39,13 +39,8 @@ def load_data(pattern: str):
         act_list.append(d["actions"])
     obs = np.concatenate(obs_list).astype(np.float32)
     acts = np.concatenate(act_list).astype(np.int64)
-    # 2026-08-02: 丢弃 act=8 (INTERACT) 帧 — C++ AAI.cpp 无交互实现, act=8 执行=空转 endTurn(与 act=10 相同)。
-    # 采集时 NK2 的 act=8 是真实拾取资源, 训练环境无法执行 → 模型学到"开局态→假交互"死循环 (act=[8×200])。
-    # 丢弃 38 帧(5%) 让模型不再输出 8; 等 Phase D 实现交互后再恢复该动作。
-    drop8 = acts != 8
-    if (~drop8).sum() > 0:
-        print(f"dropping {(~drop8).sum()} act=8 frames (unimplemented INTERACT)")
-        obs, acts = obs[drop8], acts[drop8]
+    # 2026-08-15 H.7: INTERACT(8) 已实现 (AAI.cpp interactTarget), act=8 不再丢弃。
+    # 历史 (2026-08-02): C++ AAI.cpp 无交互实现, act=8 执行=空转 endTurn → 模型学到死循环, 曾丢弃 38 帧。
     return obs, acts
 
 
@@ -55,7 +50,7 @@ def main():
     ap.add_argument("--epochs", type=int, default=50)
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--out", default="/mnt/d/Bigdata/hero3_fresh/bc_model.pt")
+    ap.add_argument("--out", default="/mnt/d/Bigdata/hero3_fresh/bc_model_v3464.pt")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()

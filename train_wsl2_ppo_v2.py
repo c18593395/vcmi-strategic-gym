@@ -36,8 +36,8 @@ CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Sequential(nn.Linear(2689,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
-        self.actor, self.critic = nn.Linear(128,11), nn.Linear(128,1)
+        self.fc = nn.Sequential(nn.Linear(3464,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        self.actor, self.critic = nn.Linear(128,25), nn.Linear(128,1)
     def forward(self, x):
         h = self.fc(x)
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
@@ -86,7 +86,7 @@ def run_episode(mapname, blue_model=None):
 model = Net().to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=LR)
 # C8.5: BC 权重路径 — 存在则优先于旧 MODEL_PATH 初始化 (fc+actor 有 NK2 行为知识)
-BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v2689.pt"
+BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v3464.pt"
 # 尝试加载已有模型续训（优先完整状态，含优化器）
 resume_step = 0
 bc_loaded = False  # 无条件初始化: resume 路径跳过下方 BC 块时 line 121 不再 NameError
