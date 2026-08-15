@@ -731,3 +731,9 @@
 - 根因: bulkSplitStack 语义是"把某个槽位的兵平铺到军队内其他空槽", 参数没有跨英雄的 dst 概念
 - 修复: SPLIT_ALL 改用 bulkMoveArmy(currentHero->id, nearestHero->id, srcSlot)（有 isAllowedExchange 相邻检查, 失败静默, 符合 v1 简化）
 - 教训: 动作设计文档的引擎接口名未核实实现就写死; 委派外部 agent 前先核实关键 API 语义, 或让 agent 调研阶段就核对 CGameHandler 实现
+
+### 22. NK2 采集后期卡死 — adventure_wait 90s 超时兜底 (2026-08-15 H.7 #15)
+- 现象: 24 局稳定性采集 (collect_bc.py, NK2 对手) 跑到 ep23 时 adventure_wait timed out after 90s, 该局只采到 11 pairs
+- 根因: NK2 后期陷入死循环 (反复 Unable to complete chain / Exchange between heroes 队列刷屏), 服务器端一直有 query 待应答, Python 侧等不到自己的回合
+- 处理: collect_bc.py 的 90s 超时兜底生效 — 超时后按已采 pairs 正常保存 (ep23 SAVED 11 pairs), 不崩不挂, 整条采集继续下一局
+- 教训: 长采集必须有 per-episode 超时兜底 + 部分保存; NK2 卡死是已知行为 (早期 C8 采集也有), 单局掉数据不影响全局; 采集日志看 [epN] SAVED 行数即可判断局质量
