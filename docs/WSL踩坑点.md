@@ -724,3 +724,10 @@
 - 修复: 动作测试用 red_adventure_ai=MMAI（AAI::yourTurn 消费 Python action）; collect_bc.py 用 NK2 是采集 NK2 行为, 用途不同
 - 证据: 加 fprintf(stderr, "[H7-DBG] yourTurn action=%d") 后 Nullkiller2 模式零输出, MMAI 模式正常打印
 - 教训: 验证动作执行必须先确认执行链真的走了你的代码（诊断打印是最快确认）; 数据驱动的 PASS 可能是对手行为
+
+
+### 21. bulkSplitStack 是军队内部平铺, 不能跨英雄转移 (2026-08-15 H.6)
+- 现象: 设计文档写 SPLIT_ALL 用 bulkSplitStack, reasonix 调研 CGameHandler.cpp:1705 发现实现是 srcArmy==dstArmy 军队内部平铺
+- 根因: bulkSplitStack 语义是"把某个槽位的兵平铺到军队内其他空槽", 参数没有跨英雄的 dst 概念
+- 修复: SPLIT_ALL 改用 bulkMoveArmy(currentHero->id, nearestHero->id, srcSlot)（有 isAllowedExchange 相邻检查, 失败静默, 符合 v1 简化）
+- 教训: 动作设计文档的引擎接口名未核实实现就写死; 委派外部 agent 前先核实关键 API 语义, 或让 agent 调研阶段就核对 CGameHandler 实现
