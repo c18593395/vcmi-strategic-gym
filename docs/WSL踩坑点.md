@@ -697,3 +697,30 @@
 - **根因**: vcmi-native（编译树）AI/MMAI 只有 v13 结构, 项目源是 fork tip（含 v14/v15 Graphmind draft）→ 全量同步 MMAI 有编译风险; router.cpp 等关键修复文件没同步
 - **修复**: 只同步关键修复文件（router.cpp neutral guard）→ 重编 MMAI
 - **教训**: 编译树与项目源版本漂移是常态（AI/ML 目录: AIGateway hook、MLClient、router 都可能旧）; 编译前 diff 关键文件, 按需同步
+
+
+### 17. 动作 8 INTERACT 从未实现 — 文档与代码脱节 (2026-08-15)
+- 现象: 冒烟测试 RECRUIT/GARRISON/RECRUIT_HERO 全失败, 英雄永远进不了城
+- 根因: 设计文档标 INTERACT(8) "✅ 已实现", 但 AAI.cpp yourTurn 无 a==8 分支（历史遗留）→ 动作 8 实际是 no-op 直接 endTurn
+- 修复: interactTarget 优先最近己方城镇（3 格内）→ 其次最近可交互对象; standPos==heroPos 时 moveHero 到对象格触发交互, 相邻走 standPos, 远则逐格逼近
+- 教训: 文档状态不可信, 冒烟测试逐动作实机验证是唯一真相; 历史"动作 8 可用"的验证可能也是 NK2 假象
+
+### 18. swapGarrisonHero 未进城挂起 120s (2026-08-15)
+- 现象: GARRISON 动作后 adventure_wait timed out after 120s（query 无人应答）
+- 根因: 英雄未 visiting 城镇时 swapGarrisonHero 触发服务器 query 等待, 无应答挂起
+- 修复: 先 cb->moveHero(cur, standPos, false) 进城, 轮询 cur->getVisitedTown() == town 确认后再 swapGarrisonHero; 未进城则放弃
+- 教训: 动作实现必须带前置条件检查（NK2 DefenceBehavior 同款: 先移动英雄进城再交换）; 挂起类 bug 的检测靠 120s 超时
+
+### 19. moveHero 单格版只允许相邻格 + 目标必须是可站格 (2026-08-15)
+- 现象: MOVE_TO/INTERACT 直接 moveHero 到远处对象, movement 扣了但位置不变（引擎静默拒绝）
+- 根因1: CGameHandler::moveHero STANDARD 模式检查 !h->pos.areNeighbours(dst) → "Tiles are not neighboring" → 远处目标直接 FAILED
+- 根因2: moveHero 目标是可站格, 直接传对象 visitablePos 会被 BLOCK（城镇格 terrain 不可站）
+- 修复: moveOneStepToward 8 方向夹角最小逐格逼近; 目标用 hero->convertFromVisitablePos(obj->visitablePos())
+- 教训: NK2 用 calculatePaths + 完整路径数组, 我们 v1 简化逐格; 引擎 API 的"看起来能传任意坐标"都是假象
+
+### 20. 冒烟测试必须 MMAI 模式 — Nullkiller2 是假象源 (2026-08-15)
+- 现象: smoke_h7.py 用 Nullkiller2 模式, SPLIT 显示兵力转移"PASS"（31→1/37→67）, 但其实是 NK2 自己的分兵行为
+- 根因: red_adventure_ai=Nullkiller2 时你的 Python 动作根本不进 AAI::yourTurn（NK2 自己决策执行）→ 所有 PASS 与动作实现无关
+- 修复: 动作测试用 red_adventure_ai=MMAI（AAI::yourTurn 消费 Python action）; collect_bc.py 用 NK2 是采集 NK2 行为, 用途不同
+- 证据: 加 fprintf(stderr, "[H7-DBG] yourTurn action=%d") 后 Nullkiller2 模式零输出, MMAI 模式正常打印
+- 教训: 验证动作执行必须先确认执行链真的走了你的代码（诊断打印是最快确认）; 数据驱动的 PASS 可能是对手行为

@@ -695,3 +695,49 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - **编译树 vs 项目源版本漂移**: vcmi-native（编译树）AI/MMAI 只有 v13, 项目源是 fork tip（v14/v15 Graphmind draft）→ 不能全量同步 MMAI（编译风险）；router.cpp 等关键修复文件单独同步。AIGateway.cpp 采集 hook 在项目源但编译树没有 → 重编 libNullkiller2.so 前必须同步
 - **NK2 卡死（chain retry）是固有的**: ~50% 概率, day 4+ 后常见（moveHero blocked 死循环）。采集用 watchdog 900s + 子进程隔离跳局, 属正常流程（C8.3 同）
 - **collect close 阶段 segfault**: SAVED 之后 close() 崩溃（dumped core）——数据已落盘, 不影响采集（C8.3 已知, 子进程隔离处理）
+
+## H.6-H.7 动作空间落地（2026-08-15 完成）
+
+**H.6 动作 11-24 实现（reasonix CLI 代写 + Hermes 验证）**
+- 位置: vcmi/AI/MMAI/AAI/AAI.cpp（战略层动作执行点，非 strategic_state.cpp）
+- 11-13 SPLIT×3: splitStack 分 1/3、1/2 给最近友方英雄; SPLIT_ALL 用 bulkMoveArmy（bulkSplitStack 是军队内部平铺不能跨英雄）
+- 14 MERGE_FROM: mergeStacks; 15 SWAP_ARMY: bulkMoveArmy/swapCreatures
+- 16-18 RECRUIT×3: recruitCreatures 目标最近己方城镇（town->getUpperArmy() 作 dst）
+- 19-21 BUILD×3: buildBuilding（buildMask 位 → BuildingID，仅己方城镇）
+- 22 GARRISON: swapGarrisonHero; 23 RECRUIT_HERO: getAvailableHeroes+recruitHero
+- 24 MOVE_TO: 高层移动（逐格逼近）
+- strategic_env.py N_ACTIONS 11→25
+- reasonix CLI 用法: reasonix-cli.exe run --permission-mode bypassPermissions --preset delivery --max-steps 150 --events-jsonl --dir <项目> 任务（MCP 版只调研不写码已弃用; 详见 docs/H6_reasonix_task.md）
+
+**H.7 冒烟测试（16/16 全过, smoke_h7.py）**
+- **必须 MMAI 模式测动作**: red_adventure_ai=Nullkiller2 时 yourTurn 不执行（NK2 自己决策，Python 动作全被忽略，PASS 是假象）；collect_bc.py 用 NK2 是采集行为，测试动作执行必须 red_adventure_ai=MMAI
+- 冒烟 4 bug 修复: INTERACT(8) 从未实现（设计文档标✅但代码无分支）; GARRISON 未进城 swapGarrisonHero 挂起 120s; MOVE_TO 直接 moveHero 远处被 BLOCK; smoke 配置错 Nullkiller2
+- 单英雄图上 SPLIT/MERGE/SWAP 目标缺失 = 静默跳过 = 合法无崩溃（v1 引擎侧最近目标解析固有行为）
+
+**动作执行关键 API 知识**
+-  单格版只允许相邻格（CGameHandler STANDARD 检查 Tiles
+
+
+## H.6-H.7 动作空间落地（2026-08-15 完成）
+
+**H.6 动作 11-24 实现（reasonix CLI 代写 + Hermes 验证）**
+- 位置: vcmi/AI/MMAI/AAI/AAI.cpp（战略层动作执行点，非 strategic_state.cpp）
+- 11-13 SPLIT×3: splitStack 分 1/3、1/2 给最近友方英雄; SPLIT_ALL 用 bulkMoveArmy（bulkSplitStack 是军队内部平铺不能跨英雄）
+- 14 MERGE_FROM: mergeStacks; 15 SWAP_ARMY: bulkMoveArmy/swapCreatures
+- 16-18 RECRUIT×3: recruitCreatures 目标最近己方城镇（town->getUpperArmy() 作 dst）
+- 19-21 BUILD×3: buildBuilding（buildMask 位 → BuildingID，仅己方城镇）
+- 22 GARRISON: swapGarrisonHero; 23 RECRUIT_HERO: getAvailableHeroes+recruitHero
+- 24 MOVE_TO: 高层移动（逐格逼近）
+- strategic_env.py N_ACTIONS 11→25
+- reasonix CLI 用法: reasonix-cli.exe run --permission-mode bypassPermissions --preset delivery --max-steps 150 --events-jsonl --dir <项目> "任务"（MCP 版只调研不写码已弃用; 详见 docs/H6_reasonix_task.md）
+
+**H.7 冒烟测试（16/16 全过, smoke_h7.py）**
+- 必须 MMAI 模式测动作: red_adventure_ai=Nullkiller2 时 yourTurn 不执行（NK2 自己决策，Python 动作全被忽略，PASS 是假象）；collect_bc.py 用 NK2 是采集行为，测试动作执行必须 red_adventure_ai=MMAI
+- 冒烟 4 bug 修复: INTERACT(8) 从未实现（设计文档标✅但代码无分支）; GARRISON 未进城 swapGarrisonHero 挂起 120s; MOVE_TO 直接 moveHero 远处被 BLOCK; smoke 配置错 Nullkiller2
+- 单英雄图上 SPLIT/MERGE/SWAP 目标缺失 = 静默跳过 = 合法无崩溃（v1 引擎侧最近目标解析固有行为）
+
+**动作执行关键 API 知识**
+- CCallback::moveHero 单格版只允许相邻格（CGameHandler STANDARD 检查 "Tiles are not neighboring"）→ 高层移动必须逐格逼近或传 vector<int3> 路径
+- moveHero 目标是 hero->convertFromVisitablePos(obj->visitablePos())（可站格），直接传对象 visitablePos 会被 BLOCK（城镇格 terrain 不可站）
+- 英雄 visiting 判断: cur->getVisitedTown()（visitedTown 是 ObjectInstanceID 成员）; is_garrisoned 仅表示驻守（swapGarrisonHero 后），visiting 不等于 is_garrisoned
+- INTERACT 目标选择: interactTarget 优先最近己方城镇（3 格内），其次最近可交互对象; standPos==heroPos 时 moveHero 到对象格触发交互（进城），相邻走 standPos，远则逐格逼近
