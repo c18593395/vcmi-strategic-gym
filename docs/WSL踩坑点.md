@@ -767,3 +767,28 @@
 - 现象: visitablePos 修复 2026-08-15 已写入项目源 vcmi/ML/strategic_state.cpp (git 未提交), 但编译树 ~/vcmi-native/ML/ 是旧版, 部署的 libmlclient.so (14:49) 无修复 → 8-16 训练仍全 blocked
 - 原因: 改代码后只改项目源, 没有走完: 同步编译树 (cp) → 重编 (cmake --build rel --target mlclient) → 部署 (rel/bin/libmlclient.so) → 实测 → git commit
 - 教训: **C++ 改动四步闭环: 项目源 → 编译树 → 编译部署 → 实测, 全部完成后才 commit**; 排查"改了没生效"先对比项目源 vs 编译树 vs .so 时间戳 (diff 三处)
+
+### 26. NK2 卡死根因 — Router battleStart 战斗模型加载失败 (2026-08-16 全面分析)
+
+- 现象: NK2 无论作为 red (采集) 还是 blue (训练/复现), 每局 7-42 pairs 就 stuck; 日志刷屏 [ML-wait] battle=3 q=0 obj=1 mov=1; adventure_wait 90-120s 超时
+- 根因链 (3 环):
+  1. threadconnector.cpp 481/491: `Scripted(red/blue)` — blue=Nullkiller2 时 battle 模型名 = "Nullkiller2" (NK2 是冒险 AI 非战斗模型名)
+  2. Router::battleStart SCRIPTED 分支只认 StupidAI/BattleAI/MMAI_BATTLEAI, 未知名 THROW → catch fallback StupidAI → 战斗仍挂 (battle 无人正确指挥)
+  3. **打野 (red 攻中立) 时 neutral 无 playerID → C8.5 fix 用 baggage->modelRight (blue 模型)** → Nullkiller2 → 加载失败; 且 fallback BattleAI 在 headless 无头服务器下等待回调卡死 (MLClient.cpp 400 行注释早有记录)
+- [ML-wait] 真相: NK2 的 AIStatus::waitTillFree 等 battle!=NO_BATTLE + queries 空 + 对象访问完 + 移动完 — battle=3 挂着 = NK2 在等战斗结束, 战斗永不结束 → 超时
+- 修复 (router.cpp 两处): neutral 无 playerID → 直接 CDynLibHandler::getNewBattleAI("StupidAI") 自动裁决 early return; SCRIPTED else fallback BattleAI → StupidAI (BattleAI headless 卡死勿用)
+- 教训: **battle 模型名 ≠ 冒险 AI 名**; neutral 战斗不能复用 blue 模型; BattleAI 无头模式不可用, 自动裁决统一 StupidAI
+
+### 27. pkill/pgrep -f 匹配到自己 — bash -c 命令行含模式字符串自杀 (2026-08-16)
+
+- 现象: `pkill -9 -f train_wsl2_ppo` 在 bash -c 包装里执行 → exit 9, 后续命令全没跑; pgrep -f 采样到 bash 包装进程 (rss=3MB) 而非目标 python
+- 根因: bash -c "pkill -f XXX ..." 的命令行本身含 XXX → pkill -f 匹配到自己的 bash → SIGKILL
+- 修复: 用精确 PID (ps aux | grep | awk 取列) 或 pgrep -f '^/绝对路径' (锚定开头, 排除 bash -c 包装)
+- 教训: WSL 里 pkill -f 高危, 先 pgrep 看 PID 再 kill; 采样脚本的 pgrep 模式必须锚定可执行文件绝对路径
+
+### 28. WSL /tmp 频繁清空 — 观测日志/轨迹丢失 (2026-08-16)
+
+- 现象: /tmp/nk2_mem_watch.log /tmp/router_fix.log /tmp/traj_ep.json 多次消失 (复现实验日志还没分析就没了)
+- 根因: WSL2 /tmp 是 tmpfs, 系统内存压力/重启时自动清理 (多次出现)
+- 修复: 实验日志写项目目录 (bc_data/ 或 logs/), 不用 /tmp; 轨迹文件同样
+- 教训: 长观测/实验数据必须落盘项目目录, /tmp 只放一次性临时文件

@@ -738,3 +738,19 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 新采集数据走 _build_obs 自动归一化; 旧 npz 在 bc_train.load_data 里做同变换
 
 **安全参考线**: 新增 obs 字段前先跑 obs max 统计, 超过 ~1e4 必须设计变换 (bitmask→÷2^31, 资源/战力→log1p, 计数→原样)。
+
+## NK2 AI 结构与内存分析 (2026-08-16)
+
+**NK2 (Nullkiller2) 架构**: Goals 24 + Behaviors 11 + AIPathfinder/ObjectGraph (Pathfinding) + Analyzers。决策循环 = 目标估值 → 选最高价值目标 → Behavior 执行。源码: vcmi/AI/Nullkiller2/ (Windows 版 Nullkiller2.dll / Linux libNullkiller2.so)。
+
+**移动**: AIPathfinder (A* 8 方向, 代价=移动力+地形+危险度) → ObjectGraph (全图对象可达性) → 多格路径一次 moveHero。不走逐格。
+
+**内存结构 (泄漏嫌疑点)**: PathfinderCache (lib/pathfinder/, key=英雄指针缓存全图 CPathsInfo, invalidatePaths 才清); ObjectGraph (unique_ptr 只建一次, removeObject 增量维护, 遗漏则累积); memory 对象记忆 (removeInvisibleOrDeletedObjects 依赖可见性)。
+
+**NK2 卡死根因 (2026-08-16 全面分析, 见踩坑 #26)**: 战斗触发 → Router battleStart 战斗模型名问题 (3 环链) → 战斗永不结束 → NK2 的 AIStatus::waitTillFree 等 battle!=NO_BATTLE → adventure_wait 超时。**NK2 卡死 = 战斗集成 bug, 非 NK2 本身**。
+
+**内存爆炸 (C8.5 记录 3.7-7.5GB/局)**: 采集环境实测单局 40→184MB 收敛 (战斗阶跃一次后平台), 无爆炸。3.7-7.5GB 疑为 WSL 总内存口径 (.wslconfig 6GB) — torch+server+NK2 叠加, NK2 单进程仅几百 MB。修复卡死后需长时训练实验验证。
+
+**战斗处理链路 (Phase D 领域)**: 服务器 BattleFlowProcessor 驱动 → CBattleGameInterface::activeStack (无 yourTurn, AI 决策入口是 activeStack) → MMAI Router 转发 bai。Router 是 battle interface (installNewBattleInterface 安装)。**BattleAI 在 headless 无头模式等待回调卡死, 自动裁决统一用 StupidAI**。MMAI 的 Scripted 模型 (ML::ModelWrappers::Scripted) 是 dummy (getVersion=-666, CreateBAI 不支持), 名字只用于 Router SCRIPTED 分支分派。
+
+**MMAI 配置**: mmai-settings.json (MMAI/CONFIG/) 缺失 → "Could not load MMAI config" → fallback=BattleAI (ScriptedModel)。config 是模型注册表 (models.attacker/defender 路径)。
