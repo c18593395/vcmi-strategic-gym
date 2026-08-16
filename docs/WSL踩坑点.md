@@ -792,3 +792,23 @@
 - 根因: WSL2 /tmp 是 tmpfs, 系统内存压力/重启时自动清理 (多次出现)
 - 修复: 实验日志写项目目录 (bc_data/ 或 logs/), 不用 /tmp; 轨迹文件同样
 - 教训: 长观测/实验数据必须落盘项目目录, /tmp 只放一次性临时文件
+
+### 29. NK2 卡死 6 环修复链 — 5 环已闭环, 守卫战斗收尾卡 (第 6 环定位未闭环) (2026-08-16)
+
+**卡死根因链 (6 环)**:
+1. Router SCRIPTED else THROW → fallback StupidAI (ebba48afd, 第 1 轮)
+2. neutral 打野 StupidAI early return + fallback BattleAI→StupidAI (ebba48afd, 第 2 轮)
+3. config 缺失 fallback BattleAI→StupidAI (router.cpp:90, 第 3 轮; mmai-settings.json 一直缺失, C8.5 不触发战斗未暴露)
+4. battleEnded 服务器侧补调 (AIGateway::battleEnd 同步 battleEnded(); 官方由 NetPacksClient.cpp:897-899 调 BattleEnd 包, 无头服务器无客户端 → NK2 状态卡 ENDING_BATTLE(3) → waitTillFree 死等; 第 4 轮) — 验证 battle=0 ✓
+5. dialog 自动应答 (CGameHandler::showBlockingDialog 对 AI 玩家 setReply(0)+popQuery 不发送; NK2 answerQuery 任务拿 CGameState::mutex shared_lock (AIGateway:1403) 与服务器写锁竞争死锁 → query 永不答 → 对象访问卡; 第 5 轮) — 验证 Blocking dialog=0 ✓
+6. **守卫战斗收尾卡 (未闭环)**: 战斗全链通 (BattleProcessor::startBattle DONE → NK2 battleStart ENTER → ONGOING → battleEnd ENTER → battle=0) 但 battle query 移除后守卫访问的 MapObjectVisitQuery::onExposure 未触发 + CGCreature::battleFinished 完全无打点 → objectVisitEnded (heroVisit end) 不发 → NK2 obj=1 mov=1 卡 (obj=Gogs/Lizardmen/Royal Griffins 守卫)。推断: endBattleConfirm:401 popIfTop(battleQuery) 失败 (battle query 之上有 query 挡) 或 QueriesProcessor.cpp:34 nextQuery 链断。
+
+**部署教训 (严重)**: 训练环境是 embedded 模式 (python 进程直接加载 libmlclient.so → vcmiservercommon 静态库), **不是独立 vcmiserver 进程** — 改 server 代码必须重编 libmlclient.so, 只重编 vcmiserver 二进制无效 (运行时不用)。全量 `cmake --build rel -j4` 可对齐; target 名大小写敏感 (Nullkiller2)。
+
+**版本漂移 (系统性隐患)**: 项目源 vcmi/ 与编译树 vcmi-native/ 长期不同步 (queryAs 新 API 只在项目源; BattleProcessor.cpp 整体 cp 覆盖编译失败) — 单文件同步碰巧兼容, 需全面 diff 对齐基准。
+
+**验证证据**: 修复后非战斗场景 steps=8 完整跑局 (无 timeout, (16,15)→(16,16)→(15,17) 多格移动, act 混合 8/4/10/5/1); 守卫战斗场景 100% 复现卡死。ML-wait 打点已加 obj 详情 (对象名)。
+
+**下次开机起点**: QueriesProcessor popIfTop 失败打点 + query 栈内容打印 (守卫战斗 battle query 之上是什么) → 自动答/移除 → 验证守卫战斗收尾链 (onExposure→battleFinished→objectVisitEnded→NK2 obj/mov 清)。
+
+**打点清单 (已部署, 调试用保留)**: AIGateway heroVisit/playerBlocked/battleStart/battleEnd ([ML-obj]/[ML-mov]/[ML-battle]); BattleProcessor::startBattle DONE; VisitQueries.cpp onExposure; CGCreature::battleFinished; CGameHandler::removeObject ([ML-q])。

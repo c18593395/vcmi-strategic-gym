@@ -747,10 +747,12 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 
 **内存结构 (泄漏嫌疑点)**: PathfinderCache (lib/pathfinder/, key=英雄指针缓存全图 CPathsInfo, invalidatePaths 才清); ObjectGraph (unique_ptr 只建一次, removeObject 增量维护, 遗漏则累积); memory 对象记忆 (removeInvisibleOrDeletedObjects 依赖可见性)。
 
-**NK2 卡死根因 (2026-08-16 全面分析, 见踩坑 #26)**: 战斗触发 → Router battleStart 战斗模型名问题 (3 环链) → 战斗永不结束 → NK2 的 AIStatus::waitTillFree 等 battle!=NO_BATTLE → adventure_wait 超时。**NK2 卡死 = 战斗集成 bug, 非 NK2 本身**。
+**NK2 卡死根因 (2026-08-16 全面分析, 见踩坑 #29)**: 6 环链 — Router battleStart 战斗模型名 (3 处修复) → battleEnded 服务器补调 → dialog 自动应答 → 守卫战斗收尾卡 (第 6 环定位未闭环)。**NK2 卡死 = 战斗集成 bug, 非 NK2 本身**。战斗全链 (startBattle→battleStart→battleEnd) 已通; 剩守卫战斗 battle query 移除后 onExposure 未触发 (objectVisitEnded 不发 → obj/mov 卡)。
 
 **内存爆炸 (C8.5 记录 3.7-7.5GB/局)**: 采集环境实测单局 40→184MB 收敛 (战斗阶跃一次后平台), 无爆炸。3.7-7.5GB 疑为 WSL 总内存口径 (.wslconfig 6GB) — torch+server+NK2 叠加, NK2 单进程仅几百 MB。修复卡死后需长时训练实验验证。
 
 **战斗处理链路 (Phase D 领域)**: 服务器 BattleFlowProcessor 驱动 → CBattleGameInterface::activeStack (无 yourTurn, AI 决策入口是 activeStack) → MMAI Router 转发 bai。Router 是 battle interface (installNewBattleInterface 安装)。**BattleAI 在 headless 无头模式等待回调卡死, 自动裁决统一用 StupidAI**。MMAI 的 Scripted 模型 (ML::ModelWrappers::Scripted) 是 dummy (getVersion=-666, CreateBAI 不支持), 名字只用于 Router SCRIPTED 分支分派。
 
 **MMAI 配置**: mmai-settings.json (MMAI/CONFIG/) 缺失 → "Could not load MMAI config" → fallback=BattleAI (ScriptedModel)。config 是模型注册表 (models.attacker/defender 路径)。
+
+**训练环境部署模式 (embedded, 2026-08-16 实测确认)**: python 进程直接加载 libmlclient.so (链接 vcmiclientcommon → vcmiservercommon 静态库, 含 server 代码) — **不是独立 vcmiserver 进程**。改 server 代码 (CGameHandler/BattleProcessor 等) 必须重编 libmlclient.so (vcmiservercommon 是中间静态库, 自动重编), 只重编 vcmiserver 二进制无效。全量对齐用 `cmake --build rel -j4`。target 名大小写敏感 (Nullkiller2)。**这是"正常游戏 (AI 在客户端进程) vs 训练环境 (AI 在服务器进程内)"架构差异的直接后果**: battleEnded 回调 (NetPacksClient) 缺失、dialog answerQuery 锁竞争死锁 — 修复策略 = 服务器侧补齐 AI 自动处理 (条件化, 部署客户端模式需关闭, 见踩坑 #29)。
