@@ -840,5 +840,6 @@
 - **次根因**: CGarrisonDialogQuery 同阵营两英雄 addPlayer 两次无去重 → players={RED,RED} → addQuery 双重 push → popQuery FAIL 796 次 (查询栈污染)
 - **修复**: 1) CQuery::addPlayer 加 vstd::contains 去重 (WSL 编译树旧版缺, D 盘已有) 2) showGarrisonDialog AI 玩家自动应答 (setReply(0)+popQuery, 同 showBlockingDialog 模式, 仅无头服务器模式)
 - **验证**: All for One 图红方英雄 15-17 位置真实移动 (16,12→4,6), 动作 10 种 8 方向, 升级/移动力消耗正常; ML-wait 永久卡 120+→短暂等待; popQuery FAIL 796→0
+- **后续修复 (同日)**: 战斗查询残留 (has to answer 刷屏 8867-18202 次/局) → ① expGiven 升级 AI 自动选技能 ② QueriesProcessor::removeQuery 任意位置强制移除 (onRemoval 只调一次防段错误 + 移除后触发暴露链否则 visitQuery 永不 onExposure) ③ battleResultAccepted 改用 removeQuery; env.close() embedded 卡死 (58% CPU, close 线程 5s 超时实测无效) → SAVED 后直接 os._exit 跳过, 局间 1 行间隔
 - **地图坑**: Dungeon Keeper.h3m 红方 954 出生地被围 (passable 8 方向全 0, isClear=false), 卡死修复后仍动不了 → 换 All for One.h3m
 - **诊断教训**: obs 大数值字段有 log1p 归一化 (H.8: movement 1560→log1p=7.353, gold→8.61), 排查 float 异常先查 obs 构建归一化段; 探针 (临时打印 state.heroes[0].movement type) 直接区分 int 结构 vs float 垃圾
