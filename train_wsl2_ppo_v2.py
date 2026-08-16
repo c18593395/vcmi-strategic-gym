@@ -86,7 +86,8 @@ def run_episode(mapname, blue_model=None):
 model = Net().to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=LR)
 # C8.5: BC 权重路径 — 存在则优先于旧 MODEL_PATH 初始化 (fc+actor 有 NK2 行为知识)
-BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v3464.pt"
+# 2026-08-17 H.8: v3464b = 新采集 (All for One 34 局 28903 pairs, NK2 卡死修复后) 训练产物
+BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v3464b.pt"
 # 尝试加载已有模型续训（优先完整状态，含优化器）
 resume_step = 0
 bc_loaded = False  # 无条件初始化: resume 路径跳过下方 BC 块时 line 121 不再 NameError
