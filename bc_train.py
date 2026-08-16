@@ -92,9 +92,15 @@ def main():
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # 类权重: 少数类(END_TURN/交互)加权, 避免被方向类淹没
+    # ML fix (2026-08-17) v2: sqrt 平滑仍不够 (开局帧动作 8 概率实测 0.94 → INTERACT 连发死循环
+    # → 触发 server bug 崩溃)。动作 8/10 权重直接 = 方向类平均: 交互/结束回合按需触发,
+    # 不做少数类放大 (BC 数据里 NK2 交互 0.4% 是"有效交互", 模型应复现该分布)。
     counts = np.bincount(acts, minlength=N_ACTIONS).astype(np.float32) + 1.0
     w = 1.0 / counts
     w = w / w.sum() * N_ACTIONS
+    dir_mean = float(np.mean(w[:8]))
+    w[8] = dir_mean   # INTERACT
+    w[10] = dir_mean  # END_TURN
     ce_w = torch.tensor(w, device=args.device)
     loss_fn = nn.CrossEntropyLoss(weight=ce_w)
 
