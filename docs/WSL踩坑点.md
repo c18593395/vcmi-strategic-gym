@@ -834,3 +834,11 @@
 **gdb 抓死锁流程 (可复用)**: 复现卡死 → `ps aux | grep ep_runner_one | grep -v timeout | awk '{print $2}'` 取 PID → `wsl -u root gdb -p PID -batch -ex 'set pagination off' -ex 'thread apply all bt 12'` → 找 runNetwork (handlePack 等锁) / NK2 线程 (sendRequest/waitWhileContains/序列化) / runServer (epoll 空闲=不持锁) → 判锁持有者。注意: gdb attach 后 WSL 可能卡死 (ptrace 冻结), 抓完立即 detach (batch 模式自动); 连续 attach 多次后 WSL 服务可能崩 (0x8007274c), 用 wsl --shutdown 恢复。
 
 **打点清理教训**: 正则删 fprintf 时多行 fprintf 的参数残留行会留下 (AIGateway.cpp:384 / TurnOrderProcessor.cpp:344 编译错误 'expected ; before )') — 清理后必须全量编译验证, 不能只信删除计数。
+### 31. NK2 英雄交换查询死锁 — q=1 obj=1 mov=1 永久卡死 (2026-08-17)
+- **现象**: BC 采集长跑 (max_pairs>=1000) 英雄位置不变 (唯一值=2), 动作分布 90% 单一方向 (缓存假动作), 日志 [ML-wait] battle=0 q=1 obj=1 mov=1 永久 (2s/次贯穿整局, qdesc=Exchange between heroes)
+- **根因链**: NK2 收到 showGarrisonDialog (英雄交换) → heroExchangeStarted 异步任务 (AIGateway.cpp:1419 executeActionAsync) 持 CGameState 共享锁 → pickBestCreatures/answerQuery 与服务器写锁竞争 → **死锁** (showBlockingDialog 已有同款 ML fix CGameHandler.cpp:1164, showGarrisonDialog 漏加) → QueryReply 永不发 → Exchange 查询永不关闭 → AIStatus remainingQueries=1 永久 → waitTillFree 卡死 → NK2 决策线程死 → 英雄不动
+- **次根因**: CGarrisonDialogQuery 同阵营两英雄 addPlayer 两次无去重 → players={RED,RED} → addQuery 双重 push → popQuery FAIL 796 次 (查询栈污染)
+- **修复**: 1) CQuery::addPlayer 加 vstd::contains 去重 (WSL 编译树旧版缺, D 盘已有) 2) showGarrisonDialog AI 玩家自动应答 (setReply(0)+popQuery, 同 showBlockingDialog 模式, 仅无头服务器模式)
+- **验证**: All for One 图红方英雄 15-17 位置真实移动 (16,12→4,6), 动作 10 种 8 方向, 升级/移动力消耗正常; ML-wait 永久卡 120+→短暂等待; popQuery FAIL 796→0
+- **地图坑**: Dungeon Keeper.h3m 红方 954 出生地被围 (passable 8 方向全 0, isClear=false), 卡死修复后仍动不了 → 换 All for One.h3m
+- **诊断教训**: obs 大数值字段有 log1p 归一化 (H.8: movement 1560→log1p=7.353, gold→8.61), 排查 float 异常先查 obs 构建归一化段; 探针 (临时打印 state.heroes[0].movement type) 直接区分 int 结构 vs float 垃圾
