@@ -39,6 +39,22 @@ def load_data(pattern: str):
         act_list.append(d["actions"])
     obs = np.concatenate(obs_list).astype(np.float32)
     acts = np.concatenate(act_list).astype(np.int64)
+    # 2026-08-16 H.8: 与 strategic_env._build_obs 对齐 — 大数值字段归一化
+    # (旧数据是未归一化采集的, 训练时必须同变换, 否则 PPO 加载后分布不匹配)
+    # 1) build_mask_lo/hi (towns 段 f16/f17) 除以 2^31
+    # 2) players.gold/total_power/weekly_income + heroes.movement/exp/total_power + enemy_threat + battle_pred 做 log1p
+    _BM_COLS = [336 + ti * 18 + 16 for ti in range(8)] + [336 + ti * 18 + 17 for ti in range(8)]
+    obs[:, _BM_COLS] /= float(2 ** 31)
+    _LOG1P_COLS = []
+    for _pi in range(8):  # players: gold(+2), total_power(+12), weekly_income(+13)
+        _b = 8 + _pi * 15
+        _LOG1P_COLS += [_b + 2, _b + 12, _b + 13]
+    for _hi in range(8):  # heroes: movement(+5), max_movement(+6), exp(+14), total_power(+23)
+        _b = 128 + _hi * 26
+        _LOG1P_COLS += [_b + 5, _b + 6, _b + 14, _b + 23]
+    _LOG1P_COLS += list(range(3315, 3322))  # enemy_threat 7
+    _LOG1P_COLS += list(range(3322, 3326))  # battle_pred 4
+    obs[:, _LOG1P_COLS] = np.log1p(np.maximum(obs[:, _LOG1P_COLS], 0.0))
     # 2026-08-15 H.7: INTERACT(8) 已实现 (AAI.cpp interactTarget), act=8 不再丢弃。
     # 历史 (2026-08-02): C++ AAI.cpp 无交互实现, act=8 执行=空转 endTurn → 模型学到死循环, 曾丢弃 38 帧。
     return obs, acts

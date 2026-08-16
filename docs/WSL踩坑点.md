@@ -737,3 +737,17 @@
 - 根因: NK2 后期陷入死循环 (反复 Unable to complete chain / Exchange between heroes 队列刷屏), 服务器端一直有 query 待应答, Python 侧等不到自己的回合
 - 处理: collect_bc.py 的 90s 超时兜底生效 — 超时后按已采 pairs 正常保存 (ep23 SAVED 11 pairs), 不崩不挂, 整条采集继续下一局
 - 教训: 长采集必须有 per-episode 超时兜底 + 部分保存; NK2 卡死是已知行为 (早期 C8 采集也有), 单局掉数据不影响全局; 采集日志看 [epN] SAVED 行数即可判断局质量
+
+### 23. OBS v3 大数值字段未归一化 → 训练数值爆炸 (2026-08-16 H.8 根因)
+- 现象: PPO 重启后 vloss=2.6e12, KL=1.4e6, 动作坍缩恒 23; BC 训练 loss=92934, val_acc=0.19, 预测分布只出 {1:255, 5:426}
+- 根因链: 2689 时代 obs max=6410 (C8.5 vloss=1349 正常) → v3 新增未归一化大字段:
+  1. **build_mask_lo/hi** (31-bit bitmask, 全置位=0x7FFFFFFF≈2.1e9) — 最极端, 单列即炸
+  2. gold 74万 / total_power 7.8万 / weekly_income 1.7万 / enemy_threat 11万
+  → 直接喂 Linear(3464→128) → logits 300-1700 爆炸 → softmax 饱和单点 → 训练失效
+- 修复 (strategic_env._build_obs + bc_train.load_data 双端同变换):
+  1. build_mask 16 列 ÷2^31 → [-1,1), 保留 bit 语义 (float32 存 2e9 精度本就丢低 8 位)
+  2. players.gold/total_power/weekly_income + heroes.movement/max_movement/exp/total_power + enemy_threat + battle_pred 共 67 列 log1p 压缩 (0→0, 1e6→13.8)
+- 效果: vloss 2.6e12→153→1, kl 1.4e6→0.048, BC loss 92934→0.83, val_acc 0.19→0.475
+- 教训: **新增 obs 字段必须检查数值尺度** (bitmask/资源量/战力都是高危), 不能原样进网络; 训练前跑一次 obs max 统计 (2689 时代 6410 是安全参考线)
+- 附加坑: strategic_env.py 里曾引用不存在的 TOWNS_OFF 变量 (写归一化时代码错误) → ep_runner 每局崩 "name 'TOWNS_OFF' is not defined", 排查要直接看 traj_ep.json 的 error 字段
+- 附加坑: train_wsl2_ppo_v2.py 模块级代码在 import 时执行 — 诊断脚本 import 它会触发训练 (超时被杀), 用 bc_train.Net 代替

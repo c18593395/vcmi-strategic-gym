@@ -725,3 +725,16 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - TOTAL 463 pairs, 无崩溃无死锁; ep16 最多 57 pairs, Good Witch 图稳定 8-12 pairs
 - ep23 尾部 NK2 卡死 (adventure_wait 90s 超时兜底, 只采 11 pairs 正常保存) — 长采集必须有 per-episode 超时+部分保存, 见踩坑点 #22
 - H.8 重采集已开跑: 463/771 pairs (8月15 22:46)
+
+
+## H.8 obs 归一化规范 (2026-08-16 数值爆炸根因修复)
+
+**背景**: 2689 时代 obs max=6410 可训 (C8.5 vloss=1349 正常); OBS v3 新增未归一化大字段 (build_mask 2.1e9 / gold 74万 / total_power 7.8万 / enemy_threat 11万) 直接喂 Linear → logits 爆炸 → 训练失效。
+
+**归一化规则 (strategic_env._build_obs 与 bc_train.load_data 必须双端一致)**:
+- build_mask_lo/hi (towns 段 f16/f17, 8×2=16 列): ÷2^31 → [-1,1), 保留 bit 语义
+- players.gold/total_power/weekly_income + heroes.movement/max_movement/exp/total_power + enemy_threat + battle_pred (67 列): log1p 压缩
+- heroes/towns 的 id 标识符 (≤2831) 不处理 (与 C8.5 的 6410 同量级)
+- 新采集数据走 _build_obs 自动归一化; 旧 npz 在 bc_train.load_data 里做同变换
+
+**安全参考线**: 新增 obs 字段前先跑 obs max 统计, 超过 ~1e4 必须设计变换 (bitmask→÷2^31, 资源/战力→log1p, 计数→原样)。

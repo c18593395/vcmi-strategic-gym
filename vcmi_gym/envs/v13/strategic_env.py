@@ -304,6 +304,26 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
 
     # --- Reserved (134) — 3330:3464, 保持 0 ---
 
+    # --- 2026-08-16 H.8 修复: 大数值字段归一化 (数值爆炸根因) ---
+    # 2689 时代 obs max=6410 可训 (C8.5 vloss=1349 正常); v3 新增未归一化大字段:
+    #   gold 74万 / total_power 7.8万 / weekly_income 1.7万 / enemy_threat 11万
+    # 直接喂 Linear → logits 300-1700 爆炸 → vloss 1e4+ / 动作坍缩 (build_mask 2e9 已单列处理)
+    # 处理1: build_mask_lo/hi (bitmask, 全置位≈2.1e9) ÷2^31 → [0,1), 保留位语义
+    # 处理2: 数值型大字段 log1p 压缩 (0→0, 1e6→13.8), 与 bc_train.py 旧数据对齐
+    _BM_COLS = [336 + ti * _TOWN_FIELDS + 16 for ti in range(MAX_TOWNS)] + \
+               [336 + ti * _TOWN_FIELDS + 17 for ti in range(MAX_TOWNS)]
+    obs[_BM_COLS] /= float(2 ** 31)
+    _LOG1P_COLS = []
+    for _pi in range(MAX_PLAYERS):  # players: gold(+2), total_power(+12), weekly_income(+13)
+        _b = 8 + _pi * 15
+        _LOG1P_COLS += [_b + 2, _b + 12, _b + 13]
+    for _hi in range(MAX_HEROES):   # heroes: movement(+5), max_movement(+6), exp(+14), total_power(+23)
+        _b = 128 + _hi * 26
+        _LOG1P_COLS += [_b + 5, _b + 6, _b + 14, _b + 23]
+    _LOG1P_COLS += list(range(3315, 3322))  # enemy_threat 7
+    _LOG1P_COLS += list(range(3322, 3326))  # battle_pred 4
+    obs[_LOG1P_COLS] = np.log1p(np.maximum(obs[_LOG1P_COLS], 0.0))
+
     return obs
 
 
