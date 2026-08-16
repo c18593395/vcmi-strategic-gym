@@ -756,3 +756,18 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 **MMAI 配置**: mmai-settings.json (MMAI/CONFIG/) 缺失 → "Could not load MMAI config" → fallback=BattleAI (ScriptedModel)。config 是模型注册表 (models.attacker/defender 路径)。
 
 **训练环境部署模式 (embedded, 2026-08-16 实测确认)**: python 进程直接加载 libmlclient.so (链接 vcmiclientcommon → vcmiservercommon 静态库, 含 server 代码) — **不是独立 vcmiserver 进程**。改 server 代码 (CGameHandler/BattleProcessor 等) 必须重编 libmlclient.so (vcmiservercommon 是中间静态库, 自动重编), 只重编 vcmiserver 二进制无效。全量对齐用 `cmake --build rel -j4`。target 名大小写敏感 (Nullkiller2)。**这是"正常游戏 (AI 在客户端进程) vs 训练环境 (AI 在服务器进程内)"架构差异的直接后果**: battleEnded 回调 (NetPacksClient) 缺失、dialog answerQuery 锁竞争死锁 — 修复策略 = 服务器侧补齐 AI 自动处理 (条件化, 部署客户端模式需关闭, 见踩坑 #29)。
+## 死锁链知识: CGameState::mutex + waitTillRealize (2026-08-16 晚, 踩坑 #30 配套)
+
+**CGameState::mutex 是 shared_mutex, 四类持有者**:
+- runNetwork 线程 (处理包): handlePack 里 unique_lock (写锁, 短暂)
+- NK2 决策线程: makeTurn 的 shared_lock (读锁, 整个决策期)
+- MMAI fill: 局部 shared_lock (读锁, 段内)
+- sendRequest 的 makeUnlockSharedGuard: 调用者持读锁时 解锁→等待→重锁 (官方契约)
+
+**官方契约**: 调 CCallback::sendRequest (waitTillRealize=true) 必须**持读锁** (makeUnlockSharedGuard 配对解锁/重锁)。破坏契约 = shared_mutex 计数损坏 → 后续 lock 永久阻塞 (无持有者但拿不到锁)。修复必须保持官方锁结构, 不能手动解锁/移出作用域。
+
+**waitTillRealize 是共享 cb 的易变状态**: BattleAI/StupidAI initBattleInterface 设 false, 析构才恢复 — embedded 模式战斗界面对象长期存活 → 残留 false → NK2 endTurn 不等确认 → livelock。防御: AIGateway::endTurn 显式设 true。
+
+**embedded 模式 AI 线程模型**: runNetwork (asio, 收包+handlePack) / runServer (asio, 处理请求) / NK2 makingTurn (TBB worker, 决策) / MMAI yourTurn (在 runNetwork 线程!) — MMAI 的 endTurn 在 runNetwork 线程执行, 不能 wtr=true (自锁)。NK2 的 endTurn 在 TBB 线程, 可以 wtr=true (等待时解锁)。
+
+**gdb 抓死锁**: runNetwork 卡 handlePack 等锁 + NK2 在 sendRequest/waitWhileContains/序列化 + runServer epoll 空闲 (不持锁) = 锁状态坏或互等。抓完立即 detach (batch), 多次 attach 后 WSL 服务易崩 (0x8007274c), wsl --shutdown 恢复。

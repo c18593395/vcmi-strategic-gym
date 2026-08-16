@@ -707,7 +707,7 @@ class StrategicEnv(gym.Env):
         adventure_wait_for_turn() 和 adventure_send_action()。
         """
         if timeout is None:
-            timeout = min(self._vcmi_timeout, 120)
+            timeout = min(self._vcmi_timeout, 900)
         self._ensure_libml_loaded()
         if self._libml is None:
             raise RuntimeError("libmlclient.so not loaded")

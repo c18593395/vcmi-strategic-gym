@@ -793,7 +793,7 @@
 - 修复: 实验日志写项目目录 (bc_data/ 或 logs/), 不用 /tmp; 轨迹文件同样
 - 教训: 长观测/实验数据必须落盘项目目录, /tmp 只放一次性临时文件
 
-### 29. NK2 卡死 6 环修复链 — 5 环已闭环, 守卫战斗收尾卡 (第 6 环定位未闭环) (2026-08-16)
+### 29. NK2 卡死 6 环修复链 — 6 环全闭环 ✅ (2026-08-16 晚, 死锁链另见 #30)
 
 **卡死根因链 (6 环)**:
 1. Router SCRIPTED else THROW → fallback StupidAI (ebba48afd, 第 1 轮)
@@ -801,7 +801,7 @@
 3. config 缺失 fallback BattleAI→StupidAI (router.cpp:90, 第 3 轮; mmai-settings.json 一直缺失, C8.5 不触发战斗未暴露)
 4. battleEnded 服务器侧补调 (AIGateway::battleEnd 同步 battleEnded(); 官方由 NetPacksClient.cpp:897-899 调 BattleEnd 包, 无头服务器无客户端 → NK2 状态卡 ENDING_BATTLE(3) → waitTillFree 死等; 第 4 轮) — 验证 battle=0 ✓
 5. dialog 自动应答 (CGameHandler::showBlockingDialog 对 AI 玩家 setReply(0)+popQuery 不发送; NK2 answerQuery 任务拿 CGameState::mutex shared_lock (AIGateway:1403) 与服务器写锁竞争死锁 → query 永不答 → 对象访问卡; 第 5 轮) — 验证 Blocking dialog=0 ✓
-6. **守卫战斗收尾卡 (未闭环)**: 战斗全链通 (BattleProcessor::startBattle DONE → NK2 battleStart ENTER → ONGOING → battleEnd ENTER → battle=0) 但 battle query 移除后守卫访问的 MapObjectVisitQuery::onExposure 未触发 + CGCreature::battleFinished 完全无打点 → objectVisitEnded (heroVisit end) 不发 → NK2 obj=1 mov=1 卡 (obj=Gogs/Lizardmen/Royal Griffins 守卫)。推断: endBattleConfirm:401 popIfTop(battleQuery) 失败 (battle query 之上有 query 挡) 或 QueriesProcessor.cpp:34 nextQuery 链断。
+6. **守卫战斗收尾卡 (✅ 2026-08-16 闭环)**: 根因 = **IFML 宏漂移** — `onlyOnePlayerHuman || IFML(true,false)` 在 ENABLE_ML 下恒 true → CBattleDialogQuery 永不 pop → MapObjectVisitQuery::onExposure 全链断。修复: `if(onlyOnePlayerHuman)` (BattleResultProcessor.cpp:303)。验证: endBattleConfirm → popIfTop → onExposure → battleFinished winner=0 → removeObject → heroVisit/playerBlocked 清空 → 战斗闭环。
 
 **部署教训 (严重)**: 训练环境是 embedded 模式 (python 进程直接加载 libmlclient.so → vcmiservercommon 静态库), **不是独立 vcmiserver 进程** — 改 server 代码必须重编 libmlclient.so, 只重编 vcmiserver 二进制无效 (运行时不用)。全量 `cmake --build rel -j4` 可对齐; target 名大小写敏感 (Nullkiller2)。
 
@@ -812,3 +812,25 @@
 **下次开机起点**: QueriesProcessor popIfTop 失败打点 + query 栈内容打印 (守卫战斗 battle query 之上是什么) → 自动答/移除 → 验证守卫战斗收尾链 (onExposure→battleFinished→objectVisitEnded→NK2 obj/mov 清)。
 
 **打点清单 (已部署, 调试用保留)**: AIGateway heroVisit/playerBlocked/battleStart/battleEnd ([ML-obj]/[ML-mov]/[ML-battle]); BattleProcessor::startBattle DONE; VisitQueries.cpp onExposure; CGCreature::battleFinished; CGameHandler::removeObject ([ML-q])。
+### 30. 战斗后客户端收包静默 + NK2 EndTurn 死循环 — 4 层死锁修复链 (2026-08-16 晚, gdb 实证)
+
+**现象**: 战斗闭环后 red 回合起不来 (PlayerStartsTurn 未达 handlePack) + NK2 EndTurn 死循环刷屏 (acting:0 被拒) → Python adventure_wait 超时 → 整局报废。早期错误诊断: 以为是"客户端收包线程卡死" — 实际是 **CGameState::mutex 死锁 + wtr 状态残留**, 层层剥离 (4 层修复):
+
+**层 1 (gdb 现场 A)**: runNetwork 线程 (持 interfaceMutex) 在 handlePack 等 CGameState::mutex **写锁**, NK2 决策线程持**读锁** (makeTurn gsLock) 等 PackageApplied 确认 (确认需 runNetwork 处理) → 互等死锁。~官方设计~: sendRequest 的 makeUnlockSharedGuard (Client.cpp:407) 等待时解锁读锁 → 理论不死锁, 但 embedded 高频触发 (NK2 决策长 + 广播多)。
+
+**层 2 (修复走弯路, 记录教训)**: 
+- gsLock.unlock() 手动解锁 → 与 makeUnlockSharedGuard 构成**双重解锁 UB** (shared_mutex 计数 -1 → 永久损坏, runNetwork 等写锁无持有者) — gdb 现场 B 证实
+- scope-lock (endTurn 移出锁作用域) → makeUnlockSharedGuard 解锁**空锁** UB (官方契约 = 调用 sendRequest 必须持读锁) — gdb 现场 C 证实
+- **正解**: 恢复官方锁结构 (endTurn 持锁调用, sendRequest 内部解锁/重锁平衡) + turnCounter
+
+**层 3 (turnCounter, AIGateway.h/cpp)**: 旧 makingTurn 线程残留 do-while (确认包迟到), 新回合 startedTurn 重置 haveTurn=true 被旧线程读到 → 死循环刷屏。修复: AIStatus 加 turnCounter (startedTurn 递增), do-while 条件加 `status.getTurnCounter() == myTurn` (回合变更即退出)。验证: r_openK 3 个完整回合正常流转 (此前从未达到)。
+
+**层 4 (MMAI wtr 自锁 + 战斗 AI wtr 残留, 关键)**:
+- **MMAI 自锁**: red 的 yourTurn 在 runNetwork 线程执行, a<0 / a==9 路径 cb->endTurn() 用 wtr=true → waitWhileContains 等确认 → 确认需 runNetwork 自己处理 → **自锁死锁**。修复: 这两路径 endTurn 用 wtr=false (AAI.cpp, 与 a==8/0-7 路径一致)。
+- **战斗 AI wtr 残留 (最终根因, r_openR 实证)**: BattleAI/StupidAI 的 initBattleInterface (BattleAI.cpp:71-72) 把**共享 cb** 的 waitTillRealize 设 false, 恢复在**析构** (46-51) — embedded 模式战斗界面对象长期存活 (battleints 残留) → **析构不触发 → wtr=false 残留** → NK2 下个回合 endTurn wtr=0 → do-while 不等确认立即重发 → livelock 刷屏 (138857 次 wtr=0 EndTurn)。修复: AIGateway::endTurn 显式 `cc->waitTillRealize = true;` (不依赖战斗 AI 恢复)。
+
+**验证证据**: 修复后 3/3 局完整跑通 (r_openU/V/W: steps=10, acts 各 10 个, err=None, 0 次 EndTurn 拒绝, 日志 7-10K 行); 清理打点后冒烟 1/1 (r_openX, 日志 2499 行)。
+
+**gdb 抓死锁流程 (可复用)**: 复现卡死 → `ps aux | grep ep_runner_one | grep -v timeout | awk '{print $2}'` 取 PID → `wsl -u root gdb -p PID -batch -ex 'set pagination off' -ex 'thread apply all bt 12'` → 找 runNetwork (handlePack 等锁) / NK2 线程 (sendRequest/waitWhileContains/序列化) / runServer (epoll 空闲=不持锁) → 判锁持有者。注意: gdb attach 后 WSL 可能卡死 (ptrace 冻结), 抓完立即 detach (batch 模式自动); 连续 attach 多次后 WSL 服务可能崩 (0x8007274c), 用 wsl --shutdown 恢复。
+
+**打点清理教训**: 正则删 fprintf 时多行 fprintf 的参数残留行会留下 (AIGateway.cpp:384 / TurnOrderProcessor.cpp:344 编译错误 'expected ; before )') — 清理后必须全量编译验证, 不能只信删除计数。

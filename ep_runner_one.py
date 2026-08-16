@@ -54,7 +54,7 @@ try:
         mapname=args.mapname, max_turns=args.max_turns,
         vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
         vcmienv_loglevel="ERROR", red="StupidAI", blue=args.blue_ai or "StupidAI",
-        random_heroes=1, boot_timeout=120, vcmi_timeout=120,
+        random_heroes=1, boot_timeout=120, vcmi_timeout=900,
         red_model_path=args.model or "",
         blue_model_path=args.blue_model or "",
         blue_adventure_ai=args.blue_adventure_ai,
