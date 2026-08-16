@@ -751,3 +751,19 @@
 - 教训: **新增 obs 字段必须检查数值尺度** (bitmask/资源量/战力都是高危), 不能原样进网络; 训练前跑一次 obs max 统计 (2689 时代 6410 是安全参考线)
 - 附加坑: strategic_env.py 里曾引用不存在的 TOWNS_OFF 变量 (写归一化时代码错误) → ep_runner 每局崩 "name 'TOWNS_OFF' is not defined", 排查要直接看 traj_ep.json 的 error 字段
 - 附加坑: train_wsl2_ppo_v2.py 模块级代码在 import 时执行 — 诊断脚本 import 它会触发训练 (超时被杀), 用 bc_train.Net 代替
+
+### 24. passable mask 与 moveHero 目标格不一致 — 英雄模板 visitableOffset 偏移 (2026-08-16 H.8 根因)
+- 现象: PPO 训练 40 局英雄位置永远不变 (107 步全在 (16,15,1)), 服务器持续报 "Cannot move hero, destination tile is blocked!"; obs passable 段标方向 5(SW) 可通行但服务器拒, 方向 4(S) 标不可通行但 NK2 实际走通
+- 根因链:
+  1. obs passable fill (strategic_state.cpp) 用 heroes[active_hero].pos (对象锚点) + dir 作为目标格做 isClear
+  2. 服务器 CGameHandler::moveHero 检查 convertToVisitablePos(dst) = dst - getVisitableOffset() — 英雄模板 ["VVV","VAV"] offset=(1,0), 锚点与可站格差 1 格
+  3. fill 用锚点+dir 算出的"可通行方向" = 服务器实际检查格 + offset → passable=1 的方向被服务器以 blocked 拒绝, 真可走的方向标 0
+- 修复 (commit acc1a7f92): fill 的 hpos 改用 hero->visitablePos() (pos - getVisitableOffset()) — 站立格 + dir == 服务器检查的 convertToVisitablePos(pos+dir)
+- 附加修复: fill_exploration active_hero 强制 owner==0 (防 g_active_hero 越界到 blue 槽位), 无 red 英雄时 -1
+- 验证: 修复后 passable=[0,0,0,0,1,0,0,0] (方向 4=(16,16) 正确), 模型按 mask 选方向 4 moveHero 成功 (16,15)↔(16,16)
+- 教训: **obs 任何位置/格子相关字段必须与服务器 CGameHandler 的目标格语义对齐** (visitablePos vs anchorPos); 验证训练环境健康的第一信号是英雄位置是否变化, 不是 vloss/avg_r
+
+### 25. C++ 修复写了但未同步编译树/未重编/未部署/未提交 = 修复从未生效 (2026-08-16 工作流教训)
+- 现象: visitablePos 修复 2026-08-15 已写入项目源 vcmi/ML/strategic_state.cpp (git 未提交), 但编译树 ~/vcmi-native/ML/ 是旧版, 部署的 libmlclient.so (14:49) 无修复 → 8-16 训练仍全 blocked
+- 原因: 改代码后只改项目源, 没有走完: 同步编译树 (cp) → 重编 (cmake --build rel --target mlclient) → 部署 (rel/bin/libmlclient.so) → 实测 → git commit
+- 教训: **C++ 改动四步闭环: 项目源 → 编译树 → 编译部署 → 实测, 全部完成后才 commit**; 排查"改了没生效"先对比项目源 vs 编译树 vs .so 时间戳 (diff 三处)
