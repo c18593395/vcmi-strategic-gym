@@ -16,6 +16,7 @@ import sys
 import time
 import argparse
 import subprocess
+import threading
 import numpy as np
 
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -79,16 +80,23 @@ def run_episode(ep: int, args) -> int:
             break
 
     if obs_list:
-        obs = np.array(obs_list, dtype=np.float32)
-        acts = np.array(act_list, dtype=np.int64)
-        days = np.array(day_list, dtype=np.int64)
-        eps = np.full(len(obs), ep, dtype=np.int64)
-        np.savez(out_file, obs=obs, actions=acts, days=days, episodes=eps)
-        uniq, cnts = np.unique(acts, return_counts=True)
-        print(f"[ep{ep}] SAVED {len(obs)} pairs -> {out_file}")
-        print(f"[ep{ep}] action 分布:", {int(k): int(v) for k, v in zip(uniq, cnts)})
+        try:
+            obs = np.array(obs_list, dtype=np.float32)
+            acts = np.array(act_list, dtype=np.int64)
+            days = np.array(day_list, dtype=np.int64)
+            eps = np.full(len(obs), ep, dtype=np.int64)
+            np.savez(out_file, obs=obs, actions=acts, days=days, episodes=eps)
+            uniq, cnts = np.unique(acts, return_counts=True)
+            print(f"[ep{ep}] SAVED {len(obs)} pairs -> {out_file}")
+            print(f"[ep{ep}] action 分布:", {int(k): int(v) for k, v in zip(uniq, cnts)})
+        except Exception as e:
+            # ML fix (2026-08-17): savez 异常不崩进程 (9p 挂载慢/磁盘问题), 打印后继续
+            print(f"[ep{ep}] SAVE ERROR: {e}")
     try:
-        env.close()
+        # ML fix (2026-08-17): embedded VCMI 模式 env.close() 卡死 (58% CPU 转圈, os._exit 不生效,
+        # wrapper 每局拖 6-9 分钟)。数据已 savez, close 只是清理资源 → 直接 os._exit 跳过。
+        # (close 线程 + 5s 超时方案实测: close_done.wait 返回但 python 进程仍卡在 VCMI 线程, 弃用)
+        pass
     except Exception:
         pass
     return pairs
