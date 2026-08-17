@@ -510,7 +510,9 @@ namespace Connector::V13::Thread {
             _statsMode, _statsStorage,
             60000,                  // statsTimeout (hardcoded, matching old behavior)
             _statsPersistFreq,
-            true                    // headless
+            // ML fix (2026-08-17): headless 参数化 — 环境变量 STRATEGIC_HEADLESS=0 启用 GUI (有头 MVP)
+            // 默认 true (训练/采集无头零影响)
+            getenv("STRATEGIC_HEADLESS") == nullptr || strcmp(getenv("STRATEGIC_HEADLESS"), "0") != 0   // headless
         );
         initargs->red = redAdventureAI;      // 冒险AI: red 玩家 (adventureAlliedAI)
         initargs->blue = blueAdventureAI;    // 冒险AI: blue/其他 (adventureEnemyAI)

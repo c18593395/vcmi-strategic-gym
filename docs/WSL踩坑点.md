@@ -883,3 +883,13 @@ ML 强定义优先, 客户端默认空走 settings。
 
 **验证状态**: vcmiclient 编译成功; --testmap --onlyAI 流程推进到 bonus 界面构建 (NK2 vs MMAI 无模型);
 模型 AI 封装 (Phase 2) 未开始。libtorch 可用 (venv torch/lib/libtorch_cpu.so — C++ 推理路径确认)。
+
+### 34. 有头验证 08-18: WSLg 虚拟显卡无 GPU 合成 (显示无解) / 官方 Windows NK2 0x618 崩溃 / spectate 官方也崩 (2026-08-18)
+- **WSLg 显示**: 本机无真实 GPU (仅 OrayIddDriver 向日葵 + MuMu 虚拟显卡) → WSLg 窗口 (X11 + wayland/SDL_VIDEODRIVER 都试) 任务栏有图标桌面无画面; EGL/MESA/ZINK 失败 + [WARN:COPY MODE]; **环境无解** → 有头验证走 Windows 原生 VCMI
+- **官方 Windows VCMI (1.6/1.7.5) NK2 0x618 空指针**: All for One/Arrogance 都崩 (回合 1 NK2 初始化后, "Attempt to read from 0x618"); 我们 fork 1.8 的 NK2 修复链已修 (WSL 4 方跑到回合 4) → Windows 需源码构建 fork
+- **spectate 官方也崩**: 官方 1.7.5 Linux AppImage 在 "Initializing the interface for player invalid" SIGSEGV — 官方渲染链脆弱, spectate 弃用; 玩家视角 (VCMI_TESTMAP_ONLYAI=0) 是部署形态
+- **github.com 443 间歇不通** → ghproxy.net 镜像下载成功
+- **AppImage**: WSL 无 FUSE → --appimage-extract 解压运行
+- **~/.local/share/vcmi/Maps 的 .vmap** 使官方 VCMI 扫描卡死 (s1.vmap 解析) → 移走
+- **Windows VCMI 地图源**: Documents\My Games\vcmi\Maps (158 张); 安装: D:\Program Files\VCMI (1.6) / D:\GAMES\VCMI (1.7.5 用户自装)
+- **Windows 侧控制 WSLg 窗口**: user32 ShowWindow/SetWindowPos (win_force_maximize_vcmi.py); 窗口可能被移到屏幕外 (-21333)

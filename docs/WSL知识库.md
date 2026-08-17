@@ -771,3 +771,11 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 **embedded 模式 AI 线程模型**: runNetwork (asio, 收包+handlePack) / runServer (asio, 处理请求) / NK2 makingTurn (TBB worker, 决策) / MMAI yourTurn (在 runNetwork 线程!) — MMAI 的 endTurn 在 runNetwork 线程执行, 不能 wtr=true (自锁)。NK2 的 endTurn 在 TBB 线程, 可以 wtr=true (等待时解锁)。
 
 **gdb 抓死锁**: runNetwork 卡 handlePack 等锁 + NK2 在 sendRequest/waitWhileContains/序列化 + runServer epoll 空闲 (不持锁) = 锁状态坏或互等。抓完立即 detach (batch), 多次 attach 后 WSL 服务易崩 (0x8007274c), wsl --shutdown 恢复。
+
+
+## 有头验证结论 (2026-08-18)
+- **部署形态 = Windows 原生 VCMI + 玩家视角**: WSLg 无 GPU 合成显示无解 (虚拟显卡); 官方 Windows 显示正常但 NK2 0x618 崩 (fork 已修) → 最终: **Windows 构建 fork** (显示+稳定+ML 一步到位)
+- **spectate 观战模式不可用** (官方也崩, 渲染链脆弱) — 用玩家视角 (VCMI_TESTMAP_ONLYAI=0, red 人类位 = 模型 AI 落点)
+- 官方 1.7.5 Linux AppImage: squashfs-root/usr/bin/vcmiclient, 用户数据 ~/.local/share/vcmi (与 fork 共享)
+- 1.7.5 下载: ghproxy.net 镜像 (github 间歇不通); Windows 安装 D:\GAMES\VCMI
+- vcmi_source (C:\Users\Administrator\vcmi_source): ML Windows 移植树雏形 (Linux preset, 无 fork NK2 修复, 未构建) — Windows 构建起点
