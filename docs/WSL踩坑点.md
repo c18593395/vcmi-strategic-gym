@@ -843,3 +843,43 @@
 - **后续修复 (同日)**: 战斗查询残留 (has to answer 刷屏 8867-18202 次/局) → ① expGiven 升级 AI 自动选技能 ② QueriesProcessor::removeQuery 任意位置强制移除 (onRemoval 只调一次防段错误 + 移除后触发暴露链否则 visitQuery 永不 onExposure) ③ battleResultAccepted 改用 removeQuery; env.close() embedded 卡死 (58% CPU, close 线程 5s 超时实测无效) → SAVED 后直接 os._exit 跳过, 局间 1 行间隔
 - **地图坑**: Dungeon Keeper.h3m 红方 954 出生地被围 (passable 8 方向全 0, isClear=false), 卡死修复后仍动不了 → 换 All for One.h3m
 - **诊断教训**: obs 大数值字段有 log1p 归一化 (H.8: movement 1560→log1p=7.353, gold→8.61), 排查 float 异常先查 obs 构建归一化段; 探针 (临时打印 state.heroes[0].movement type) 直接区分 int 结构 vs float 垃圾
+
+
+## 踩坑 #32: 有头 GUI (embedded 非 headless) 与标准 client-server 的地图加载链 (2026-08-17)
+
+**场景**: 战略层模型要"有头"跑局 (VCMI 窗口显示对局)。embedded 模式 headless 硬编码 true;
+标准 client-server (vcmiclient) 编译 + 启动流程踩坑链。
+
+**坑 32.1 embedded headless 硬编码**: connectors/v13/threadconnector.cpp InitArgs 构造 `true // headless`
+→ 改环境变量 `STRATEGIC_HEADLESS=0` 启用 GUI (默认 true 训练/采集零影响)。connector 重编:
+`cd vcmi_gym/connectors/rel && cmake --build . --target connector_v13 -j 8`
+(注意: `cmake --build .` 全量会因 exporter.cpp GA::BATTLE_SIDE 旧代码失败, 只编 connector_v13 target)
+
+**坑 32.2 GYM symlink 地图扫描递归**: data/Maps/GYM 是 symlink → vcmi-workspace/maps/gym (vmap 训练图)。
+GUI 客户端初始化扫描 MAPS/ 资源 (getFilteredFiles) 跟随 symlink 递归扫 vmap → 虚拟地图名前缀叠加
+(MAPS/MAPS/MAPS/.../GYM/ML-MINI) → "Failed to resolve identifier ml:hero_0" 刷屏 → 段错误 (exit 139)。
+headless 不扫描 (直接加载指定地图) 所以无头正常。修复: 移除 data/Maps/GYM symlink + 移走 data/Maps 顶层 *.vmap
+(s1.vmap 会被大厅当默认地图加载 → 解析失败段错误)。
+
+**坑 32.3 地图名大写化**: VCMI 资源系统把请求资源名转大写 (HoMM3 约定) → Linux 大小写敏感文件系统找不到
+"ALL FOR ONE"。--testmap 必须带 "Maps/" 前缀: `--testmap "Maps/All for One.h3m"`
+(纯文件名 "All for One.h3m" 会崩在 CMapInfo::mapInit "Resource ALL FOR ONE wasn't found"; 绝对路径也被转大写失败)。
+
+**坑 32.4 debugStartTest 死循环 setMapInfo**: `while(!mi || mapInfo->fileURI != mi->fileURI)` —
+mapInit 用小写原名 (Maps/All for One.h3m) vs 服务器回显 mi->fileURI 大写 (MAPS/ALL FOR ONE) → 死循环刷
+LobbySetMap (639 次/10min)。修复①: boost::iequals 大小写不敏感比较; 修复② (关键): 服务器广播链路 mi 仍不更新
+(mi=NULL 死循环) → 加 10s 超时兜底继续流程 (setPlayer + sendStartGame) → 流程推进到 bonus 界面构建。
+
+**坑 32.5 g_adventure_allied_ai 未定义**: MLClient.cpp 定义 (libmlclient.so) 但 vcmiclient 不链接 ML →
+链接错误。修复: Client.cpp 改 weak 定义 (`extern "C" __attribute__((weak)) char g_adventure_allied_ai[64]=""`),
+ML 强定义优先, 客户端默认空走 settings。
+
+**坑 32.6 pkill -f 自杀**: `pkill -f vcmiclient` 在命令行含 vcmiclient 字符串时匹配自身 (exit 15, 后续命令不执行)。
+先 pkill 再单独跑测试命令, 或 pkill 模式用 "bin/vcmiclient" 避开。
+
+**坑 32.7 embedded GUI 分支不稳**: STRATEGIC_HEADLESS=0 (embedded 非 headless) 多次段错误
+(地图扫描递归 → 修复后 start_vcmi 后立即崩 debugStartTest 地图加载层, 无日志)。embedded+GUI 组合坑多,
+标准 client-server (vcmiclient 独立) 是正路 (vcmiserver 标准 AI + 模型 AI 封装 = 部署路线预演)。
+
+**验证状态**: vcmiclient 编译成功; --testmap --onlyAI 流程推进到 bonus 界面构建 (NK2 vs MMAI 无模型);
+模型 AI 封装 (Phase 2) 未开始。libtorch 可用 (venv torch/lib/libtorch_cpu.so — C++ 推理路径确认)。
