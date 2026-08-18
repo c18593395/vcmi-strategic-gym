@@ -1,4 +1,4 @@
-# HoMM3 战略 AI — 踩坑记录
+﻿# HoMM3 战略 AI — 踩坑记录
 
 ---
 
@@ -911,4 +911,11 @@ ML 强定义优先, 客户端默认空走 settings。
 - --testmap 传 'Maps/图名.h3m'(资源键带 MAPS/ 前缀)
 - ModelAI 移动: 1.8 moveHero(path 版) layer 参数无默认必须传 AUTO; STANDARD 模式逐格必须相邻; CGPath::getPath nodes 倒序(目标→起点), 第一步=末尾第二; 寻路 entrableTerrain 忽略非 visitable blocking(树)而 server blocked()&&!visitable() 拒绝 → AI 侧同款过滤
 - AI 迷雾: AI cb 带 player → getTile 不可见崩寻路; 特权 nullopt cb 方案不可行(CBattleCallback::sendRequest 用 *getPlayerID() UB); 正确=CGameState::isVisibleFor 对 AI 返回 true(全知)
-- A Warm (12,15,0) lava: client passable=1 vs server 拒绝 'destination tile is blocked' — 未解(加 SRV-DBG 日志待查)
+- A Warm (12,15,0) lava: client passable=1 vs server 拒绝 'destination tile is blocked' — ✅ 已解 (08-18 晚, forktest41):
+  根因 = **moveHero 坐标系错配**: CPathfinder 起点是 hero->visitablePos() (NodeStorage), 而 ModelAI 用 hero->pos
+  跳过起点 → 永远把自己面前格当目标发; 且 moveHero 期望 anchor 系, path 节点是 visitablePos 系, 需
+  convertFromVisitablePos (NK2 同款, AIGateway.cpp:1098)。修复后 fishy 1100→0, 英雄真实移动。见技能 P30。
+- obs 3464 + onnx 移植 ✅ (08-18 晚, forktest45): obs_fill.cpp (fill from CGameState, 全知直读) + obs_build.cpp (展平) +
+  model_infer.cpp (onnxruntime); onnx 导出需 dynamo=False (legacy, onnxscript 装不上); **System32 有 onnxruntime 1.17.1
+  会抢加载** — ModelAI.dll 编译头 1.19.2 时运行报 'requested API version [19] only [1,17]' → 必须把匹配的 onnxruntime.dll
+  放 bin/AI/ (ModelAI.dll 同目录, 依赖 DLL 优先搜 AI/ 目录)。端到端: 模型驱动英雄移动 128 次, 0 崩。见技能 P31。
