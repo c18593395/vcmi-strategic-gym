@@ -749,7 +749,7 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 
 **NK2 卡死根因 (2026-08-16 全面分析, 见踩坑 #29)**: 6 环链 — Router battleStart 战斗模型名 (3 处修复) → battleEnded 服务器补调 → dialog 自动应答 → 守卫战斗收尾卡 (第 6 环定位未闭环)。**NK2 卡死 = 战斗集成 bug, 非 NK2 本身**。战斗全链 (startBattle→battleStart→battleEnd) 已通; 剩守卫战斗 battle query 移除后 onExposure 未触发 (objectVisitEnded 不发 → obj/mov 卡)。
 
-**内存爆炸 (C8.5 记录 3.7-7.5GB/局)**: 采集环境实测单局 40→184MB 收敛 (战斗阶跃一次后平台), 无爆炸。3.7-7.5GB 疑为 WSL 总内存口径 (.wslconfig 6GB) — torch+server+NK2 叠加, NK2 单进程仅几百 MB。修复卡死后需长时训练实验验证。
+**内存爆炸 (C8.5 记录 3.7-7.5GB/局)**: 2026-08-18 长时验证闭环 (nk2_mem_long_watch.sh, 5 局采样): 无跨局泄漏 (每局独立进程基线稳定回归 200-300MB), 但局内爆发真实存在 — 部分局从 200MB 爆发到 4-6.5GB (实测 4197MB / 6516MB), C8.5 记录准确非口径误判。爆发呈事件触发型 (pairs_lines 停滞/卡死前刻爆发, 疑似对象图重建/查询栈累积), 非持续线性泄漏。采集侧已正确规避 (独立进程 wrapper + watchdog); Phase I 前置仍成立: 移植 NK2 逻辑前必须处理, 且训练期间不宜并行 NK2 采集 (NK2 6.5GB+训练 1.4GB+runner 0.5GB > WSL 8GB)。
 
 **战斗处理链路 (Phase D 领域)**: 服务器 BattleFlowProcessor 驱动 → CBattleGameInterface::activeStack (无 yourTurn, AI 决策入口是 activeStack) → MMAI Router 转发 bai。Router 是 battle interface (installNewBattleInterface 安装)。**BattleAI 在 headless 无头模式等待回调卡死, 自动裁决统一用 StupidAI**。MMAI 的 Scripted 模型 (ML::ModelWrappers::Scripted) 是 dummy (getVersion=-666, CreateBAI 不支持), 名字只用于 Router SCRIPTED 分支分派。
 

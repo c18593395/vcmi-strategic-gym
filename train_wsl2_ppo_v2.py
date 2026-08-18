@@ -15,10 +15,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
-# === C8.5: MAPS — 2 人图 (blue=Nullkiller2 真对手, 无 tan 拖慢) ===
+# === C8.5: MAPS — 2 人图 (blue=MMAI_RANDOM 真对手, 无 tan 拖慢) ===
+# 2026-08-18: 原 4 图废弃 — Dungeon Keeper 出生点被围 (passable 1/8),
+# Key to Victory/Good Witch/Fort Noxis 启动失败 (available_maps failed 列表)。
+# 换实测通过图 (probe_map_passability.py): 2 人图可用全集 6 张
+# Twins 4/8, A Warm 3/8, Unholy Quest 3/8, When Dragons Clash 2/8, Gorlam's 2/8, Unexpected Inheritance 2/8
 MAPS = [
-    "Dungeon Keeper.h3m", "Key to Victory.h3m",
-    "Good Witch, Bad Witch.h3m", "Fort Noxis.h3m",
+    "Twins.h3m", "A Warm and Familiar Place.h3m",
+    "Unholy Quest.h3m", "When Dragons Clash.h3m",
+    "Gorlam's Tentacle Swampland.h3m", "Unexpected Inheritance.h3m",
 ]
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
