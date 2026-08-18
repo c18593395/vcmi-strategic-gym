@@ -749,7 +749,7 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 
 **NK2 卡死根因 (2026-08-16 全面分析, 见踩坑 #29)**: 6 环链 — Router battleStart 战斗模型名 (3 处修复) → battleEnded 服务器补调 → dialog 自动应答 → 守卫战斗收尾卡 (第 6 环定位未闭环)。**NK2 卡死 = 战斗集成 bug, 非 NK2 本身**。战斗全链 (startBattle→battleStart→battleEnd) 已通; 剩守卫战斗 battle query 移除后 onExposure 未触发 (objectVisitEnded 不发 → obj/mov 卡)。
 
-**内存爆炸 (C8.5 记录 3.7-7.5GB/局)**: 2026-08-18 长时验证闭环 (nk2_mem_long_watch.sh, 5 局采样): 无跨局泄漏 (每局独立进程基线稳定回归 200-300MB), 但局内爆发真实存在 — 部分局从 200MB 爆发到 4-6.5GB (实测 4197MB / 6516MB), C8.5 记录准确非口径误判。爆发呈事件触发型 (pairs_lines 停滞/卡死前刻爆发, 疑似对象图重建/查询栈累积), 非持续线性泄漏。采集侧已正确规避 (独立进程 wrapper + watchdog); Phase I 前置仍成立: 移植 NK2 逻辑前必须处理, 且训练期间不宜并行 NK2 采集 (NK2 6.5GB+训练 1.4GB+runner 0.5GB > WSL 8GB)。
+**内存爆炸 (C8.5 记录 3.7-7.5GB/局) — 2026-08-18 定性修正**: 长时验证 (nk2_mem_long_watch.sh, 5 局采样) 结论: (1) 无跨局泄漏 — 每局独立进程基线稳定回归 200-300MB; (2) 局内爆发仅发生在 ML hook 采集环境的卡死前刻 (pairs_lines 停滞、查询栈残留、popIfTop FAIL 循环时, 实测 4.2/6.5GB), 正常局仅几百 MB (214→318MB); (3) **Windows 原生 GUI 对战 NK2 无此问题** (用户实测 2v1 对局回合正常) — NK2 纯净运行时无 ML hook 干扰查询栈, 不触发。定性: 是 ML hook 采集环境的异常态, 非 NK2 本身缺陷。处置: 采集侧独立进程 wrapper + watchdog 已规避; **内存问题不再阻塞任何路线** (Track 2 部署无影响, Phase I 移植精简版即可); 1v7 真正阻塞是 0x618 (≥3 AI 玩家, 官方 bug, 需 Windows 构建 fork)。
 
 **战斗处理链路 (Phase D 领域)**: 服务器 BattleFlowProcessor 驱动 → CBattleGameInterface::activeStack (无 yourTurn, AI 决策入口是 activeStack) → MMAI Router 转发 bai。Router 是 battle interface (installNewBattleInterface 安装)。**BattleAI 在 headless 无头模式等待回调卡死, 自动裁决统一用 StupidAI**。MMAI 的 Scripted 模型 (ML::ModelWrappers::Scripted) 是 dummy (getVersion=-666, CreateBAI 不支持), 名字只用于 Router SCRIPTED 分支分派。
 
