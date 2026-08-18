@@ -951,3 +951,18 @@ ML 强定义优先, 客户端默认空走 settings。
   relations/build-mask/enemy_threat 全部参数化 playerColor。
 - 验证: red/green 均 0 拒绝 (forktest50 vs 53: fishy 460→0)。
 - 通用教训: AI DLL 内任何跨回合状态必须是实例成员, static 只留给真正进程级的东西 (如 onnx session)。
+
+### 70. 1.7.5 官方版部署 — MSVC 编译 + 缺失符号替代 (2026-08-18 晚, B 方案)
+- **MinGW 无法链接 1.7.5**: VCMI_lib.dll 导出是 MSVC 修饰名 (??0CGlobalAI@@QEAA@XZ), MinGW g++ 生成 Itanium 修饰
+  (_ZN9CGlobalAIC2Ev) → undefined reference (即使导出表有)。必须用 MSVC cl + VCMI_lib.lib (build_modelai_175.bat)。
+- **/utf-8 必须**: 无它 MSVC 按 GBK (936) 读 UTF-8 源码, 中文注释解码出反斜杠吞掉下一行代码
+  (症状: obs_build.cpp "s 未声明" / Ort 命名空间不可用 — 全是注释吞行假象)。
+- **虚函数免导出**: moveHero/selectionMade/isVisibleFor 走 vtable, 无需导出符号; 只要非虚符号 (getAllVisitableObjs
+  等全部导出)。
+- **1.7.5 不导出的符号及替代**: movementPointsRemaining/Limit/manaLimit → 数据成员 movement/mana (protected,
+  friend class hack 见 CGHeroInstance.h); CGameState::mutex → 删 shared_lock (单线程安全); map.levels() → MAX_LEVELS
+  (obs 固定 2 层); ResourceSet 非 const operator[] 调 resizeContainer (不导出) → 用 const 引用; TerrainTile
+  blocked()/visitable() 标 dllimport 未导出 → visitableObjects/blockingObjects 数据成员。
+- **接口差异**: initGameInterface/initBattleInterface 2 参, moveHero 3 参 (无 EPathfindingLayer) — #ifdef MODELAI_175。
+- 部署: AI/ModelAI.dll + AI/onnxruntime.dll (同目录优先) + 安装目录 onnx (CWD); 1.7.5 schema settings.json enum 加 ModelAI。
+- 实测: 人类 vs 3 模型电脑 day=9 0 崩, 用户亲眼看到模型移动 (guitest175b)。
