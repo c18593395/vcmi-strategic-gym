@@ -76,6 +76,8 @@ try:
                     # INTERACT 冷却: 连续动作 8 >= 2 次时屏蔽
                     if interact_streak >= 2:
                         logits[8] = float('-inf')
+                    # 11-24 未实现 (训练端"新必需") — 屏蔽防浪费动作
+                    logits[11:25] = float('-inf')
                     a = Categorical(logits=logits).sample().item()
                 else:
                     a = 10  # 全堵→END_TURN
@@ -92,6 +94,14 @@ try:
             cur_pos = (int(nobs[base+2]), int(nobs[base+3]), int(nobs[base+4]))
             if prev_pos == cur_pos:
                 r = -0.5
+            # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
+            if len(traj["obs"]) >= 2:
+                prev2 = traj["obs"][-2]
+                ah2 = int(prev2[3203]) if prev2[3203] >= 0 else 0
+                base2 = 128 + ah2 * 26
+                prev2_pos = (int(prev2[base2+2]), int(prev2[base2+3]), int(prev2[base2+4]))
+                if cur_pos == prev2_pos:
+                    r -= 2.0
         traj["obs"].append(obs.tolist())
         traj["act"].append(a)
         traj["rew"].append(float(r))

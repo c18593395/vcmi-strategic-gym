@@ -63,7 +63,7 @@ def run_episode(mapname, blue_model=None):
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
-    cmd.extend(["--reward_explore", "1.0"])
+    cmd.extend(["--reward_explore", "2.5"])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
@@ -281,7 +281,7 @@ for ep in range(N_EPISODES):
             surr = -torch.min(ratio*adv, torch.clamp(ratio,1-CLIP,1+CLIP)*adv).mean()
             # v2: value loss against GAE returns instead of TD target
             vloss = nn.MSELoss()(val, returns.detach())
-            loss = surr + 0.5*vloss - 0.01*pi.entropy().mean()
+            loss = surr + 0.5*vloss - 0.05*pi.entropy().mean()
             # === A+B: KL 约束 BC — 当前策略分布 vs 冻结的 BC 参考策略 ===
             # kl = Σ_a π(a) * (log π(a) - log π_ref(a)); kl_ref 前向在 no_grad 下
             if USE_KL:
