@@ -822,3 +822,16 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 10 END_TURN; 其余码 fallback simpleAct 探索
 - 每实例状态: StrategicState 是类成员 (static 跨 red/green 实例共享 → 285 fishy, 踩坑 #69),
   fill 按 my_color 视角 (active_hero/team/relations/build-mask/enemy_threat 全参数化)
+
+## 十七、奖励塑形与训练配置 (2026-08-19 记忆迁移)
+### 奖励设计
+- 被动 gold/town 收入不能 per-step 给 (模型会坚守 END_TURN 刷奖励) — 只能终局结算
+- 探索 +1 / 占矿 +10 / 杀敌 +100 / 占城 +50
+- step_fixed = -1 ~ -2 (每步小惩罚)
+### 训练 MAPS (6 张 2 人图, 出生点近/训练验证过)
+- Twins / A Warm and Familiar Place / Unholy Quest / When Dragons Clash / Gorlam's Tentacle Swampland / Unexpected Inheritance
+- passable 段在 obs[3211:3219] (非末尾段)
+- 训练 1000ep ≈ 5 天/轮
+### 训练监控 (首信号)
+- 英雄位置变化: traj_ep.json 里 ah=obs[3203], base=128+ah*26, pos=2,3,4
+- 单动作连发 + 全负奖励 ≠ 正常训练; 两格横跳 = 出生点被围 (查 MAPS)

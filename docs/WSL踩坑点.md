@@ -966,3 +966,10 @@ ML 强定义优先, 客户端默认空走 settings。
 - **接口差异**: initGameInterface/initBattleInterface 2 参, moveHero 3 参 (无 EPathfindingLayer) — #ifdef MODELAI_175。
 - 部署: AI/ModelAI.dll + AI/onnxruntime.dll (同目录优先) + 安装目录 onnx (CWD); 1.7.5 schema settings.json enum 加 ModelAI。
 - 实测: 人类 vs 3 模型电脑 day=9 0 崩, 用户亲眼看到模型移动 (guitest175b)。
+
+## 踩坑 #71: WSL 与 git-bash 环境坑 (2026-08-19 记忆迁移)
+- `wsl bash -c '...'` 里 `$VAR` 会被展开 — 要防展开用 heredoc `<< 'ENDSCRIPT'`
+- Windows subprocess 可能命中 System32\bash.exe = WSL bash (/mnt/d 有 pgrep); Hermes terminal 是 git-bash (/d/ 无 pgrep)
+- git-bash /d/ 对 hero3_fresh 目录显示空 (映射坑) — 读项目文件用 python/read_file，别用 git-bash ls
+- python 写 CRLF 文件: open(p,'w') 默认 newline=None 会把 \n 翻译成 \r\n — 对已含 \r\n 的文本逐行写会变成 \r\r\n 损坏 (splitlines 后每逻辑行间多出假空行, 全文件 diff 假象 477+/472-)。写回必须 open(p,'wb') 或 open(p,'w',newline='') + 显式 '\r\n'.join
+- bash 双层转义: python -c 字符串里的 \\n 经 bash 后易写成真 0x0A → MSVC C2001 "常量中有换行符" (fprintf 字符串被截断)。改文件用 write_file 写修复脚本运行, 绕过 bash 转义; 或字节级 b"...\x0a..." 替换
