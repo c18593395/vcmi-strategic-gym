@@ -64,6 +64,8 @@ def run_episode(mapname, blue_model=None):
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
     cmd.extend(["--reward_explore", "2.5"])
+    # MOVE_TO 探索偏置: 前 200 ep 从 2.0 线性衰减到 0 (引导模型发现动作 24)
+    cmd.extend(["--move_to_bias", str(max(0.0, 2.0 * (1 - ep_count / 200)))])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"

@@ -26,6 +26,8 @@ parser.add_argument("--blue_ai", type=str, default=None,
                     help="AI type for blue player (MMAI_USER, StupidAI, etc.)")
 parser.add_argument("--blue_adventure_ai", type=str, default="Nullkiller2",
                     help="冒险AI for blue player (C8.5: Nullkiller2 真对手)")
+parser.add_argument("--move_to_test", action="store_true", help="强制所有动作=24 (MOVE_TO 测试)")
+parser.add_argument("--move_to_bias", type=float, default=0.0, help="MOVE_TO(24) logits 探索偏置 (训练早期引导)")
 parser.add_argument("--reward_explore", type=float, default=0.0,
                     help="探索奖励: 访问新格子 +N (C8.5)")
 args = parser.parse_args()
@@ -62,7 +64,10 @@ try:
     )
     obs, _ = env.reset()
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
-    endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步 — 模型开局帧倾向连发动作 8
+    endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步
+    move_target = None  # MOVE_TO 粘滞目标 (tx,ty,tz) — 防目标漂移来回走
+    move_stall = 0
+    move_stall_prev = 10**9
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     for _ in range(args.max_turns):
         if red_model is not None:
@@ -77,17 +82,80 @@ try:
                     # INTERACT 冷却: 连续动作 8 >= 2 次时屏蔽
                     if interact_streak >= 2:
                         logits[8] = float('-inf')
-                    # 11-24 未实现 (训练端"新必需") — 屏蔽防浪费动作
-                    logits[11:25] = float('-inf')
+                    # 11-23 未实现 (训练端"新必需") — 屏蔽防浪费; 24=MOVE_TO 已启用
+                    logits[11:24] = float('-inf')
                     # END_TURN 冷却: 连续 3 次 → 屏蔽 (防跳过游戏刷步, C8.5 老问题复发)
                     if endturn_streak >= 3:
                         logits[10] = float('-inf')
+                    # MOVE_TO 探索偏置 (训练早期引导模型输出 24)
+                    if args.move_to_bias > 0:
+                        logits[24] += args.move_to_bias
                     a = Categorical(logits=logits).sample().item()
                 else:
                     a = 10  # 全堵→END_TURN
         else:
             a = int(env.action_space.sample())
+        # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
+        # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
+        if a == 24:
+            ah = int(obs[3203]) if obs[3203] >= 0 else 0
+            base = 128 + ah * 26
+            hx, hy = int(obs[base+2]), int(obs[base+3])
+            tx = ty = tz = None
+            if move_target is not None:
+                tx, ty, tz = move_target
+                if abs(tx - hx) + abs(ty - hy) == 0:
+                    move_target = None  # 已到达
+            if tx is None:
+                tl = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
+                best = None
+                for tt in tl:
+                    if tt[5] > 0 and (best is None or tt[5] < best[5]):
+                        best = tt
+                if best is not None:
+                    tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
+                    move_target = (tx, ty, tz)
+                    move_stall = 0
+                else:
+                    move_target = None
+            if tx is not None:
+                dx, dy = tx - hx, ty - hy
+                cand = []
+                if abs(dx) > abs(dy):
+                    cand = [2 if dx > 0 else 6]
+                    if dy > 0: cand.append(3 if dx > 0 else 5)
+                    elif dy < 0: cand.append(1 if dx > 0 else 7)
+                elif abs(dy) > abs(dx):
+                    cand = [4 if dy > 0 else 0]
+                    if dx > 0: cand.append(3 if dy > 0 else 1)
+                    elif dx < 0: cand.append(5 if dy > 0 else 7)
+                else:
+                    if dx > 0 and dy > 0: cand = [3, 2, 4]
+                    elif dx > 0: cand = [1, 2, 0]
+                    elif dy > 0: cand = [5, 4, 6]
+                    else: cand = [7, 0, 6]
+                pas = [int(x) for x in obs[3211:3219]]
+                for d in cand:
+                    if pas[d]:
+                        a = d
+                        break
+                # 卡住检测: 连续 6 步距离不减小 → 放弃换目标 (被堵/绕路)
+                cur_dist = abs(tx - hx) + abs(ty - hy)
+                if cur_dist >= move_stall_prev:
+                    move_stall += 1
+                else:
+                    move_stall = 0
+                move_stall_prev = cur_dist
+                if move_stall >= 6:
+                    move_target = None
+                    move_stall = 0
+            else:
+                a = 10  # 无目标可采 → END_TURN
+        else:
+            move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
         nobs, r, done, trunc, _ = env.step(a)
+        if args.move_to_test:
+            a = 24
         interact_streak = interact_streak + 1 if a == 8 else 0
         endturn_streak = endturn_streak + 1 if a == 10 else 0
         # 非法方向惩扣：move 后英雄位置没变（服务器拒绝），给 -0.5
