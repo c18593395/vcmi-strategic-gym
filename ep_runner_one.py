@@ -61,7 +61,8 @@ try:
         reward_explore=args.reward_explore,
     )
     obs, _ = env.reset()
-    interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却 — 模型开局帧倾向连发动作 8
+    interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
+    endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步 — 模型开局帧倾向连发动作 8
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     for _ in range(args.max_turns):
         if red_model is not None:
@@ -78,6 +79,9 @@ try:
                         logits[8] = float('-inf')
                     # 11-24 未实现 (训练端"新必需") — 屏蔽防浪费动作
                     logits[11:25] = float('-inf')
+                    # END_TURN 冷却: 连续 3 次 → 屏蔽 (防跳过游戏刷步, C8.5 老问题复发)
+                    if endturn_streak >= 3:
+                        logits[10] = float('-inf')
                     a = Categorical(logits=logits).sample().item()
                 else:
                     a = 10  # 全堵→END_TURN
@@ -85,6 +89,7 @@ try:
             a = int(env.action_space.sample())
         nobs, r, done, trunc, _ = env.step(a)
         interact_streak = interact_streak + 1 if a == 8 else 0
+        endturn_streak = endturn_streak + 1 if a == 10 else 0
         # 非法方向惩扣：move 后英雄位置没变（服务器拒绝），给 -0.5
         if a < 8 and traj["steps"] > 0:
             # B 态势感知: 用 active_hero (obs[3203]) 定位当前英雄, heroes 段起点 128, 每英雄 26 字段 (OBS v3), pos 在字段 2,3,4

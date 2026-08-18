@@ -973,3 +973,20 @@ ML 强定义优先, 客户端默认空走 settings。
 - git-bash /d/ 对 hero3_fresh 目录显示空 (映射坑) — 读项目文件用 python/read_file，别用 git-bash ls
 - python 写 CRLF 文件: open(p,'w') 默认 newline=None 会把 \n 翻译成 \r\n — 对已含 \r\n 的文本逐行写会变成 \r\r\n 损坏 (splitlines 后每逻辑行间多出假空行, 全文件 diff 假象 477+/472-)。写回必须 open(p,'wb') 或 open(p,'w',newline='') + 显式 '\r\n'.join
 - bash 双层转义: python -c 字符串里的 \\n 经 bash 后易写成真 0x0A → MSVC C2001 "常量中有换行符" (fprintf 字符串被截断)。改文件用 write_file 写修复脚本运行, 绕过 bash 转义; 或字节级 b"...\x0a..." 替换
+
+## 踩坑 #72: ModelAI 战斗后回合挂死 — yourTurn 线性执行 (2026-08-19, fork+1.7.5 双验证)
+- 现象: 模型移动触发战斗, 战斗打完但该 AI 回合永久挂起 ("Player X has to answer queries" 后无活动)
+- 根因链: yourTurn 线性 (moveHero 异步 → sleep 300ms → endTurn); 战斗触发时 endTurn 被拒 (CBattleQuery 挂着) → yourTurn 返回 → 战斗结束查询清空 → 引擎不重调 yourTurn → 挂死
+- 线程模型 (关键): activeStack/battleEnded/heroMoved 在 runNetwork 线程 (Client.cpp startPlayerBattleAction 直接调), yourTurn 在 AI 线程 — AI 线程阻塞等待 (cv/mutex 观察窗口) 必失败 (战斗事件在别的线程处理, fork Windows 战斗初始化可能 >15s)
+- heroMoved 陷阱: 移动完成即回调 (在战斗 pack 之前) — 立即 endTurn 会被战斗查询拒绝
+- 修复 (P46, commit 537e3ae): 事件驱动 — yourTurn 移动后返回不等待; heroMoved 启动 detach 延迟线程 (2s 等战斗初始化 + 轮询 atomic battle_active 最多 30s + endTurn); activeStack 置位 / battleEnded 复位; 无战斗回合代价 +2s
+- 验证: fork61 (2战0拒0崩, 战后 gives turn 继续) + 1.7.5 GUI 5AI 维京风暴 (7战0拒0崩145轮转)
+- 计数口径: grep BattleEnded 全文含 apply 行虚高 (每场 3-4 行) — 真实场数看 "Received CPack of type struct BattleEnded" (每场 1 次)
+
+## 踩坑 #73: PPO 策略坍缩链 — 横跳 → END_TURN 刷步 (2026-08-19)
+- 现象: 训练 68ep 后动作纯 3/7 (SE/NW) 交替, avg_r -0.5~-0.8 稳定; 加横跳惩罚后模型躲向 END_TURN 刷步 (80%+ 动作 10)
+- 诊断法: bc_model vs 训练模型同图对比诊断局 — bc 能探索 (走出出生点) = 训练伤害 (policy collapse) 非地图强制; passable 段 obs[3211:3219] 充足却打转 = 策略问题非 mask
+- 根因链: 探索奖励太弱 (+1 vs step -1.5) → 走出去净亏 + 遇敌风险 → 横跳安全; 横跳惩罚 (-2) 后 END_TURN 更安全 → 刷步
+- 修复: 横跳惩罚 (回两格前位置 -2) + 探索奖励 2.5 + **END_TURN 冷却 (连续 3 次屏蔽 logits[10])** + 熵 0.01→0.05 + 屏蔽 11-24 (未实现码)
+- 验证: 第 3 轮 ep1-7 avg_r -1.2~+0.5 (首次转正), vloss 65-200 (上轮 400-640), 无刷步无纯横跳
+- 教训: 惩罚性机制必须配套逃生通道 (横跳罚 → 模型躲 END_TURN → 需冷却); 单方向奖励调整会连锁

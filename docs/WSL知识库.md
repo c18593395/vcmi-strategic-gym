@@ -835,3 +835,19 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 ### 训练监控 (首信号)
 - 英雄位置变化: traj_ep.json 里 ah=obs[3203], base=128+ah*26, pos=2,3,4
 - 单动作连发 + 全负奖励 ≠ 正常训练; 两格横跳 = 出生点被围 (查 MAPS)
+
+## 十八、训练塌缩诊断与防坍缩机制 (2026-08-19)
+### 诊断方法 (可复用)
+1. 训练日志动作序列: 纯交替对 (3/7, 0/4) = 横跳; 80%+ END_TURN = 刷步
+2. bc_model vs 训练模型同图对比诊断局 (ep_runner --model): bc 能探索 = PPO 训练伤害 (policy collapse); 都困 = 地图/环境问题
+3. passable 段 obs[3211:3219] 每步检查: 可走方向充足却打转 = 策略问题非 mask 强制
+### 防坍缩机制清单 (ep_runner_one.py + train_wsl2_ppo_v2.py)
+- 横跳惩罚: 回两格前位置 r-=2.0 (比较 nobs 与两格前 obs 同英雄位置)
+- 探索奖励: 新格子 +2.5 (net +1 vs step_fixed -1.5, 走出去净赚)
+- END_TURN 冷却: 连续 3 次屏蔽 logits[10] (防跳过游戏刷步, C8.5 老问题复发)
+- 熵奖励 0.05 (0.01 拉不住确定性坍缩)
+- 11-24 mask: logits[11:25]=-inf (训练端未实现码)
+- KL 0.05 拉向 BC (注意: BC 本身有横跳倾向 P45, 弱约束对抗)
+### 教训
+- 惩罚必须配逃生通道: 横跳罚 → 模型躲 END_TURN → 需冷却; 否则只是换一个局部最优
+- 奖励结构环环相扣: 探索弱 → 横跳; 横跳罚 → END_TURN; 调整需一次到位 + 从干净权重重启 (resume 塌缩态会被旧策略污染)
