@@ -791,3 +791,14 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 工程: D:\vcmi_model_ai\ (model_ai.cpp, build_model_ai.bat, gen_implib.py 等); 部署: AI\ModelAI.dll
 - **v1 行动 (08-18)**: simpleAct — 英雄 4 方向轮换移动 3 格 (路径自动采集); yourTurn: 应答 query → simpleAct → 300ms → endTurn; 编译链: CGHeroInstance.h 需 TBB 头 (oneTBB-2021.13.0) + tbb12.lib (dll 生成导入库); movementPointsRemaining 未导出 (去掉检查)
 - **2v2 阻塞**: 0x618 = 官方 1.7.5 第 3+ AI 玩家界面初始化崩 (PlayerState 类, fork 修过同类); 人类模式最多 2 AI; 目标 2v2 (人+ModelAI vs 2 电脑) 需 Windows 源码构建 fork (vcpkg 或手工, ~半天)
+
+■ fork 1.8.0 Windows 构建(08-18 完成, commit 873dbe78a)
+- 环境: MSYS2 MinGW64(C:\msys64), CMake 4.4.2, Ninja; 构建目录 D:cmi-fork-build; 部署 bin/ 即完整环境
+- 选项: -DENABLE_ML=OFF(ML 模块 Linux-only #error) -DENABLE_MMAI=OFF -DENABLE_DISCORD=OFF -DENABLE_LAUNCHER=OFF -DENABLE_PCH=OFF -DENABLE_EDITOR=OFF
+- 每次 cmake configure 后必须 sed 修 build.ninja: $<LINK_ONLY:ws2_32/mswsock/dbghelp> → -l; libVCMI_lib.dll.a 移到 vcmiservercommon.a 之后(MinGW ld 从左到右)
+- 半重构残留修复集: CDynLibHandler.h 恢复(9b9a77032^)/CreatureCostBox.h 恢复(b5b599fee^)/VCMIDirs fullLibraryPath 恢复/QueriesProcessor 对齐 AllQueriesView/lobby visitor 补实现(visitLobbyQueryState x3 + visitLobbyClientConnected + visitLobbyModsCheck)/hasRemoteClientInLobby 恢复/孤儿 logger/eventBus/reinitScripting 删除/headless ENGINE 判空 9 处/mapInstance 无条件创建/g_adventure_allied_ai 非ML本地定义
+- BattleAI: fork 删 main.cpp(GetNewBattleAI 导出)但运行时仍 LoadLibrary → 恢复 main.cpp + 手动链接(OBJECT obj + libVCMI_lib.dll.a + -ltbb12), 不碰 CMake(OBJECT 传播会带 vcmiMain obj 循环)
+- ModelAI 重编: g++ -shared model_ai.cpp + libVCMI_lib.dll.a(fork ABI, AICombatOptions 签名)
+- 0x618 验证: A Viking We Shall Go 6 AI 全 ModelAI 稳定 0 崩(EndTurn 数百次)
+- AI 全知: CGameState::isVisibleFor(int3/obj 版)对 !isHuman 玩家返回 true(寻路+obs 需要); NK2 AIGateway getPlayerID 加 value_or
+- 移动链: 寻路 SingleHeroPathfinderConfig(out, cc, hero) + options.turnLimit=1 + CPathfinder.calculatePaths + CPathsInfo::getPath(倒序!)

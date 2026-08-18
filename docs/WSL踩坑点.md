@@ -902,3 +902,13 @@ ML 强定义优先, 客户端默认空走 settings。
 - **launcher schema**: VCMI_launcher 的 AI 下拉读安装目录 config/schemas/settings.json 的 ai.enum — 加自定义 AI 名需改 enum (两个安装: D:\GAMES\VCMI 1.7.5 + D:\Program Files\VCMI 1.6); launcher 改设置写入共享 My Games\vcmi\config\settings.json
 - **AI DLL 接口 (1.7.5)**: GetGlobalAiVersion/GetAiName/GetNewAI 3 C 导出; GetNewAI 返回 shared_ptr<CGlobalAI>; 纯虚: showBlockingDialog/showGarrisonDialog/showTeleportDialog/showMapObjectSelectDialog/makeSurrenderRetreatDecision/heroGotLevel/commanderGotLevel/activeStack/yourTacticPhase; 带 QueryID 的 dialog 回调必须应答 selectionMade(0,qid) 否则 "Cannot wait for dialogs" 死锁
 - **回合卡死时序**: yourTurn 应答后立即 endTurn 卡死 (服务器未就绪) — 加 300ms sleep 后 endTurn 正常
+
+#28 fork 1.8.0 Windows 构建/移动链(08-18, 见知识库 fork 构建节)
+- 运行时需 PATH 含 C:\msys64\mingw64in(DLL 递归依赖; ldd 在 git-bash 下可能误报 0 not found)
+- 重链 VCMI_lib/VCMI_client 时 POST_BUILD 删 bin/config+Mods(create_link.cmake 的 mklink /J 失败)→ 已改 file(COPY) 复制, 治本
+- 用户 modSettings.json(1.7.5 旧格式)缺 vcmi 激活 → 1.8 核心 mod 不加载 → 'Built-in font/mod was not found'
+- 地图必须放 bin/Maps(filesystem.json MAPS 挂载 non-initial 才索引 .h3m; 用户目录 Maps 被 initialTypes 过滤)
+- --testmap 传 'Maps/图名.h3m'(资源键带 MAPS/ 前缀)
+- ModelAI 移动: 1.8 moveHero(path 版) layer 参数无默认必须传 AUTO; STANDARD 模式逐格必须相邻; CGPath::getPath nodes 倒序(目标→起点), 第一步=末尾第二; 寻路 entrableTerrain 忽略非 visitable blocking(树)而 server blocked()&&!visitable() 拒绝 → AI 侧同款过滤
+- AI 迷雾: AI cb 带 player → getTile 不可见崩寻路; 特权 nullopt cb 方案不可行(CBattleCallback::sendRequest 用 *getPlayerID() UB); 正确=CGameState::isVisibleFor 对 AI 返回 true(全知)
+- A Warm (12,15,0) lava: client passable=1 vs server 拒绝 'destination tile is blocked' — 未解(加 SRV-DBG 日志待查)
