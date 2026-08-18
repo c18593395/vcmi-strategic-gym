@@ -789,3 +789,5 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - **对话框死锁**: 所有带 QueryID 的 dialog 回调必须应答 (selectionMade(0, qid)) 否则 "Cannot wait for dialogs in gui thread" 卡死
 - **0x618**: 仅 --onlyAI 全 AI 模式 (第 3+ 玩家界面初始化) 崩; 人类模式 (1 人类 + AI 对手) 无; 官方 bug (我们 fork 修过同类 PlayerState 判空)
 - 工程: D:\vcmi_model_ai\ (model_ai.cpp, build_model_ai.bat, gen_implib.py 等); 部署: AI\ModelAI.dll
+- **v1 行动 (08-18)**: simpleAct — 英雄 4 方向轮换移动 3 格 (路径自动采集); yourTurn: 应答 query → simpleAct → 300ms → endTurn; 编译链: CGHeroInstance.h 需 TBB 头 (oneTBB-2021.13.0) + tbb12.lib (dll 生成导入库); movementPointsRemaining 未导出 (去掉检查)
+- **2v2 阻塞**: 0x618 = 官方 1.7.5 第 3+ AI 玩家界面初始化崩 (PlayerState 类, fork 修过同类); 人类模式最多 2 AI; 目标 2v2 (人+ModelAI vs 2 电脑) 需 Windows 源码构建 fork (vcpkg 或手工, ~半天)

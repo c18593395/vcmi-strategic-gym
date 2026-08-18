@@ -4,6 +4,7 @@
 #include "lib/callback/IGameEventsReceiver.h"
 #include "lib/callback/CCallback.h"
 #include "lib/battle/BattleAction.h"
+#include "lib/mapObjects/CGHeroInstance.h"
 #include <cstring>
 
 static const char * const g_cszAiName = "ModelAI";
@@ -82,9 +83,28 @@ public:
         {
             if(queryID != QueryID(-1))
                 cc->selectionMade(0, queryID);
-            // give the server a beat to process the query reply, then end turn
+            simpleAct();
+            // give the server a beat to process actions, then end turn
             std::this_thread::sleep_for(std::chrono::milliseconds(300));
             cc->endTurn();
+        }
+        // simple v1 behavior: move hero to explore (auto-collects resources on the path)
+        void simpleAct()
+        {
+            auto heroes = cc->getHeroesInfo();
+            if(heroes.empty())
+                return;
+            const CGHeroInstance * hero = heroes[0];
+            if(!hero)
+                return;
+            static int dir = 0;
+            dir = (dir + 1) % 4;
+            int3 dst = hero->pos;
+            if(dir == 0) dst.x += 3;
+            else if(dir == 1) dst.y += 3;
+            else if(dir == 2) dst.x -= 3;
+            else dst.y -= 3;
+            cc->moveHero(hero, dst, false);
         }
         void finish() override {}
         void showWorldViewEx(const std::vector<ObjectPosInfo> &, bool) override {}

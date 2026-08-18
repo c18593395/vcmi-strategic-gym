@@ -7,6 +7,7 @@ cl /nologo /EHsc /std:c++17 /O2 /W3 /LD model_ai.cpp ^
   /I D:\vcmi-1.7.5\lib ^
   /I D:\vcmi-1.7.5\include ^
   /I D:\boost_1_83_0 ^
+  /I D:\oneTBB-2021.13.0\include ^
   /link VCMI_lib.lib /LIBPATH:D:\vcmi_model_ai ^
   /OUT:ModelAI.dll > build.log 2>&1
 echo BUILD_RC=%ERRORLEVEL% >> build.log

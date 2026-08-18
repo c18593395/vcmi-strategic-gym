@@ -893,3 +893,12 @@ ML 强定义优先, 客户端默认空走 settings。
 - **~/.local/share/vcmi/Maps 的 .vmap** 使官方 VCMI 扫描卡死 (s1.vmap 解析) → 移走
 - **Windows VCMI 地图源**: Documents\My Games\vcmi\Maps (158 张); 安装: D:\Program Files\VCMI (1.6) / D:\GAMES\VCMI (1.7.5 用户自装)
 - **Windows 侧控制 WSLg 窗口**: user32 ShowWindow/SetWindowPos (win_force_maximize_vcmi.py); 窗口可能被移到屏幕外 (-21333)
+
+### 66. 模型 AI DLL (Windows VCMI) 编译与部署坑 (2026-08-18)
+- **TBB 头**: include CGHeroInstance.h 头链需 tbb/concurrent_hash_map.h (CBonusSystemNode) — oneTBB v2021.13.0 下载解压加 /I
+- **tbb12.lib**: 链接缺 tbb12.lib — 安装目录 tbb12.dll (95 导出) 用 pefile+def+lib.exe 生成导入库 (同 VCMI_lib 法)
+- **movementPointsRemaining 未导出**: CGHeroInstance::movementPointsRemaining 不在 VCMI_lib.dll 导出表 (__imp_ 链接失败) — 去掉移动力检查 (直接 moveHero, 失败无害); hero->pos 内联可用
+- **0x618 3+AI 限制**: 官方 1.7.5/1.6 第 3+ 个 AI 玩家界面初始化崩 (0x618) — 人类模式最多 2 个 AI 玩家; 2v2 (人+ModelAI vs 2 电脑 = 3 AI) 不可行, 需 Windows 源码构建 fork 修复; 2v1 可行
+- **launcher schema**: VCMI_launcher 的 AI 下拉读安装目录 config/schemas/settings.json 的 ai.enum — 加自定义 AI 名需改 enum (两个安装: D:\GAMES\VCMI 1.7.5 + D:\Program Files\VCMI 1.6); launcher 改设置写入共享 My Games\vcmi\config\settings.json
+- **AI DLL 接口 (1.7.5)**: GetGlobalAiVersion/GetAiName/GetNewAI 3 C 导出; GetNewAI 返回 shared_ptr<CGlobalAI>; 纯虚: showBlockingDialog/showGarrisonDialog/showTeleportDialog/showMapObjectSelectDialog/makeSurrenderRetreatDecision/heroGotLevel/commanderGotLevel/activeStack/yourTacticPhase; 带 QueryID 的 dialog 回调必须应答 selectionMade(0,qid) 否则 "Cannot wait for dialogs" 死锁
+- **回合卡死时序**: yourTurn 应答后立即 endTurn 卡死 (服务器未就绪) — 加 300ms sleep 后 endTurn 正常
