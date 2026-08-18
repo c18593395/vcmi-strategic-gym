@@ -779,3 +779,13 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 官方 1.7.5 Linux AppImage: squashfs-root/usr/bin/vcmiclient, 用户数据 ~/.local/share/vcmi (与 fork 共享)
 - 1.7.5 下载: ghproxy.net 镜像 (github 间歇不通); Windows 安装 D:\GAMES\VCMI
 - vcmi_source (C:\Users\Administrator\vcmi_source): ML Windows 移植树雏形 (Linux preset, 无 fork NK2 修复, 未构建) — Windows 构建起点
+
+## 模型 AI DLL 封装 (2026-08-18 里程碑)
+- **目标**: 模型 AI 进真实 Windows VCMI 对局 (AI DLL 方案 — 部署形态)
+- **接口** (1.7.5 AI DLL): extern "C" 3 导出 — GetGlobalAiVersion()→AI_INTERFACE_VER(1), GetAiName(char*), GetNewAI(shared_ptr<CGlobalAI>&); AI 继承 CGlobalAI (CGameInterface + IGameEventsReceiver); 纯虚: showBlockingDialog/showGarrisonDialog/showTeleportDialog/showMapObjectSelectDialog/makeSurrenderRetreatDecision/heroGotLevel/commanderGotLevel/activeStack/yourTacticPhase
+- **编译** (免完整构建): VCMI_lib.def 从安装 DLL 导出表自动生成 (pefile, 8192 符号) + lib.exe 生成导入库; boost 头 (1.83) + boost.filesystem 手编静态库 (vc143 名匹配, /DBOOST_FILESYSTEM_NO_CXX20_ATOMIC_REF 修 MSVC atomic_ref 误报); cl /LD 编 DLL; vcvars64.bat 环境
+- **AI 名选择**: --ai 参数 1.7.5 未实现 (定义了没用); 由 PlayerSettings.name 决定 → 改 settings.json ai.adventureEnemyAI/AlliedAI + 安装目录 schema enum 加名
+- **回合卡死时序坑**: yourTurn 应答(selectionMade 0) 后立即 endTurn → 服务器未就绪卡死; 加 300ms sleep 后 endTurn → 正常 (NK2 对照: 有行动+状态跟踪所以无此问题)
+- **对话框死锁**: 所有带 QueryID 的 dialog 回调必须应答 (selectionMade(0, qid)) 否则 "Cannot wait for dialogs in gui thread" 卡死
+- **0x618**: 仅 --onlyAI 全 AI 模式 (第 3+ 玩家界面初始化) 崩; 人类模式 (1 人类 + AI 对手) 无; 官方 bug (我们 fork 修过同类 PlayerState 判空)
+- 工程: D:\vcmi_model_ai\ (model_ai.cpp, build_model_ai.bat, gen_implib.py 等); 部署: AI\ModelAI.dll
