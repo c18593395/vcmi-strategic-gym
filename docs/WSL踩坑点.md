@@ -919,3 +919,35 @@ ML 强定义优先, 客户端默认空走 settings。
   model_infer.cpp (onnxruntime); onnx 导出需 dynamo=False (legacy, onnxscript 装不上); **System32 有 onnxruntime 1.17.1
   会抢加载** — ModelAI.dll 编译头 1.19.2 时运行报 'requested API version [19] only [1,17]' → 必须把匹配的 onnxruntime.dll
   放 bin/AI/ (ModelAI.dll 同目录, 依赖 DLL 优先搜 AI/ 目录)。端到端: 模型驱动英雄移动 128 次, 0 崩。见技能 P31。
+
+### 67. fork 战斗链从未可用 — 任意战斗触发即崩 0x98, 双根因 (2026-08-18 晚, gdb 实证)
+- 现象: 第一次战斗 (BattleSetActiveStack applied) 后 "Attempt to read from 0x98" Disaster。此前 6 AI 测试 580+ 回合
+  0 崩是假象 — NK2 在 A Viking 图上没相遇任何人, 战斗链从未被触发过。ModelAI 走进守卫区才暴露。
+- gdb 栈: Thread 7 SIGSEGV → CClient::startPlayerBattleAction (client/Client.cpp) → handlePack → NetworkHandler。
+- 根因 ①: 原代码一行内 `gameState().getBattle(battleID)->battleGetStackByID(gameState().getBattle(battleID)->activeStack, false)`
+  **getBattle 调两次** — AI 线程在两次调用间解锁 interfaceMutex, 第二次返回 null → 0x98。
+  修复: 单次 `auto * battle = gameState().getBattle(battleID);` + 判空 (BTL-DBG 防御打印)。
+- 根因 ② (修完①仍崩): `vstd::makeUnlockGuard(ENGINE->interfaceMutex)` — **headless 下 ENGINE 是 null**
+  (P22 规则: headless = ENGINE null, 所有 ENGINE-> 必须判空), mutex guard 构造即解引用 null+0x98。
+  修复: `if (ENGINE)` 包住 unlock guard, else 直接 activeStack。
+- 验证: A Viking 5 场战斗 0 崩 (forktest52/55 + hermes-verify)。commit 5078fe762 (fork) + 09b6efd (submodule)。
+
+### 68. BattleAI.dll 手动链接必须 9 obj + stale obj ABI 漂移 (2026-08-18 晚)
+- fork CMakeLists: BattleAI 是 OBJECT 库 (9 源), main.cpp 被 fork 删 → 手动 g++ -shared 重链。
+- **坑 ①**: 旧 build_battleai.sh 用 `ls *.obj` 链接 — 当时目录缺 StackWithBonuses/ThreatMap 的 obj (ninja 没编),
+  但旧 obj (16:19) 碰巧不引用 HypotheticBattle::makeWait, 链接过了但**运行战斗即崩** (ABI/符号不全)。
+  重编全部 obj 后暴露 `undefined reference to HypotheticBattle::makeWait` → 补 StackWithBonuses.cpp.obj 即过。
+  教训: 手动链接前对照 CMakeLists 源列表数 obj (9+main=10), 缺一个都要查。
+- **坑 ②**: BattleAI obj (16:19) vs VCMI_lib.dll (19:27 重链) 头文件漂移 → CBattleAI::activeStack 内崩。
+  任何 lib 头改动后必须 `rm AI/BattleAI/CMakeFiles/BattleAI.dir/*.obj && ninja .../*.obj` 全量重编再链。
+- 验证: 9 obj 完整链接后 A Viking 5 战斗 0 崩。commit 26c4d1d (build_battleai.sh 注释)。
+
+### 69. AI DLL static 变量跨实例共享 — red/green 同 DLL 串状态 (2026-08-18 晚)
+- 现象: red/green 都是 ModelAI 时 (A Warm 2 人图), green 地下英雄 285 次 fishy — 用了 **red 视角的 passable**。
+- 根因: `static StrategicState s_state` 是进程级 — 两个 CGlobalAI 实例 (red/green) 共享同一份;
+  且 fill 硬编码 owner==0 (red) → green 的 yourTurn 用 red 的地形判断自己的移动。
+- 修复: StrategicState 改为**类成员** + `fill_strategic_state_win(state, cb, my_color)`,
+  my_color = `cc->getPlayerID()->getNum()` 在 initGameInterface 里取。obs fill 的 active_hero/team/
+  relations/build-mask/enemy_threat 全部参数化 playerColor。
+- 验证: red/green 均 0 拒绝 (forktest50 vs 53: fishy 460→0)。
+- 通用教训: AI DLL 内任何跨回合状态必须是实例成员, static 只留给真正进程级的东西 (如 onnx session)。

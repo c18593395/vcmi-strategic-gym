@@ -1,4 +1,4 @@
-# 知识库 — HoMM3 全盘操盘 AI
+﻿# 知识库 — HoMM3 全盘操盘 AI
 
 > 单文件知识总汇：项目概述、架构决策、踩坑记录、环境搭建、参数索引
 > 最后更新：2026-07-27
@@ -802,3 +802,23 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - 0x618 验证: A Viking We Shall Go 6 AI 全 ModelAI 稳定 0 崩(EndTurn 数百次)
 - AI 全知: CGameState::isVisibleFor(int3/obj 版)对 !isHuman 玩家返回 true(寻路+obs 需要); NK2 AIGateway getPlayerID 加 value_or
 - 移动链: 寻路 SingleHeroPathfinderConfig(out, cc, hero) + options.turnLimit=1 + CPathfinder.calculatePaths + CPathsInfo::getPath(倒序!)
+
+
+## 十六、Windows ModelAI 战斗链 (2026-08-18 晚打通)
+
+### 战斗链路 (fork headless 首次可用)
+- 触发: 模型英雄走进守卫/敌人 → server 发 BattleStart → BattleSetActiveStack → client 分发 activeStack 给 BattleAI.dll
+- 参与者: 冒险 AI (ModelAI.dll) + 战斗 AI (BattleAI.dll) 独立加载; 战斗决策在 BattleAI
+- 历史: 6 AI 测试 580+ 回合 0 崩是假象 (NK2 没相遇), 战斗链从未验证 — ModelAI 主动探索才暴露
+- 双根因 (踩坑 #67): ① Client.cpp startPlayerBattleAction getBattle() 双调用竞态 → 单次取指针 ② ENGINE null
+  (headless) 的 unlock guard 解引用 → if(ENGINE)
+- BattleAI.dll 手动链接 (踩坑 #68): CMake OBJECT 库 9 源 + 恢复的 main.cpp = 10 obj 全链;
+  StackWithBonuses/ThreatMap 漏链 → HypotheticBattle::makeWait 未定义; lib 头改动后 obj 必须全量重编
+
+### 动作执行层 (模型 → 游戏)
+- 0-7 移动: dx/dy 表 (N-start CW) + passable[8] masking (不可走 → 环形最近可走方向), fishy 460→0
+- 8 INTERACT: 移植训练端 interactTarget (最近己方城镇 3 格内优先, 否则最近友好/中立对象; 相邻一步到位,
+  远则点积选向单步逼近) — 实测 147 次城镇访问 + 146 宝箱拾取
+- 10 END_TURN; 其余码 fallback simpleAct 探索
+- 每实例状态: StrategicState 是类成员 (static 跨 red/green 实例共享 → 285 fishy, 踩坑 #69),
+  fill 按 my_color 视角 (active_hero/team/relations/build-mask/enemy_threat 全参数化)
