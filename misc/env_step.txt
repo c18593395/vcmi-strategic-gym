@@ -1,0 +1,73 @@
+        执行动作，返回 (obs, reward, terminated, truncated, info)
+
+        动作 0-7: 移动方向
+        动作 8:    交互 (拾取/对话/攻击)
+        动作 9:    切换到下一英雄
+        动作 10:   结束回合
+        动作 11-24: 分兵/合兵/换兵/招兵/建造/驻守/招募英雄/高层移动 (H.6, 引擎侧解析最近目标)
+
+        顺序: SEND → WAIT → READ
+        - SEND: 将上一步决定的 action 发给 VCMI
+        - WAIT: 等 VCMI 处理完 action 并进入下一轮 process_turn
+        - READ: 此时 state_update 已执行完毕，状态保证为新
+        """
+        if self._terminated or self._truncated:
+            raise RuntimeError("Episode is done. Call reset() first.")
+
+        # 发送动作（VCMI 当前阻塞在 process_turn，立即处理）
+        self._send_action(action)
+
+        # 等待 VCMI 处理完 action 并进入下一轮 process_turn
+        try:
+            self._adventure_wait()
+        except RuntimeError as e:
+            self.logger.error(f"adventure_wait timed out: {e} — forcing episode end")
+            self._terminated = True
+            obs = np.zeros(OBS_DIM, dtype=np.float32)
+            reward = 0.0
+            info = {
+                "day": 0,
+                "current_player": -1,
+                "game_over": 0,
+                "turn": self._turn + 1,
+                "timeout": True,
+            }
+            return obs, reward, self._terminated, self._truncated, info
+
+        # 只在 END_TURN 时递增 VCMI 回合计数
+        if action == END_TURN:
+            self._turn += 1
+            self._consecutive_endturn += 1
+        else:
+            self._consecutive_endturn = 0
+
+        # 读取新状态（VCMI 已执行 state_update，保证为最新）
+        state = self._read_state()
+        obs = self._build_obs(state)
+
+        # 计算奖励
+        reward = self._calc_reward(state)
+        # 2026-08-02: 连续 END_TURN 惩罚 — 第 3 次起每次固定 -5 (C8.5 塌缩刷底无成本根因; 固定值避免 n 递增爆炸 -32889)
+        if self._consecutive_endturn >= 3:
+            reward -= 5.0
+
+        # 检测终止
+        self._terminated, self._truncated = self._check_done(state)
+
+        info = {
+            "day": state.day if state else 1,
+            "current_player": state.current_player if state else 0,
+            "game_over": self._game_over,
+            "turn": self._turn,
+        }
+        if self._terminated or self._truncated:
+            self.logger.info(
+                f"Episode done: turn={self._turn}, "
+                f"terminated={self._terminated}, truncated={self._truncated}, "
+                f"game_over={self._game_over}"
+            )
+
+        return obs, reward, self._terminated, self._truncated, info
+
+    @tracelog
+    def render(self):

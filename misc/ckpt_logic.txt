@@ -1,0 +1,20 @@
+36:MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
+37:STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_state.pt"
+56:    # Save current model to temp checkpoint for the subprocess
+57:    ep_ckpt = f"/tmp/hermes_ep_model_{os.getpid()}.pt"
+58:    torch.save(model.state_dict(), ep_ckpt)
+62:    cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
+79:        # Clean up temp checkpoint
+80:        if os.path.exists(ep_ckpt):
+81:            os.remove(ep_ckpt)
+95:# C8.5: BC 权重路径 — 存在则优先于旧 MODEL_PATH 初始化 (fc+actor 有 NK2 行为知识)
+101:if os.path.exists(STATE_PATH):
+103:        sd = torch.load(STATE_PATH, map_location=DEVICE, weights_only=False)
+109:        print("Failed to load STATE_PATH, falling back to MODEL_PATH", flush=True)
+120:            print(f"BC load failed: {e}, fallback to MODEL_PATH", flush=True)
+121:    if not bc_loaded and os.path.exists(MODEL_PATH):
+123:            model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
+153:def save_train_state(path, step=0):
+154:    torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(), "step": step}, path)
+160:    ckpt_dir = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
+171:                    print(f"  Restored clean checkpoint from blacklist: {os.path.basename(fallback)}", flush=True)

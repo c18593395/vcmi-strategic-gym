@@ -31,12 +31,6 @@ parser.add_argument("--move_to_test", action="store_true", help="强制所有动
 parser.add_argument("--move_to_bias", type=float, default=0.0, help="MOVE_TO(24) logits 探索偏置 (训练早期引导)")
 parser.add_argument("--move_to_force", type=int, default=0, help="MOVE_TO(24) 采样强制: 每局前 N 步强制动作 24 (第5轮: 引导模型发现目标导向动作)")
 parser.add_argument("--cycle_detect", type=int, default=0, help="状态级循环检测: 8 步窗口内同一 (hero,pos) 出现 >=N 次 → -3 惩罚 + 强制随机方向 (0=关闭)")
-parser.add_argument("--act_loop_penalty", type=float, default=0.0,
-                    help="动作级循环惩罚 (第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward (0=关闭)")
-parser.add_argument("--act_loop_repeat", type=int, default=4,
-                    help="动作级循环: 连续重复 N 步判死循环")
-parser.add_argument("--act_loop_alt", type=int, default=8,
-                    help="动作级循环: 两两交替窗口步数 (偶数, 8 = [a,b]x4)")
 parser.add_argument("--reward_explore", type=float, default=0.0,
                     help="探索奖励: 访问新格子 +N (C8.5)")
 parser.add_argument("--use_nk2_shaping", action="store_true",
@@ -84,7 +78,6 @@ try:
     move_stall = 0
     move_stall_prev = 10**9
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
-    act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     for _ in range(args.max_turns):
         cycle_penalty = 0.0
         force_dir = None
@@ -196,20 +189,6 @@ try:
         nobs, r, done, trunc, _ = env.step(a)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
-        # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
-        # 治 [3,7,3,7]/[2,6,2,6]/[4,2,7,4,2,7]/[2,2,2,2] 死循环 — 状态级(同pos≥5)与横跳(prev2)
-        # 只抓位置往返, 抓不住推进型动作循环 (位置持续变化但动作模式固定); 强制阶段(24)不检测
-        # 第7轮 v2: 剔除 10 (END_TURN) — 3.0 诱发 [走,走,10] 穿插投机 (10 前2次免费, 永不触 -5),
-        # 插入 10 会打断检测窗口; 剔除后 10 无法逃避检测, 投机失去收益
-        if a != 10:
-            act_hist.append(a)
-        if args.act_loop_penalty > 0 and traj["steps"] >= args.move_to_force:
-            if len(act_hist) >= args.act_loop_repeat and len(set(act_hist[-args.act_loop_repeat:])) == 1:
-                r -= abs(args.act_loop_penalty)
-            elif len(act_hist) >= args.act_loop_alt:
-                tail = act_hist[-args.act_loop_alt:]
-                if len(set(tail[::2])) == 1 and len(set(tail[1::2])) == 1 and tail[0] != tail[1]:
-                    r -= abs(args.act_loop_penalty)
         if args.move_to_test:
             a = 24
         interact_streak = interact_streak + 1 if a == 8 else 0

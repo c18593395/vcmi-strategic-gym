@@ -80,10 +80,6 @@ def run_episode(mapname, blue_model=None):
     cmd.extend(["--move_to_force", str(int(30 * move_scale))])
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
     cmd.extend(["--cycle_detect", "5"])
-    # 第7轮: 动作级循环惩罚 — 连续 4 步重复 / 8 步两两交替 → -3 (治 [3,7,3,7]/[2,2,2,2] 死循环,
-    # 状态级/横跳只抓位置往返, 抓不住推进型动作循环; 强制阶段不检测)
-    # 第7轮 v2: 3.0→1.8 — 3.0 诱发 10 END_TURN 投机 (ROUND3 10 占比 6%→17.8% 全场第一)
-    cmd.extend(["--act_loop_penalty", "1.8"])
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
     cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "1.0"])
     if blue_model:

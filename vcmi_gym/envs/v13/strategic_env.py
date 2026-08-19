@@ -51,6 +51,110 @@ TRACE = os.getenv("VCMIGYM_DEBUG", "0") == "1"
 MAXLEN = 80
 
 # =============================================================================
+# NK2 估值函数 (Phase I.1 — 移植自 PriorityEvaluator.cpp)
+# =============================================================================
+
+# 矿类型 → 资源价值权重 (源自 NK2 getResourcesGoldReward + getCombinedResourceRequirementStrength)
+# type: 0=unknown 1=wood(sawmill) 2=mercury 3=ore(iron) 4=sulfur 5=crystal 6=gems 7=gold
+_MINE_TYPE_WEIGHT = {
+    0: 0.0,   # unknown
+    1: 0.15,  # wood — 基础资源, 需求中等
+    2: 0.40,  # mercury — 稀有资源
+    3: 0.15,  # ore — 基础资源
+    4: 0.40,  # sulfur — 稀有资源
+    5: 0.40,  # crystal — 稀有资源
+    6: 0.40,  # gems — 稀有资源
+    7: 0.25,  # gold — 直接收入, 中等价值
+}
+
+# 城镇建筑位 → fort 等级估算 (buildings bitmask 中 fort/citadel/castle 的位)
+# VCMI building IDs: TOWN_HALL=0, CITY_HALL=1, CAPITOL=2, FORT=6, CITADEL=7, CASTLE=8
+_FORT_BIT = 6
+_CITADEL_BIT = 7
+_CASTLE_BIT = 8
+
+def nk2_state_value(state) -> float:
+    """从 StrategicState 计算全局状态价值 (NK2 估值移植)
+    
+    源自 PriorityEvaluator.cpp:
+    - getStrategicalValue (矿/城/英雄)
+    - getResourcesGoldReward (资源金币等价)
+    - getArmyReward (军力价值)
+    - enemyHeroDangerRatio (敌方威胁)
+    
+    返回: 标量状态价值, 步间差分用作奖励塑形
+    """
+    value = 0.0
+    
+    # --- 1. 资源价值 (己方玩家 P0) ---
+    # NK2: getResourcesGoldReward: gold=1:1, 非金=amount×100
+    # 归一化: gold×0.001 + raw×0.01 + rare×0.05
+    if state.player_count >= 1:
+        p0 = state.players[0]
+        value += p0.gold * 0.0005        # 金币: 量大但单价低
+        value += (p0.wood + p0.ore) * 0.008   # 基础资源
+        value += (p0.mercury + p0.sulfur + p0.crystal + p0.gems) * 0.03  # 稀有资源
+    
+    # --- 2. 矿价值 (己方矿) ---
+    # NK2: getStrategicalValue(MINE) = 1.0 + getCombinedResourceRequirementStrength(res)
+    # 简化: 固定权重按矿类型
+    for i in range(state.mine_count):
+        m = state.mines[i]
+        if m.owner == 0:  # 己方矿
+            w = _MINE_TYPE_WEIGHT.get(m.type, 0.2)
+            value += 0.5 + w  # 基础0.5 + 资源类型权重
+    
+    # --- 3. 城镇价值 ---
+    # NK2: getStrategicalValue(TOWN):
+    #   己方: min(1.0, sqrt(armyGrowth/40000)) + min(0.3, dailyIncome/10000)
+    #   敌方: 首都1.5, Castle1.4, Citadel1.2, Fort1.0, 无Fort0.8
+    # 简化: 己方城 = 2.0 + income权重 + fort奖励; 敌方城通过threat间接反映
+    for ti in range(8):
+        t = state.towns[ti]
+        if t.id == 0:
+            continue
+        if t.owner == 0:  # 己方城镇
+            tv = 2.0  # 基础城镇价值
+            tv += min(0.5, t.gold_income * 0.0001)  # 收入权重 (cap at 0.5)
+            # fort 等级奖励 (从 buildings bitmask 解码)
+            if t.buildings & (1 << _CASTLE_BIT):
+                tv += 0.6
+            elif t.buildings & (1 << _CITADEL_BIT):
+                tv += 0.4
+            elif t.buildings & (1 << _FORT_BIT):
+                tv += 0.2
+            value += tv
+        # 敌方城镇: 不直接加值, 通过 conquest 差分 (占领时 state_value 跳变)
+    
+    # --- 4. 军力价值 (己方英雄) ---
+    # NK2: getArmyReward = creature.getAIValue() × count (total_power 已是此值)
+    # 归一化: total_power × 0.00005
+    our_power = 0
+    for hi in range(8):
+        h = state.heroes[hi]
+        if h.id >= 0 and h.owner == 0:
+            our_power += h.total_power
+    value += our_power * 0.00005
+    
+    # --- 5. 敌方威胁惩罚 ---
+    # NK2: enemyHeroDangerRatio = enemyDanger / ourStrength
+    # enemy_threat[0..6] 是每个敌方玩家的威胁值
+    enemy_power = 0
+    for i in range(7):
+        enemy_power += state.enemy_threat[i]
+    if our_power > 0:
+        threat_ratio = enemy_power / (our_power + 1.0)
+        value -= min(2.0, threat_ratio * 0.5)  # cap at -2.0
+    
+    # --- 6. 胜利/失败 ---
+    if state.game_over == 1:
+        value += 50.0  # 红方胜利
+    elif state.game_over == 2:
+        value -= 50.0  # 红方失败
+    
+    return value
+
+# =============================================================================
 # 常量
 # =============================================================================
 
@@ -382,6 +486,9 @@ class StrategicEnv(gym.Env):
         reward_mine_mult: float = 10.0,    # 占矿 (owner !=0 → 0)
         reward_battle_mult: float = 100.0, # 打赢战斗 (battle_result 0/2/3 → 1)
         reward_level_mult: float = 10.0,   # 英雄升级
+        # Phase I.1: NK2 势函数奖励
+        use_nk2_shaping: bool = False,     # True = 用 nk2_state_value 差分替代事件奖励
+        nk2_shaping_scale: float = 1.0,    # 势函数差分缩放
     ):
         super().__init__()
 
@@ -430,6 +537,9 @@ class StrategicEnv(gym.Env):
         self.reward_mine_mult = reward_mine_mult
         self.reward_battle_mult = reward_battle_mult
         self.reward_level_mult = reward_level_mult
+        # Phase I.1: NK2 势函数
+        self.use_nk2_shaping = use_nk2_shaping
+        self.nk2_shaping_scale = nk2_shaping_scale
         self._visited = set()  # 已访问格子 (探索奖励)
 
         # --- 创建连接器 ---
@@ -798,6 +908,7 @@ class StrategicEnv(gym.Env):
         self._prev_levels = {}        # hero_id -> level
         self._last_battle_result = 0  # 0=无 1=red赢 2=red输 3=平局
         self._visited = set()         # 探索奖励: 每局重置
+        self._prev_nk2_value = 0.0    # Phase I.1: NK2 势函数前值
         if state is None:
             return
         for pi in range(state.player_count):
@@ -824,12 +935,40 @@ class StrategicEnv(gym.Env):
                 for dx in (-1, 0, 1):
                     for dy in (-1, 0, 1):
                         self._visited.add((h.pos_x + dx, h.pos_y + dy, h.pos_z))
+        # Phase I.1: 计算初始 NK2 势函数值
+        if self.use_nk2_shaping:
+            self._prev_nk2_value = nk2_state_value(state)
 
     def _calc_reward(self, state: Optional[StrategicState]) -> float:
-        """计算基于资源变化的奖励 (A+B: 矿/战斗/升级事件奖励)"""
+        """计算基于资源变化的奖励 (A+B: 矿/战斗/升级事件奖励; Phase I.1: NK2 势函数)"""
         if state is None:
             return 0.0
 
+        # Phase I.1: NK2 势函数模式 — 用状态价值差分替代事件奖励
+        if self.use_nk2_shaping:
+            nk2_val = nk2_state_value(state)
+            shaping_delta = (nk2_val - self._prev_nk2_value) * self.nk2_shaping_scale
+            self._prev_nk2_value = nk2_val
+            reward = self.reward_step_fixed + shaping_delta
+            # 仍需更新追踪变量 (mine/level/battle) 供其他模块使用
+            for i in range(state.mine_count):
+                m = state.mines[i]
+                self._prev_mines[m.id] = m.owner
+            for h in state.heroes:
+                if h.id > 0:
+                    self._prev_levels[h.id] = h.level
+            self._last_battle_result = state.battle_result
+            if state.player_count >= 1:
+                p0 = state.players[0]
+                self._prev_player0 = {
+                    "gold": p0.gold, "wood": p0.wood, "mercury": p0.mercury,
+                    "ore": p0.ore, "sulfur": p0.sulfur, "crystal": p0.crystal, "gems": p0.gems,
+                    "towns": p0.town_count, "heroes": p0.hero_count,
+                }
+            # 胜利/失败仍由 NK2 state_value 内的 ±50 处理, 无需额外加
+            return float(np.clip(reward, -10, 300))
+
+        # === 原有事件奖励模式 (use_nk2_shaping=False 时走这里) ===
         reward = self.reward_step_fixed
 
         # 探索奖励: red 英雄访问新格子 (C8.5)

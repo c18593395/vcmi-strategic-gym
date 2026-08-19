@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 # === C4.2: 扩规模 ===
 N_EPISODES, BATCH, STEPS_PER_EP = 1000, 128, 200
-LR, CLIP, EPOCHS = 5e-5, 0.08, 2
+LR, CLIP, EPOCHS = 5e-5, 0.1, 2
 GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
 EXTREME_ADV_CLIP = 10.0
@@ -30,8 +30,7 @@ MAPS = [
 # 2026-08-19 第5轮: 0.05 → 0.3 — 第4轮 kl 失控 (ep52 kl=7.4), 0.05 完全挡不住 BC 漂移
 # 2026-08-19 第6轮: 固定 → 自适应 — 实际 kl 0.6~1.2 远超目标 0.1, 固定系数约束力不足
 # 第6轮 v2: KL_TARGET 0.1→0.3, KL_COEF_MAX 5→10 — klc 瞬间触顶 5.0 仍压不住 kl
-# 第7轮: KL_TARGET 0.3→0.4 (放宽约束), CLIP 0.1→0.08 (收紧更新步幅)
-KL_TARGET = 0.40       # 目标 KL 散度 (第7轮: 0.30→0.40 放宽)
+KL_TARGET = 0.30       # 目标 KL 散度 (0.1 太激进, 策略已偏离 BC 较远)
 KL_COEF_INIT = 0.3     # 初始系数
 KL_ADAPT_UP = 1.5      # KL 超目标 1.5× 时收紧
 KL_ADAPT_DOWN = 0.7    # KL 低于目标 /1.5 时放松
@@ -80,10 +79,6 @@ def run_episode(mapname, blue_model=None):
     cmd.extend(["--move_to_force", str(int(30 * move_scale))])
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
     cmd.extend(["--cycle_detect", "5"])
-    # 第7轮: 动作级循环惩罚 — 连续 4 步重复 / 8 步两两交替 → -3 (治 [3,7,3,7]/[2,2,2,2] 死循环,
-    # 状态级/横跳只抓位置往返, 抓不住推进型动作循环; 强制阶段不检测)
-    # 第7轮 v2: 3.0→1.8 — 3.0 诱发 10 END_TURN 投机 (ROUND3 10 占比 6%→17.8% 全场第一)
-    cmd.extend(["--act_loop_penalty", "1.8"])
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
     cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "1.0"])
     if blue_model:

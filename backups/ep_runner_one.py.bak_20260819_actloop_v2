@@ -199,10 +199,7 @@ try:
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
         # 治 [3,7,3,7]/[2,6,2,6]/[4,2,7,4,2,7]/[2,2,2,2] 死循环 — 状态级(同pos≥5)与横跳(prev2)
         # 只抓位置往返, 抓不住推进型动作循环 (位置持续变化但动作模式固定); 强制阶段(24)不检测
-        # 第7轮 v2: 剔除 10 (END_TURN) — 3.0 诱发 [走,走,10] 穿插投机 (10 前2次免费, 永不触 -5),
-        # 插入 10 会打断检测窗口; 剔除后 10 无法逃避检测, 投机失去收益
-        if a != 10:
-            act_hist.append(a)
+        act_hist.append(a)
         if args.act_loop_penalty > 0 and traj["steps"] >= args.move_to_force:
             if len(act_hist) >= args.act_loop_repeat and len(set(act_hist[-args.act_loop_repeat:])) == 1:
                 r -= abs(args.act_loop_penalty)
