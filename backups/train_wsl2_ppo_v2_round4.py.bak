@@ -27,8 +27,7 @@ MAPS = [
 ]
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
-# 2026-08-19 第5轮: 0.05 → 0.3 — 第4轮 kl 失控 (ep52 kl=7.4), 0.05 完全挡不住 BC 漂移
-KL_COEF = 0.3
+KL_COEF = 0.05
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 # Not loading from JSON — using verified-open maps only
 
@@ -65,13 +64,8 @@ def run_episode(mapname, blue_model=None):
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
     cmd.extend(["--reward_explore", "2.5"])
-    # MOVE_TO 引导 (2026-08-19 第5轮): bias 2.0 + 每局前 30 步强制 24, 前 200 ep 线性衰减
-    # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
-    move_scale = max(0.0, 1.0 - ep_count / 200)
-    cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
-    cmd.extend(["--move_to_force", str(int(30 * move_scale))])
-    # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
-    cmd.extend(["--cycle_detect", "5"])
+    # MOVE_TO 探索偏置: 前 200 ep 从 2.0 线性衰减到 0 (引导模型发现动作 24)
+    cmd.extend(["--move_to_bias", str(max(0.0, 2.0 * (1 - ep_count / 200)))])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"

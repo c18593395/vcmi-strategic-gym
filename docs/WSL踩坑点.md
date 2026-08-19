@@ -1001,3 +1001,15 @@ ML 强定义优先, 客户端默认空走 settings。
 - 根因: 用 replace 拼接代码行时, 上一版修复 (fix_endturn) 的注释后半段 (— 模型开局帧倾向连发动作 8) 被残留拼接到新行尾 (move_stall_prev = 10**9 — ...)
 - 修复: 定位行内容看实际文本 (python 读行 print repr) 再精确替换; 别猜
 - 教训: 字符串替换式补丁脚本必须保留旧注释的完整性 (整行替换而非片段拼接); 出 SyntaxError 先看行 repr 找非 ASCII 残留
+
+### #76 (2026-08-19): ep_runner 缺 import numpy — 被动作 24 零出现掩盖的潜伏 bug
+- 现象: 第 5 轮加 --move_to_force 强制引导后, 第一局 traj 报 error 'name np is not defined'
+- 根因: ep_runner_one.py 从未 import numpy, 但 MOVE_TO 展开段 (np.asarray(obs[3251:3315])) 08-19 凌晨就加了; 第 4 轮动作 24 从未被采到 (bias 失效), 该分支从未执行, bug 潜伏 55 ep 未暴露
+- 修复: 头部补 import numpy as np
+- 教训: 未被执行到的代码路径上的 bug 不会被测试发现 — 引导/测试必须真的走到目标分支 (第 4 轮 24 零出现本身就是异常信号, 当时被当成'bias 无效'未深挖)
+
+### #77 (2026-08-19): logits 偏置对模型从未见过的动作码无效 — 引导用采样强制
+- 现象: 第 4 轮 --move_to_bias 2.0 线性衰减, 55 ep 动作 24 零出现
+- 根因: BC 权重从未见过 24 码, 其原始 logit 极负 (-10~-30); logits 加 2.0 相对尺度太小, softmax 后概率仍 ~0, 采样永远选不到
+- 修复: 第 5 轮改采样强制 (--move_to_force N: 每局前 N 步直接 a=24 不走采样), bias 仅作辅助
+- 教训: 对'训练中从未出现/BC 从未见过'的动作码, logits 微调引导无效, 必须用采样约束 (强制/概率采样) 让样本真正进入 buffer

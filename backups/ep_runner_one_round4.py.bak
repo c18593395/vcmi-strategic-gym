@@ -1,8 +1,7 @@
-import sys, os, json, argparse, random
+import sys, os, json, argparse
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 import torch, torch.nn as nn
-import numpy as np  # 2026-08-19 第5轮: MOVE_TO 展开用 np.asarray — 第4轮 24 零出现掩盖了缺失 (强制引导后必炸)
 from torch.distributions import Categorical
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
@@ -29,8 +28,6 @@ parser.add_argument("--blue_adventure_ai", type=str, default="Nullkiller2",
                     help="冒险AI for blue player (C8.5: Nullkiller2 真对手)")
 parser.add_argument("--move_to_test", action="store_true", help="强制所有动作=24 (MOVE_TO 测试)")
 parser.add_argument("--move_to_bias", type=float, default=0.0, help="MOVE_TO(24) logits 探索偏置 (训练早期引导)")
-parser.add_argument("--move_to_force", type=int, default=0, help="MOVE_TO(24) 采样强制: 每局前 N 步强制动作 24 (第5轮: 引导模型发现目标导向动作)")
-parser.add_argument("--cycle_detect", type=int, default=0, help="状态级循环检测: 8 步窗口内同一 (hero,pos) 出现 >=N 次 → -3 惩罚 + 强制随机方向 (0=关闭)")
 parser.add_argument("--reward_explore", type=float, default=0.0,
                     help="探索奖励: 访问新格子 +N (C8.5)")
 args = parser.parse_args()
@@ -73,8 +70,6 @@ try:
     move_stall_prev = 10**9
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     for _ in range(args.max_turns):
-        cycle_penalty = 0.0
-        force_dir = None
         if red_model is not None:
             with torch.no_grad():
                 obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
@@ -95,33 +90,11 @@ try:
                     # MOVE_TO 探索偏置 (训练早期引导模型输出 24)
                     if args.move_to_bias > 0:
                         logits[24] += args.move_to_bias
-                    # === 状态级循环检测 (2026-08-19 第5轮): 8 步窗口同一 (hero,pos) >=N 次 → 惩罚+强制随机方向 ===
-                    # 治 [8,8,6,2]/[8,3] 类动作循环 — 横跳惩罚(位置级)只能抓 3/7 往返, 抓不到动作级循环
-                    if args.cycle_detect > 0 and len(traj["obs"]) >= 8:
-                        ah = int(obs[3203]) if obs[3203] >= 0 else 0
-                        base = 128 + ah * 26
-                        cur_sign = (ah, int(obs[base+2]), int(obs[base+3]))
-                        hist = []
-                        for o in traj["obs"][-8:]:
-                            a2 = int(o[3203]) if o[3203] >= 0 else 0
-                            b2 = 128 + a2 * 26
-                            hist.append((a2, int(o[b2+2]), int(o[b2+3])))
-                        if hist.count(cur_sign) >= args.cycle_detect:
-                            cycle_penalty = -3.0
-                            dirs = [d for d in range(8) if bool(passable[d])]
-                            if dirs:
-                                force_dir = random.choice(dirs)
-                    if force_dir is not None:
-                        a = force_dir
-                    else:
-                        a = Categorical(logits=logits).sample().item()
+                    a = Categorical(logits=logits).sample().item()
                 else:
                     a = 10  # 全堵→END_TURN
         else:
             a = int(env.action_space.sample())
-        # MOVE_TO 采样强制 (2026-08-19 第5轮): 每局前 N 步强制动作 24 — 第4轮 bias(+2.0) 对从未见过的码无效 (24 零出现)
-        if args.move_to_force > 0 and traj["steps"] < args.move_to_force and red_model is not None:
-            a = 24
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:
@@ -181,8 +154,6 @@ try:
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
         nobs, r, done, trunc, _ = env.step(a)
-        if cycle_penalty != 0.0:
-            r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         if args.move_to_test:
             a = 24
         interact_streak = interact_streak + 1 if a == 8 else 0
