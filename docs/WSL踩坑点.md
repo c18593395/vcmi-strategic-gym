@@ -904,7 +904,7 @@ ML 强定义优先, 客户端默认空走 settings。
 - **回合卡死时序**: yourTurn 应答后立即 endTurn 卡死 (服务器未就绪) — 加 300ms sleep 后 endTurn 正常
 
 #28 fork 1.8.0 Windows 构建/移动链(08-18, 见知识库 fork 构建节)
-- 运行时需 PATH 含 C:\msys64\mingw64in(DLL 递归依赖; ldd 在 git-bash 下可能误报 0 not found)
+- 运行时需 PATH 含 C:\msys64\mingw64\bin(DLL 递归依赖; ldd 在 git-bash 下可能误报 0 not found)
 - 重链 VCMI_lib/VCMI_client 时 POST_BUILD 删 bin/config+Mods(create_link.cmake 的 mklink /J 失败)→ 已改 file(COPY) 复制, 治本
 - 用户 modSettings.json(1.7.5 旧格式)缺 vcmi 激活 → 1.8 核心 mod 不加载 → 'Built-in font/mod was not found'
 - 地图必须放 bin/Maps(filesystem.json MAPS 挂载 non-initial 才索引 .h3m; 用户目录 Maps 被 initialTypes 过滤)
@@ -990,3 +990,14 @@ ML 强定义优先, 客户端默认空走 settings。
 - 修复: 横跳惩罚 (回两格前位置 -2) + 探索奖励 2.5 + **END_TURN 冷却 (连续 3 次屏蔽 logits[10])** + 熵 0.01→0.05 + 屏蔽 11-24 (未实现码)
 - 验证: 第 3 轮 ep1-7 avg_r -1.2~+0.5 (首次转正), vloss 65-200 (上轮 400-640), 无刷步无纯横跳
 - 教训: 惩罚性机制必须配套逃生通道 (横跳罚 → 模型躲 END_TURN → 需冷却); 单方向奖励调整会连锁
+## 踩坑 #74: MOVE_TO 目标漂移 — 每步重选最近目标 → 来回走 (2026-08-19)
+- 现象: target_list 填充正确但英雄来回漂移 (朝目标 A 走两步, 重算后改朝 B, 又改回 A...)
+- 根因: 展开逻辑每步从 target_list 重新选最近目标 — 位置微动导致最近目标在多个之间跳变
+- 修复: 粘滞 (move_target 状态变量, 上次目标未到达继续用; 到达才重选) + stall 检测 (连续 6 步距离不减小 → 换目标, 防被堵死循环)
+- 教训: 目标导向动作必须带记忆 (sticky target), 纯贪心每步重选 = 振荡
+
+## 踩坑 #75: python 补丁脚本残留中文注释拼接 — U+2014 SyntaxError (2026-08-19)
+- 现象: patch 脚本替换后 SyntaxError: invalid character '—' (U+2014)
+- 根因: 用 replace 拼接代码行时, 上一版修复 (fix_endturn) 的注释后半段 (— 模型开局帧倾向连发动作 8) 被残留拼接到新行尾 (move_stall_prev = 10**9 — ...)
+- 修复: 定位行内容看实际文本 (python 读行 print repr) 再精确替换; 别猜
+- 教训: 字符串替换式补丁脚本必须保留旧注释的完整性 (整行替换而非片段拼接); 出 SyntaxError 先看行 repr 找非 ASCII 残留

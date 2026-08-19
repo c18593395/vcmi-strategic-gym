@@ -793,7 +793,7 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - **2v2 阻塞**: 0x618 = 官方 1.7.5 第 3+ AI 玩家界面初始化崩 (PlayerState 类, fork 修过同类); 人类模式最多 2 AI; 目标 2v2 (人+ModelAI vs 2 电脑) 需 Windows 源码构建 fork (vcpkg 或手工, ~半天)
 
 ■ fork 1.8.0 Windows 构建(08-18 完成, commit 873dbe78a)
-- 环境: MSYS2 MinGW64(C:\msys64), CMake 4.4.2, Ninja; 构建目录 D:cmi-fork-build; 部署 bin/ 即完整环境
+- 环境: MSYS2 MinGW64(C:\msys64), CMake 4.4.2, Ninja; 构建目录 D:\vcmi-fork-build; 部署 bin/ 即完整环境
 - 选项: -DENABLE_ML=OFF(ML 模块 Linux-only #error) -DENABLE_MMAI=OFF -DENABLE_DISCORD=OFF -DENABLE_LAUNCHER=OFF -DENABLE_PCH=OFF -DENABLE_EDITOR=OFF
 - 每次 cmake configure 后必须 sed 修 build.ninja: $<LINK_ONLY:ws2_32/mswsock/dbghelp> → -l; libVCMI_lib.dll.a 移到 vcmiservercommon.a 之后(MinGW ld 从左到右)
 - 半重构残留修复集: CDynLibHandler.h 恢复(9b9a77032^)/CreatureCostBox.h 恢复(b5b599fee^)/VCMIDirs fullLibraryPath 恢复/QueriesProcessor 对齐 AllQueriesView/lobby visitor 补实现(visitLobbyQueryState x3 + visitLobbyClientConnected + visitLobbyModsCheck)/hasRemoteClientInLobby 恢复/孤儿 logger/eventBus/reinitScripting 删除/headless ENGINE 判空 9 处/mapInstance 无条件创建/g_adventure_allied_ai 非ML本地定义
@@ -851,3 +851,19 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 ### 教训
 - 惩罚必须配逃生通道: 横跳罚 → 模型躲 END_TURN → 需冷却; 否则只是换一个局部最优
 - 奖励结构环环相扣: 探索弱 → 横跳; 横跳罚 → END_TURN; 调整需一次到位 + 从干净权重重启 (resume 塌缩态会被旧策略污染)
+## 十九、MOVE_TO 动作 24 落地 (2026-08-19)
+### C++ 侧 (vcmi-native/ML/strategic_state.cpp)
+- fill_target_list 填充 obs[3251:3315]: 最近 8 个可采集目标, 每目标 8 字段 (type,idx,x,y,z,dist,power,flags)
+- 候选: 未占矿 / 资源堆 / 篝火 / 宝箱 / 宝物; 同层曼哈顿距离; 守卫战力 log2 (power)
+- libmlclient.so 重编部署 (旧 .so 先备份)
+### Python 侧 (ep_runner_one.py)
+- 24 开放 (11-23 屏蔽: logits=-inf); --move_to_test 强制全 24 (验证用); --move_to_bias 训练引导
+- 展开逻辑: target_list 取最近目标 → 8 方向候选 (passable obs[3211:3219]) 朝目标贪心走一格
+- 粘滞 (move_target): 上次目标未到达继续用, 到达才重新选 — 防目标漂移来回走
+- stall 检测: 连续 6 步距离不减小 → 放弃换目标 (被堵/绕路兜底); 无目标 → END_TURN (动作 10)
+### 训练引导
+- logits[24] 偏置 = 2.0 × (1 - ep/200) 线性衰减 (train_wsl2_ppo_v2.py:68), 帮模型发现 24
+- 第 4 轮训练: BC 干净重启 (fc+actor 载 BC 权重, critic 随机), KL_COEF=0.05
+### 验证与局限
+- Twins --move_to_test 60 步: target_list 填充正确 (type/坐标/距离), 英雄目标导向移动, 粘滞生效
+- 局限: 贪心不绕路 (地形挡会卡住, stall 兜底换目标) — 完整寻路 = Phase I.2 (NK2 AIPathfinder 移植)
