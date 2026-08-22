@@ -31,11 +31,11 @@ MAPS = [
 # 2026-08-19 第6轮: 固定 → 自适应 — 实际 kl 0.6~1.2 远超目标 0.1, 固定系数约束力不足
 # 第6轮 v2: KL_TARGET 0.1→0.3, KL_COEF_MAX 5→10 — klc 瞬间触顶 5.0 仍压不住 kl
 # 第7轮: KL_TARGET 0.3→0.4 (放宽约束), CLIP 0.1→0.08 (收紧更新步幅)
-KL_TARGET = 0.40       # 目标 KL 散度 (第7轮: 0.30→0.40 放宽)
+KL_TARGET = 0.08       # 目标 KL 散度 (锁紧: 0.15→0.08, 配合 COEF_MIN 0.15)
 KL_COEF_INIT = 0.3     # 初始系数
 KL_ADAPT_UP = 1.5      # KL 超目标 1.5× 时收紧
 KL_ADAPT_DOWN = 0.7    # KL 低于目标 /1.5 时放松
-KL_COEF_MIN = 0.01
+KL_COEF_MIN = 0.15     # 提高底线: klc 不会掉到 0.05 导致 KL 自由漂移
 KL_COEF_MAX = 10.0     # 上限 5→10, 给更强约束空间
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 # Not loading from JSON — using verified-open maps only
@@ -72,7 +72,7 @@ def run_episode(mapname, blue_model=None):
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
-    cmd.extend(["--reward_explore", "2.5"])
+    cmd.extend(["--reward_explore", "0.5"])
     # MOVE_TO 引导 (2026-08-19 第5轮): bias 2.0 + 每局前 30 步强制 24, 前 200 ep 线性衰减
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.0, 1.0 - ep_count / 200)

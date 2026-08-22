@@ -910,3 +910,29 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 ### 教训
 - 任何 >0 的惩罚都会诱发穿插逃生码; 降强度只是缩小激励差 (10 免费 → 依然最优), 根治 = 检测窗口对逃生码免疫
 - 新增惩罚前先检查动作空间里有没有"免费打断检测"的码 (END_TURN/无操作类), 有就剔除
+
+## Phase I.2 C++ BFS 全图寻路 (2026-08-23)
+
+### 实现
+- fill_next_dir() 在 fill_strategic_state 后调用, 全图 BFS 从 hero visitablePos 出发搜索8个 target_list 目标
+- 结果写 reserved[0..7] (next_dir[8], 方向 0-7 或 -1=不可达)
+- reserved[8..15] 诊断: hx,hy,hz,W,H,next_dir[0],explored_count,-1
+
+### BFS passability (对齐引擎 canMoveFrom)
+- isLand() + isPassable() + !blocked() -- 三条件缺一不可
+- 目标格豁免 blocked 检查 (矿/资源物体让 blocked=true 但英雄可走上去)
+- z-level 过滤: 跳过不同层的 target
+
+### Python 侧
+- strategic_env.py: obs[3330:3338] = next_dir[8], obs[3338:3346] = diagnostics
+- ep_runner_one.py: MOVE_TO 三层回退: C++ BFS -> Python 15x15 BFS -> 贪心方向
+
+### .so 部署
+- 编译: cd /home/administrator/vcmi-native/rel && make mlclient -j4
+- 同步 4 处: rel/bin, build/bin, workspace/vcmi/rel/bin, vcmi-native-build/rel/bin
+- build/bin 是软链接不可信, 必须物理复制
+
+### 性能
+- BFS 开销 ~0.36s/step (72x72 地图, 8 目标)
+- 冒烟: 18/18 = 100% 命中率
+- 训练: avg_r 从 -1.0~-1.6 改善到 -0.0~-0.7

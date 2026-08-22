@@ -1,10 +1,58 @@
 import sys, os, json, argparse, random
+from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 import torch, torch.nn as nn
 import numpy as np  # 2026-08-19 第5轮: MOVE_TO 展开用 np.asarray — 第4轮 24 零出现掩盖了缺失 (强制引导后必炸)
 from torch.distributions import Categorical
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
+
+# --- BFS 寻路 (Phase I.2): 用 local_tiles 通行性格子绕障碍 ---
+# local_tiles[0] 15×15 在 obs[480:705], 英雄在 (7,7)
+# 0=未知, 1=可走, 2=障碍
+_DIRS = [(0,-1),(1,-1),(1,0),(1,1),(0,1),(-1,1),(-1,0),(-1,-1)]  # 0-7 对应方向
+_DIR_TO_ACT = [0,1,2,3,4,5,6,7]  # 方向 → 动作码
+
+def bfs_path(obs, tx, ty):
+    """在 local_tiles 通行性格子上 BFS, 返回从英雄到 (tx,ty) 的第一步方向, 或 None。
+    tx,ty 是绝对地图坐标。英雄在 obs[3203] 对应的 hero slot。
+    返回: 方向动作码 (0-7), 或 None (不可达/超出视野)"""
+    ah = int(obs[3203]) if obs[3203] >= 0 else 0
+    base = 128 + ah * 26
+    hx, hy = int(obs[base+2]), int(obs[base+3])
+    # 目标相对坐标
+    dx, dy = tx - hx, ty - hy
+    if abs(dx) > 7 or abs(dy) > 7:
+        return None  # 超出 15×15 视野
+    if dx == 0 and dy == 0:
+        return None  # 已到达
+    # 读取 15×15 通行性 (channel 0, obs[480:480+225])
+    grid = np.zeros((15, 15), dtype=np.int8)
+    for y in range(15):
+        for x in range(15):
+            grid[y][x] = int(obs[480 + y * 15 + x])
+    # BFS 从 (7,7) 到 (7+dx, 7+dy)
+    start = (7, 7)
+    goal = (7 + dx, 7 + dy)
+    if goal[0] < 0 or goal[0] >= 15 or goal[1] < 0 or goal[1] >= 15:
+        return None
+    if grid[goal[1]][goal[0]] == 2:
+        return None  # 目标不可走
+    visited = set()
+    visited.add(start)
+    queue = deque([(start, [])])
+    while queue:
+        (cx, cy), path = queue.popleft()
+        for d, (ddx, ddy) in enumerate(_DIRS):
+            nx, ny = cx + ddx, cy + ddy
+            if 0 <= nx < 15 and 0 <= ny < 15 and (nx, ny) not in visited:
+                if grid[ny][nx] == 1:  # 可走
+                    new_path = path + [d]
+                    if (nx, ny) == goal:
+                        return _DIR_TO_ACT[new_path[0]]  # 返回第一步方向
+                    visited.add((nx, ny))
+                    queue.append(((nx, ny), new_path))
+    return None  # 不可达
 
 class Net(nn.Module):
     def __init__(self):
@@ -37,6 +85,8 @@ parser.add_argument("--act_loop_repeat", type=int, default=4,
                     help="动作级循环: 连续重复 N 步判死循环")
 parser.add_argument("--act_loop_alt", type=int, default=8,
                     help="动作级循环: 两两交替窗口步数 (偶数, 8 = [a,b]x4)")
+parser.add_argument("--act_loop_p3", type=int, default=9,
+                    help="动作级循环: 三阶周期窗口步数 (9 = [a,b,c]x3)")
 parser.add_argument("--reward_explore", type=float, default=0.0,
                     help="探索奖励: 访问新格子 +N (C8.5)")
 parser.add_argument("--use_nk2_shaping", action="store_true",
@@ -142,16 +192,26 @@ try:
             base = 128 + ah * 26
             hx, hy = int(obs[base+2]), int(obs[base+3])
             tx = ty = tz = None
+            next_dir_idx = -1  # I.2: 默认无 next_dir
             if move_target is not None:
                 tx, ty, tz = move_target
                 if abs(tx - hx) + abs(ty - hy) == 0:
                     move_target = None  # 已到达
+                else:
+                    # 粘滞: 查找 target_list 匹配索引获取 next_dir
+                    tl_tmp = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
+                    for _i, _tt in enumerate(tl_tmp):
+                        if int(_tt[2]) == tx and int(_tt[3]) == ty:
+                            next_dir_idx = _i
+                            break
             if tx is None:
                 tl = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
                 best = None
-                for tt in tl:
+                next_dir_idx = -1
+                for i, tt in enumerate(tl):
                     if tt[5] > 0 and (best is None or tt[5] < best[5]):
                         best = tt
+                        next_dir_idx = i
                 if best is not None:
                     tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
                     move_target = (tx, ty, tz)
@@ -159,26 +219,37 @@ try:
                 else:
                     move_target = None
             if tx is not None:
-                dx, dy = tx - hx, ty - hy
-                cand = []
-                if abs(dx) > abs(dy):
-                    cand = [2 if dx > 0 else 6]
-                    if dy > 0: cand.append(3 if dx > 0 else 5)
-                    elif dy < 0: cand.append(1 if dx > 0 else 7)
-                elif abs(dy) > abs(dx):
-                    cand = [4 if dy > 0 else 0]
-                    if dx > 0: cand.append(3 if dy > 0 else 1)
-                    elif dx < 0: cand.append(5 if dy > 0 else 7)
+                # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
+                nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1
+                if nd >= 0:
+                    a = nd
                 else:
-                    if dx > 0 and dy > 0: cand = [3, 2, 4]
-                    elif dx > 0: cand = [1, 2, 0]
-                    elif dy > 0: cand = [5, 4, 6]
-                    else: cand = [7, 0, 6]
-                pas = [int(x) for x in obs[3211:3219]]
-                for d in cand:
-                    if pas[d]:
-                        a = d
-                        break
+                    # 回退: 旧 15×15 BFS
+                    bfs_dir = bfs_path(obs, tx, ty)
+                    if bfs_dir is not None:
+                        a = bfs_dir
+                    else:
+                        # BFS 失败 (目标超出视野/不可达), 回退贪心方向
+                        dx, dy = tx - hx, ty - hy
+                        cand = []
+                        if abs(dx) > abs(dy):
+                            cand = [2 if dx > 0 else 6]
+                            if dy > 0: cand.append(3 if dx > 0 else 5)
+                            elif dy < 0: cand.append(1 if dx > 0 else 7)
+                        elif abs(dy) > abs(dx):
+                            cand = [4 if dy > 0 else 0]
+                            if dx > 0: cand.append(3 if dy > 0 else 1)
+                            elif dx < 0: cand.append(5 if dy > 0 else 7)
+                        else:
+                            if dx > 0 and dy > 0: cand = [3, 2, 4]
+                            elif dx > 0: cand = [1, 2, 0]
+                            elif dy > 0: cand = [5, 4, 6]
+                            else: cand = [7, 0, 6]
+                        pas = [int(x) for x in obs[3211:3219]]
+                        for d in cand:
+                            if pas[d]:
+                                a = d
+                                break
                 # 卡住检测: 连续 6 步距离不减小 → 放弃换目标 (被堵/绕路)
                 cur_dist = abs(tx - hx) + abs(ty - hy)
                 if cur_dist >= move_stall_prev:
@@ -209,6 +280,13 @@ try:
             elif len(act_hist) >= args.act_loop_alt:
                 tail = act_hist[-args.act_loop_alt:]
                 if len(set(tail[::2])) == 1 and len(set(tail[1::2])) == 1 and tail[0] != tail[1]:
+                    r -= abs(args.act_loop_penalty)
+            # P3: 三阶周期 [a,b,c,a,b,c,a,b,c]
+            elif len(act_hist) >= args.act_loop_p3:
+                tail = act_hist[-args.act_loop_p3:]
+                if (len(set(tail[::3])) == 1 and len(set(tail[1::3])) == 1
+                        and len(set(tail[2::3])) == 1
+                        and len({tail[0], tail[1], tail[2]}) == 3):
                     r -= abs(args.act_loop_penalty)
         if args.move_to_test:
             a = 24

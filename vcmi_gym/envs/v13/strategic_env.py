@@ -91,9 +91,9 @@ def nk2_state_value(state) -> float:
     # 归一化: gold×0.001 + raw×0.01 + rare×0.05
     if state.player_count >= 1:
         p0 = state.players[0]
-        value += p0.gold * 0.0005        # 金币: 量大但单价低
-        value += (p0.wood + p0.ore) * 0.008   # 基础资源
-        value += (p0.mercury + p0.sulfur + p0.crystal + p0.gems) * 0.03  # 稀有资源
+        # 资源不加: wood/ore 被动收集每步正漂移, 淹没真正信号
+        # value += (p0.wood + p0.ore) * 0.008
+        # value += (p0.mercury + p0.sulfur + p0.crystal + p0.gems) * 0.03
     
     # --- 2. 矿价值 (己方矿) ---
     # NK2: getStrategicalValue(MINE) = 1.0 + getCombinedResourceRequirementStrength(res)
@@ -102,39 +102,39 @@ def nk2_state_value(state) -> float:
         m = state.mines[i]
         if m.owner == 0:  # 己方矿
             w = _MINE_TYPE_WEIGHT.get(m.type, 0.2)
-            value += 0.5 + w  # 基础0.5 + 资源类型权重
+            value += 2.5 + w * 5  # 5x 权重: 占矿=+3.5~5.0 奖励信号
     
     # --- 3. 城镇价值 ---
     # NK2: getStrategicalValue(TOWN):
     #   己方: min(1.0, sqrt(armyGrowth/40000)) + min(0.3, dailyIncome/10000)
     #   敌方: 首都1.5, Castle1.4, Citadel1.2, Fort1.0, 无Fort0.8
-    # 简化: 己方城 = 2.0 + income权重 + fort奖励; 敌方城通过threat间接反映
+    # 5x 权重: 占城=+10~15 奖励信号
     for ti in range(8):
         t = state.towns[ti]
         if t.id == 0:
             continue
         if t.owner == 0:  # 己方城镇
-            tv = 2.0  # 基础城镇价值
-            tv += min(0.5, t.gold_income * 0.0001)  # 收入权重 (cap at 0.5)
+            tv = 10.0  # 5x 基础城镇价值 (占城=+10 信号)
+            tv += min(2.5, t.gold_income * 0.0005)  # 收入权重 (cap at 2.5)
             # fort 等级奖励 (从 buildings bitmask 解码)
             if t.buildings & (1 << _CASTLE_BIT):
-                tv += 0.6
+                tv += 3.0
             elif t.buildings & (1 << _CITADEL_BIT):
-                tv += 0.4
+                tv += 2.0
             elif t.buildings & (1 << _FORT_BIT):
-                tv += 0.2
+                tv += 1.0
             value += tv
         # 敌方城镇: 不直接加值, 通过 conquest 差分 (占领时 state_value 跳变)
     
     # --- 4. 军力价值 (己方英雄) ---
-    # NK2: getArmyReward = creature.getAIValue() × count (total_power 已是此值)
-    # 归一化: total_power × 0.00005
+    # NK2: getArmyReward = creature.getAIValue() × count
+    # 军力本身不加 value: 招募每步增长, 产生正漂移
+    # 但保留 our_power 供威胁比率计算
     our_power = 0
     for hi in range(8):
         h = state.heroes[hi]
         if h.id >= 0 and h.owner == 0:
             our_power += h.total_power
-    value += our_power * 0.00005
     
     # --- 5. 敌方威胁惩罚 ---
     # NK2: enemyHeroDangerRatio = enemyDanger / ourStrength
@@ -406,7 +406,11 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
     for i in range(EVENTS_SIZE):
         obs[3326 + i] = state.events[i]
 
-    # --- Reserved (134) — 3330:3464, 保持 0 ---
+    # --- Reserved (134) — 3330:3464 ---
+    # I.2: reserved[0..7] = next_dir[8] (C++ BFS 全图寻路第一步方向, -1=不可达)
+    # reserved[8..15] = diagnostics (hx,hy,hz,W,H,reserved,next_dir_t0,explored)
+    for i in range(16):
+        obs[3330 + i] = state.reserved[i]
 
     # --- 2026-08-16 H.8 修复: 大数值字段归一化 (数值爆炸根因) ---
     # 2689 时代 obs max=6410 可训 (C8.5 vloss=1349 正常); v3 新增未归一化大字段:
@@ -531,6 +535,10 @@ class StrategicEnv(gym.Env):
         self.reward_town_mult = reward_town_mult
         self.reward_hero_mult = reward_hero_mult
         self.reward_win = reward_win
+        # Phase I.1: NK2 势函数模式下大幅降低 step_fixed (必须在赋值前)
+        if use_nk2_shaping and reward_step_fixed < -0.5:
+            print(f"[NK2] overriding step_fixed {reward_step_fixed} → -0.05 (NK2 shaping mode)", flush=True)
+            reward_step_fixed = -0.05
         self.reward_step_fixed = reward_step_fixed
         self.reward_explore = reward_explore
         # A+B: 事件奖励系数
@@ -950,6 +958,13 @@ class StrategicEnv(gym.Env):
             shaping_delta = (nk2_val - self._prev_nk2_value) * self.nk2_shaping_scale
             self._prev_nk2_value = nk2_val
             reward = self.reward_step_fixed + shaping_delta
+            # I.1.3 诊断日志 (每步)
+            if not hasattr(self, '_nk2_diag_step'):
+                self._nk2_diag_step = 0
+                print(f"[NK2_SHAPING] ON scale={self.nk2_shaping_scale} step_fixed={self.reward_step_fixed}", flush=True)
+            self._nk2_diag_step += 1
+            if self._nk2_diag_step <= 10 or self._nk2_diag_step % 50 == 0:
+                print(f"[NK2] step={self._nk2_diag_step} nk2_val={nk2_val:.3f} delta={shaping_delta:.3f} reward={reward:.3f}", flush=True)
             # 仍需更新追踪变量 (mine/level/battle) 供其他模块使用
             for i in range(state.mine_count):
                 m = state.mines[i]
@@ -966,6 +981,16 @@ class StrategicEnv(gym.Env):
                     "towns": p0.town_count, "heroes": p0.hero_count,
                 }
             # 胜利/失败仍由 NK2 state_value 内的 ±50 处理, 无需额外加
+            # 探索奖励: 新格子访问 (保留, 让模型有动力移动)
+            if self.reward_explore > 0:
+                for h in state.heroes:
+                    if h.id >= 0 and h.owner == 0:
+                        for dx in (-1, 0, 1):
+                            for dy in (-1, 0, 1):
+                                pos = (h.pos_x + dx, h.pos_y + dy, h.pos_z)
+                                if pos not in self._visited:
+                                    self._visited.add(pos)
+                                    reward += self.reward_explore
             return float(np.clip(reward, -10, 300))
 
         # === 原有事件奖励模式 (use_nk2_shaping=False 时走这里) ===

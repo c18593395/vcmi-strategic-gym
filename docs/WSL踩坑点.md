@@ -1052,3 +1052,69 @@ ML 强定义优先, 客户端默认空走 settings。
 ### 同类教训
 - 惩罚检测必须对"逃生码"免疫 (任何能打断检测窗口的动作都要剔除, 否则成为投机工具)
 - 加惩罚前先验证: 动作空间里是否存在 0 成本打断检测的码
+
+## 踩坑 #80: libmlclient.so 多路径加载 + BFS 目标格 blocked 豁免 (2026-08-23, Phase I.2)
+
+### 现象
+- C++ fill_next_dir 编译成功, strings 确认新代码在 .so 里, 但 reserved[0..7] 全 -1 (BFS 不命中)
+- reserved[8..15] 诊断全 0 (旧代码的 for i<8 初始化), 说明 VCMI server 加载的是旧 .so
+
+### 根因链 (6 层)
+1. **.so 加载路径**:  是软链接 →  (Aug 15 旧版), 不是我们编译的  (Aug 23 新版)。VCMI server 通过 build/bin 加载旧 .so
+2. **gicb 作用域**:  里 line 111 用了 , 但  不在该函数作用域。全局 sed 替换误伤了 line 111 (原本用 )
+3. **hero pos 坐标系**:  是锚点坐标, 不是站立格。与 passable[8] 的  坐标系不一致, BFS 起点错位
+4. **BFS passability**:  太严格 (terrain transition),  全 false,  太宽松 (含水/岩浆)。正确: 
+5. **目标格 blocked**: 矿/资源物体让 , BFS 把目标格也跳过了。需豁免目标格的 blocked 检查
+6. **z-level**: hero 在 z=1 (地下) 但 target 在 z=0 (地面), BFS 在地下搜永远找不到地面目标
+
+### 修复
+- .so: 复制到 4 个路径 (rel/bin, build/bin, workspace/vcmi/rel/bin, vcmi-native-build/rel/bin)
+- gicb: fill_exploration L111 恢复 , fill_next_dir 用 
+- pos: 改用  (通过 gs.getObjInstance 获取 CGHeroInstance)
+- passability: 
+- 目标格: 
+- z-level: 
+
+### 验证
+- 冒烟测试: 18/18 = 100% BFS 命中率 (i2_v12.json)
+- 训练 ep3: 59 步 r=-2.3 avg_r=-0.0 (Phase I.1 最好 -0.4)
+
+### 同类教训
+- .so 多路径: 编译产物必须同步到所有加载路径 (build/bin 软链接不可信, 要物理复制)
+- BFS passability 必须对齐引擎的 canMoveFrom: isLand + isPassable + !blocked
+- visitable 对象的 tile blocked()=true 但英雄可以走到上面 — BFS 需豁免目标格
+- z-level: HoMM3 地图有地面/地下两层, BFS 必须按层搜索
+- 不要用全局 sed 替换 — 会破坏不同作用域的同名变量
+
+## 踩坑 #80: libmlclient.so 多路径加载 + BFS 目标格 blocked 豁免 (2026-08-23, Phase I.2)
+
+### 现象
+- C++ fill_next_dir 编译成功, strings 确认新代码在 .so 里, 但 reserved[0..7] 全 -1 (BFS 不命中)
+- reserved[8..15] 诊断全 0 (旧代码的 for i<8 初始化), 说明 VCMI server 加载的是旧 .so
+
+### 根因链 (6 层)
+1. **.so 加载路径**: build/bin/libmlclient.so 是软链接到 vcmi-workspace/vcmi/rel/bin/ (Aug 15 旧版), 不是我们编译的 vcmi-native/rel/bin/ (Aug 23 新版)。VCMI server 通过 build/bin 加载旧 .so
+2. **gicb 作用域**: fill_exploration(StrategicState*, CGameState&) 里 line 111 用了 gicb->gameState(), 但 gicb 不在该函数作用域。全局 sed 替换误伤了 line 111 (原本用 gs.)
+3. **hero pos 坐标系**: heroes[ah].pos 是锚点坐标, 不是站立格。与 passable[8] 的 visitablePos() 坐标系不一致, BFS 起点错位
+4. **BFS passability**: isClear(srcTile) 太严格 (terrain transition), entrableTerrain() 全 false, !blocked() 太宽松 (含水/岩浆)。正确: isLand() && isPassable() && !blocked()
+5. **目标格 blocked**: 矿/资源物体让 blocked()=true, BFS 把目标格也跳过了。需豁免目标格的 blocked 检查
+6. **z-level**: hero 在 z=1 (地下) 但 target 在 z=0 (地面), BFS 在地下搜永远找不到地面目标
+
+### 修复
+- .so: 复制到 4 个路径 (rel/bin, build/bin, workspace/vcmi/rel/bin, vcmi-native-build/rel/bin)
+- gicb: fill_exploration L111 恢复 gs.getObjInstance(), fill_next_dir 用 gicb->gameState()
+- pos: 改用 hero->visitablePos() (通过 gs.getObjInstance 获取 CGHeroInstance)
+- passability: !dstTile.getTerrain()->isLand() || !dstTile.getTerrain()->isPassable() || dstTile.blocked()
+- 目标格: bool isTarget = (nx==tx && ny==ty); if (!isTarget) { blocked check }
+- z-level: if (tz != hz) continue;
+
+### 验证
+- 冒烟测试: 18/18 = 100% BFS 命中率 (i2_v12.json)
+- 训练 ep3: 59 步 r=-2.3 avg_r=-0.0 (Phase I.1 最好 -0.4)
+
+### 同类教训
+- .so 多路径: 编译产物必须同步到所有加载路径 (build/bin 软链接不可信, 要物理复制)
+- BFS passability 必须对齐引擎的 canMoveFrom: isLand + isPassable + !blocked
+- visitable 对象的 tile blocked()=true 但英雄可以走到上面 -- BFS 需豁免目标格
+- z-level: HoMM3 地图有地面/地下两层, BFS 必须按层搜索
+- 不要用全局 sed 替换 -- 会破坏不同作用域的同名变量
