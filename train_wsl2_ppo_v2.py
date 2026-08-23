@@ -15,20 +15,16 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
-# === C8.5: MAPS — 2 人图 (blue=MMAI_RANDOM 真对手, 无 tan 拖慢) ===
-# 2026-08-18: 原 4 图废弃 — Dungeon Keeper 出生点被围 (passable 1/8),
-# Key to Victory/Good Witch/Fort Noxis 启动失败 (available_maps failed 列表)。
-# 换实测通过图 (probe_map_passability.py): 2 人图可用全集 6 张
-# Twins 4/8, A Warm 3/8, Unholy Quest 3/8, When Dragons Clash 2/8, Gorlam's 2/8, Unexpected Inheritance 2/8
+# === 2026-08-23: 全部走 VMAP 课程学习地图 (Phase I.4) ===
+# Level 0 (T01 系列): 全草地无障碍, hero->mine 基础目标, 双玩家 (red=MMAI 控制, blue=MMAI_RANDOM)
+# 已实跑验证: 20 步全满无 error, 正奖励 (T01 +32 / T02 +25 / T03 +26 / T04 +23)
+# 注: wt00_/rc00_ 非草地地形当前 VCMI 加载 segfault (train_v1 从未真正加载成功), 已全部改全草地
 MAPS = [
-    # Training maps (no obstacles, BFS verification)
-    "T01_adventure_20X20_01.vmap", "T01_adventure_20X20_02.vmap",
-    "T01_adventure_30X30_01.vmap", "T01_adventure_30X30_02.vmap",
+    "T01_adventure_20X20_01.vmap",
+    "T01_adventure_20X20_02.vmap",
+    "T01_adventure_30X30_01.vmap",
+    "T01_adventure_30X30_02.vmap",
     "T01_adventure_36X36_01.vmap",
-    # Original maps
-    "Twins.h3m", "A Warm and Familiar Place.h3m",
-    "Unholy Quest.h3m", "When Dragons Clash.h3m",
-    "Gorlam's Tentacle Swampland.h3m", "Unexpected Inheritance.h3m",
 ]
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===

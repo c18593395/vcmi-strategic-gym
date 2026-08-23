@@ -1,4 +1,4 @@
-﻿# HoMM3 战略 AI — 踩坑记录
+# HoMM3 战略 AI — 踩坑记录
 
 ---
 
@@ -1164,3 +1164,45 @@ ML 强定义优先, 客户端默认空走 settings。
 ### 教训
 - 新增网络分支后, 所有 load_state_dict 必须 strict=False
 - 看到"随机动作"时, 先检查模型是否加载成功
+
+
+---
+
+## 十二、VMAP 课程地图系列 (2026-08-23)
+
+### 84. vmap players 数组格式 → 引擎加载即 core dump
+- **现象**: T01 课程地图 NEW_GAME start 后 core dump; test_vcmi_load.py 声称 "31/31 VCMI 格式验证通过"
+- **根因**: gen_v3.py 把 header players 改成数组 `[{"canComputerPlay":True,"canHumanPlay":True,"mainHero":None}]`; VCMI 1.7.4 vmap 需要 dict 格式 `{"red":{...},"blue":{...}}` (含 heroes/mainHero/team)
+- **修复**: 从 train_v1.vmap 复制 header, 保留 dict players
+- **教训**: test_vcmi_load.py 只查 zip 内 3 文件存在 + JSON 可解析 = **假验证**, 从未用引擎加载; 31/31 "通过" 全部是假象。验证必须 ep_runner 实跑
+
+### 85. vmap hero 标识符 core:inham 不存在
+- **现象**: "Couldn't resolve hero identifier core:inham"
+- **根因**: train_v1.vmap 自身 blue hero options.type=core:inham (生成时代笔误), VCMI 英雄库无此名
+- **修复**: header players.heroes 与 objects options.type/portrait 统一为 core:edric (red) / core:iona (blue)
+- **推论**: train_v1.vmap 从未真正加载成功过 (inham + wt/ro 地形双问题), 历史 "VMAP 兼容性待解决, 暂用 H3M" 的真相
+
+### 86. vmap terrain shortIdentifier: rock=rc 非 ro; 无 road 类型
+- **VCMI terrains.json shortIdentifier 全表**: dirt=dt sand=sa grass=gr snow=sn swamp=sw rough=rg subterra=sb lava=lv water=wt rock=**rc**
+- rd00_ (道路) 不存在 → terrain id -1; ro00_ 无效 (rock 是 rc)
+- **修**: 障碍只用 wt00_/rc00_ (实际只有 gr24_ 能加载, 见 #87)
+
+### 87. vmap 非草地地形 (wt00_/rc00_) 加载 segfault (⚠️ 待查)
+- **现象**: 全草地 T01 能跑; 含 wt00_ 或 rc00_ 的任何 vmap segfault (terrain 解析通过、view 0 合法)
+- **当前对策**: 课程地图全草地 (gr24_), 难度靠对象布局 (资源/野怪/城镇) 提供
+- **待查**: gdb 抓栈 (疑 terrain tiles 动画加载或 view pattern 初始化)
+
+### 88. vmap town mask 5x3 越界 → segfault (根因链核心)
+- **town template mask** ["VVVVV","VVAVV","VVVVV"], anchor 居中 → 覆盖 x∈[tx-2,tx+2], y∈[ty-1,ty+1]
+- **town_x<2 左越界必崩** (右界 w-2 容错不崩); hero 站 town mask 内不一定崩 (T01 边缘 V 上能跑)
+- **修复**: town_x∈[2,w-3], town_y∈[1,h-2]; hero 避开 town mask (|dx|<=2 且 |dy|<=1); 生成后校验所有对象 1<=x<=w-2 且 1<=y<=h-2
+- **二分定位法**: 从能跑的 T01 逐步叠加 T02 特征, 5 变体 (full/hero/town/mine/res) 一次脚本跑完 — t2d_town 即崩, 秒定位
+
+### 89. vmap resource 对象 options 需 amount
+- 早期模板 options={} → 加载崩; train_v1 参考写法 options={"amount":8}
+- resource subtype 用资源类名 core:gold/wood/crystal, 非 core:resourceGold
+
+### 90. VCMI 生物标识符: footman 不存在, 是 swordsman
+- castle.json 生物: pikeman/halberdier/archer/marksman/griffin/royalGriffin/swordsman/crusader/...
+- 地图 monster 对象或 hero army 写 core:footman → "Failed to resolve identifier core:footman"
+- **修**: core:swordsman

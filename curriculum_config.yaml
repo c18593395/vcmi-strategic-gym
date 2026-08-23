@@ -1,0 +1,173 @@
+# 课程学习配置文件
+# Curriculum Learning Configuration
+
+# 总配置
+curriculum:
+  enabled: true
+  start_level: 0
+  max_level: 5
+  episodes_per_level: 1000
+  max_extension: 2000  # 最大延长 episodes
+  check_interval: 100  # 每 N episodes 检查晋级条件
+  promotion_window: 100  # 晋级评估窗口
+
+# Level 0: 基础移动+资源收集
+level_0:
+  name: "基础移动+资源收集"
+  description: "无障碍地图，学习基本移动和资源收集"
+  maps:
+    - "T01_adventure_20X20_01.vmap"
+    - "T01_adventure_20X20_02.vmap"
+    - "T01_adventure_30X30_01.vmap"
+    - "T01_adventure_30X30_02.vmap"
+    - "T01_adventure_36X36_01.vmap"
+  episodes: 1000
+  promotion_threshold:
+    positive_reward_rate: 0.5
+    average_reward: 0.0
+    min_episodes: 100
+  training_params:
+    lr: 1e-4
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# Level 1: 绕障碍+优先高价值资源
+level_1:
+  name: "绕障碍+优先高价值资源"
+  description: "地形混合地图，学习绕障碍和资源优先级"
+  maps:
+    - "T02_adventure_20X20_01.vmap"
+    - "T02_adventure_20X20_02.vmap"
+    - "T02_adventure_30X30_01.vmap"
+    - "T02_adventure_30X30_02.vmap"
+    - "T02_adventure_36X36_01.vmap"
+    - "T02_adventure_36X36_02.vmap"
+  episodes: 1000
+  promotion_threshold:
+    positive_reward_rate: 0.6
+    average_reward: 5.0
+    min_episodes: 100
+  training_params:
+    lr: 1e-4
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# Level 2: 战斗风险评估
+level_2:
+  name: "战斗风险评估"
+  description: "弱野怪守矿，学习战斗风险评估"
+  maps:
+    - "T03_adventure_20X20_01.vmap"
+    - "T03_adventure_20X20_02.vmap"
+    - "T03_adventure_30X30_01.vmap"
+    - "T03_adventure_30X30_02.vmap"
+    - "T03_adventure_36X36_01.vmap"
+    - "T03_adventure_36X36_02.vmap"
+  episodes: 1000
+  promotion_threshold:
+    positive_reward_rate: 0.65
+    average_reward: 10.0
+    min_episodes: 100
+  training_params:
+    lr: 8e-5
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# Level 3: 城镇经济+招兵建造
+level_3:
+  name: "城镇经济+招兵建造"
+  description: "城镇经济地图，学习招兵和建造"
+  maps:
+    - "T04_adventure_20X20_01.vmap"
+    - "T04_adventure_20X20_02.vmap"
+    - "T04_adventure_30X30_01.vmap"
+    - "T04_adventure_30X30_02.vmap"
+    - "T04_adventure_36X36_01.vmap"
+    - "T04_adventure_36X36_02.vmap"
+  episodes: 1000
+  promotion_threshold:
+    positive_reward_rate: 0.7
+    average_reward: 15.0
+    min_episodes: 100
+  training_params:
+    lr: 6e-5
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# Level 4: 1v1 对抗
+level_4:
+  name: "1v1 对抗"
+  description: "1v1 对称地图，学习基本对抗"
+  maps:
+    - "T05_adventure_36X36_01.vmap"
+    - "T05_adventure_36X36_02.vmap"
+    - "T05_adventure_52X52_01.vmap"
+    - "T05_adventure_52X52_02.vmap"
+  episodes: 1000
+  promotion_threshold:
+    win_rate: 0.5
+    average_reward: 20.0
+    min_episodes: 100
+  training_params:
+    lr: 5e-5
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# Level 5: 复杂多玩家对战
+level_5:
+  name: "复杂多玩家对战"
+  description: "复杂地图，学习多玩家对战"
+  maps:
+    - "T06_adventure_72X72_01.vmap"
+    - "T06_adventure_72X72_02.vmap"
+    - "T06_adventure_108X108_01.vmap"
+    - "T06_adventure_108X108_02.vmap"
+  episodes: 1000
+  promotion_threshold:
+    win_rate: 0.4
+    average_reward: 25.0
+    min_episodes: 100
+  training_params:
+    lr: 4e-5
+    clip: 0.2
+    epochs: 4
+    batch: 128
+    steps_per_ep: 50
+
+# 监控配置
+monitoring:
+  metrics:
+    - "positive_reward_rate"
+    - "average_reward"
+    - "win_rate"
+    - "kl_divergence"
+    - "action_distribution"
+    - "resource_collection_rate"
+    - "battle_win_rate"
+  
+  checkpoint_interval: 100  # 每 N episodes 保存检查点
+  log_interval: 10  # 每 N episodes 输出日志
+  
+  # 早停配置
+  early_stopping:
+    enabled: true
+    patience: 500  # 如果 N episodes 内没有改善，停止
+    min_improvement: 0.01  # 最小改善幅度
+
+# 输出配置
+output:
+  checkpoint_dir: "/mnt/d/Bigdata/hero3_fresh/checkpoints"
+  log_dir: "/mnt/d/Bigdata/hero3_fresh/logs"
+  model_path: "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
+  state_path: "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt"
+  curriculum_state_path: "/mnt/d/Bigdata/hero3_fresh/curriculum_state.json"

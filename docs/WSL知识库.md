@@ -73,11 +73,17 @@ dy = {-1, -1, 0, 1, 1, 1, 0, -1}
 - Nullkiller2 是 VCMI 内置冒险 AI，稳定且已有 AIGateway.cpp 回调钩子
 - 切换方式：`ENABLE_MMAI=OFF`, `ENABLE_NULLKILLER2_AI=ON`
 
-### 3.4 战略训练只用 H3M，不用 vmap
+### 3.4 训练地图: 课程学习 VMAP 体系 (2026-08-23 起全量使用)
 
-**历史教训：** 早期用 vmap（战斗模型训练图）跑战略训练，大部分 vmap 不是 2-player 布局，导致 adventure 回调不来或崩溃。
-**原则：** 战略训练只用 H3M 经典图。
-**现状：** scan_maps.py 从 158 张中筛出 110 张可用 2-player H3M。
+**现状：** 训练 MAPS 全部走课程学习 vmap (Phase I.4)。31 张 Level 0-5 地图 (T01-T06 系列) 已生成并实跑验证，Level 0 (T01×5) 已接入训练。
+**历史教训：** 早期 vmap 全部不可用 — train_v1.vmap 从未真正加载成功 (blue hero core:inham 不存在 + wt/ro 地形崩)，gen_v3.py 的 players 数组格式直接 core dump。**"VMAP 兼容性待解决, 暂用 H3M" 的真相 = 生成格式错误, 不是 VCMI 不支持 vmap。**
+**vmap 格式要点（VCMI 1.7.4）:**
+- header players 必须 dict 格式 {red:{heroes,mainHero,team}, blue:{...}}, 数组格式崩
+- terrain 代码: 只用 gr24_ (草地) — wt00_/rc00_ 加载 segfault (待查, 踩坑 #87); rock shortIdentifier=rc 非 ro; 无 road 类型
+- town mask 5x3 anchor 居中 → town_x∈[2,w-3], town_y∈[1,h-2], 越界左崩
+- hero/资源/野怪: 标识符必须真实存在 (core:edric/iona/gold/wood/crystal/swordsman), resource 需 options.amount
+- 验证必须 ep_runner 实跑 20 步, 不能只查 zip 结构 (test_vcmi_load.py 是假验证)
+- 生成脚本: maps/training/gen_curriculum_all.py (T01-T04, 坐标规则化+界内校验)
 
 ### 3.5 观测与动作
 
@@ -206,12 +212,14 @@ cb->endTurn() → VCMI 推进到下一玩家
 | 根因 | delegation.provider=custom，硬编码 api_key 过期 |
 | 修复 | provider 改为 deepseek，api_key 留空走 DEEPSEEK_API_KEY 环境变量 |
 
-### 4.8 用 vmap 跑战略训练（已修复）
+### 4.8 用 vmap 跑战略训练（2026-08-23 已解决）
 
 | 项目 | 内容 |
 |---|---|
-| 根因 | 战略图误用战斗 vmap，assert 检查不过 |
-| 修复 | 只使用 H3M 经典图，scan_maps.py 验证可用性 |
+| 根因 | 早期 vmap 生成格式全错 (players 数组/inham/wt-ro 地形/town 越界) |
+| 修复 | 统一生成脚本 gen_curriculum_all.py + dict players + 全草地 + 坐标规则化; T01-T04 实跑验证通过 (20 步全满正奖励) |
+| 现状 | 训练 MAPS = T01×5 (Level 0), 后续 Level 1-5 按课程晋级切换 |
+| 参考 | 踩坑 #84-90 |
 
 ---
 
