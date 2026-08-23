@@ -959,3 +959,31 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 ### 决策
 - 全新启动优于续训: checkpoint 被 KL=0.08→0.15 锚定, 续训需挣脱旧约束
 - KL=0.30 从 BC 模型出发: 策略自由度从第一步释放
+
+
+## Phase I.4 地形栅格实现 (2026-08-23)
+
+### 数据格式
+- 21x21x4 = 1764 uint8, HWC 行优先
+- C0: terrain_type (0-13)
+- C1: blocked (0/1)
+- C2: object_type (0-10, 优先级: hero>town>monster>artifact>chest>resource>mine>dwelling>teleport>other)
+- C3: visibility (训练期全 1)
+
+### 实现架构
+- C++: fill_terrain_grid() 在 fill_strategic_state() 末尾调用
+- 数据通道: C++ fwrite -> /home/administrator/vcmi-workspace/terrain_grid.bin -> Python np.fromfile
+- Python: _build_terrain_grid() 读文件, 返回 (4,21,21) float32 CHW
+- info["terrain_grid"] 随 obs 一起返回
+- ENABLE_TERRAIN_GRID 开关在 strategic_state.cpp 第 333 行
+
+### 关键坑
+- .so 双实例: ctypes 和 connector 各加载一份 libmlclient.so, 全局变量不共享
+- _init_baselines 覆盖: 在 _build_terrain_grid 之后调用, 把 terrain_grid 重置为 0
+- 越界处理: 超出地图范围的格子 C1=1 (不可通行)
+
+### 文件传递是 .so 隔离的可靠绕过
+- 后续如需从 struct 直接读, 需要统一 .so 加载源 (让 connector 导出指针)
+
+### 设计文档
+- docs/地形栅格数据格式设计.md v1.1

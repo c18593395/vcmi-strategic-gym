@@ -1118,3 +1118,27 @@ ML 强定义优先, 客户端默认空走 settings。
 - visitable 对象的 tile blocked()=true 但英雄可以走到上面 -- BFS 需豁免目标格
 - z-level: HoMM3 地图有地面/地下两层, BFS 必须按层搜索
 - 不要用全局 sed 替换 -- 会破坏不同作用域的同名变量
+
+
+## 踩坑 #82: 地形栅格 — _init_baselines 覆盖 + 双 .so 内存隔离 (2026-08-23, Phase I.4)
+
+### 现象
+- C++ fill_terrain_grid() 写入 terrain_grid 成功 (fprintf 确认非零数据)
+- Python 读 terrain_grid 全 0
+
+### 根因 1: 双 .so 内存隔离 (未彻底解决)
+- ctypes.CDLL 加载 libmlclient.so 创建实例 A
+- connector (pybind11) 加载 libmlclient.so 创建实例 B
+- g_strategic_state / g_terrain_grid 各自独立
+- 最终绕过: 用文件传递 (C++ fwrite -> Python np.fromfile)
+
+### 根因 2: _init_baselines() 覆盖数据 (已修复)
+- _build_terrain_grid() 正确读到 1201 个非零值
+- 但 _init_baselines() 在其后调用, 内含 self._terrain_grid = np.zeros(...)
+- 覆盖了刚读到的数据
+- 修复: terrain_grid 初始化移到 __init__, _init_baselines 不再碰
+
+### 教训
+- Python 方法调用顺序必须检查 — 后调的方法可能覆盖前调的结果
+- 文件传递是 .so 双实例问题的可靠绕过方案
+- struct 大小匹配 (C++ 9716 = Python 9716) 不等于内存共享
