@@ -1206,3 +1206,17 @@ ML 强定义优先, 客户端默认空走 settings。
 - castle.json 生物: pikeman/halberdier/archer/marksman/griffin/royalGriffin/swordsman/crusader/...
 - 地图 monster 对象或 hero army 写 core:footman → "Failed to resolve identifier core:footman"
 - **修**: core:swordsman
+
+
+### 91. vmap 非草地地形崩溃是 VCMI 1.7.x 共有 bug (1.7.5 也崩), 升级无用
+- **验证 (2026-08-23)**: Windows 官方 VCMI 1.7.5 (VCMI_client.exe --headless --testmap) 加载含 wt00_ 的 vmap 同样 "Disaster happened" 崩溃 — 与 WSL 1.7.4 segfault 同路径 (client embedded server 端 loadMap)
+- 本地与 upstream develop 的 MapFormatJson.cpp/TerrainTile.h/TerrainHandler 零差异 → 非 fork 改动引入
+- mapeditor (editor 模式) 能加载到 "Making object rects" 不崩 → editor 路径更宽容
+- **结论**: 升级 WSL 到 1.7.5 不能解决; 全草地绕开是唯一可行方案 (已采用)
+- 1.7.5 验证方法: Windows VCMI_client --headless --testmap <map> (官方 release 支持; 用户数据在 Documents/My Games/vcmi/, 含完整 H3 数据)
+
+### 92. T05/T06 旧 dict 版也含崩溃地形 (rd/ro/wt/sa) + T05 town 越界
+- T05/T06 从 train_v1 复制 (gen_level4/5.py), terrain 含 rd00_ (道路, 不存在)/ro00_ (应为 rc)/wt00_ (崩溃)/sa00_ → 加载必崩
+- T05 town_0=(1,1) 5x3 mask 越界 (x∈[-1,3])
+- **修复**: 统一脚本 — terrain 全 gr24_ + town clamp [2,w-3]x[1,h-2] + hero 避开 town mask + 界内校验
+- **教训**: "dict players 格式" ≠ "地图可跑"; 任何从旧模板复制的 vmap 都要重验 terrain 代码和对象坐标
