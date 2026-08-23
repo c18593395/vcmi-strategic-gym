@@ -26,6 +26,9 @@ ENEMY_THREAT = 7
 BATTLE_PRED = 4
 EVENTS_SIZE = 4
 RESERVED_SIZE = 134
+GRID_SIZE = 21
+GRID_CHANNELS = 4
+GRID_TOTAL = GRID_SIZE * GRID_SIZE * GRID_CHANNELS  # 1764
 
 class StrategicHero(ctypes.Structure):
     _fields_ = [
@@ -117,6 +120,7 @@ class StrategicState(ctypes.Structure):
         ("battle_pred", ctypes.c_int32 * BATTLE_PRED),
         ("events", ctypes.c_int32 * EVENTS_SIZE),
         ("reserved", ctypes.c_int32 * RESERVED_SIZE),
+        ("terrain_grid", ctypes.c_uint8 * GRID_TOTAL),
     ]
 
 class StrategicReader:

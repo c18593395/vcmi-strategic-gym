@@ -208,6 +208,9 @@ ENEMY_THREAT = getattr(_sr, "ENEMY_THREAT", 7)
 BATTLE_PRED = getattr(_sr, "BATTLE_PRED", 4)
 EVENTS_SIZE = getattr(_sr, "EVENTS_SIZE", 4)
 RESERVED_SIZE = getattr(_sr, "RESERVED_SIZE", 134)
+TERRAIN_GRID_SIZE = 21
+TERRAIN_GRID_CHANNELS = 4
+TERRAIN_GRID_TOTAL = TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE * TERRAIN_GRID_CHANNELS  # 1764
 
 
 # =============================================================================
@@ -411,6 +414,8 @@ def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
     # reserved[8..15] = diagnostics (hx,hy,hz,W,H,reserved,next_dir_t0,explored)
     for i in range(16):
         obs[3330 + i] = state.reserved[i]
+
+    # Phase I.4: terrain_grid (独立存储, 不进 obs 向量)
 
     # --- 2026-08-16 H.8 修复: 大数值字段归一化 (数值爆炸根因) ---
     # 2689 时代 obs max=6410 可训 (C8.5 vloss=1349 正常); v3 新增未归一化大字段:
@@ -649,11 +654,14 @@ class StrategicEnv(gym.Env):
             self.logger.warning("YourTurn timed out — game may have ended")
             obs = np.zeros(OBS_DIM, dtype=np.float32)
             info = {"day": 0, "current_player": -1, "turn": 0}
+            self._terrain_grid = np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
+            info["terrain_grid"] = self._terrain_grid
             return obs, info
 
         # 读取初始状态（VCMI 已在 process_turn 阻塞，状态已更新）
         state = self._read_state()
         obs = self._build_obs(state)
+        self._terrain_grid = self._build_terrain_grid(state)
 
         # 初始化奖励跟踪基线
         self._init_baselines(state)
@@ -714,6 +722,7 @@ class StrategicEnv(gym.Env):
         # 读取新状态（VCMI 已执行 state_update，保证为最新）
         state = self._read_state()
         obs = self._build_obs(state)
+        self._terrain_grid = self._build_terrain_grid(state)
 
         # 计算奖励
         reward = self._calc_reward(state)
@@ -905,6 +914,15 @@ class StrategicEnv(gym.Env):
             return np.zeros(OBS_DIM, dtype=np.float32)
         return _strategic_state_to_obs(state)
 
+    def _build_terrain_grid(self, state: Optional[StrategicState]) -> np.ndarray:
+        """从 StrategicState 读取地形栅格 (21x21x4, uint8 -> float32 CHW)"""
+        if state is None:
+            return np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
+        raw = np.array(state.terrain_grid[:TERRAIN_GRID_TOTAL], dtype=np.uint8)
+        hwc = raw.reshape(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE, TERRAIN_GRID_CHANNELS)
+        chw = hwc.transpose(2, 0, 1).astype(np.float32) / 255.0
+        return chw
+
     def _init_baselines(self, state: Optional[StrategicState]):
         """初始化奖励基线值"""
         self._prev_player0 = {"gold": 0, "wood": 0, "mercury": 0, "ore": 0,
@@ -917,6 +935,7 @@ class StrategicEnv(gym.Env):
         self._last_battle_result = 0  # 0=无 1=red赢 2=red输 3=平局
         self._visited = set()         # 探索奖励: 每局重置
         self._prev_nk2_value = 0.0    # Phase I.1: NK2 势函数前值
+        self._terrain_grid = np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
         if state is None:
             return
         for pi in range(state.player_count):
