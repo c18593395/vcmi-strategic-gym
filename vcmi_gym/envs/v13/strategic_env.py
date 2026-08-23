@@ -622,6 +622,7 @@ class StrategicEnv(gym.Env):
         self._terminated = False
         self._truncated = False
         self._game_over = 0
+        self._terrain_grid = np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
 
     # ------------------------------------------------------------------
     # gymnasium.Env 接口
@@ -654,7 +655,6 @@ class StrategicEnv(gym.Env):
             self.logger.warning("YourTurn timed out — game may have ended")
             obs = np.zeros(OBS_DIM, dtype=np.float32)
             info = {"day": 0, "current_player": -1, "turn": 0}
-            self._terrain_grid = np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
             info["terrain_grid"] = self._terrain_grid
             return obs, info
 
@@ -671,6 +671,7 @@ class StrategicEnv(gym.Env):
             "current_player": state.current_player if state else 0,
             "turn": self._turn,
         }
+        info["terrain_grid"] = self._terrain_grid
         return obs, info
 
     @tracelog
@@ -915,13 +916,26 @@ class StrategicEnv(gym.Env):
         return _strategic_state_to_obs(state)
 
     def _build_terrain_grid(self, state: Optional[StrategicState]) -> np.ndarray:
-        """从 StrategicState 读取地形栅格 (21x21x4, uint8 -> float32 CHW)"""
-        if state is None:
+        """从 /home/administrator/vcmi-workspace/terrain_grid.bin 读取 (21x21x4, uint8 -> float32 CHW)"""
+        try:
+            import time
+            # Wait up to 2s for file to be written (server fills it each turn)
+            for attempt in range(20):
+                raw = np.fromfile("/home/administrator/vcmi-workspace/terrain_grid.bin", dtype=np.uint8, count=TERRAIN_GRID_TOTAL)
+                nonz = int(np.count_nonzero(raw)) if raw.shape[0] == TERRAIN_GRID_TOTAL else 0
+                if raw.shape[0] == TERRAIN_GRID_TOTAL and nonz > 0:
+                    print(f"[TERRAIN] Python read OK: {nonz} non-zero at attempt {attempt}", flush=True)
+                    break
+                time.sleep(0.1)
+            else:
+                print(f"[TERRAIN] Python read FAILED: shape={raw.shape} nonz={nonz}", flush=True)
+            if raw.shape[0] < TERRAIN_GRID_TOTAL:
+                return np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
+            hwc = raw.reshape(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE, TERRAIN_GRID_CHANNELS)
+            chw = hwc.transpose(2, 0, 1).astype(np.float32) / 255.0
+            return chw
+        except Exception:
             return np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
-        raw = np.array(state.terrain_grid[:TERRAIN_GRID_TOTAL], dtype=np.uint8)
-        hwc = raw.reshape(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE, TERRAIN_GRID_CHANNELS)
-        chw = hwc.transpose(2, 0, 1).astype(np.float32) / 255.0
-        return chw
 
     def _init_baselines(self, state: Optional[StrategicState]):
         """初始化奖励基线值"""
@@ -935,7 +949,6 @@ class StrategicEnv(gym.Env):
         self._last_battle_result = 0  # 0=无 1=red赢 2=red输 3=平局
         self._visited = set()         # 探索奖励: 每局重置
         self._prev_nk2_value = 0.0    # Phase I.1: NK2 势函数前值
-        self._terrain_grid = np.zeros((TERRAIN_GRID_CHANNELS, TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE), dtype=np.float32)
         if state is None:
             return
         for pi in range(state.player_count):
