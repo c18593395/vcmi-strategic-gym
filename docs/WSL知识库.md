@@ -1015,3 +1015,35 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 - step() info 缺 terrain_grid: 加 info["terrain_grid"] = self._terrain_grid
 - ep_runner strict=False: 3处 load_state_dict
 - 训练循环 strict=False: 6处 load_state_dict
+
+## H3M 对象表逆向 (2026-08-23) — h3m_tool.py parse_objects
+
+**工具**: scripts/h3m_tool.py — H3M 解析 (header/terrain/对象表) + terrain 修改 (加水/岩/草)
+**验证**: gdb 断 readObject 从 VCMI 引擎拿真值 — A Warm 730/730, For Sale 514/514, Twins 803/803 全量匹配
+
+### H3M 文件结构 (gzip 压缩)
+header (玩家/victory/loss/teams/heroes/artifacts/rumors/自定义英雄) → terrain (w×w×7B×levels) → objectTemplates → objects → events
+
+### 对象段格式
+- readObjectTemplates: u32 count; 每个 = lstr anim + 6B blockMask + 6B visitMask + u16 + u16 terrMask + u32 id + u32 subid + u8 type + u8 printPriority + skip16
+- readObjects: u32 count; 每个 = int3 pos (u8×3, 允许 ±8 越界) + u32 defIndex + skip5 + payload (按模板 id 分派)
+
+### 对象类型 id = VCMI Obj 枚举 (H3M 原始 id == remapped id, gdb 实测)
+**≠ MapObjectBaseID 枚举** (ptype libvcmi.so 拿到的是另一套)! 实测值:
+- HERO=62, RANDOM_HERO=70; TOWN=98, RANDOM_TOWN=77; MINE=53 (subid<7 矿, ≥7 abandoned)
+- RANDOM_MONSTER=54, L1=72, L2=73, L3=74, L4=75, L6=162, L7=163 (L5 未实测, 161 实测 generic)
+- RANDOM_RESOURCE=76, RESOURCE=79; TREASURE_CHEST=101; ARTIFACT=5, RANDOM_ART=65-69
+- EVENT=26, CAMPFIRE=12, SIGN=91, SEER_HUT=83, SCHOLAR=81, WITCH_HUT=113, SHRINE=88/89/90
+- CREATURE_BANK=16, DERELICT_SHIP=24, SHIPWRECK=85; GARRISON=33; QUEST_GUARD=215
+- CREATURE_GENERATOR1-4=17-20; RANDOM_DWELLING=216/217/218; SHIPYARD=87
+- 实测 generic (勿设分派): 9 BORDERGUARD, 14, 37, 41, 57, 58, 61, 161, 199, 207-211
+
+### payload 要点
+- readBoxContent 开头 = readMessageAndGuards (bool msg + [lstr + bool guards + creatureSet + skip4]), 不是直接 lstr
+- readEvent 对象: readBoxContent + bitmaskPlayers(1) + computerActivate + removeAfterVisit + skip4
+- readHero (AB): identifier u32 + owner u8 + heroType u8 + hasName + exp u32(无条件) + portrait + secSkills + garrison + formation + loadArtifactsOfHero + patrol + bio + gender + spell + skip16
+- readCreatureSet: 7 × (creature u8/u16 + count u16); readCreature/readArtifact: ROE=u8, AB+=u16
+- Twin 脏数据 hero: bag 巨大 → 容错搜索恢复 (双头校验 + 回溯 before+20~300)
+
+### 工具命令
+python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / objects <h3m>
