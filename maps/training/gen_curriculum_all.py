@@ -80,20 +80,93 @@ def _protected_points(w, h, cfg):
     pts.add((w - 3, h - 2))  # blue town
     return pts
 
+def _obstacle_zone(w, h, cfg):
+    """禁区: 所有对象 ±3 格 + hero 出生区 ±4 格 + 地图边界 1 格。障碍绝不落这里。"""
+    forbid = set()
+    pts = [(cfg["hero_x"], cfg["hero_y"]), (cfg["town_x"], cfg["town_y"]),
+           (cfg["mine_x"], cfg["mine_y"])]
+    for rx, ry, _ in cfg.get("resources", []):
+        pts.append((rx, ry))
+    for mx, my, _, _ in cfg.get("monsters", []):
+        pts.append((mx, my))
+    for px, py in pts:
+        for dx in range(-3, 4):
+            for dy in range(-3, 4):
+                forbid.add((px + dx, py + dy))
+    hx, hy = cfg["hero_x"], cfg["hero_y"]
+    for dx in range(-4, 5):
+        for dy in range(-4, 5):
+            forbid.add((hx + dx, hy + dy))
+    # 边界 1 格
+    for x in range(w):
+        forbid.add((x, 0)); forbid.add((x, h - 1))
+    for y in range(h):
+        forbid.add((0, y)); forbid.add((w - 1, y))
+    return forbid
+
+def make_obstacles(w, h, cfg, n_rock, n_water, seed):
+    """水/岩障碍课程地形 (2026-08-23 vmap 非草地误判纠正后启用):
+    - 岩=单格柱 rc00_, 水=2x2 湖 wt00_ — 均不可通行, 4 邻检查防意外封路
+    - 避开禁区 (对象±3 + hero出生±4 + 边界)
+    - 已验证: 训练配置 (blue=MMAI_RANDOM) 下 34水+8岩 20 步 3/3 无崩溃"""
+    rng = random.Random(seed)
+    forbid = _obstacle_zone(w, h, cfg)
+    terrain = [["gr24_"] * w for _ in range(h)]
+
+    def is_free(x, y):
+        if not (1 <= x <= w - 2 and 1 <= y <= h - 2):
+            return False
+        if (x, y) in forbid:
+            return False
+        return terrain[y][x] == "gr24_"
+
+    # 岩柱 (单格, 4 邻须为草地)
+    placed, guard = 0, 0
+    while placed < n_rock and guard < 2000:
+        guard += 1
+        x, y = rng.randrange(1, w - 1), rng.randrange(1, h - 1)
+        if not is_free(x, y):
+            continue
+        nb = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+        if any(not is_free(nx, ny) for nx, ny in nb):
+            continue
+        terrain[y][x] = "rc00_"
+        placed += 1
+
+    # 水湖 (2x2, 外圈 4 邻须为草地, 两湖不相邻)
+    placed, guard = 0, 0
+    while placed < n_water and guard < 2000:
+        guard += 1
+        x, y = rng.randrange(1, w - 2), rng.randrange(1, h - 2)
+        cells = [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)]
+        if not all(is_free(cx, cy) for cx, cy in cells):
+            continue
+        ring = [(x - 1, y - 1), (x, y - 1), (x + 1, y - 1), (x + 2, y - 1),
+                (x - 1, y), (x + 2, y), (x - 1, y + 1), (x + 2, y + 1),
+                (x - 1, y + 2), (x, y + 2), (x + 1, y + 2), (x + 2, y + 2)]
+        if any((rx, ry) in forbid for rx, ry in ring):
+            continue
+        if any(terrain[ry][rx] != "gr24_" for rx, ry in ring):
+            continue
+        for cx, cy in cells:
+            terrain[cy][cx] = "wt00_"
+        placed += 1
+    return terrain
+
 def make_terrain_grass(w, h, cfg=None):
     return [["gr24_"] * w for _ in range(h)]
 
 def make_terrain_mix(w, h, cfg):
-    """Level 1: 全草地 (wt00_/rc00_ 非草地地形在当前 VCMI 加载 segfault, 待查; 先用对象布局提供难度)"""
-    return [["gr24_"] * w for _ in range(h)]
+    """Level 1: 岩柱 4-6 + 水湖 1-2 (简单绕行障碍)"""
+    return make_obstacles(w, h, cfg, 5, 2, seed=w * 100 + h)
 
 def make_terrain_guarded(w, h, cfg):
-    """Level 2: 同 Level 1 地形 (弱野怪守矿)"""
-    return make_terrain_mix(w, h, cfg)
+    """Level 2: 岩柱 8-10 + 水湖 2-3 (中等障碍)"""
+    return make_obstacles(w, h, cfg, 9, 3, seed=w * 100 + h + 1)
 
 def make_terrain_economy(w, h, cfg):
-    """Level 3: 全草地 (非草地地形 segfault 待查)"""
-    return [["gr24_"] * w for _ in range(h)]
+    """Level 3: 岩柱 12-14 + 水湖 3-4 (密集障碍)"""
+    return make_obstacles(w, h, cfg, 13, 4, seed=w * 100 + h + 2)
 
 def set_obj(obj, x, y, **kw):
     o = dict(obj)
