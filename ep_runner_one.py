@@ -113,7 +113,7 @@ if args.model and os.path.exists(args.model):
         except:
             red_model = None
 
-traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "steps": 0, "total_rew": 0.0}
+traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "terrain_grid": [], "steps": 0, "total_rew": 0.0}
 try:
     env = StrategicEnv(
         mapname=args.mapname, max_turns=args.max_turns,
@@ -127,7 +127,7 @@ try:
         use_nk2_shaping=args.use_nk2_shaping,
         nk2_shaping_scale=args.nk2_shaping_scale,
     )
-    obs, _ = env.reset()
+    obs, _info = env.reset(); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
     endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步
     move_target = None  # MOVE_TO 粘滞目标 (tx,ty,tz) — 防目标漂移来回走
@@ -264,7 +264,7 @@ try:
                 a = 10  # 无目标可采 → END_TURN
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
-        nobs, r, done, trunc, _ = env.step(a)
+        nobs, r, done, trunc, _info = env.step(a); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===

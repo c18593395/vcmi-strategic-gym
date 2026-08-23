@@ -740,6 +740,7 @@ class StrategicEnv(gym.Env):
             "game_over": self._game_over,
             "turn": self._turn,
         }
+        info["terrain_grid"] = self._terrain_grid
         if self._terminated or self._truncated:
             self.logger.info(
                 f"Episode done: turn={self._turn}, "

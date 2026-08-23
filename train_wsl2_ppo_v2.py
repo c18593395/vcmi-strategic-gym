@@ -9,7 +9,7 @@ N_EPISODES, BATCH, STEPS_PER_EP = 1000, 128, 200
 LR, CLIP, EPOCHS = 5e-5, 0.08, 2
 GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
-EXTREME_ADV_CLIP = 10.0
+EXTREME_ADV_CLIP = 5.0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # === C3.2: 对手池 ===
@@ -55,10 +55,26 @@ CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
+        # Obs branch (existing)
         self.fc = nn.Sequential(nn.Linear(3464,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        # CNN branch for terrain grid (4,21,21) -> 128
+        self.cnn = nn.Sequential(
+            nn.Conv2d(4, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),   # 21->10
+            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 10->5
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),                    # 5->5
+            nn.Flatten(),                                                   # 64*5*5=1600
+            nn.Linear(1600, 128), nn.ReLU()
+        )
+        # Merge: obs(128) + cnn(128) = 256 -> 128
+        self.merge = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
         self.actor, self.critic = nn.Linear(128,25), nn.Linear(128,1)
-    def forward(self, x):
-        h = self.fc(x)
+    def forward(self, x, terrain=None):
+        h_obs = self.fc(x)
+        if terrain is not None:
+            h_cnn = self.cnn(terrain)
+            h = self.merge(torch.cat([h_obs, h_cnn], dim=-1))
+        else:
+            h = self.merge(torch.cat([h_obs, torch.zeros_like(h_obs)], dim=-1))
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
 
@@ -126,8 +142,8 @@ bc_loaded = False  # 无条件初始化: resume 路径跳过下方 BC 块时 lin
 if os.path.exists(STATE_PATH):
     try:
         sd = torch.load(STATE_PATH, map_location=DEVICE, weights_only=False)
-        model.load_state_dict(sd["model"])
-        opt.load_state_dict(sd["optimizer"])
+        model.load_state_dict(sd["model"], strict=False)
+        opt.load_state_dict(sd["optimizer"], strict=False)
         resume_step = sd.get("step", 0)
         print(f"Loaded train state (model+optimizer, step={resume_step})", flush=True)
     except:
@@ -145,7 +161,7 @@ if resume_step == 0:
             print(f"BC load failed: {e}, fallback to MODEL_PATH", flush=True)
     if not bc_loaded and os.path.exists(MODEL_PATH):
         try:
-            model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
+            model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True, strict=False), strict=False)
             print("Loaded existing model (weights only), continuing training", flush=True)
         except: pass
 
@@ -155,7 +171,7 @@ kl_ref = None
 # resume 路径 (resume_step>0) 同样重建 kl_ref: KL 约束不能因断点续训而丢失
 if bc_loaded or resume_step > 0:
     try:
-        kl_ref = Net().to(DEVICE)
+        kl_ref = Net().to(DEVICE)  # shares same architecture
         # 加载完整 BC 权重 (fc+actor+critic); 只取 actor 分布做 KL, critic 无影响
         kl_ref.load_state_dict(torch.load(BC_PATH, map_location=DEVICE, weights_only=True), strict=False)
         kl_ref.requires_grad_(False)  # 冻结: 不进优化器, 不参与反向传播
@@ -192,9 +208,9 @@ def restore_clean():
             try:
                 sd = torch.load(fallback, map_location=DEVICE, weights_only=False)
                 if "model" in sd:
-                    model.load_state_dict(sd["model"])
+                    model.load_state_dict(sd["model"], strict=False)
                 else:
-                    model.load_state_dict(sd)
+                    model.load_state_dict(sd, strict=False)
                 if is_clean():
                     print(f"  Restored clean checkpoint from blacklist: {os.path.basename(fallback)}", flush=True)
                     opt = torch.optim.Adam(model.parameters(), lr=LR)
@@ -207,9 +223,9 @@ def restore_clean():
         try:
             sd = torch.load(path, map_location=DEVICE, weights_only=False)
             if "model" in sd:
-                model.load_state_dict(sd["model"])
+                model.load_state_dict(sd["model"], strict=False)
             else:
-                model.load_state_dict(sd)
+                model.load_state_dict(sd, strict=False)
             if is_clean():
                 print(f"  Restored clean checkpoint: {ckpt}", flush=True)
                 opt = torch.optim.Adam(model.parameters(), lr=LR)
@@ -231,7 +247,7 @@ def save_shutdown(*args):
 signal.signal(signal.SIGTERM, save_shutdown)
 signal.signal(signal.SIGINT, save_shutdown)
 
-buffer = {"obs":[],"act":[],"rew":[],"nobs":[],"done":[]}
+buffer = {"obs":[],"act":[],"rew":[],"nobs":[],"done":[],"terrain_grid":[]}
 total_steps, ep_count, best_vloss, last_ckpt_step = resume_step, 0, float("inf"), resume_step
 
 # === C3.2: 对手池初始化 ===
@@ -276,13 +292,20 @@ for ep in range(N_EPISODES):
         obs_t  = torch.tensor(np.array(buffer["obs"][:BATCH]), dtype=torch.float32, device=DEVICE)
         act_t  = torch.tensor(buffer["act"][:BATCH], dtype=torch.long, device=DEVICE)
         rew_t  = torch.tensor(buffer["rew"][:BATCH], dtype=torch.float32, device=DEVICE)
+        rew_t  = rew_t.clamp(-5.0, 5.0)  # Phase I.2: clip extreme rewards
         nobs_t = torch.tensor(np.array(buffer["nobs"][:BATCH]), dtype=torch.float32, device=DEVICE)
         done_t = torch.tensor(buffer["done"][:BATCH], dtype=torch.float32, device=DEVICE)
+        # Terrain grid tensor (B, 4, 21, 21)
+        tg_list = buffer["terrain_grid"][:BATCH]
+        if len(tg_list) == BATCH and len(tg_list[0]) > 0:
+            terrain_t = torch.tensor(np.array(tg_list), dtype=torch.float32, device=DEVICE)
+        else:
+            terrain_t = None
 
         with torch.no_grad():
-            pi_old, val_old = model(obs_t)       # V(s)
+            pi_old, val_old = model(obs_t, terrain_t)       # V(s)
             logp_old = pi_old.log_prob(act_t)
-            _, val_next = model(nobs_t)          # V(s')
+            _, val_next = model(nobs_t, terrain_t)          # V(s')
 
         # === v2: GAE λ=0.95 ===
         # delta_t = r_t + γ * V(s_{t+1}) * (1-done_t) - V(s_t)
@@ -303,7 +326,7 @@ for ep in range(N_EPISODES):
 
         kl_item = 0.0  # A+B: KL 日志 (USE_KL 关闭时恒为 0)
         for _ in range(EPOCHS):
-            pi, val = model(obs_t)
+            pi, val = model(obs_t, terrain_t)
             logp = pi.log_prob(act_t)
             ratio = (logp - logp_old).exp()
             # 额外钳位：阻止 ratio 爆炸产生 inf
@@ -316,11 +339,12 @@ for ep in range(N_EPISODES):
             # kl = Σ_a π(a) * (log π(a) - log π_ref(a)); kl_ref 前向在 no_grad 下
             if USE_KL:
                 with torch.no_grad():
-                    ref_pi, _ = kl_ref(obs_t)
+                    ref_pi, _ = kl_ref(obs_t, terrain_t)
                     ref_logp = ref_pi.logits.log_softmax(-1)
                 cur_logp = pi.logits.log_softmax(-1)
                 kl = (pi.probs * (cur_logp - ref_logp)).sum(-1).mean()
-                loss = loss + kl_coeff * kl
+                kl_loss = (kl_coeff * kl).clamp(max=10.0)  # clip KL contribution
+                loss = loss + kl_loss
                 kl_item = kl.item()
                 # 自适应 KL: 根据实际 KL 值动态调节系数
                 if kl_item > KL_TARGET * 1.5:
