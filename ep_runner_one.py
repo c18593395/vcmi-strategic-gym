@@ -102,14 +102,14 @@ if args.model and os.path.exists(args.model):
     red_model.eval()
     try:
         sd = torch.load(args.model, map_location="cpu", weights_only=True)
-        red_model.load_state_dict(sd)
+        red_model.load_state_dict(sd, strict=False)
     except:
         try:
             sd = torch.load(args.model, map_location="cpu", weights_only=False)
             if "model" in sd:
-                red_model.load_state_dict(sd["model"])
+                red_model.load_state_dict(sd["model"], strict=False)
             else:
-                red_model.load_state_dict(sd)
+                red_model.load_state_dict(sd, strict=False)
         except:
             red_model = None
 

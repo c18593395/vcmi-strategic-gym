@@ -1142,3 +1142,25 @@ ML 强定义优先, 客户端默认空走 settings。
 - Python 方法调用顺序必须检查 — 后调的方法可能覆盖前调的结果
 - 文件传递是 .so 双实例问题的可靠绕过方案
 - struct 大小匹配 (C++ 9716 = Python 9716) 不等于内存共享
+
+## 踩坑 #83: ep_runner load_state_dict 缺 strict=False (2026-08-23, Phase I.4 C)
+
+### 现象
+- CNN 实现后训练启动, 两局完全相同 (16步, r=6.30, 动作序列一模一样)
+- 动作包含 17/18/21/22/23 (11-23 范围), 但 logits[11:24] 已 mask 为 -inf
+- 16步游戏结束, 不是 END_TURN 导致
+
+### 根因
+- ep_runner 加载模型用 load_state_dict(sd) 默认 strict=True
+- CNN 参数是新增的, 旧 checkpoint 没有 → 加载失败
+- except 捕获后 red_model = None
+- red_model is None → 全部随机动作 (env.action_space.sample())
+- move_to_force 也被跳过 (检查 red_model is not None)
+
+### 修复
+- ep_runner 所有 load_state_dict 加 strict=False (3处)
+- train_wsl2_ppo_v2.py 所有 load_state_dict 加 strict=False (6处)
+
+### 教训
+- 新增网络分支后, 所有 load_state_dict 必须 strict=False
+- 看到"随机动作"时, 先检查模型是否加载成功

@@ -987,3 +987,23 @@ CClient::initPlayerInterfaces (client/Client.cpp)
 
 ### 设计文档
 - docs/地形栅格数据格式设计.md v1.1
+
+## Phase I.4 C: CNN 地形编码器实现 (2026-08-23)
+
+### 架构
+- Net() 双输入: obs(3464) + terrain(4,21,21)
+- CNN: Conv2d(4→16→32→64) + MaxPool2d(2) + Linear(1600→128)
+- Merge: concat(obs_128, cnn_128) → Linear(256→128) → actor/critic
+- CNN params: 228k, total: 724k
+- terrain=None 时兼容 (零填充, 不改旧网络行为)
+
+### 数据链路
+- C++ fill_terrain_grid() → fwrite terrain_grid.bin
+- strategic_env: _build_terrain_grid() → info["terrain_grid"]
+- ep_runner: terrain_grid 保存到 trajectory JSON
+- 训练循环: buffer["terrain_grid"] → terrain_t → model(obs, terrain)
+
+### 关键修复
+- step() info 缺 terrain_grid: 加 info["terrain_grid"] = self._terrain_grid
+- ep_runner strict=False: 3处 load_state_dict
+- 训练循环 strict=False: 6处 load_state_dict
