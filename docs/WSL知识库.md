@@ -1047,3 +1047,39 @@ header (玩家/victory/loss/teams/heroes/artifacts/rumors/自定义英雄) → t
 
 ### 工具命令
 python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / objects <h3m>
+## vmap 水/岩障碍启用 + 非草地 segfault 误判纠正 (2026-08-23 晚)
+
+### 背景
+课程地图曾因 "vmap 非草地 (wt00_/rc00_) 加载 segfault" 转 H3M 路线 (对象表解析已完成)。
+本晚实证推翻该结论, vmap 水/岩直接可用, H3M 路线停用 (工具 h3m_tool.py 保留作逆向参考)。
+
+### 真根因: NK2 守卫战斗断言 (与 terrain 无关)
+- 断言: `vcmi/AI/MMAI/AAI/AAI.cpp:435` `ASSERT(queryID != -1, "QueryID is -1, but we are ATTACKER")`
+- 触发链: 守卫战斗 (打野怪) → 无 CBattleDialogQuery (onlyOnePlayerHuman=false) → queryID=-1
+  → MMAI battleEnd 断言崩。ep_runner 默认 blue_adventure_ai=Nullkiller2 必触发。
+- 证据: T01 全草地 + NK2 配置 3/3 崩同一断言; T01 + MMAI 配置 3/3 不崩;
+  1 格水/34 水+8 岩 + MMAI 3/3 不崩 → 与 terrain 完全无关。
+- 训练配置 (blue=MMAI_RANDOM --blue_adventure_ai MMAI) 永不触发, 训练不受影响。
+- 教训: **验证地图必须用训练同款配置** (--blue_ai MMAI_RANDOM --blue_adventure_ai MMAI);
+  用 ep_runner 默认 NK2 会把守卫战斗断言误归因到地图格式。
+
+### vmap 水/岩障碍生成 (已启用)
+- `maps/training/gen_curriculum_all.py` make_obstacles(): 岩柱 rc00_ (单格) + 2x2 水湖 wt00_,
+  避开对象±3 + hero 出生±4 + 边界 1 格, 4 邻检查防封路, 确定性 seed。
+- Level 1 (T02): 岩5+水4-8; Level 2 (T03): 岩9+水12; Level 3 (T04): 岩13。
+- 验证: T02/T03/T04 带障碍版 20 步全满无 error, hero 唯一位置 7-9 (绕障碍不卡死)。
+- 31 张课程图部署: Windows vcmi/data/Maps/ + WSL rel/bin/data/Maps/。
+
+### optimizer.load_state_dict(strict=False) TypeError — state 永远加载失败 (严重)
+- `train_wsl2_ppo_v2.py` 曾 `opt.load_state_dict(sd["optimizer"], strict=False)` —
+  PyTorch Optimizer.load_state_dict 无 strict 参数 → TypeError → except → fallback BC 权重。
+  **每次重启都丢训练进度** (resume_step 恒 0), 日志 "Failed to load STATE_PATH" 静默降级。
+- 修复: 去掉 strict=False。验证: 重启后 "Loaded train state (model+optimizer, step=3834)" 恢复续训。
+- 教训: state 加载失败时先隔离测试 (单独 torch.load + load_state_dict), 不要直接 trust except 分支。
+
+### 训练进程启动方式 (2026-08-23 变更)
+- 原 train_loop.sh 守护 (tee train_loop.log) 已不用于当前训练; 现用 Hermes background 直接跑:
+  `wsl bash -c 'cd /home/administrator/vcmi-workspace && export LD_LIBRARY_PATH=... && export STRATEGIC_STATE_LIB=... && export PYTHONPATH=/mnt/d/Bigdata/hero3_fresh && python3 -u train_wsl2_ppo_v2.py 2>&1 | stdbuf -oL sed "s/\x1b\[[0-9;]*m//g" | tee train.log'`
+- 杀 worker: 认准 `grep "[t]rain_wsl2_ppo_v2.py" | grep python3` 的 PID (bash 包装 3MB 不是 worker)。
+- 日志: train.log (用户看, Get-Content -Wait); 重启前 cp train.log train.log_L0_<tag>.log 存档。
+

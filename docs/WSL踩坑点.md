@@ -1220,3 +1220,22 @@ ML 强定义优先, 客户端默认空走 settings。
 - T05 town_0=(1,1) 5x3 mask 越界 (x∈[-1,3])
 - **修复**: 统一脚本 — terrain 全 gr24_ + town clamp [2,w-3]x[1,h-2] + hero 避开 town mask + 界内校验
 - **教训**: "dict players 格式" ≠ "地图可跑"; 任何从旧模板复制的 vmap 都要重验 terrain 代码和对象坐标
+### 93. optimizer.load_state_dict(strict=False) TypeError → STATE_PATH 永远加载失败丢进度
+- 症状: 每次重启日志 "Failed to load STATE_PATH, falling back to MODEL_PATH" → resume_step 恒 0 → 从 BC 权重重来
+- 根因: PyTorch `Optimizer.load_state_dict()` 无 strict 参数 (Model 才有); 传 strict=False 抛 TypeError 进 except
+- 修复: `opt.load_state_dict(sd["optimizer"])` 去掉 strict; 验证日志 "Loaded train state (model+optimizer, step=N)"
+- 教训: 状态加载失败先隔离复现 (单独 torch.load + load_state_dict), except 分支静默降级会掩盖此类 bug 数轮
+
+### 94. "vmap 非草地 segfault" 是误判 — 真因是 NK2 守卫战斗断言 (AAI.cpp:435)
+- 曾结论: wt00_/rc00_ vmap 加载必崩 → 转 H3M 路线 (浪费大量工作)
+- 真因: `AAI.cpp:435 ASSERT(queryID != -1, "QueryID is -1, but we are ATTACKER")` — 守卫战斗无 CBattleDialogQuery (onlyOnePlayerHuman=false) → queryID=-1 → MMAI battleEnd 断言崩
+- 触发条件: ep_runner 默认 blue_adventure_ai=Nullkiller2; 训练配置 (--blue_ai MMAI_RANDOM --blue_adventure_ai MMAI) 永不触发
+- 证据: T01 全草地 + NK2 3/3 崩; + MMAI 3/3 不崩; 34水+8岩 + MMAI 3/3 不崩
+- 教训: 验证地图/环境必须用训练同款配置; 崩溃先看断言/栈顶再归因格式 (grep Assertion failed)
+
+### 95. 杀训练 worker 认准 python3 PID, bash 包装不是 worker
+- `ps aux | grep "[t]train_wsl2_ppo_v2.py"` 会同时匹配 bash 包装 (RSS ~3MB) 和 python worker
+- kill bash 包装 → python 孤儿也退, state 可能没保存 (22:08 事件: 杀 362 bash, state 停在旧时间戳)
+- 正确: `ps aux | grep "[t]rain_wsl2_ppo_v2.py" | grep python3 | awk '{print $2}'` 再 kill
+- 重启训练命令见 WSL知识库.md "训练进程启动方式 (2026-08-23 变更)"
+
