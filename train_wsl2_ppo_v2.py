@@ -21,6 +21,11 @@ OPPONENT_POOL_SIZE = 10
 # 换实测通过图 (probe_map_passability.py): 2 人图可用全集 6 张
 # Twins 4/8, A Warm 3/8, Unholy Quest 3/8, When Dragons Clash 2/8, Gorlam's 2/8, Unexpected Inheritance 2/8
 MAPS = [
+    # Training maps (no obstacles, BFS verification)
+    "T01_adventure_20X20_01.vmap", "T01_adventure_20X20_02.vmap",
+    "T01_adventure_30X30_01.vmap", "T01_adventure_30X30_02.vmap",
+    "T01_adventure_36X36_01.vmap",
+    # Original maps
     "Twins.h3m", "A Warm and Familiar Place.h3m",
     "Unholy Quest.h3m", "When Dragons Clash.h3m",
     "Gorlam's Tentacle Swampland.h3m", "Unexpected Inheritance.h3m",
