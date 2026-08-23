@@ -58,9 +58,24 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc = nn.Sequential(nn.Linear(3464,128),nn.ReLU(),nn.Linear(128,128),nn.ReLU())
+        # CNN branch for terrain grid (4,21,21) -> 128
+        self.cnn = nn.Sequential(
+            nn.Conv2d(4, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),   # 21->10
+            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 10->5
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),                    # 5->5
+            nn.Flatten(),                                                   # 64*5*5=1600
+            nn.Linear(1600, 128), nn.ReLU()
+        )
+        # Merge: obs(128) + cnn(128) = 256 -> 128
+        self.merge = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
         self.actor, self.critic = nn.Linear(128,25), nn.Linear(128,1)
-    def forward(self, x):
-        h = self.fc(x)
+    def forward(self, x, terrain=None):
+        h_obs = self.fc(x)
+        if terrain is not None:
+            h_cnn = self.cnn(terrain)
+            h = self.merge(torch.cat([h_obs, h_cnn], dim=-1))
+        else:
+            h = self.merge(torch.cat([h_obs, torch.zeros_like(h_obs)], dim=-1))
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
 parser = argparse.ArgumentParser()
@@ -78,6 +93,8 @@ parser.add_argument("--blue_adventure_ai", type=str, default="Nullkiller2",
 parser.add_argument("--move_to_test", action="store_true", help="强制所有动作=24 (MOVE_TO 测试)")
 parser.add_argument("--move_to_bias", type=float, default=0.0, help="MOVE_TO(24) logits 探索偏置 (训练早期引导)")
 parser.add_argument("--move_to_force", type=int, default=0, help="MOVE_TO(24) 采样强制: 每局前 N 步强制动作 24 (第5轮: 引导模型发现目标导向动作)")
+parser.add_argument("--economy_force", type=int, default=0,
+                    help="经济动作采样强制 (Level 3): 每局前 N 步强制 16-21 轮换 (RECRUIT_1/2/3, BUILD_1/2/3) — 模型从没见过这些码, 需采样强制引导")
 parser.add_argument("--cycle_detect", type=int, default=0, help="状态级循环检测: 8 步窗口内同一 (hero,pos) 出现 >=N 次 → -3 惩罚 + 强制随机方向 (0=关闭)")
 parser.add_argument("--act_loop_penalty", type=float, default=0.0,
                     help="动作级循环惩罚 (第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward (0=关闭)")
@@ -141,7 +158,12 @@ try:
         if red_model is not None:
             with torch.no_grad():
                 obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-                pi, _ = red_model(obs_t)
+                # 地形栅格 CNN 输入 (2026-08-24 修复): 采样端之前漏传 terrain → CNN 全零, 模型决策看不到水/岩
+                # 训练端 model(obs_t, terrain_t) 已传真实地形, 两端必须一致 (行为=学习)
+                tg = traj["terrain_grid"][-1] if traj["terrain_grid"] else None
+                terrain_t = (torch.tensor(np.array(tg, dtype=np.float32), dtype=torch.float32).unsqueeze(0)
+                             if tg is not None and len(tg) else None)
+                pi, _ = red_model(obs_t, terrain_t)
                 # Passability mask: OBS v3 obs[3211:3219] = 8方向可通行性
                 passable = torch.tensor(obs[3211:3219], dtype=torch.bool)
                 logits = pi.logits[0].clone()
@@ -150,8 +172,8 @@ try:
                     # INTERACT 冷却: 连续动作 8 >= 2 次时屏蔽
                     if interact_streak >= 2:
                         logits[8] = float('-inf')
-                    # 11-23 未实现 (训练端"新必需") — 屏蔽防浪费; 24=MOVE_TO 已启用
-                    logits[11:24] = float('-inf')
+                    # 11-23 引擎侧已实现 (AAI.cpp SPLIT/MERGE/RECRUIT/BUILD/GARRISON/RECRUIT_HERO), Level 3 (T04) 起启用
+                    # 注意: 模型从没见过这些码 (BC 无样本) → logits 极负, 需 --economy_force 采样强制引导
                     # END_TURN 冷却: 连续 3 次 → 屏蔽 (防跳过游戏刷步, C8.5 老问题复发)
                     if endturn_streak >= 3:
                         logits[10] = float('-inf')
@@ -185,6 +207,11 @@ try:
         # MOVE_TO 采样强制 (2026-08-19 第5轮): 每局前 N 步强制动作 24 — 第4轮 bias(+2.0) 对从未见过的码无效 (24 零出现)
         if args.move_to_force > 0 and traj["steps"] < args.move_to_force and red_model is not None:
             a = 24
+        # 经济动作采样强制 (2026-08-24 Level 3): 每局前 N 步强制 16-21 轮换 (RECRUIT/BUILD 引导)
+        # 模型从未见过这些码 → logits 极负 → bias 无效, 采样强制 (move_to_force 同款教训)
+        if args.economy_force > 0 and traj["steps"] < args.economy_force and red_model is not None:
+            econ_acts = [16, 17, 18, 19, 20, 21]  # RECRUIT_1/2/3, BUILD_1/2/3 轮换
+            a = econ_acts[traj["steps"] % len(econ_acts)]
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:

@@ -16,15 +16,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 OPPONENT_POOL_SIZE = 10
 
 # === 2026-08-23: 全部走 VMAP 课程学习地图 (Phase I.4) ===
-# Level 1 (T02 系列): 带水/岩障碍 (岩柱 rc00_ + 2x2 水湖 wt00_), 绕障碍+优先高价值资源, 双玩家 (red=MMAI 控制, blue=MMAI_RANDOM)
-# 2026-08-23 晚: vmap 非草地 segfault 误判纠正 (真因=NK2 守卫战斗断言, 与 terrain 无关); 障碍版已实跑 20 步全满无 error
+# Level 3 (T04 系列): 水/岩障碍 + 资源经济, 城镇经济+招兵建造, 双玩家 (red=MMAI 控制, blue=MMAI_RANDOM)
+# 2026-08-24: Level 2 (T03) 16 局达标晋级 (正奖励 75% / avg_r +18), 切 T04
 MAPS = [
-    "T02_adventure_20X20_01.vmap",
-    "T02_adventure_20X20_02.vmap",
-    "T02_adventure_30X30_01.vmap",
-    "T02_adventure_30X30_02.vmap",
-    "T02_adventure_36X36_01.vmap",
-    "T02_adventure_36X36_02.vmap",
+    "T04_adventure_20X20_01.vmap",
+    "T04_adventure_20X20_02.vmap",
+    "T04_adventure_30X30_01.vmap",
+    "T04_adventure_30X30_02.vmap",
+    "T04_adventure_36X36_01.vmap",
+    "T04_adventure_36X36_02.vmap",
 ]
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
@@ -95,6 +95,8 @@ def run_episode(mapname, blue_model=None):
     move_scale = max(0.0, 1.0 - ep_count / 200)
     cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
     cmd.extend(["--move_to_force", str(int(30 * move_scale))])
+    # 经济动作引导 (2026-08-24 Level 3): 前 30 步强制 16-21 轮换, 前 200 ep 线性衰减 — 模型从未见过 RECRUIT/BUILD 码
+    cmd.extend(["--economy_force", str(int(30 * move_scale))])
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
     cmd.extend(["--cycle_detect", "5"])
     # 第7轮: 动作级循环惩罚 — 连续 4 步重复 / 8 步两两交替 → -3 (治 [3,7,3,7]/[2,2,2,2] 死循环,
