@@ -16,15 +16,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 OPPONENT_POOL_SIZE = 10
 
 # === 2026-08-23: 全部走 VMAP 课程学习地图 (Phase I.4) ===
-# Level 0 (T01 系列): 全草地无障碍, hero->mine 基础目标, 双玩家 (red=MMAI 控制, blue=MMAI_RANDOM)
-# 已实跑验证: 20 步全满无 error, 正奖励 (T01 +32 / T02 +25 / T03 +26 / T04 +23)
-# 注: wt00_/rc00_ 非草地地形当前 VCMI 加载 segfault (train_v1 从未真正加载成功), 已全部改全草地
+# Level 1 (T02 系列): 带水/岩障碍 (岩柱 rc00_ + 2x2 水湖 wt00_), 绕障碍+优先高价值资源, 双玩家 (red=MMAI 控制, blue=MMAI_RANDOM)
+# 2026-08-23 晚: vmap 非草地 segfault 误判纠正 (真因=NK2 守卫战斗断言, 与 terrain 无关); 障碍版已实跑 20 步全满无 error
 MAPS = [
-    "T01_adventure_20X20_01.vmap",
-    "T01_adventure_20X20_02.vmap",
-    "T01_adventure_30X30_01.vmap",
-    "T01_adventure_30X30_02.vmap",
-    "T01_adventure_36X36_01.vmap",
+    "T02_adventure_20X20_01.vmap",
+    "T02_adventure_20X20_02.vmap",
+    "T02_adventure_30X30_01.vmap",
+    "T02_adventure_30X30_02.vmap",
+    "T02_adventure_36X36_01.vmap",
+    "T02_adventure_36X36_02.vmap",
 ]
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
@@ -139,7 +139,7 @@ if os.path.exists(STATE_PATH):
     try:
         sd = torch.load(STATE_PATH, map_location=DEVICE, weights_only=False)
         model.load_state_dict(sd["model"], strict=False)
-        opt.load_state_dict(sd["optimizer"], strict=False)
+        opt.load_state_dict(sd["optimizer"])  # Optimizer.load_state_dict 无 strict 参数 (TypeError → 永远 fallback BC)
         resume_step = sd.get("step", 0)
         print(f"Loaded train state (model+optimizer, step={resume_step})", flush=True)
     except:
