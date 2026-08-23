@@ -31,7 +31,7 @@ MAPS = [
 # 2026-08-19 第6轮: 固定 → 自适应 — 实际 kl 0.6~1.2 远超目标 0.1, 固定系数约束力不足
 # 第6轮 v2: KL_TARGET 0.1→0.3, KL_COEF_MAX 5→10 — klc 瞬间触顶 5.0 仍压不住 kl
 # 第7轮: KL_TARGET 0.3→0.4 (放宽约束), CLIP 0.1→0.08 (收紧更新步幅)
-KL_TARGET = 0.08       # 目标 KL 散度 (锁紧: 0.15→0.08, 配合 COEF_MIN 0.15)
+KL_TARGET = 0.30       # Phase I.2 v2: 0.15→0.30, klc仍触顶10占80%+ep, 进一步放宽
 KL_COEF_INIT = 0.3     # 初始系数
 KL_ADAPT_UP = 1.5      # KL 超目标 1.5× 时收紧
 KL_ADAPT_DOWN = 0.7    # KL 低于目标 /1.5 时放松
