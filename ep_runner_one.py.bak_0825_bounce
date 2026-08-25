@@ -1,4 +1,4 @@
-import sys, os, json, argparse, random, zipfile
+import sys, os, json, argparse, random
 from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -118,21 +118,6 @@ parser.add_argument("--random_army_max", type=int, default=1000,
                     help="随机军队最高价值 (默认1000)")
 args = parser.parse_args()
 
-# 2026-08-25: 守卫目标 — C++ target_list 无守卫 (重编环境崩无法部署), Python 从 vmap 读守卫位置补进 MOVE_TO 目标池
-# 守卫在矿 8 邻, 从英雄视角常比矿更近 → 先走向守卫 → 触发战斗 (T03 课程目标)
-_GUARD_CACHE = {}
-def get_guards(mapname):
-    if mapname not in _GUARD_CACHE:
-        try:
-            p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
-            with zipfile.ZipFile(p) as z:
-                objs = json.loads(z.read("objects.json"))
-            _GUARD_CACHE[mapname] = [(int(o["x"]), int(o["y"]), int(o.get("l", 0)))
-                                     for k, o in objs.items() if k.startswith("monster_")]
-        except Exception as e:
-            _GUARD_CACHE[mapname] = []
-    return _GUARD_CACHE[mapname]
-
 # Load red model if provided
 red_model = None
 if args.model and os.path.exists(args.model):
@@ -157,7 +142,7 @@ try:
         mapname=args.mapname, max_turns=args.max_turns,
         vcmi_loglevel_global="error", vcmi_loglevel_ai="error",
         vcmienv_loglevel="ERROR", red="StupidAI", blue=args.blue_ai or "StupidAI",
-        random_heroes=0, boot_timeout=120, vcmi_timeout=900,  # 2026-08-25: random_heroes 1→0 (随机出生点 → 部分局离矿 40+ 格, 课程战斗目标被稀释)
+        random_heroes=1, boot_timeout=120, vcmi_timeout=900,
         red_model_path=args.model or "",
         blue_model_path=args.blue_model or "",
         blue_adventure_ai=args.blue_adventure_ai,
@@ -172,11 +157,8 @@ try:
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
     endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步
     move_target = None  # MOVE_TO 粘滞目标 (tx,ty,tz) — 防目标漂移来回走
-    move_guard_target = False  # 2026-08-25: 目标是否为守卫 (守卫格 passable=0, 跳过 passable 检查)
     move_stall = 0
     move_stall_prev = 10**9
-    prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
-    guard_first_win = False  # 2026-08-26: 首胜 (守卫清除) 已发
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     for _ in range(args.max_turns):
@@ -247,14 +229,13 @@ try:
         if a == 24:
             ah = int(obs[3203]) if obs[3203] >= 0 else 0
             base = 128 + ah * 26
-            hx, hy, hz = int(obs[base+2]), int(obs[base+3]), int(obs[base+4])
+            hx, hy = int(obs[base+2]), int(obs[base+3])
             tx = ty = tz = None
             next_dir_idx = -1  # I.2: 默认无 next_dir
             if move_target is not None:
                 tx, ty, tz = move_target
                 if abs(tx - hx) + abs(ty - hy) == 0:
                     move_target = None  # 已到达
-                    move_guard_target = False
                 else:
                     # 粘滞: 查找 target_list 匹配索引获取 next_dir
                     tl_tmp = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
@@ -262,8 +243,6 @@ try:
                         if int(_tt[2]) == tx and int(_tt[3]) == ty:
                             next_dir_idx = _i
                             break
-                    # 守卫目标不在 target_list (C++ 未填), 恢复守卫标记
-                    move_guard_target = any((tx == g[0] and ty == g[1]) for g in get_guards(args.mapname))
             if tx is None:
                 tl = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
                 best = None
@@ -272,46 +251,23 @@ try:
                     if tt[5] > 0 and (best is None or tt[5] < best[5]):
                         best = tt
                         next_dir_idx = i
-                # 2026-08-25: 守卫恒优先 — 守矿机制: 先占矿守卫消失, 战斗永不触发 → 守卫在 15 格内一律先打守卫
-                # 一步可达 (8 邻) 的守卫优先 (直接从英雄格进守卫, 避免经过矿/资源)
-                guard_best = None
-                for (gx, gy, gz) in get_guards(args.mapname):
-                    if gz != hz:
-                        continue
-                    gd = abs(gx - hx) + abs(gy - hy)
-                    adj = (gd <= 2 and abs(gx - hx) <= 1 and abs(gy - hy) <= 1)
-                    if 0 < gd < 15 and (
-                        guard_best is None or
-                        (adj and not guard_best[3]) or
-                        (adj == guard_best[3] and gd < guard_best[0])
-                    ):
-                        guard_best = (gd, gx, gy, adj)
-                if guard_best is not None:
-                    tx, ty, tz = guard_best[1], guard_best[2], hz
-                    next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
-                elif best is not None:
+                if best is not None:
                     tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
                     move_target = (tx, ty, tz)
                     move_stall = 0
-                    move_guard_target = False
                 else:
                     move_target = None
-                    move_guard_target = False
             if tx is not None:
                 # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
                 nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1
                 if nd >= 0:
                     a = nd
                 else:
-                    # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
-                    if not move_guard_target:
-                        bfs_dir = bfs_path(obs, tx, ty)
-                        if bfs_dir is not None:
-                            a = bfs_dir
-                    if a == 24 or (not move_guard_target and (a < 0 or a > 7)):
+                    # 回退: 旧 15×15 BFS
+                    bfs_dir = bfs_path(obs, tx, ty)
+                    if bfs_dir is not None:
+                        a = bfs_dir
+                    else:
                         # BFS 失败 (目标超出视野/不可达), 回退贪心方向
                         dx, dy = tx - hx, ty - hy
                         cand = []
@@ -329,24 +285,10 @@ try:
                             elif dy > 0: cand = [5, 4, 6]
                             else: cand = [7, 0, 6]
                         pas = [int(x) for x in obs[3211:3219]]
-                        # 守卫目标: 优先走"下一格即守卫"方向 (直接进守卫格触发战斗, 避免经过矿/资源)
-                        if move_guard_target:
-                            guard_set = {(g[0], g[1]) for g in get_guards(args.mapname)}
-                            for d in cand:
-                                nx2, ny2 = hx + [0,1,1,1,0,-1,-1,-1][d], hy + [-1,-1,0,1,1,1,0,-1][d]
-                                if (nx2, ny2) in guard_set:
-                                    a = d
-                                    break
-                            if a == 24:
-                                for d in cand:
-                                    if pas[d] or move_guard_target:  # 守卫格 passable=0 (blocked) 但可攻击进入 (2026-08-25)
-                                        a = d
-                                        break
-                        else:
-                            for d in cand:
-                                if pas[d]:
-                                    a = d
-                                    break
+                        for d in cand:
+                            if pas[d]:
+                                a = d
+                                break
                 # 卡住检测: 连续 6 步距离不减小 → 放弃换目标 (被堵/绕路)
                 cur_dist = abs(tx - hx) + abs(ty - hy)
                 if cur_dist >= move_stall_prev:
@@ -362,18 +304,6 @@ try:
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
         nobs, r, done, trunc, _info = env.step(a); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
-        # 2026-08-26: 守卫清除检测 — MMAI 环境守卫被 visit 移除 (无战斗无奖励), 英雄进入守卫格 = 守卫被清除
-        # 等价于打赢守卫 (守卫让路, 矿可占) → 首胜奖励 +100 (每局一次)
-        if not guard_first_win:
-            ah2 = int(nobs[3203]) if nobs[3203] >= 0 else 0
-            b2 = 128 + ah2 * 26
-            hx2, hy2 = int(nobs[b2+2]), int(nobs[b2+3])
-            for (gx, gy, gz) in get_guards(args.mapname):
-                if hx2 == gx and hy2 == gy:
-                    r += 100.0  # 守卫被清除 (首胜)
-                    guard_first_win = True
-                    print(f"[GUARD] guard ({gx},{gy}) cleared by entering at step {traj['steps']} +100", flush=True)
-                    break
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
@@ -420,8 +350,7 @@ try:
                     r -= 2.0
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
-            # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致
-            if len(traj["obs"]) >= 8 and traj["steps"] >= args.move_to_force:
+            if len(traj["obs"]) >= 8:
                 recent = []
                 for o in traj["obs"][-8:]:
                     a2 = int(o[3203]) if o[3203] >= 0 else 0

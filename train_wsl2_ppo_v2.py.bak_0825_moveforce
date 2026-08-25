@@ -93,7 +93,7 @@ def run_episode(mapname, blue_model=None):
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.5, 1.0 - ep_count / 200)  # 2026-08-25: 下限 0.5 常驻 (原衰减到 0 → 模型失去目标驱动 → 乱逛/横跳/零战斗)
     cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
-    cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
+    cmd.extend(["--move_to_force", str(int(15 * move_scale))])
     # 经济动作引导 (2026-08-24 Level 3): 实验失败 (noTarget 惩罚→END_TURN 刷步) → 关闭，等 reward 函数解决 noTarget 问题后再试
     # cmd.extend(["--economy_force", str(int(30 * move_scale))])
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
@@ -104,9 +104,8 @@ def run_episode(mapname, blue_model=None):
     cmd.extend(["--act_loop_penalty", "1.0"])  # 降循环惩罚，减少负reward干扰
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
     cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.3"])  # 恢复NK2，scale=0.3 防critic爆炸
-    # 随机军队 2026-08-26: 3000-5000 关闭 — 英雄太强 → 守卫 takenAction 评估 JOIN/FLEE (消失无战斗)
-    # NK2 采集 (无 random_armies, swordsman 8) 守卫评估 FIGHT 战斗正常; 若英雄打不赢再另行加强守卫设计
-    # cmd.extend(["--random_armies", "--random_army_min", "3000", "--random_army_max", "5000"])
+    # 随机军队: 提高军队价值让英雄能赢战斗 (自动战斗)
+    cmd.extend(["--random_armies", "--random_army_min", "3000", "--random_army_max", "5000"])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
