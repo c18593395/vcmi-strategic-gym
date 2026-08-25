@@ -1239,3 +1239,22 @@ ML 强定义优先, 客户端默认空走 settings。
 - 正确: `ps aux | grep "[t]rain_wsl2_ppo_v2.py" | grep python3 | awk '{print $2}'` 再 kill
 - 重启训练命令见 WSL知识库.md "训练进程启动方式 (2026-08-23 变更)"
 
+### 96. NK2 移除 → critic 爆炸 (vloss 159-164) (2026-08-24)
+- 原始 env reward -100~-300/ep, BC 初始化的 critic 无法预测; NK2 势函数在掩盖幅度
+- 修复: NK2 scale 1.0→0.3 + return normalization, vloss 159→1
+- 教训: 大幅度 reward 下 critic 必须看标准化 returns; 移除 shaping 必须同时加 return norm
+
+### 97. Level 3 经济动作引导失败 → 模型毒化 (2026-08-24)
+- 16-21 (RECRUIT/BUILD) 采样强制 → noTarget 惩罚 → END_TURN 刷步 → klc 触顶 → 策略锁死
+- 处理: poisoned checkpoint 存档 + ep_runner_one.py logits[16:24]=-inf 屏蔽回滚; 等 reward 解决 noTarget 再试
+
+### 98. L1/L2 checkpoint 丢失 (2026-08-24)
+- L3 失败回滚 BC 时, Level 1/2 学习全部丢失 — 晋级/切图前必须备份模型
+- 修复: backup_on_promotion() 按 .maps_fingerprint 检测 MAPS 变更自动备份
+
+### 99. entropy=-0.01 正r率 15%, -0.05 → 27% (2026-08-24)
+- 熵惩罚过低策略收敛太快探索不足; -0.05 在 Level 2 表现最好
+
+### 100. 训练意外停止无保存日志 (2026-08-25 09:51)
+- 正常停止有 "Shutdown signal received, saving current state..."; 无此日志 = 硬杀/SIGKILL/WSL 终止
+- checkpoint 仍完好 (定期/退出保存), 恢复 = 直接重启续训, 重启前 cp train.log 存档

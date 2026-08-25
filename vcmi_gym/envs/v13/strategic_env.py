@@ -498,6 +498,9 @@ class StrategicEnv(gym.Env):
         # Phase I.1: NK2 势函数奖励
         use_nk2_shaping: bool = False,     # True = 用 nk2_state_value 差分替代事件奖励
         nk2_shaping_scale: float = 1.0,    # 势函数差分缩放
+        random_armies: bool = False,       # 随机军队 (True=用randomArmyValue)
+        random_army_min: int = 500,        # 随机军队最低价值
+        random_army_max: int = 1000,       # 随机军队最高价值
     ):
         super().__init__()
 
@@ -554,6 +557,9 @@ class StrategicEnv(gym.Env):
         self.use_nk2_shaping = use_nk2_shaping
         self.nk2_shaping_scale = nk2_shaping_scale
         self._visited = set()  # 已访问格子 (探索奖励)
+        self._random_armies = random_armies
+        self._random_army_min = random_army_min
+        self._random_army_max = random_army_max
 
         # --- 创建连接器 ---
         self.connector = connector_v13.ThreadConnector(
@@ -573,9 +579,9 @@ class StrategicEnv(gym.Env):
             randomObstacles=0,
             townChance=0,
             warmachineChance=0,
-            randomArmies=False,
-            randomArmyValueMin=500,
-            randomArmyValueMax=1000,
+            randomArmies=getattr(self, "_random_armies", False),
+            randomArmyValueMin=getattr(self, "_random_army_min", 500),
+            randomArmyValueMax=getattr(self, "_random_army_max", 1000),
             randomArmyTargetVar=0,
             tightFormationChance=0,
             randomTerrainChance=0,

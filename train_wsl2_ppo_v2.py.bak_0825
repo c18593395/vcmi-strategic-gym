@@ -379,7 +379,7 @@ for ep in range(N_EPISODES):
         for k in buffer: buffer[k] = buffer[k][BATCH:]
         elapsed = time.time() - t0
         kl_str = f" kl={kl_item:.3f} klc={kl_coeff:.3f}" if USE_KL else ""
-        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.3f} loss={loss.item():.3f}{kl_str} ep={ep_count} time={elapsed:.0f}s", flush=True)
+        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.0f} loss={loss.item():.0f}{kl_str} ep={ep_count} time={elapsed:.0f}s", flush=True)
 
         if vloss.item() < best_vloss:
             best_vloss = vloss.item()
@@ -415,5 +415,5 @@ for ep in range(N_EPISODES):
                 os.remove(os.path.join(ckpt_dir, f))
 
 elapsed = time.time() - t0
-print(f"\nDONE: {ep_count}eps {total_steps}steps {elapsed:.0f}s best_vloss={best_vloss:.3f}", flush=True)
+print(f"\nDONE: {ep_count}eps {total_steps}steps {elapsed:.0f}s best_vloss={best_vloss:.0f}", flush=True)
 torch.save(model.state_dict(), MODEL_PATH)

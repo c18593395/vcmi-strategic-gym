@@ -110,6 +110,12 @@ parser.add_argument("--use_nk2_shaping", action="store_true",
                     help="Phase I.1: 用 NK2 势函数差分替代事件奖励")
 parser.add_argument("--nk2_shaping_scale", type=float, default=1.0,
                     help="NK2 势函数差分缩放")
+parser.add_argument("--random_armies", action="store_true",
+                    help="随机军队 (用randomArmyValue范围)")
+parser.add_argument("--random_army_min", type=int, default=500,
+                    help="随机军队最低价值 (默认500)")
+parser.add_argument("--random_army_max", type=int, default=1000,
+                    help="随机军队最高价值 (默认1000)")
 args = parser.parse_args()
 
 # Load red model if provided
@@ -143,6 +149,9 @@ try:
         reward_explore=args.reward_explore,
         use_nk2_shaping=args.use_nk2_shaping,
         nk2_shaping_scale=args.nk2_shaping_scale,
+        random_armies=args.random_armies,
+        random_army_min=args.random_army_min,
+        random_army_max=args.random_army_max,
     )
     obs, _info = env.reset(); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
@@ -172,6 +181,9 @@ try:
                     # INTERACT 冷却: 连续动作 8 >= 2 次时屏蔽
                     if interact_streak >= 2:
                         logits[8] = float('-inf')
+                    # 2026-08-24: 屏蔽内政动作 (RECRUIT_1/2/3=16-18, BUILD_1/2/3=19-21, GARRISON=22, RECRUIT_HERO=23)
+                    # 目标: 先学会地图探索, 内政关闭直到能把官方地图跑通
+                    logits[16:24] = float('-inf')
                     # 11-23 引擎侧已实现 (AAI.cpp SPLIT/MERGE/RECRUIT/BUILD/GARRISON/RECRUIT_HERO), Level 3 (T04) 起启用
                     # 注意: 模型从没见过这些码 (BC 无样本) → logits 极负, 需 --economy_force 采样强制引导
                     # END_TURN 冷却: 连续 3 次 → 屏蔽 (防跳过游戏刷步, C8.5 老问题复发)

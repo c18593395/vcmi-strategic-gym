@@ -1083,3 +1083,32 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - 杀 worker: 认准 `grep "[t]rain_wsl2_ppo_v2.py" | grep python3` 的 PID (bash 包装 3MB 不是 worker)。
 - 日志: train.log (用户看, Get-Content -Wait); 重启前 cp train.log train.log_L0_<tag>.log 存档。
 
+### Phase I.2 超参调优链 + Level 3 实验失败 (2026-08-24)
+
+**PPO 大调参 (stuck → working)**:
+- Before: BATCH=128, LR=5e-5, CLIP=0.08, EPOCHS=2, KL_TARGET=0.30, KL_COEF_MIN=0.15, entropy=-0.05, NK2 scale=1.0, explore=0.5, act_loop=1.8 — 33ep 无改进
+- After (冻结): BATCH=1024, LR=3e-4, CLIP=0.2, EPOCHS=4, KL_TARGET=0.50, KL_COEF_MIN=0.05, entropy=-0.05, NK2 scale=0.3, explore=0.2, act_loop=1.0, move_to_force=15, random_armies=3000-5000, return normalization
+- 关键链: KL_TARGET 放宽 (0.3→0.5) 让策略离开 BC 邻域; BATCH 128→1024 梯度 8x 稳定; entropy -0.05 正r率 27% (-0.01 只有 15%)
+
+**NK2 移除实验失败 (critic 爆炸)**:
+- 现象: 禁用 NK2 后 vloss 4-30→159-164, loss 2-15→80-82, 策略无法学习
+- 根因: 原始 env reward 幅度 -100~-300/ep, BC 初始化的 critic 无法预测; NK2 势函数此前在掩盖幅度
+- 修复 (必须同时): NK2 恢复 scale 1.0→0.3 + 训练循环加 return normalization (returns 标准化)
+- 验证: vloss 159→1, kl 0.06→0.28 恢复学习
+
+**Level 3 经济动作实验失败 (毒化)**:
+- 动作: 16-21 (RECRUIT/BUILD) 采样强制引导 (train_wsl2_ppo_v2.py:97 注释)
+- 失败链: noTarget 惩罚 → 模型学 END_TURN 刷步 → klc 触顶 10 → 策略锁死 → 模型毒化
+- 处理: poisoned checkpoint 存档 (wsl2_model_L3_poisoned.pt), 回滚 Level 2, ep_runner_one.py logits[16:24]=-inf 屏蔽
+- 教训: 经济动作必须等 reward 侧 noTarget 惩罚问题解决后再启用; 11-15 (SPLIT/MERGE/SWAP) 保留启用
+
+**晋级规则 (2026-08-24 设计, 未集成)**:
+- 80ep 检查点, ep_r (总奖励, 非 avg_r), 80% 达标率, ep_steps>10 过滤
+- backup_on_promotion(): MAPS 变更自动备份模型 (L1/L2 checkpoint 丢失教训)
+
+### 多 run 日志结构 + 训练意外停止恢复 (2026-08-25)
+
+- train.log 由多次 `Loaded train state` 分段; 不同段可能是不同地图/超参, 统计必须按段
+- 实例: Run1 正r率 64% → 切 L2 后 Run2 0% → Run5 26%; 混算 29% 会误判
+- analyze_train.py 自动探测路径 + 分段统计 (见 refs/train-log-multirun-20260825.md)
+- 09:51 训练意外停止: 无 Shutdown 日志 (正常停止有 "Shutdown signal received, saving") → 硬杀/WSL 终止; checkpoint 自动保存完好 (step=32083), 直接重启续训即可
