@@ -1258,3 +1258,9 @@ ML 强定义优先, 客户端默认空走 settings。
 ### 100. 训练意外停止无保存日志 (2026-08-25 09:51)
 - 正常停止有 "Shutdown signal received, saving current state..."; 无此日志 = 硬杀/SIGKILL/WSL 终止
 - checkpoint 仍完好 (定期/退出保存), 恢复 = 直接重启续训, 重启前 cp train.log 存档
+
+### 101. hermes voice 禁用了还自动触发 wake word = 旧进程未重启 (2026-08-25)
+- 现象: config.yaml 已 stt.enabled=false + wake_word.enabled=false, 仍出现 "✦ Wake word detected — listening..."
+- 根因: hermes 进程 10:41 启动 (早于 15:23 配置修改), wake word 监听按启动时内存配置运行, 配置文件改了没用
+- 解决: 退出 hermes 重启, 新会话读新配置; 验证方法 = 进程 CreationDate 必须晚于 config.yaml mtime
+- 附带: hermes tools disable tts 同样重启才生效 (工具集变更下次会话加载)

@@ -1112,3 +1112,9 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - 实例: Run1 正r率 64% → 切 L2 后 Run2 0% → Run5 26%; 混算 29% 会误判
 - analyze_train.py 自动探测路径 + 分段统计 (见 refs/train-log-multirun-20260825.md)
 - 09:51 训练意外停止: 无 Shutdown 日志 (正常停止有 "Shutdown signal received, saving") → 硬杀/WSL 终止; checkpoint 自动保存完好 (step=32083), 直接重启续训即可
+
+### Hermes voice 自动启动排查 (2026-08-25)
+- hermes 配置只在进程启动时读入内存; 修改 config.yaml 后不重启进程就不生效 (wake word/STT 监听按启动时内存态运行)
+- 排查链: 配置里 stt.enabled=false + wake_word.enabled=false 却仍触发 "Wake word detected" → 对比 hermes 进程 CreationDate 与 config.yaml mtime, 进程早于配置修改 = 旧进程
+- 排查命令: wmic process where "name like '%python%'" get ProcessId,CreationDate,CommandLine; stat config.yaml 看修改时间
+- 永久禁用 voice 三件套 (15:03 会话执行, 15:23 写入): stt.enabled=false + wake_word.enabled=false + hermes tools disable tts
