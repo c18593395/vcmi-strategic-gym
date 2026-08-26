@@ -126,6 +126,19 @@ def nk2_state_value(state) -> float:
             value += tv
         # 敌方城镇: 不直接加值, 通过 conquest 差分 (占领时 state_value 跳变)
     
+    # --- 3.5 守卫接近梯度 (2026-08-27 方案A) ---
+    # target_list 行: [type,idx,x,y,z,dist,power(log2),flags]; power>0 = 目标带守卫
+    # Φ_guard = -0.5 × min_dist → 每接近守卫 1 格势差 +0.5 (净正, 压过 -0.1 步罚)
+    # 守卫清除后该项消失 → 正跳变 (+0.5×d) 与 +100 战斗事件叠加
+    guard_d = None
+    for _gi in range(8):
+        _row = state.target_list[_gi]
+        if _row[0] > 0 and _row[6] > 0:
+            _d = _row[5]
+            guard_d = _d if guard_d is None else min(guard_d, _d)
+    if guard_d is not None:
+        value += -0.5 * guard_d
+
     # --- 4. 军力价值 (己方英雄) ---
     # NK2: getArmyReward = creature.getAIValue() × count
     # 军力本身不加 value: 招募每步增长, 产生正漂移

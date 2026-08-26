@@ -1136,3 +1136,15 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 **验证**: 12 局正奖励率 83.3%, r mean 37.0 — 双超晋级判据。守卫清除奖励 (进格即得) 是确定性信号, 模型快速学会。
 
 **遗留**: 真战斗 (battle_result) 仍未验证 — 守卫在 MMAI 环境评估 JOIN/FLEE 而非 FIGHT。若需真战斗: 提高守卫 agression (死守不逃) 或降低英雄军队 (但打不赢) — 课程设计取舍。
+
+### 守卫真战斗 (2026-08-27, 从"守卫恒FLEE"到"autofight全链")
+- vmap monster options 的字段名是 **character** (CGCreature.cpp serializeEnum), 不是 aggression — aggression:"guard" 无效被忽略 → 性格默认 → agression=0 → charisma>0 → takenAction 恒 FLEE (守卫逃跑=removeObject 无战斗)
+- 08-26"守卫清除检测 +100"实为守卫逃跑误判 (假任务); 修复 = character:"savage" (agression=10 恒 FIGHT) + neverFlees:true
+- 守卫战力: relStrength ∈ (1,1.5) 守卫才 FIGHT (charisma=powerFactor+diplomacy+sympathy < agression); 英雄 8 swordsman (1960, getValueForDiplomacy=sqrt((1+0.05A)(1+0.05D))×AI value) vs 守卫 swordsman×3/2堆 (1470) = 1.33; >1.5 守卫 JOIN/FLEE (强兵种双刃剑, random_armies 坑同机制)
+- 运行时地图目录 = /home/administrator/vcmi-native/data/Maps (rel/bin/data → vcmi-native/data); patch 须同步 3 副本 (项目 Maps/training + vcmi-native/data/Maps + vcmi/data/Maps)
+- 编译经验: 全量重编 mlclient 崩 (shutdown_vcmi GAME null, 未解); 但单个 .cpp 的 .o 重编+链接成功 (BattleResultProcessor/CGameHandler/AAI) — 不碰 strategic_state.h 就安全
+- 战斗收尾: BattleResultProcessor.cpp.o 8-2 旧缓存 (IFML bug 从未重编进 .so) — 源码修了 .o 没重编 = 部署恒旧; 判定用行为 (CBattleQuery 卡顶)
+- MMAI yourTurn 轮询阻塞 runNetwork 事件循环 (battleStart/battleEnd 回调同线程无法处理) → 轮询必须短 (0.3s); 战斗收尾用 async 任务 (battleEnd 回调 0.5s 延迟 + 兜底 CAS)
+- garrison dialog: 战斗后守卫残余 (autofight 未全灭) → 英雄访问 → dialog → AI 应答后查询栈卡; 治本 = CGameHandler::showGarrisonDialog AI vs AI 自动合并残余 + 移除对象, 不建 dialog
+- data 符号链接: make POST_BUILD 每次生成坏链接 (rel/bin/data → ../data 错误) → EEXIST; 每次 make 后 ln -s 绝对路径重修
+- 详见 vcmi-gym refs/guard-battle-autofight-20260827.md

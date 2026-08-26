@@ -1299,3 +1299,39 @@ ML 强定义优先, 客户端默认空走 settings。
 - 根因: 守卫评估 JOIN/FLEE 消失, 无 battle_result 帧
 - 处理: ep_runner 检测英雄进入守卫格 (pos == 守卫坐标) → 守卫清除 → +100 首胜奖励 (每局一次); 训练验证正奖励率 83%
 - 教训: 环境机制缺失 (真战斗) 可用确定性等价事件替代 — 进守卫格 = 守卫被清除 = 战斗的等价结果; 先打通学习信号, 真战斗待编译环境修复
+
+### 108. vmap aggression 字段无效 → 守卫恒 FLEE (2026-08-27)
+- 现象: vmap monster options 写 aggression:"guard", 守卫从不战斗 (恒消失无 battle)
+- 根因: VCMI 的字段名是 character (CGCreature.cpp serializeEnum), aggression 无效被忽略 → 性格默认 → agression=0 → charisma>0 → takenAction 恒 FLEE
+- 处理: character:"savage" (agression=10 恒 FIGHT) + neverFlees:true
+- 教训: vmap 字段名以 C++ serializeJsonOptions 为准; 08-26"守卫清除检测"实为守卫逃跑误判 (假任务)
+
+### 109. 运行时地图目录 ≠ 项目 Maps/training (2026-08-27)
+- 现象: patch 项目地图后运行时行为不变 (trace 守卫还是旧兵种)
+- 根因: VCMI 运行时从 vcmi-native/data/Maps 读图 (rel/bin/data → vcmi-native/data)
+- 处理: 3 副本同步 (项目 Maps/training + vcmi-native/data/Maps + vcmi/data/Maps)
+- 教训: patch 地图后先查运行时目录; 判定法 = trace 日志 "Hero visits X" 的兵种名
+
+### 110. BattleResultProcessor.cpp.o 旧缓存 → IFML bug 从未进部署 .so (2026-08-27)
+- 现象: 源码已修复 (onlyOnePlayerHuman) 但战斗后 CBattleQuery 卡顶 (AI vs AI 也建 dialog)
+- 根因: .o 是 8-2 旧缓存, 后续所有链接都用旧 .o — 源码修复 ≠ 部署修复
+- 处理: rm .o + make mlclient (单文件重编成功, 不碰 strategic_state.h 就安全)
+- 教训: 改 server 代码后必须确认 .o 实际重编 (ls mtime); 部署验证用行为 (CBattleQuery 卡顶)
+
+### 111. MMAI yourTurn 轮询阻塞事件循环 → 战斗回调死锁 (2026-08-27)
+- 现象: battleStart/battleEnd 回调永不触发 (in_battle 标志不更新), 提前 endTurn 被 CBattleQuery 拒
+- 根因: yourTurn 在 runNetwork 线程, 轮询 sleep 阻塞事件循环 → 同线程回调无法处理
+- 处理: 轮询缩短 0.3s + 回合挂起 (pending_endturn) + battleEnd 回调收尾 (async 0.5s) + 兜底 CAS
+- 教训: 同线程阻塞与回调互斥 — 轮询等待"回调设置的标志"无效 (回调被阻塞)
+
+### 112. garrison dialog AI 应答后查询栈卡 (2026-08-27)
+- 现象: 战斗后守卫残余 (autofight 未全灭) → 英雄访问 → showGarrisonDialog → AI 答 0/1 都卡
+- 根因: 残余对象未移除 (AI 不合并), 访问流程未完成, 查询栈残留
+- 处理: CGameHandler::showGarrisonDialog AI vs AI 自动合并残余 (moveStack) + removeAfterVisit, 不建 dialog
+- 教训: AI 环境的交互对话框应服务器侧跳过 (AI 无法正确应答); 与 blocking dialog 自动答同模式
+
+### 113. make POST_BUILD 生成坏 data 符号链接 → EEXIST (2026-08-27)
+- 现象: make mlclient 后训练启动报 boost::filesystem create_directories: File exists "./data"
+- 根因: POST_BUILD ln -sf 生成 rel/bin/data → vcmi-native-build/../data (错误路径, 不存在)
+- 处理: rm -f rel/bin/data && ln -s /home/administrator/vcmi-native-build/data rel/bin/data (绝对路径)
+- 教训: 每次 make mlclient 后必须重修 data 链接; 用绝对路径 (相对路径解析错)

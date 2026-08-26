@@ -177,6 +177,7 @@ try:
     move_stall_prev = 10**9
     prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
     guard_first_win = False  # 2026-08-26: 首胜 (守卫清除) 已发
+    prev_guard_d = None  # 2026-08-27 方案A: 守卫接近梯度基线 (最近守卫曼哈顿距离)
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     for _ in range(args.max_turns):
@@ -362,18 +363,32 @@ try:
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
         nobs, r, done, trunc, _info = env.step(a); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
-        # 2026-08-26: 守卫清除检测 — MMAI 环境守卫被 visit 移除 (无战斗无奖励), 英雄进入守卫格 = 守卫被清除
-        # 等价于打赢守卫 (守卫让路, 矿可占) → 首胜奖励 +100 (每局一次)
+        # 2026-08-26: 守卫战斗检测 — 真战斗 (character=savage 守卫 FIGHT, autofight 必胜)
+        # 英雄进入守卫格 = 战斗打赢 = 守卫消失 (矿可占) → 首胜奖励 +100 (每局一次)
         if not guard_first_win:
             ah2 = int(nobs[3203]) if nobs[3203] >= 0 else 0
             b2 = 128 + ah2 * 26
             hx2, hy2 = int(nobs[b2+2]), int(nobs[b2+3])
             for (gx, gy, gz) in get_guards(args.mapname):
                 if hx2 == gx and hy2 == gy:
-                    r += 100.0  # 守卫被清除 (首胜)
+                    r += 100.0  # 守卫战斗胜利 (首胜)
                     guard_first_win = True
-                    print(f"[GUARD] guard ({gx},{gy}) cleared by entering at step {traj['steps']} +100", flush=True)
+                    print(f"[GUARD] guard ({gx},{gy}) fought & won at step {traj['steps']} +100", flush=True)
                     break
+        # 2026-08-27 方案A: 守卫接近梯度 — 每接近守卫 1 格 +0.3 (净正, 压过 -0.1 步罚, 引导走向守卫)
+        # get_guards 静态 vmap 位置; 英雄所在的守卫格 = 已清除 (战斗后守卫消失), 排除避免 min_d=0 恒
+        _guards = get_guards(args.mapname)
+        if _guards:
+            _live = [(gx, gy) for (gx, gy, gz) in _guards if not (hx2 == gx and hy2 == gy)]
+            if _live:
+                _min_d = min(abs(hx2 - gx) + abs(hy2 - gy) for (gx, gy) in _live)
+                if prev_guard_d is not None:
+                    r += 0.3 * (prev_guard_d - _min_d)  # 接近正, 远离负
+                prev_guard_d = _min_d
+            else:
+                prev_guard_d = None  # 无活守卫 (全部清除)
+        else:
+            prev_guard_d = None
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
