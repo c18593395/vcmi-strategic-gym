@@ -1172,3 +1172,31 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - train_wsl2_ppo_v2.py: Level 3 超参注释包 (BATCH=2048 / EPOCHS=6 / EXTREME_ADV_CLIP=6.0), T04 地图池注释块 (6 张), run_episode 内 explore/nk2_scale/economy_force 切换点注释 (economy_force 前 N 步强制采样 16-21 轮换, 解经济冷启动)
 - py_compile 双文件通过 (WSL venv)
 - 晋级决策 (2026-08-29): 现在不晋 Level 3 — ① Level 2 未打穿 (真赢 1~2%) ② 学习爬坡无平台 ③ 守卫修复+首胜+100 上线才 1 天样本不足; 晋级线 = 最近 100 局胜率 ≥30~50% 或 avg_r 持续为正; 晋级后先只切 T04 地图不开经济, 稳定后一次一轴开经济 (奖励塑形先行 + 掩码源头做 + NK2/explore 临时上调 + BATCH 加大)
+
+## 真实游戏战略层联调 (Task7, 2026-08-29, forktest66 全绿)
+
+### DLL 端 RL 模型部署 (BC 单输入 → RL 双输入)
+- 模型: rl_model_v3464t_0829.onnx = wsl2_ckpt_193821.pt 导出 (fc3464 + CNN 4×21×21 双分支, merge 256→128, actor 25)
+- 导出: scripts/export_rl_onnx.py (WSL 跑, dynamo=False; checkpoint=裸 state_dict strict 加载; 对拍 maxdiff 1.9e-06)
+- 双输入: obs[1,3464] + terrain[1,4,21,21]; uint8 HWC → float CHW/255 (推理时归一化, 与 strategic_env._build_terrain_grid 一致)
+- 模型路径 env 可覆盖: MODELAI_MODEL (默认 rl_model_v3464t_0829.onnx); dump 钩子 MODELAI_DUMP_OBS=1 (stderr 输出 obs+terrain)
+
+### DLL obs 对齐 08-23 语义 (分布差异根因修复)
+- DLL obs_fill.cpp 是 08-18 移植版, 缺 08-23 三块: fill_terrain_grid (I.4) / fill_target_list (H.8) / fill_next_dir (I.2 写 reserved[0..7])
+- obs_build.cpp reserved 段直接跳过 (idx += RESERVED_SIZE 注释"已 memset 0") 而训练端真实拷贝 — 结构性分布差异的第二根因
+- 修复后 14 obs 逻辑段 DLL vs WSL 分布对照全 OK (reserved 两侧 11.2% nz); 判定"数值不同=进程/地图差异, 结构差异=移植缺口"
+- towns.recruit_mask_hi 等位掩码字段值可达 2^24 (25,469,088) — 非脏数据
+
+### 验证链与判据
+- headless 验证判据沿用: INFER 增长 / 0 Disaster / 0 fishy / MASK 正常; 战斗看 11BattleEnded + 战后 EndTurn 增长
+- forktest66: 64 INFER / 244 EndTurn / 0 Disaster / MASK 43 / heroMoved 正常; 战斗未触发 (A Warm 双 AI 不接战, 验战斗换 A Viking)
+- 启动姿势: VCMI_client.exe --testmap=Maps/xxx.h3m --onlyAI --headless (client 承载 server; 直接起 VCMI_server 会 Listening 挂等)
+
+### settings.json ai 节点丢失坑
+- 用户 settings.json 无 ai 节点 → 回落 Nullkiller2 → bin/AI 无该 DLL → LoadLibrary 126 → 启动即 Disaster
+- 修复: ai 节点 5 字段全给 (adventureAlliedAI/EnemyAI=ModelAI + combat×3=BattleAI); schema enum 需含 ModelAI (bin/config/schemas/settings.json 2 处); 已留 .bak_0829
+
+### 未竟
+- 1.7.5 官方版 MSVC DLL 未同步本次 4 文件改动 (GUI 人机对战前要重编, build_modelai_175.bat)
+- MOVE_TO(act24) 无 DLL 执行器 (模型输出 24 走 fallback)
+- AAI 断言崩溃修复 (5b83ace6f) 未同步 WSL .so (P0, 见分析报告)
