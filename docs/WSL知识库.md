@@ -1200,3 +1200,29 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - 1.7.5 官方版 MSVC DLL 未同步本次 4 文件改动 (GUI 人机对战前要重编, build_modelai_175.bat)
 - MOVE_TO(act24) 无 DLL 执行器 (模型输出 24 走 fallback)
 - AAI 断言崩溃修复 (5b83ace6f) 未同步 WSL .so (P0, 见分析报告)
+
+## A 档四项 + B 档方案 (2026-08-29 晚)
+
+### A2 RL 模型战斗链验证 (forktest67, A Viking 6 人图)
+- **判定成立**: 14 场战斗 (20BattleResultsApplied) 全部结算, 0 Disaster, 战后回合持续轮转 → RL 模型战斗链闭环
+- 战斗计数口径再确认: 真实场数看 20BattleResultsApplied (结算包) 或 Received CPack BattleEnded; 11BattleEnded 出现≈2×场数 (发送+应用双计数)
+- fishy 39 = WALK_AND_ATTACK 偶发 "Two destinations" 类拒绝 (P46/P47 已知残留), 战斗仍能打完, 不阻塞回合 — 新增日志勿惊慌
+- RL 模型 (vs BC) 战斗更积极: A Viking 双 AI 8 场 battleStarted vs BC 时代 A Warm 5 分钟 0 接战
+
+### A3 1.7.5 MSVC 重编部署 (RL 模型上 GUI)
+- 构建命令坑: git-bash 里 `cmd //c xxx.bat` 弹交互壳**不执行** bat (输出 Windows 版本横幅即中招); 正确姿势 = `powershell -Command "& { cmd /c 'D:\path\xxx.bat' }"`
+- 产物验证 (防假构建): python 检查 dll 字节串 — `b'rl_model_v3464t_0829'` (新模型路径) / `b'MODELAI_MODEL'` / `b'OBS_DUMP'` 全 True 才算新 DLL
+- 部署三件套: AI/ModelAI.dll + 根目录 rl_model_v3464t_0829.onnx (CWD) + AI/onnxruntime.dll (1.19.2, 防 System32 老版抢加载)
+- BND 提醒: 1.7.5 的 settings.json ai 节点 5 字段缺一整节点被 schema 丢弃 → 回落 Nullkiller2 → 启动 Disaster (与 fork 同坑, #115)
+
+### A4 MOVE_TO (act24) 执行器
+- 语义对齐训练端: 方向 = reserved[0] (fill_next_dir BFS 首步), 目标 = target_list[0] (最近可采集); reserved[0]∉[0,7] 或空槽 → 返回 false 走 simpleAct fallback
+- moveHero 单步 convertFromVisitablePos (P30 坐标系), MODELAI_175 二参 / fork 四参 (EPathfindingLayer::AUTO) 双 #ifdef
+- fork + 1.7.5 双端编译部署; forktest68 0 Disaster 链路健康
+- 现状: RL 模型极少输出 act24 (训练数据零出现), 执行器先就位, 经济动作上线 (B2/D1) 后才有实战价值
+
+### B1-B4 方案要点 (全文见 docs/方案_B1-B4_20260829.md)
+- B1 解封: `--guard_grad_scale_by_map` 代码已存在 (0.5×max(1, w/20)); 方案 A = MAPS 渐进 2→3→4→6 张每步 100 局观察; 方案 B (vmap 移近) 备选
+- B2 经济: 代码 s2a-s2e 已备齐; 定值 economy_force=24 步轮换, T04 6 图先开 2, BATCH 2048/EPOCHS 6, explore 0.25; 次序 = 先晋级 T04 地图后开经济 (一次一轴)
+- B3 熵 bonus: ent_coef 前期×2 指数衰减 200 万步 (训练侧一行); 拒绝开局强制随机 (采样污染); 监控 3/7+10 占比 >85% 告警
+- B4 晋级判据: 双条件 = GUARD 首胜率≥30% 且 avg_r≥+15 连续 3 窗 (T03 阶段 GUARD 首胜作"胜" proxy); 5 指标 grep 规格定稿, 实装随 C1
