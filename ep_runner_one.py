@@ -133,6 +133,27 @@ def get_guards(mapname):
             _GUARD_CACHE[mapname] = []
     return _GUARD_CACHE[mapname]
 
+# 2026-08-28 Level 3: 资源点 (矿/资源堆) 缓存 — 经济闭环奖励检测：访问资源点→50步内招兵=+15
+# 从 vmap objects.json 读 mine_* (金矿等) 和 resource_* (木/矿堆)，记录 (x,y)
+_RESOURCE_CACHE = {}
+def get_resource_points(mapname):
+    if mapname not in _RESOURCE_CACHE:
+        try:
+            p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
+            with zipfile.ZipFile(p) as z:
+                objs = json.loads(z.read("objects.json"))
+            pts = []
+            for k, o in objs.items():
+                if k.startswith("mine_") or k.startswith("resource_"):
+                    try:
+                        pts.append((int(o["x"]), int(o["y"])))
+                    except:
+                        pass
+            _RESOURCE_CACHE[mapname] = pts
+        except Exception as e:
+            _RESOURCE_CACHE[mapname] = []
+    return _RESOURCE_CACHE[mapname]
+
 # Load red model if provided
 red_model = None
 if args.model and os.path.exists(args.model):
@@ -171,6 +192,7 @@ try:
     obs, _info = env.reset(); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
     endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步
+    zombie_streak = 0  # 2026-08-28: 全堵(英雄死亡)连续计数, >=2 确认死亡立即终局
     move_target = None  # MOVE_TO 粘滞目标 (tx,ty,tz) — 防目标漂移来回走
     move_guard_target = False  # 2026-08-25: 目标是否为守卫 (守卫格 passable=0, 跳过 passable 检查)
     move_stall = 0
@@ -178,11 +200,25 @@ try:
     prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
     guard_first_win = False  # 2026-08-26: 首胜 (守卫清除) 已发
     prev_guard_d = None  # 2026-08-27 方案A: 守卫接近梯度基线 (最近守卫曼哈顿距离)
+    # === 2026-08-28 Level 3: 经济成型奖励 4 条 跟踪变量 ===
+    # 优先级1: 首 RECRUIT (16,17,18) 每档 +5, 每档一局仅一次
+    econ_recruit_first = {16: False, 17: False, 18: False}
+    # 优先级2: 首 BUILD_2 (动作20=兵种建筑) +8, 一局一次
+    econ_build2_done = False
+    # 优先级3: 兵力总 power 差分 (招兵/战斗损耗) → 增量×0.001
+    #   heroes slot: 每英雄 26 字段, field 10-19 = 5 slots × (creature_id, count)
+    #   weight 近似 VCMI AI value: slot0 (1级兵)×10, slot1×40, slot2×120, slot3×350, slot4×900
+    econ_prev_army_power = None
+    # 优先级4: 闭环「访问资源点 (首次踩矿/资源堆格记步) → 50步内招兵」+15, 一局一次
+    econ_resource_step = None  # 最近访问资源点的步数 (None=没访问过)
+    econ_closure_done = False
+    # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     for _ in range(args.max_turns):
         cycle_penalty = 0.0
         force_dir = None
+        zombie = False  # 2026-08-28: 英雄死亡(全堵)检测 → 立即终局, 防僵尸段
         if red_model is not None:
             with torch.no_grad():
                 obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
@@ -202,9 +238,62 @@ try:
                         logits[8] = float('-inf')
                     # 2026-08-24: 屏蔽内政动作 (RECRUIT_1/2/3=16-18, BUILD_1/2/3=19-21, GARRISON=22, RECRUIT_HERO=23)
                     # 目标: 先学会地图探索, 内政关闭直到能把官方地图跑通
-                    logits[16:24] = float('-inf')
-                    # 11-23 引擎侧已实现 (AAI.cpp SPLIT/MERGE/RECRUIT/BUILD/GARRISON/RECRUIT_HERO), Level 3 (T04) 起启用
-                    # 注意: 模型从没见过这些码 (BC 无样本) → logits 极负, 需 --economy_force 采样强制引导
+                    # 2026-08-27: 屏蔽无操作动作 — 训练构建真源 (vcmi-native-build) only executes 0-7/24; 8/9/11-15 无执行分支 (纯浪费步)
+                    # ========== 永久屏蔽段 (Level 0-5 不变) ==========
+                    # 8=INTERACT / 9=NEXT_HERO / 11-15=SPLIT/MERGE: vcmi-native-build 真源无 switch 执行分支 → 纯NOOP刷步
+                    logits[8] = float('-inf')
+                    logits[9] = float('-inf')
+                    logits[11:16] = float('-inf')
+                    # ========== 内政动作 (16-23): Level 3 (T04) 起按需开启 ==========
+                    # 22=GARRISON (需双目标) / 23=RECRUIT_HERO (需多英雄槽): 永久关, Level 4 多英雄再评估
+                    logits[22:24] = float('-inf')
+                    if not args.mapname.startswith("T04"):
+                        # 非 T04 地图 (当前 Level 2 = T03×2): 16-21 全屏蔽, 行为 100% 等价旧代码
+                        logits[16:22] = float('-inf')
+                        # (模型从没见过这些码 (BC 无样本) → logits 极负, 需 --economy_force 采样强制引导)
+                    else:
+                        # === T04 (有城镇): 16-18 RECRUIT + 19-21 BUILD 开, 但需两道硬门槛 ===
+                        # 门槛1: 位域合法性 (VCMI 引擎直接暴露的解锁状态)
+                        #   recruit_mask 256 bits @ obs[640:672] (32 bytes): bit i = 兵种 i 可招募
+                        #   build_mask 256 bits @ obs[672:704] (32 bytes):   bit i = 建筑 i 可建造
+                        #   我们只关心各 3 档 tier: 0/1/2 对 RECRUIT act16/17/18, BUILD act19/20/21
+                        def _bit_set(obs_bytes, base, bit_idx):
+                            try:
+                                byte_idx = base + (bit_idx >> 3)
+                                return (int(obs_bytes[byte_idx]) >> (bit_idx & 7)) & 1 == 1
+                            except:
+                                return False  # OOB 保险: 视为非法不开放
+                        recruit_legal = {tier: _bit_set(obs, 640, tier) for tier in range(3)}
+                        build_legal   = {tier: _bit_set(obs, 672, tier) for tier in range(3)}
+                        # 门槛2: 玩家资源阈值 (obs[304:311] = [gold, wood, ore, gems, crystal, sulfur, mercury])
+                        #   Tier 对应成本: 1级兵≈50金1木; 2级兵≈150金5木; 3级兵≈300金10矿
+                        try:
+                            res_ok = {
+                                'gold_t0': int(obs[304]) >= 50,
+                                'gold_t1': int(obs[304]) >= 150,
+                                'gold_t2': int(obs[304]) >= 300,
+                                'wood_t0': int(obs[305]) >= 1,
+                                'wood_t1': int(obs[305]) >= 5,
+                                'ore_t2':  int(obs[306]) >= 10,
+                            }
+                        except:
+                            res_ok = {k: False for k in
+                                ['gold_t0','gold_t1','gold_t2','wood_t0','wood_t1','ore_t2']}
+                        # --- RECRUIT_1/2/3 = act16/17/18: 位域合法 + 对应 tier 资源够才开 ---
+                        for tier, act in enumerate([16, 17, 18]):
+                            tier_ok = (
+                                recruit_legal[tier]
+                                and res_ok[f'gold_t{tier}']
+                                and (res_ok[f'wood_t{tier}'] if tier <= 1 else res_ok['ore_t2'])
+                            )
+                            if not tier_ok:
+                                logits[act] = float('-inf')
+                        # --- BUILD_1/2/3 = act19/20/21: 位域合法才开 (资源消耗由引擎内部再校验, 此处按解锁位做前置粗筛) ---
+                        for tier, act in enumerate([19, 20, 21]):
+                            if not build_legal[tier]:
+                                logits[act] = float('-inf')
+                        # 注: 非法 16-21 置 -inf 后, 采样必不会命中 → s2a 的 [ECON] 奖励不会假阳性
+                        # 注: BC 无这些动作样本 → 即便合法, logits 也极负 → 需 --economy_force 前50步硬采样引导
                     # END_TURN 冷却: 连续 3 次 → 屏蔽 (防跳过游戏刷步, C8.5 老问题复发)
                     if endturn_streak >= 3:
                         logits[10] = float('-inf')
@@ -232,6 +321,7 @@ try:
                     else:
                         a = Categorical(logits=logits).sample().item()
                 else:
+                    zombie = True  # 2026-08-28: 8方向全堵 = 英雄已死(无活动英雄) → 僵尸段
                     a = 10  # 全堵→END_TURN
         else:
             a = int(env.action_space.sample())
@@ -359,6 +449,7 @@ try:
                     move_target = None
                     move_stall = 0
             else:
+                zombie = True
                 a = 10  # 无目标可采 → END_TURN
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
@@ -383,12 +474,54 @@ try:
             if _live:
                 _min_d = min(abs(hx2 - gx) + abs(hy2 - gy) for (gx, gy) in _live)
                 if prev_guard_d is not None:
-                    r += 0.3 * (prev_guard_d - _min_d)  # 接近正, 远离负
+                    r += 0.5 * (prev_guard_d - _min_d)  # 2026-08-27: 0.3→0.5 强化远守卫图引导 (接近正, 远离负)
                 prev_guard_d = _min_d
             else:
                 prev_guard_d = None  # 无活守卫 (全部清除)
         else:
             prev_guard_d = None
+        # === 2026-08-28 Level 3: 经济成型奖励 4 条 (非 T04 掩码屏蔽 16-21, 本段自动零触发) ===
+        # 动作合法性由掩码保证 — 非法 16-21 不会被采样, 因此"动作被选" ≈ "动作合法可执行" ≈ 给奖励安全
+        ah_e = int(nobs[3203]) if nobs[3203] >= 0 else 0
+        b_e = 128 + ah_e * 26
+        hx_e, hy_e = int(nobs[b_e+2]), int(nobs[b_e+3])
+        # --- 优先级3 (每步必算): 兵力power增量 × 0.001 (招兵→正; 战斗损耗→负不惩罚) ---
+        # 5 army slots: field 10/12/14/16/18 = creature_id; 11/13/15/17/19 = count
+        _slot_weights = [10, 40, 120, 350, 900]
+        _army_now = 0.0
+        for _si in range(5):
+            try:
+                _cnt = int(nobs[b_e + 11 + 2*_si])
+                if _cnt > 0:
+                    _army_now += _cnt * _slot_weights[_si]
+            except:
+                pass
+        if econ_prev_army_power is not None:
+            _dp = _army_now - econ_prev_army_power
+            if _dp > 0:
+                r += 0.001 * _dp
+        econ_prev_army_power = _army_now
+        # --- 优先级4 (前半): 首次踩资源点格 → 记步 ---
+        _rpts = get_resource_points(args.mapname)
+        if _rpts and econ_resource_step is None:
+            if any(hx_e == _rx and hy_e == _ry for (_rx, _ry) in _rpts):
+                econ_resource_step = traj["steps"]
+        # --- 优先级1: 首 RECRUIT (16/17/18) 每档 +5 / 局 ---
+        if a in (16, 17, 18) and not econ_recruit_first[a]:
+            r += 5.0
+            econ_recruit_first[a] = True
+            print(f"[ECON] first RECRUIT tier={a-15} (act{a}) step {traj['steps']} +5", flush=True)
+            # --- 优先级4 (后半): 资源→招兵 50步闭环 +15 / 局 ---
+            if (not econ_closure_done) and econ_resource_step is not None:
+                if (traj["steps"] - econ_resource_step) <= 50:
+                    r += 15.0
+                    econ_closure_done = True
+                    print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
+        # --- 优先级2: 首 BUILD_2 (兵种建筑, 动作20) +8 / 局 ---
+        if a == 20 and not econ_build2_done:
+            r += 8.0
+            econ_build2_done = True
+            print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +8", flush=True)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
@@ -460,6 +593,22 @@ try:
             json.dump(traj, f); f.flush(); os.fsync(f.fileno())
         obs = nobs
         if done or trunc: break
+        # 2026-08-28: 僵尸段终局 — 全堵(英雄死亡)连续 2 步 → 标记 done 并退出。
+        # 背景: 英雄死后 8 方向 passable 全 0, 走 a=10 旁路 (绕过 END_TURN 冷却 mask)
+        # 无限刷到 200 步上限。危害: ①白跑 60-140 僵尸步 ②done=False 进 buffer,
+        # GAE 穿过死亡点 bootstrap, -700 冲击污染整条轨迹价值学习 (vloss 不降主因之一)
+        zombie_streak = zombie_streak + 1 if zombie else 0
+        if zombie_streak >= 2:
+            traj["done"][-1] = True
+            print(f"[ZOMBIE] hero dead (all-blocked x{zombie_streak}), end ep at step {traj['steps']}", flush=True)
+            break
+        # 2026-08-28 BND-20260828-02: END_TURN 连喷 ≥30 独立兜底 (zombie 双保险)。
+        # endturn_streak L425 对旁路直接赋值的 a=10 也会计数, 但 L215 的 logits mask 用不到
+        # (旁路不走 logits), 所以单独用它做 30 次熔断, 防未来新旁路又忘了标 zombie=True。
+        if endturn_streak >= 30:
+            traj["done"][-1] = True
+            print(f"[ENDTURN_FUSE] act10 x{endturn_streak} fuse-break, end ep at step {traj['steps']}", flush=True)
+            break
         if args.model and traj["steps"] >= args.max_turns:
             break
 except Exception as e:

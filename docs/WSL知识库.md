@@ -1,4 +1,4 @@
-﻿# 知识库 — HoMM3 全盘操盘 AI
+# 知识库 — HoMM3 全盘操盘 AI
 
 > 单文件知识总汇：项目概述、架构决策、踩坑记录、环境搭建、参数索引
 > 最后更新：2026-07-27
@@ -1148,3 +1148,27 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - garrison dialog: 战斗后守卫残余 (autofight 未全灭) → 英雄访问 → dialog → AI 应答后查询栈卡; 治本 = CGameHandler::showGarrisonDialog AI vs AI 自动合并残余 + 移除对象, 不建 dialog
 - data 符号链接: make POST_BUILD 每次生成坏链接 (rel/bin/data → ../data 错误) → EEXIST; 每次 make 后 ln -s 绝对路径重修
 - 详见 vcmi-gym refs/guard-battle-autofight-20260827.md
+
+## v5 训练运维 + Phase II 经济前置准备 (2026-08-28/29)
+
+### v5 复活 (WSL2 idle shutdown 根治, 2026-08-28)
+- v4 死因: Windows 侧会话全关 → WSL2 VM auto-shutdown → SIGTERM 杀训练 (setsid/nohup 挡不住 VM 级死亡)
+- v5 启动: `systemd-run --user --collect --unit=homm3-train-v5 --working-directory=/mnt/d/Bigdata/hero3_fresh /bin/bash -c 'exec venv/bin/python train_wsl2_ppo_v2.py >> train_loop.log 2>&1'` + Windows keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'`
+- 停止: `systemctl --user stop homm3-train-v5` (优雅保存); 续训验证: 日志 "Loaded train state (step=...)"
+- zombie 修复 2a 生效后: ep1-71 首胜率 7.0% (v4 段 ~2%), 正 r 峰值 85-101
+
+### 首胜-战死关联分析 (2026-08-29)
+- 全部 7 场首胜 (v4×2, v5×5) 100% 以英雄战死收尾: 模型最后一击 → 守卫清除 (+100) + 英雄同战死 → 引擎封锁动作 → 强制 [10,10] ZOMBIE 2 步确认 → done
+- 死亡不扣 +100 (无英雄存活项), 当前奖励结构下属理性行为; zombie 熔断把僵尸段从 121 步压到 ≤2 步, 无害化
+- T04 阶段 (有城镇复活/征兵) 再评估是否加存活塑形
+
+### Phase II 阶段② 经济前置准备落地 (2026-08-29, 零干扰设计)
+- 原则: 条件开关 `mapname.startswith("T04")` + 注释块 — 当前 Level 2 (T03×2) 行为 100% 不变
+- ep_runner_one.py:
+  - get_resource_points() 解析 vmap 资源点 (L136-155), 供经济闭环奖励
+  - 经济跟踪变量一局生命周期 (L203-215): econ_recruit_first 等 5 变量
+  - 经济成型奖励段 (L434-475): 兵力增量差分 / 资源点访问 / 首 RECRUIT+BUILD_2 / 资源-招兵闭环
+  - 动作掩码 (L242-296): 非 T04 → logits[16:24]=-inf (等价旧行为); T04 → 位域解码 (recruit_mask@640, build_mask) + 资源阈值 (gold/wood/ore) 逐动作置 -inf
+- train_wsl2_ppo_v2.py: Level 3 超参注释包 (BATCH=2048 / EPOCHS=6 / EXTREME_ADV_CLIP=6.0), T04 地图池注释块 (6 张), run_episode 内 explore/nk2_scale/economy_force 切换点注释 (economy_force 前 N 步强制采样 16-21 轮换, 解经济冷启动)
+- py_compile 双文件通过 (WSL venv)
+- 晋级决策 (2026-08-29): 现在不晋 Level 3 — ① Level 2 未打穿 (真赢 1~2%) ② 学习爬坡无平台 ③ 守卫修复+首胜+100 上线才 1 天样本不足; 晋级线 = 最近 100 局胜率 ≥30~50% 或 avg_r 持续为正; 晋级后先只切 T04 地图不开经济, 稳定后一次一轴开经济 (奖励塑形先行 + 掩码源头做 + NK2/explore 临时上调 + BATCH 加大)

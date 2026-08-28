@@ -1335,3 +1335,10 @@ ML 强定义优先, 客户端默认空走 settings。
 - 根因: POST_BUILD ln -sf 生成 rel/bin/data → vcmi-native-build/../data (错误路径, 不存在)
 - 处理: rm -f rel/bin/data && ln -s /home/administrator/vcmi-native-build/data rel/bin/data (绝对路径)
 - 教训: 每次 make mlclient 后必须重修 data 链接; 用绝对路径 (相对路径解析错)
+
+### 114. WSL2 idle shutdown 杀训练进程 (2026-08-28, v4 段 12:17 停转)
+- 现象: train_loop.log 8.5h 无新增, WSL 侧训练进程消失, 无优雅退出打印/无异常日志 (v4 死于 08-28 12:17, hermes-agent 会话切换关闭了最后一个 Windows 客户端会话)
+- 根因: 所有 Windows 侧 WSL 客户端会话全关 → WSL2 VM 自动 shutdown → 广播 SIGTERM; setsid/nohup 只脱离终端, 挡不住 VM 级 shutdown
+- 处理: ① `systemd-run --user --collect --unit=homm3-train-v5 --working-directory=/mnt/d/Bigdata/hero3_fresh /bin/bash -c 'exec venv/bin/python train_wsl2_ppo_v2.py >> train_loop.log 2>&1'` 托管训练; ② Windows 侧 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'` 防 VM idle shutdown; ③ 停止用 `systemctl --user stop homm3-train-v5` (优雅保存 state)
+- 验证: 重启后日志出现 "Loaded train state (step=...)" 即断点续训成功
+- 教训: 长期训练必须 systemd-run 托管 + Windows keepalive 双保险; WSL 会话全关 = VM 死刑, nohup 救不了
