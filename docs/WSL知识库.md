@@ -1226,3 +1226,27 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - B2 经济: 代码 s2a-s2e 已备齐; 定值 economy_force=24 步轮换, T04 6 图先开 2, BATCH 2048/EPOCHS 6, explore 0.25; 次序 = 先晋级 T04 地图后开经济 (一次一轴)
 - B3 熵 bonus: ent_coef 前期×2 指数衰减 200 万步 (训练侧一行); 拒绝开局强制随机 (采样污染); 监控 3/7+10 占比 >85% 告警
 - B4 晋级判据: 双条件 = GUARD 首胜率≥30% 且 avg_r≥+15 连续 3 窗 (T03 阶段 GUARD 首胜作"胜" proxy); 5 指标 grep 规格定稿, 实装随 C1
+
+## 上游差异报告落地 (2026-08-29 晚, 报告=docs/upstream_diff_report_20260829.md)
+
+### 差异全景
+- 本地 vcmi submodule (5b83ace6f, fix_action_mapping) vs upstream/develop 8229b274 (08-28): 落后 662 提交 / 本地领先 59
+- 变更量: server 38 文件 / AI 84 (NK2 寻路为主) / lib 706 (MetaString 翻译重构为主)
+- **真实冲突面 = 71 文件** (本地 59 提交的 328 文件与上游 1809 文件的交集), 之前整包合并的 22 冲突全落在这
+- 冲突分两类: ①机械漂移 (命名空间宏删除 662c819065 波及 1004 文件, 解法=删两行宏, 零风险) ②真实语义分歧 (moveHero passableFor ← seer_rework, 需整包评估)
+
+### 摘取清单 (已 merge-tree 真实预演验证, 按执行序)
+| 序 | 目标 | 预演 | 备注 |
+|---|---|---|---|
+| 1 | PR #7744 地图加载加速 (8 提交) | 7 CLEAN / 1 冲突=测试文件丢弃 | **训练吞吐最直接** (ep_runner 逐局加载), 优先落地 |
+| 2 | PR #7632 NK2 寻路性能 (11 提交) | 9 CLEAN / 2 冲突=单头文件命名空间宏 | 两冲突文件本地从未改过 (已核实), 解冲突=删宏 |
+| 3 | f4c622c842 神器即胜 / 0981f48837 移动层传播 / 15034e38c9 下船落水 | 全 CLEAN | 直接摘 |
+| 缓 | TurnOrderProcessor AI/人类分流 | 需评估本地是否复刻人类分支修正 | 第四步 |
+| 拒 | seer_rework (PR #7535) 整包 | 依赖大重构 | 边境守卫 c9023e74c1 依赖它, 放弃或整包 |
+| 拒 | MetaString/翻译重构 ×5 | 纯重构噪音, MMAI 零收益 | 跳过 |
+
+### 执行约束 (C4 档)
+- 摘取编译产物进 **libvcmi.so** (训练端在用) — 训练期禁止, 必须停训窗口
+- 前置: Windows submodule ML/ 三文件未提交改动先清; vcmi-native 侧同步核对
+- 摘后必须: 重编 libvcmi + 重链 libmlclient + 冒烟 + 重启训练 — 本身就是一次停训窗口动作
+- 复核方法 (报告§9): `git merge-tree --write-tree --merge-base=<c>^ <tree> <c>` 返回 0 无 CONFLICT = CLEAN; 链式预演每次取输出首行作下次输入
