@@ -102,9 +102,9 @@ def run_episode(mapname, blue_model=None):
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # C8.5: 探索奖励 (新格子 +1)
-    # ===== Level 3 开经济时切换：注释下一行，启用下下行 0.3 =====
-    cmd.extend(["--reward_explore", "0.2"])  # 降探索奖励，减少信号冲突
-    # cmd.extend(["--reward_explore", "0.3"])  # Level 3: 经济动作初期需更多探索，避免 entrophy 塌
+    # ===== Level 3 II.3 开经济 (2026-08-29): explore 0.3 / economy_force 50 / nk2 0.45 三件套 =====
+    # cmd.extend(["--reward_explore", "0.2"])  # 降探索奖励，减少信号冲突
+    cmd.extend(["--reward_explore", "0.3"])  # Level 3 II.3: 经济动作初期需更多探索，避免 entropy 塌
     # MOVE_TO 引导 (2026-08-19 第5轮): bias 2.0 + 每局前 30 步强制 24, 前 200 ep 线性衰减
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.5, 1.0 - ep_count / 200)  # 2026-08-25: 下限 0.5 常驻 (原衰减到 0 → 模型失去目标驱动 → 乱逛/横跳/零战斗)
@@ -114,8 +114,8 @@ def run_episode(mapname, blue_model=None):
         cmd.extend(["--move_to_force", "60"])
     else:
         cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
-    # ===== Level 3 (T04 稳定后) 开经济动作时启用：取消下方 1 行注释 =====
-    # cmd.extend(["--economy_force", "50"])  # 前50步 16-21 轮换硬采样 (BC 无样本→logits极负→必须采样强制)
+    # ===== Level 3 II.3 开经济 (2026-08-29): 启用 =====
+    cmd.extend(["--economy_force", "50"])  # 前50步 16-21 轮换硬采样 (BC 无样本→logits极负→必须采样强制)
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
     cmd.extend(["--cycle_detect", "5"])
     # 第7轮: 动作级循环惩罚 — 连续 4 步重复 / 8 步两两交替 → -3 (治 [3,7,3,7]/[2,2,2,2] 死循环,
@@ -130,9 +130,9 @@ def run_episode(mapname, blue_model=None):
     # 回退 = 注释本行 (runner 默认 0=关闭)
     cmd.extend(["--objective_reward", "30"])
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
-    # ===== Level 3 开经济时切换：注释下一行，启用下下行 0.45 =====
-    cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.3"])  # 恢复NK2，scale=0.3 防critic爆炸
-    # cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.45"])  # Level 3: 经济长程行为需更强势函数引导
+    # ===== Level 3 II.3 开经济 (2026-08-29): scale 0.3→0.45 =====
+    # cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.3"])  # 恢复NK2，scale=0.3 防critic爆炸
+    cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.45"])  # Level 3: 经济长程行为需更强势函数引导
     # 随机军队 2026-08-26: 3000-5000 关闭 — 英雄太强 → 守卫 takenAction 评估 JOIN/FLEE (消失无战斗)
     # NK2 采集 (无 random_armies, swordsman 8) 守卫评估 FIGHT 战斗正常; 若英雄打不赢再另行加强守卫设计
     # cmd.extend(["--random_armies", "--random_army_min", "3000", "--random_army_max", "5000"])

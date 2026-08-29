@@ -1302,3 +1302,39 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - [MINE] 触发频率 (占矿率): 模型学会奔矿的标志; [TOWN_BLOCKED] 频率 (城镇贪心卡死率)
 - ±200 胜负局是否出现 (clip 修复后应可见); T04 分层: `py/analyze_ab.py`
 
+## 二十五、训练日志数据管道 (2026-08-29, P4 死锁聚合产出)
+
+> 三层日志的分工、生命周期与已知陷阱。分析工具: analyze_deadlock.py (纪元聚合) / analyze_ab.py (A/B+晋级)。
+
+### 1. 三层日志分工与生命周期
+
+| 层 | 文件 | 生命周期 | 内容 |
+|----|------|----------|------|
+| 主日志 | `train_loop.log` | 追加, 永久 | ep 汇总行 (ep_steps/r/act/obs_nz/map=) + PPO 点 (avg_r/vloss/kl/klc) + 事件转储 |
+| 明细日志 | `/tmp/hermes_ep_<pid>.log` | **逐局覆盖** (同 PID 一个文件) + **/tmp 重启即清** | ep_runner 子进程 stdout 全量 ([ZOMBIE]/[GUARD]/[ERROR]/断言栈) |
+| 轨迹 | `/tmp/traj_ep.json` | 逐局覆盖 | obs/act/rew/done 数组 (训练进程消费) |
+
+⚠ **历史明细不存在**: 明细日志只反映"当前局"。历史统计一律以主日志为准 — 主日志的事件行靠转储机制留存, 词表外的行永久丢失。
+
+### 2. 主日志转储词表 (train_wsl2_ppo_v2.py)
+
+- 机制: 局末训练进程按词表过滤子进程输出, 命中行转储主日志
+- 词表 (08-29 增补后): `[ZOMBIE]` / `[ENDTURN_FUSE]` / `[ERROR]` / **`[GUARD]`** (守卫首胜, 此前从不进主日志) / **`Assertion`** (引擎断言崩溃行不带 [ERROR] 方括号, 此前漏网) / `end ep at step` / `fuse-break` / `cycle_detect triggered` / `penalty END_TURN`
+- 生效方式: train_wsl2_ppo_v2.py 进程启动时加载 → 改词表需重启才生效 (ep_runner_one 是逐局重载, 改它即时生效)
+
+### 3. 空转局污染与过滤口径
+
+- 空转局特征: `steps==1 且 r≈1.7` (引擎断言雷段产物, 坑 #115)
+- 危害实例: analyze_ab 晋级窗口曾虚报 87/100 (含 60 空转局), 过滤后真值 26/100; A/B 正局率 97.3%→90.9%
+- 过滤规则 (analyze_ab.py 两处解析均已加): `steps==1 且 r<5 → 剔除`; analyze_deadlock.py 的"空转"列即此口径
+
+### 4. analyze_deadlock.py 纪元切分法
+
+- 以 `Loaded train state (model+optimizer, step=N)` 横幅为纪元边界 (每次重启一段), 按段统计局数/首胜/空转/ZOMBIE/熔断/大负/avg_r + ZOMBIE 步位分布 + 最后纪元分图统计
+- 口径: 首胜 = r≥80 且 steps<60; 大负 = r<-100 (clip±300 修复后 T04 需重审此阈值, -100 不再是大负天花板)
+
+### 5. 短窗口抽样错觉 (map= 字段)
+
+- MAPS 轮换 = `random.choice(MAPS)` 均匀抽样, 3 图连续 7 局同图概率 (2/3)⁷≈5.9% — tail 看不到某图≠池里没有
+- 验证进程真实配置: `ls -l /proc/<train_pid>/cwd` + grep 该目录下的 train_wsl2_ppo_v2.py (systemd ExecStart 用相对路径, cwd 才是真相); 全程分布核对用 `grep "map=" train_loop.log | grep -o "map=\S*" | sort | uniq -c`
+
