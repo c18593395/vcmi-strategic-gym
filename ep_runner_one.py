@@ -110,12 +110,18 @@ parser.add_argument("--use_nk2_shaping", action="store_true",
                     help="Phase I.1: 用 NK2 势函数差分替代事件奖励")
 parser.add_argument("--nk2_shaping_scale", type=float, default=1.0,
                     help="NK2 势函数差分缩放")
+parser.add_argument("--guard_grad_scale_by_map", action="store_true",
+                    help="P3 (BND-20260828-01 解封): 守卫接近梯度按图幅缩放 — rate=0.5*(宽/20), 30x30→0.75, 36x36→0.9; 默认关 (20x20 行为不变, 不污染在跑 A/B)")
 parser.add_argument("--random_armies", action="store_true",
                     help="随机军队 (用randomArmyValue范围)")
 parser.add_argument("--random_army_min", type=int, default=500,
                     help="随机军队最低价值 (默认500)")
 parser.add_argument("--random_army_max", type=int, default=1000,
                     help="随机军队最高价值 (默认1000)")
+parser.add_argument("--guard_done_steps", type=int, default=0,
+                    help="守卫击杀自动终局 (2026-08-29): +100 守卫胜利后 N 步内未获取新目标 → 提前结束 episode (0=关闭)。治杀守卫后英雄存活长期振荡烧分, final r 跌破 80 晋级线")
+parser.add_argument("--objective_reward", type=float, default=0.0,
+                    help="T04 目标引导 (2026-08-29): 首占矿/首进城镇各 +N 一次性事件奖励 (0=关闭)。T04 无守卫缺目标驱动源, 复用守卫 +100 同款模式")
 args = parser.parse_args()
 
 # 2026-08-25: 守卫目标 — C++ target_list 无守卫 (重编环境崩无法部署), Python 从 vmap 读守卫位置补进 MOVE_TO 目标池
@@ -132,6 +138,38 @@ def get_guards(mapname):
         except Exception as e:
             _GUARD_CACHE[mapname] = []
     return _GUARD_CACHE[mapname]
+
+_MAP_SIZE_CACHE = {}
+_OBJ_CACHE = {}
+def get_objectives(mapname):
+    """T04 目标点 (2026-08-29 引导奖励用): 返回 (mines, towns) 坐标列表, 从 vmap objects.json 读取"""
+    if mapname not in _OBJ_CACHE:
+        try:
+            p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
+            with zipfile.ZipFile(p) as z:
+                objs = json.loads(z.read("objects.json"))
+            mines = [(int(o["x"]), int(o["y"])) for k, o in objs.items() if k.startswith("mine_")]
+            towns = [(int(o["x"]), int(o["y"])) for k, o in objs.items() if k.startswith("town_")]
+            _OBJ_CACHE[mapname] = (mines, towns)
+        except Exception:
+            _OBJ_CACHE[mapname] = ([], [])
+    return _OBJ_CACHE[mapname]
+
+def get_map_width(mapname):
+    """P3: 从 vmap header.json 读地图宽度 (mapLevels.surface.width); 失败回退文件名 XnXm 解析, 再失败 0"""
+    if mapname not in _MAP_SIZE_CACHE:
+        w = 0
+        try:
+            p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
+            with zipfile.ZipFile(p) as z:
+                h = json.loads(z.read("header.json"))
+            w = int(h["mapLevels"]["surface"]["width"])
+        except Exception:
+            import re as _re
+            m = _re.search(r"(\d+)[Xx](\d+)", mapname)
+            if m: w = int(m.group(1))
+        _MAP_SIZE_CACHE[mapname] = w
+    return _MAP_SIZE_CACHE[mapname]
 
 # 2026-08-28 Level 3: 资源点 (矿/资源堆) 缓存 — 经济闭环奖励检测：访问资源点→50步内招兵=+15
 # 从 vmap objects.json 读 mine_* (金矿等) 和 resource_* (木/矿堆)，记录 (x,y)
@@ -199,7 +237,13 @@ try:
     move_stall_prev = 10**9
     prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
     guard_first_win = False  # 2026-08-26: 首胜 (守卫清除) 已发
+    guard_done_countdown = None  # 2026-08-29: 守卫胜利后自动终局倒计时 (None=未触发/关闭; 新目标重置)
     prev_guard_d = None  # 2026-08-27 方案A: 守卫接近梯度基线 (最近守卫曼哈顿距离)
+    # P3 (BND-20260828-01 解封): 接近梯度 rate, 默认 0.5; --guard_grad_scale_by_map 时按图幅放大
+    guard_grad_scale = 0.5
+    if args.guard_grad_scale_by_map:
+        _w = get_map_width(args.mapname)
+        if _w: guard_grad_scale = 0.5 * max(1.0, _w / 20.0)  # 20x20→0.5, 30x30→0.75, 36x36→0.9
     # === 2026-08-28 Level 3: 经济成型奖励 4 条 跟踪变量 ===
     # 优先级1: 首 RECRUIT (16,17,18) 每档 +5, 每档一局仅一次
     econ_recruit_first = {16: False, 17: False, 18: False}
@@ -212,6 +256,11 @@ try:
     # 优先级4: 闭环「访问资源点 (首次踩矿/资源堆格记步) → 50步内招兵」+15, 一局一次
     econ_resource_step = None  # 最近访问资源点的步数 (None=没访问过)
     econ_closure_done = False
+    # T04 目标引导 (2026-08-29): 首占矿/首进城镇 各 +N 一局一次
+    mine_taken = False
+    town_visited = False
+    town_blocked = False     # 城镇贪心卡死 → 本局禁用城优先
+    move_town_target = False # 当前粘滞目标是否为城镇 (卡死判定用)
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
@@ -343,9 +392,11 @@ try:
             next_dir_idx = -1  # I.2: 默认无 next_dir
             if move_target is not None:
                 tx, ty, tz = move_target
-                if abs(tx - hx) + abs(ty - hy) == 0:
-                    move_target = None  # 已到达
-                    move_guard_target = False
+                if tx is None or (abs(tx - hx) + abs(ty - hy) == 0):
+                    if tx is not None:
+                        move_target = None  # 已到达
+                        move_guard_target = False
+                        move_town_target = False
                 else:
                     # 粘滞: 查找 target_list 匹配索引获取 next_dir
                     tl_tmp = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
@@ -355,6 +406,9 @@ try:
                             break
                     # 守卫目标不在 target_list (C++ 未填), 恢复守卫标记
                     move_guard_target = any((tx == g[0] and ty == g[1]) for g in get_guards(args.mapname))
+                    # 城镇目标 (Python 注入, C++ 不填) — 恢复标记 (卡死禁用判定用)
+                    move_town_target = any((tx == _tw[0] and ty == _tw[1])
+                                           for _tw in get_objectives(args.mapname)[1])
             if tx is None:
                 tl = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
                 best = None
@@ -377,20 +431,55 @@ try:
                         (adj == guard_best[3] and gd < guard_best[0])
                     ):
                         guard_best = (gd, gx, gy, adj)
+                # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) / 城镇 (Python 注入)
+                # 占领后 (mine_taken/town_visited) 排除对应目标防粘死; 城镇被卡死禁用 (town_blocked)
+                obj_best = None
+                if args.objective_reward > 0:
+                    if not mine_taken:
+                        for i, tt in enumerate(tl):
+                            if int(tt[0]) == 1 and int(tt[5]) > 0 and (
+                                obj_best is None or int(tt[5]) < obj_best[0]
+                            ):
+                                obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
+                    if not town_visited and not town_blocked:
+                        _mines, _towns = get_objectives(args.mapname)
+                        for (_twx, _twy) in _towns:
+                            _twd = abs(_twx - hx) + abs(_twy - hy)
+                            if _twd > 0 and (obj_best is None or _twd < obj_best[0]):
+                                obj_best = (_twd, _twx, _twy, hz, -1)
                 if guard_best is not None:
                     tx, ty, tz = guard_best[1], guard_best[2], hz
                     next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
                     move_target = (tx, ty, tz)
                     move_stall = 0
                     move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
+                    move_town_target = False
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps  # 新目标 (余守卫) → 重置倒计时
+                elif obj_best is not None:
+                    # 2026-08-29 T04 目标优先: 矿/城镇恒优先于最近资源堆 —
+                    # 资源堆 dist 近恒压过矿 → 模型被资源堆吸住, 远矿/城永远轮不到 (r=-80~-110 根因)。
+                    # 矿有 C++ next_dir 支撑远距可达; 城镇贪心卡死由 move_stall 放弃处 town_blocked 兜底
+                    tx, ty, tz = obj_best[1], obj_best[2], obj_best[3]
+                    next_dir_idx = obj_best[4]  # 矿= target_list slot (C++ next_dir); 城镇= -1 (Python BFS/贪心)
+                    move_target = (tx, ty, tz)
+                    move_stall = 0
+                    move_guard_target = False
+                    move_town_target = (next_dir_idx == -1)
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps
                 elif best is not None:
                     tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
                     move_target = (tx, ty, tz)
                     move_stall = 0
                     move_guard_target = False
+                    move_town_target = False
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps  # 新目标 (矿/资源) → 重置倒计时
                 else:
                     move_target = None
                     move_guard_target = False
+                    move_town_target = False
             if tx is not None:
                 # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
                 nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1
@@ -446,6 +535,9 @@ try:
                     move_stall = 0
                 move_stall_prev = cur_dist
                 if move_stall >= 6:
+                    if move_town_target and args.objective_reward > 0 and not town_blocked:
+                        town_blocked = True  # 城镇贪心卡死 → 本局禁用城优先, 防无限卡城循环
+                        print(f"[TOWN_BLOCKED] town unreachable via greedy, disable town priority at step {traj['steps']}", flush=True)
                     move_target = None
                     move_stall = 0
             else:
@@ -464,6 +556,8 @@ try:
                 if hx2 == gx and hy2 == gy:
                     r += 100.0  # 守卫战斗胜利 (首胜)
                     guard_first_win = True
+                    if args.guard_done_steps > 0:
+                        guard_done_countdown = args.guard_done_steps  # 启动终局倒计时 (新目标会重置)
                     print(f"[GUARD] guard ({gx},{gy}) fought & won at step {traj['steps']} +100", flush=True)
                     break
         # 2026-08-27 方案A: 守卫接近梯度 — 每接近守卫 1 格 +0.3 (净正, 压过 -0.1 步罚, 引导走向守卫)
@@ -474,7 +568,7 @@ try:
             if _live:
                 _min_d = min(abs(hx2 - gx) + abs(hy2 - gy) for (gx, gy) in _live)
                 if prev_guard_d is not None:
-                    r += 0.5 * (prev_guard_d - _min_d)  # 2026-08-27: 0.3→0.5 强化远守卫图引导 (接近正, 远离负)
+                    r += guard_grad_scale * (prev_guard_d - _min_d)  # P3: rate 可按图幅缩放 (默认 0.5 不变)
                 prev_guard_d = _min_d
             else:
                 prev_guard_d = None  # 无活守卫 (全部清除)
@@ -485,6 +579,18 @@ try:
         ah_e = int(nobs[3203]) if nobs[3203] >= 0 else 0
         b_e = 128 + ah_e * 26
         hx_e, hy_e = int(nobs[b_e+2]), int(nobs[b_e+3])
+        # === 2026-08-29 T04 引导奖励: 首占矿 +N / 首进城镇 +N (复用守卫 +100 一次性事件模式) ===
+        # T04 无守卫, 目标驱动源缺失 → 矿/城镇首访事件提供显式大额信号 (与守卫检测同款位置重合法)
+        if args.objective_reward > 0:
+            _mines, _towns = get_objectives(args.mapname)
+            if not mine_taken and any(hx_e == _mx and hy_e == _my for (_mx, _my) in _mines):
+                mine_taken = True
+                r += args.objective_reward
+                print(f"[MINE] mine captured at step {traj['steps']} +{args.objective_reward}", flush=True)
+            if not town_visited and any(hx_e == _tx and hy_e == _ty for (_tx, _ty) in _towns):
+                town_visited = True
+                r += args.objective_reward
+                print(f"[TOWN] town visited at step {traj['steps']} +{args.objective_reward}", flush=True)
         # --- 优先级3 (每步必算): 兵力power增量 × 0.001 (招兵→正; 战斗损耗→负不惩罚) ---
         # 5 army slots: field 10/12/14/16/18 = creature_id; 11/13/15/17/19 = count
         _slot_weights = [10, 40, 120, 350, 900]
@@ -609,6 +715,15 @@ try:
             traj["done"][-1] = True
             print(f"[ENDTURN_FUSE] act10 x{endturn_streak} fuse-break, end ep at step {traj['steps']}", flush=True)
             break
+        # 2026-08-29: 守卫击杀自动终局 — +100 后 N 步内无新目标 → 提前结束。
+        # 背景: 杀守卫后英雄存活无终局信号 → 长期振荡 (每步 -0.1 + 循环惩罚) 烧穿 +100,
+        # final r 跌破 80 晋级线 → 20X20_01 全 0 胜。获取新目标 (守卫/矿/资源) 时倒计时重置。
+        if guard_done_countdown is not None:
+            guard_done_countdown -= 1
+            if guard_done_countdown <= 0:
+                traj["done"][-1] = True
+                print(f"[GUARD_DONE] no new objective in {args.guard_done_steps} steps after guard win, end ep at step {traj['steps']}", flush=True)
+                break
         if args.model and traj["steps"] >= args.max_turns:
             break
 except Exception as e:

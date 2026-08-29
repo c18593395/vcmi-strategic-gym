@@ -1250,3 +1250,55 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - 前置: Windows submodule ML/ 三文件未提交改动先清; vcmi-native 侧同步核对
 - 摘后必须: 重编 libvcmi + 重链 libmlclient + 冒烟 + 重启训练 — 本身就是一次停训窗口动作
 - 复核方法 (报告§9): `git merge-tree --write-tree --merge-base=<c>^ <tree> <c>` 返回 0 无 CONFLICT = CLEAN; 链式预演每次取输出首行作下次输入
+
+## 二十四、T04 课程引导体系 (2026-08-29 晋级后落地)
+
+> 背景: Level 3 晋级 (T03 毕业 → T04 六图) 后模型乱逛 r=-80~-110。三层诊断锁定根因 → 目标优先层 + 事件奖励 + 强制期延长三件套修复。
+
+### 1. T04 地图与引擎胜利条件
+
+- T04 六图由 `maps/training/gen_curriculum_all.py` 生成, **cfg 无 monsters 键 = 显式 0 守卫** (课程重心从战斗转向城镇/经济)
+- owner 分配: hero_0/town_0 = red (我方), hero_1/town_1 = blue (对手), 各 1 英雄 1 城 1 矿 3~5 资源堆
+- victoryConditions = `standardDefeat` = 消灭对方全部英雄+城镇。red 赢 = 杀 blue 英雄 (iona) + 占 blue 城 (对角)
+- game_over 信号链 (P9 已核): strategic_state.cpp 轮询 `players[p].alive (status==INGAME)` → `game_over=last_alive+1` → env reward ±200 (reward_win) + NK2 势函数 ±50 → `_check_done` terminated
+
+### 2. 三种"视野/目标"语义辨析 (易混, 坑 #118)
+
+| 尺寸 | 通道 | 内容 | 用途 |
+|------|------|------|------|
+| 15×15 | obs[480:705] local_tiles | 通行性 (0未知/1可走/2障碍), hero 恒 (7,7) | Python BFS 寻路 (±7 格有效) |
+| 21×21 | terrain_grid.bin CNN 分支 | 纯地形 4 通道, **无对象位置** | 网络地貌感知 |
+| 8×8 | obs[3251:3315] target_list | C++ 填的目标表 [type,idx,x,y,z,dist,power,flags] | MOVE_TO 目标源 |
+
+### 3. target_list 实测 (check_target_list.py, T04_30X30_01)
+
+- **矿在**: type=1 (mine_0); **资源堆在**: type=2 ×5; **城镇不在** (C++ 白名单不填 town)
+- C++ next_dir (obs[3330:3338]) 全图 BFS 对**任意距离**目标有效 (dist=41 远矿也给方向, check_next_dir.py 验证 33/33 步有效)
+- 引擎实际加载地图路径 = 进程 cwd 相对 `data/Maps` = `vcmi-native/rel/bin/data/Maps` (部署副本, 改图后须同步, 与项目 maps/training 已核对一致)
+
+### 4. 乱逛根因 (r=-80~-110, 19 局 0 胜负局)
+
+1. **近目标吸住**: runner 24 展开 = 选 dist 最小 target → 资源堆 dist 5~21 恒压过矿 dist 41 → 200 步在资源堆间游走, 矿永不可达
+2. **强制期覆盖不了闭环**: move_to_force≈28 步, T03 守卫 d≤6 强制期内完成"走到→+100"闭环; T04 dist 41 → 强化信号断在半路
+3. **失败信号被剪**: strategic_env `np.clip(reward,-10,300)` 下限把 blue 胜利 -200 剪成 -10 → 输赢差 10 分, 模型"输也无所谓" (坑 #116)
+
+### 5. 修复三件套 (2026-08-29, 全纯 Python)
+
+| 修复 | 位置 | 内容 |
+|------|------|------|
+| clip 对称 | strategic_env.py L1122 | `np.clip(reward, -300, 300)` — ±200 胜负信号真实传递 |
+| 事件奖励 | ep_runner_one `--objective_reward N` (默认 0=关) | 首占矿 [MINE] / 首进城镇 [TOWN] 各 +30, 复用守卫 +100 位置重合法 (get_objectives 读 vmap) |
+| 目标优先层 | ep_runner_one obj_best (24 展开处) | 矿 (target_list type=1, 带 slot idx→C++ next_dir) / 城镇 (Python 注入) 恒优先于最近资源堆; 占领后 (mine_taken/town_visited) 排除防粘死; 城镇贪心卡死 → move_stall≥6 → town_blocked 本局禁用 |
+| 强制期延长 | train_wsl2_ppo_v2 (T04 分支) | `--move_to_force 60` 常驻 (T03 保持 30×scale); eval_promo 按图名自适应 60/15 |
+
+### 6. 撤销策略 (可逆性分析结论)
+
+- 注入只改"动作 24 的目标选择实现" (env 语义), 不碰 OBS/动作空间冻结面 → 完全可逆 (一行开关)
+- 推荐常驻 (T03 守卫注入先例, 毕业时从未撤销); 可选降级路径: 占矿率>80% 后从"优先"降为"兜底" (C++ 池空才用)
+- 训练/eval/部署三处同口径 = 注入是环境定义的一部分而非作弊
+
+### 7. 观察指标
+
+- [MINE] 触发频率 (占矿率): 模型学会奔矿的标志; [TOWN_BLOCKED] 频率 (城镇贪心卡死率)
+- ±200 胜负局是否出现 (clip 修复后应可见); T04 分层: `py/analyze_ab.py`
+

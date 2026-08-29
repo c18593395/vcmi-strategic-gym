@@ -1342,3 +1342,40 @@ ML 强定义优先, 客户端默认空走 settings。
 - 处理: ① `systemd-run --user --collect --unit=homm3-train-v5 --working-directory=/mnt/d/Bigdata/hero3_fresh /bin/bash -c 'exec venv/bin/python train_wsl2_ppo_v2.py >> train_loop.log 2>&1'` 托管训练; ② Windows 侧 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'` 防 VM idle shutdown; ③ 停止用 `systemctl --user stop homm3-train-v5` (优雅保存 state)
 - 验证: 重启后日志出现 "Loaded train state (step=...)" 即断点续训成功
 - 教训: 长期训练必须 systemd-run 托管 + Windows keepalive 双保险; WSL 会话全关 = VM 死刑, nohup 救不了
+
+### 115. QueryID=-1 断言雷 (AAI.cpp) 引爆训练空转 (2026-08-29, 45+ 局 ep_steps=1)
+- 现象: 02:48 续训后 100% 局数 ep_steps=1, r=恒 1.7, act=[3] (MOVE_TO 直冲守卫开战), 无 [ZOMBIE] 标记; ep_runner 明细日志见 `AAI.cpp: QueryID is -1, but we are ATTACKER` 断言 + 调用栈 (libMMAI.so ← callOnlyThatBattleInterface ← visitBattleResult)
+- 根因链: ① 08-27 深夜做 queryID=-1 守卫实验 (构建树产出 libmlclient=77967cde + libMMAI=13c0f041; 实验版 libmlclient 会导致全动作被拒/EndTurn 不允许 — 从未同步到运行时, 但 libMMAI 13c0f041 自带守卫); ② 08-29 插桩诊断时诊断版覆盖运行时 .so, "恢复"回 08-23 版对 (5d2b9e9d+b20199c1, 与 ep386 时代一致); ③ 该版 libMMAI 无 queryID 守卫 = 既有随机雷; ④ 续训后模型 (step=194848 权重) MOVE_TO 一步直冲守卫走 MapObjectVisitQuery 开战 → 攻方 battleEnd queryID=-1 → ASSERT 崩引擎 → env 第 1 步 done。真正的雷 = 断言本身, 版本考古是弯路 (start_vcmi 未调→GAME null 假设也不成立)
+- 为何 ep1-71 没炸: 旧段模型开战路径 queryID 正常; 续训权重行为变化直冲守卫, 精确踩中 queryID=-1 路径 (推断, 未逐步复现)
+- 修复: libmlclient 保持 5d2b9e9d (移动正常), libMMAI 单独换构建树 13c0f041 (08-27 单文件重编产物, 内含 `if(queryID.getNum() != -1)` 守卫 + battleEnd 补 endTurn); 只动 AAI.cpp 不碰 .h (避开 08-26 strategic_state.h 连带重编坑)
+- 验证: 冒烟 (训练同款参数+MOVE_TO 强制) 2 场战斗 winner=0、0 断言、引擎存活; 续训 ep 156/200 步满局 r=43/19.75 ✅
+- 教训: ① 恢复 .so 必须用 md5 对照"实际跑过验证期"的那对, 不能凭 mtime/目录名猜版本 (backup-mlclient-brp-0827 里的 5d2b9e9d 是修复前快照不是好版本); ② 构建树 rel/bin 可能是未验证的实验构建, 整对部署前先单独核对 libmlclient 可用性; ③ 诊断备份要用独立文件名, 别让诊断版覆盖备份; ④ 冒烟必须带训练同款 env (LD_LIBRARY_PATH/STRATEGIC_STATE_LIB/裸地图名/MOVE_TO 强制), 否则动作全被拒造成假象
+
+### 116. reward clip 下限 -10 把失败 -200 剪没 → T04 输赢信号失真 (2026-08-29)
+- 现象: T04 切换后局 r=-80~-110 却无一局 -200 大负; [TOWN]/胜负局 0 触发, 模型"输也无所谓"
+- 根因: strategic_env.py `np.clip(reward, -10, 300)` — 上限 08 月放宽到 300 容纳 +200 胜利, 但下限仍是 -10 → blue 推平我方时 reward_win -200 被剪成 -10, 输赢信号差仅 10 分
+- 修复: `np.clip(reward, -300, 300)` 对称放宽
+- 教训: 放宽 clip 单侧时必须想到对称事件 (±200 胜负同帧可达两端); 奖励设计评审要看 clip 边界, 事件大额奖励会被静默截断
+
+### 117. T04"有目标却乱逛"三连环: 近目标吸住 + 强制期不够长 + 城镇不在 target_list (2026-08-29)
+- 现象: T04 19 局 r=-80~-110 全乱逛, 但 target_list 明明有矿 (type=1), C++ next_dir 全图 BFS 也对 dist=41 远目标有效
+- 根因三连环: ① runner 24 展开 = 最近 dist 目标 → 资源堆 dist 5~21 恒压过矿 dist 41 → 200 步在资源堆间游走; ② move_to_force≈28 步覆盖不了 dist 41 的奔矿闭环 (T03 守卫 d≤6 才走得完) → 强化信号断裂; ③ 城镇 C++ 白名单不填 target_list → 无引导
+- 修复: obj_best 目标优先层 (矿/城恒优先, 占领后排除防粘死, 城镇贪心卡死 town_blocked 兜底) + T04 move_to_force 60 常驻 + objective_reward 30 事件奖励
+- 教训: 课程换图 = 目标空间距离分布全变, 引导参数 (强制期/优先级) 必须按新图目标距离重算, 不能沿用旧图调好的值
+
+### 118. 21×21 CNN 地形栅格 ≠ 对象视野 (语义混淆) (2026-08-29)
+- 现象: 讨论"视野内看不到矿"时混淆 21×21 与 15×15
+- 事实: 15×15 local_tiles (obs[480:705]) = BFS 通行性视野 (hero 恒 7,7, ±7 格寻路); 21×21 terrain_grid (CNN 分支) = 纯地形 4 通道**无对象位置**; 对象感知 = target_list (8×8) + 15×15
+- 教训: obs 里三种"格子表" (local_tiles/terrain_grid/target_list) 尺寸内容用途各异, 设计引导前先核对哪张表含目标对象
+
+### 119. 引擎实际加载地图 = cwd/data/Maps 部署副本 (2026-08-29)
+- 现象: 改 maps/training 源图后训练行为不变; 排查守卫数时源图与运行时不一致疑云
+- 事实: ep_runner 子进程 cwd = `vcmi-native/rel/bin` → 引擎按相对路径 `data/Maps` 加载 = `rel/bin/data/Maps` 部署副本; 验证法: `ls -l /proc/<runner_pid>/cwd` + 比对副本 objects.json
+- 本次数值核对: 部署副本与 maps/training 六图 T04 完全一致 (虚惊)
+- 教训: 改图必须同步部署副本 (项目 maps/training + rel/bin/data/Maps, 可能还有 vcmi/data/Maps 共 3 副本); 排查地图问题先查 /proc/pid/cwd 定位真实加载源
+
+### 120. PowerShell 传 wsl bash -c 复杂命令的引号/$ 展开坑 (2026-08-29 多次)
+- 现象: `wsl bash -c '... $(ls -t ...) ...'` 里命令替换被吞/报 "syntax error near unexpected token"; awk '{print $11}' 的 $11 变空; 嵌套双引号 python -c 转义错乱
+- 根因: PowerShell 对传入参数做 $ 变量展开与引号重排, 复杂 bash 语法 (命令替换/awk 位置参数/嵌套引号) 高概率损坏
+- 解决: 复杂逻辑一律写成 py/ 下脚本文件再 `wsl bash -c 'python3 script.py'` (本次 check_t04_guards/check_target_list/check_next_dir 等均此模式); 简单命令也避免 $() 与 awk
+- 教训: 跨 shell 边界 (PS→bash) 的命令复杂度上限极低, 第 2 次转义失败就该换脚本文件, 不要第 3 次尝试

@@ -1117,9 +1117,9 @@ class StrategicEnv(gym.Env):
         elif self._game_over == 2:  # blue wins
             reward -= self.reward_win  # punish for losing
 
-        # 注意: clip 上限放宽到 300 以容纳事件奖励 (战斗+100 / 胜利+200 同帧可达 300),
-        # 原 clip(-10,10) 会把 +100 战斗奖励压到 +10, 使事件奖励失效
-        return float(np.clip(reward, -10, 300))
+        # 注意: clip 上下限对称放宽到 ±300 以容纳事件奖励 (战斗+100 / 胜利±200 同帧可达 300),
+        # 2026-08-29 T04 修复: 原下限 -10 把失败 -200 剪成 -10, 输赢信号差仅 10 分 → 模型"输也无所谓"退化
+        return float(np.clip(reward, -300, 300))
 
     def _check_done(self, state: Optional[StrategicState]):
         """检查是否终止"""

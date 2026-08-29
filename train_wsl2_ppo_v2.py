@@ -5,43 +5,40 @@ import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
 # === C4.2: 扩规模 ===
-N_EPISODES, BATCH, STEPS_PER_EP = 1000, 1024, 200
-LR, CLIP, EPOCHS = 3e-4, 0.2, 4
+# 2026-08-29 Level 3 晋级 (II.2 切 T04, 不开经济): BATCH 1024→2048 / EPOCHS 4→6 / EXTREME_ADV_CLIP 5.0→6.0
+N_EPISODES, BATCH, STEPS_PER_EP = 1000, 2048, 200
+LR, CLIP, EPOCHS = 3e-4, 0.2, 6
 GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
-EXTREME_ADV_CLIP = 5.0
+EXTREME_ADV_CLIP = 6.0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ===== Level 3 (T04) 晋级+开经济时启用：取消下方 5 行注释，同时注释掉上方对应原值 =====
-# BATCH = 2048             # 动作空间从 8(方向)+24(MOVE_TO) 扩到 14(+6内政)，样本需求 ×2
-# EPOCHS = 6               # 内政奖励 r 量级(+5/+8/+15)与探索(+0.2)差异大，多 2 epoch 让 critic 拟合
-# EXTREME_ADV_CLIP = 6.0   # BATCH 加大后，极端优势 clip 阈值略上调 (防经济首胜+100+15叠加削平)
+# BATCH = 2048             # 动作空间从 8(方向)+24(MOVE_TO) 扩到 14(+6内政)，样本需求 ×2 — 已启用 (08-29 晋级)
+# EPOCHS = 6               # 内政奖励 r 量级(+5/+8/+15)与探索(+0.2)差异大，多 2 epoch 让 critic 拟合 — 已启用 (08-29 晋级)
+# EXTREME_ADV_CLIP = 6.0   # BATCH 加大后，极端优势 clip 阈值略上调 (防经济首胜+100+15叠加削平) — 已启用 (08-29 晋级)
 # (NK2 0.45 / EXPLORE 0.3 切换注释在 run_episode 函数内 L106/L91 处)
 # ===== END Level 3 超参切换块 =====
 
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
-# === 2026-08-24: Level 2 (T03 系列) — 弱怪物守矿，学习战斗风险评估 ===
-# Level 0/1 跳过，直接训练 Level 2 地图探索+战斗
+# === 2026-08-29 Level 3 晋级 (II.2): T04 六图, 经济动作 16-21 仍关 (开经济 = 第二阶段, 一次一轴) ===
+# T03 毕业战绩: eval 10/10 全胜 avg_r=99 / 最近100局首胜率 64% / 30X30_01 A/B 44局 0% 大负率
 MAPS = [
-    "T03_adventure_20X20_01.vmap",
-    "T03_adventure_20X20_02.vmap",
-    # "T03_adventure_30X30_01.vmap",  # 2026-08-28 BND-20260828-01 快路径: 守卫 d=35-38 大负率 10-15%, 待守卫 patch 后再启用
-    # "T03_adventure_30X30_02.vmap",  # 守卫 d=39
-    # "T03_adventure_36X36_01.vmap",  # 守卫 d=45-48
-    # "T03_adventure_36X36_02.vmap",  # obs_nz=314, 守卫 d=51, 27% 大负率 = 全地图最高
+    "T04_adventure_20X20_01.vmap",
+    "T04_adventure_20X20_02.vmap",
+    "T04_adventure_30X30_01.vmap",
+    "T04_adventure_30X30_02.vmap",
+    "T04_adventure_36X36_01.vmap",
+    "T04_adventure_36X36_02.vmap",
 ]
-# ===== Level 3 晋级 (纯 MAPS 切换, 经济动作16-21仍关)：替换上方 MAPS 为下方6行，注释掉当前 T03 =====
+# ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
-#     "T04_adventure_20X20_01.vmap",
-#     "T04_adventure_20X20_02.vmap",
-#     "T04_adventure_30X30_01.vmap",
-#     "T04_adventure_30X30_02.vmap",
-#     "T04_adventure_36X36_01.vmap",
-#     "T04_adventure_36X36_02.vmap",
+#     "T03_adventure_20X20_01.vmap",
+#     "T03_adventure_20X20_02.vmap",
+#     "T03_adventure_30X30_01.vmap",
 # ]
-# ===== Level 3 第二阶段 (T04稳定后开经济)：再打开 run_episode 的 economy_force/nk2/explore 三行 =====
 
 # === A+B: KL 约束 BC — 防止 PPO 微调偏离 BC 专家行为 (参考策略 = 冻结的 bc_model) ===
 # 2026-08-19 第5轮: 0.05 → 0.3 — 第4轮 kl 失控 (ep52 kl=7.4), 0.05 完全挡不住 BC 漂移
@@ -112,7 +109,11 @@ def run_episode(mapname, blue_model=None):
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.5, 1.0 - ep_count / 200)  # 2026-08-25: 下限 0.5 常驻 (原衰减到 0 → 模型失去目标驱动 → 乱逛/横跳/零战斗)
     cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
-    cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
+    if mapname.startswith("T04"):
+        # 2026-08-29 T04: 目标远 (矿 dist 25~41, T03 守卫 d<=6), 强制期需覆盖奔矿闭环 → 60 步常驻
+        cmd.extend(["--move_to_force", "60"])
+    else:
+        cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
     # ===== Level 3 (T04 稳定后) 开经济动作时启用：取消下方 1 行注释 =====
     # cmd.extend(["--economy_force", "50"])  # 前50步 16-21 轮换硬采样 (BC 无样本→logits极负→必须采样强制)
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
@@ -121,6 +122,13 @@ def run_episode(mapname, blue_model=None):
     # 状态级/横跳只抓位置往返, 抓不住推进型动作循环; 强制阶段不检测)
     # 第7轮 v2: 3.0→1.8 — 3.0 诱发 10 END_TURN 投机 (ROUND3 10 占比 6%→17.8% 全场第一)
     cmd.extend(["--act_loop_penalty", "1.0"])  # 降循环惩罚，减少负reward干扰
+    # 守卫击杀自动终局 (2026-08-29): +100 后 15 步内无新目标 → 提前结束 episode。
+    # 治杀守卫后英雄存活长期振荡烧分 (每步-0.1+循环惩罚 → final r 跌破 80 晋级线, 20X20_01 全 0 胜)。
+    # 新目标 (守卫/矿/资源) 自动重置倒计时; 回退 = 注释本行 (runner 默认 0=关闭)
+    cmd.extend(["--guard_done_steps", "15"])
+    # T04 目标引导 (2026-08-29): 首占矿/首进城镇各 +30 一次性事件 (T04 无守卫缺目标驱动源)。
+    # 回退 = 注释本行 (runner 默认 0=关闭)
+    cmd.extend(["--objective_reward", "30"])
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
     # ===== Level 3 开经济时切换：注释下一行，启用下下行 0.45 =====
     cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.3"])  # 恢复NK2，scale=0.3 防critic爆炸
@@ -146,9 +154,12 @@ def run_episode(mapname, blue_model=None):
             try:
                 with open(ep_log, "r", errors="replace") as f:
                     lines = f.readlines()
-                # 只对包含熔断/僵尸/非 200 步相关行或最后 3 行做一次 echo, 避免 200 正常局刷屏
+                # P4 (08-29): 词表补 [GUARD] (守卫首胜事件此前从不进主日志) + "Assertion" (引擎断言崩溃行不带 [ERROR] 方括号, 漏网)
+                # 08-29+: [MINE]/[TOWN] (T04 目标引导首访事件)
                 highlights = [l.rstrip("\n") for l in lines
-                              if any(k in l for k in ("[ZOMBIE]", "[ENDTURN_FUSE]", "[ERROR]",
+                              if any(k in l for k in ("[ZOMBIE]", "[ENDTURN_FUSE]", "[ERROR]", "[GUARD]",
+                                                      "[MINE]", "[TOWN",
+                                                      "Assertion",
                                                       "end ep at step", "fuse-break",
                                                       "cycle_detect triggered", "penalty END_TURN"))]
                 if highlights:
@@ -166,7 +177,7 @@ def run_episode(mapname, blue_model=None):
             if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
                 obs_nz = np.count_nonzero(d["obs"][0])
                 acts = d.get("act", [])
-                print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={acts} obs_nz={obs_nz}", flush=True)
+                print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={acts} obs_nz={obs_nz} map={mapname}", flush=True)
             return d
     except: pass
     return None
