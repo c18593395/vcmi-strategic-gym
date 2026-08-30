@@ -1380,3 +1380,22 @@ ML 强定义优先, 客户端默认空走 settings。
 - 根因: PowerShell 对传入参数做 $ 变量展开与引号重排, 复杂 bash 语法 (命令替换/awk 位置参数/嵌套引号) 高概率损坏
 - 解决: 复杂逻辑一律写成 py/ 下脚本文件再 `wsl bash -c 'python3 script.py'` (本次 check_t04_guards/check_target_list/check_next_dir 等均此模式); 简单命令也避免 $() 与 awk
 - 教训: 跨 shell 边界 (PS→bash) 的命令复杂度上限极低, 第 2 次转义失败就该换脚本文件, 不要第 3 次尝试
+
+### 121. economy_force 50 步空转学费过重 → 24 步定版 (2026-08-29)
+- 现象: 开经济首版 economy_force=50, r 均值 -93 (深负 -134/-149), 远差于开经济前 -30
+- 根因: 16-21 经济动作不移动英雄 → 强制期 50 步原地 = 位置不变 -0.5/步 × 50 = -25 步罚 + 延误奔矿 (move_to_force 60 被覆盖前 50 步) + 势函数负差分
+- 修复: 改回 B2 方案定值 24 步 → r 均值 -4.5, 且自主 MOVE_TO 涌现 (24 步后模型开始自主输出 24)
+- 教训: 采样强制的"体验量"与"行为扭曲代价"要平衡; 4 轮轮换 (24 步) 足够建立动作-奖励关联, 更长只烧分
+
+### 122. [ECON] 事件不进主日志转储词表 → 观察盲区 (2026-08-29)
+- 现象: 开经济后 grep 主日志 [ECON] 零命中, 误判经济动作未生效; 实际 ep log 里 RECRUIT/BUILD_2 事件正常触发
+- 根因: train_wsl2_ppo_v2.py 转储词表只含 [ZOMBIE]/[ENDTURN_FUSE]/[ERROR]/[GUARD]/[MINE]/[TOWN/Assertion 等, 无 [ECON]
+- 解决: 观察 grep `/tmp/hermes_ep_*.log`; 词表补 [ECON] 待下次自然重启窗口
+- 教训: 新增事件打印时必须同步检查主日志转储词表, 否则 grep 主日志 = 盲区
+
+### 123. T04 分层误读三连: 无守卫/深负来源/win_rate 失真 (2026-08-29, analyze_ab T04 口径)
+- 现象①: "打了打不过的守卫" — T04 **零守卫** (gen_curriculum cfg 无 monsters), 深负真因 = vs blue NK2 英雄接战战损 (red 战斗 Router 回退 StupidAI 接战必弱)
+- 现象②: analyze_ab win_rate 对 T04 全 0 — 首胜判定 (r≥80 且 <60 步) 是 T03 守卫 +100 的 proxy, T04 无守卫永远凑不到 → **T04 用 avg_r/占矿率, 不看 win_rate**
+- 现象③: 晋级评估 (Phase II.1 判据) 对 T04 显示 ❌ — 同因口径失真, II.1 已完成, 该行只对 T03 有效
+- 判定标志: r<-150 局从未出现 = blue 从未推平我方 (blue 胜利 -200 在 clip±300 下真实传递)
+- 教训: 换课程图后所有 proxy 指标 (首胜/守卫/晋级线) 必须重审语义, 不能直接沿用旧图口径

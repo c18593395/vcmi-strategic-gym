@@ -431,22 +431,17 @@ try:
                         (adj == guard_best[3] and gd < guard_best[0])
                     ):
                         guard_best = (gd, gx, gy, adj)
-                # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) / 城镇 (Python 注入)
-                # 占领后 (mine_taken/town_visited) 排除对应目标防粘死; 城镇被卡死禁用 (town_blocked)
+                # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) —
+                # 占领后 (mine_taken) 排除防粘死。
+                # 2026-08-29 II.3 调优: 城镇注入降级移除 — RECRUIT/BUILD 为玩家级远程操作无需到城,
+                # 城镇贪心远距必卡死 (每次烧 6 步探测 + [TOWN_BLOCKED] 常态触发), [TOWN] +30 降级为路过事件 (下方检测保留)
                 obj_best = None
-                if args.objective_reward > 0:
-                    if not mine_taken:
-                        for i, tt in enumerate(tl):
-                            if int(tt[0]) == 1 and int(tt[5]) > 0 and (
-                                obj_best is None or int(tt[5]) < obj_best[0]
-                            ):
-                                obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
-                    if not town_visited and not town_blocked:
-                        _mines, _towns = get_objectives(args.mapname)
-                        for (_twx, _twy) in _towns:
-                            _twd = abs(_twx - hx) + abs(_twy - hy)
-                            if _twd > 0 and (obj_best is None or _twd < obj_best[0]):
-                                obj_best = (_twd, _twx, _twy, hz, -1)
+                if args.objective_reward > 0 and not mine_taken:
+                    for i, tt in enumerate(tl):
+                        if int(tt[0]) == 1 and int(tt[5]) > 0 and (
+                            obj_best is None or int(tt[5]) < obj_best[0]
+                        ):
+                            obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
                 if guard_best is not None:
                     tx, ty, tz = guard_best[1], guard_best[2], hz
                     next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
@@ -612,22 +607,22 @@ try:
         if _rpts and econ_resource_step is None:
             if any(hx_e == _rx and hy_e == _ry for (_rx, _ry) in _rpts):
                 econ_resource_step = traj["steps"]
-        # --- 优先级1: 首 RECRUIT (16/17/18) 每档 +5 / 局 ---
+        # --- 优先级1: 首 RECRUIT (16/17/18) 每档 +12 / 局 (2026-08-29 II.3 调优: +5→+12, 自主经济卡 0.6/局平台, 提高相对占矿+30 的吸引力) ---
         if a in (16, 17, 18) and not econ_recruit_first[a]:
-            r += 5.0
+            r += 12.0
             econ_recruit_first[a] = True
-            print(f"[ECON] first RECRUIT tier={a-15} (act{a}) step {traj['steps']} +5", flush=True)
+            print(f"[ECON] first RECRUIT tier={a-15} (act{a}) step {traj['steps']} +12", flush=True)
             # --- 优先级4 (后半): 资源→招兵 50步闭环 +15 / 局 ---
             if (not econ_closure_done) and econ_resource_step is not None:
                 if (traj["steps"] - econ_resource_step) <= 50:
                     r += 15.0
                     econ_closure_done = True
                     print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
-        # --- 优先级2: 首 BUILD_2 (兵种建筑, 动作20) +8 / 局 ---
+        # --- 优先级2: 首 BUILD_2 (兵种建筑, 动作20) +15 / 局 (2026-08-29 II.3 调优: +8→+15) ---
         if a == 20 and not econ_build2_done:
-            r += 8.0
+            r += 15.0
             econ_build2_done = True
-            print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +8", flush=True)
+            print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +15", flush=True)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===

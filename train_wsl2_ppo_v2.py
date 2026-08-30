@@ -114,8 +114,8 @@ def run_episode(mapname, blue_model=None):
         cmd.extend(["--move_to_force", "60"])
     else:
         cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
-    # ===== Level 3 II.3 开经济 (2026-08-29): 启用 =====
-    cmd.extend(["--economy_force", "50"])  # 前50步 16-21 轮换硬采样 (BC 无样本→logits极负→必须采样强制)
+    # ===== Level 3 II.3 开经济 (2026-08-29): 启用 (B2 方案定值 24 步, 50 步实测学费过重 -25 空转罚+延误奔矿, 08-29 改回) =====
+    cmd.extend(["--economy_force", "24"])  # 前24步 16-21 轮换硬采样 (BC 无样本→logits极负→必须采样强制)
     # 状态级循环检测: 8 步窗口同一 (hero,pos) >=5 次 → -3 + 强制随机方向 (治 [8,8,6,2] 动作循环)
     cmd.extend(["--cycle_detect", "5"])
     # 第7轮: 动作级循环惩罚 — 连续 4 步重复 / 8 步两两交替 → -3 (治 [3,7,3,7]/[2,2,2,2] 死循环,

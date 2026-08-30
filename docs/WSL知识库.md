@@ -1302,6 +1302,68 @@ python scripts/h3m_tool.py scan <h3m> / terrain <in> <out> <edits.json> / object
 - [MINE] 触发频率 (占矿率): 模型学会奔矿的标志; [TOWN_BLOCKED] 频率 (城镇贪心卡死率)
 - ±200 胜负局是否出现 (clip 修复后应可见); T04 分层: `py/analyze_ab.py`
 
+## 二十六、经济动作 (16-21) 真实语义与 II.3 开经济调优 (2026-08-29 夜)
+
+### 1. 动作语义澄清 (重要 — 早期"三档资源档位"理解有误)
+
+C++ 实现: `AAI::executeAdvancedAction` (AAI.cpp L170+, libMMAI 13c0f041):
+
+| 动作 | **真实语义** (策略变体/建筑链, 非档位) | C++ 调用 |
+|------|----------------------------------------|----------|
+| 16 RECRUIT_1 | 最近己方城镇**招最低级兵 ×1** | recruitCreatures |
+| 17 RECRUIT_2 | 最近己方城镇**招最高级兵 ×1** | recruitCreatures |
+| 18 RECRUIT_3 | 最近己方城镇**全部可招兵各 ×1** | recruitCreatures 循环 |
+| 19 BUILD_1 | 大厅链第一个未建 (村→镇→城→首都) | buildBuilding |
+| 20 BUILD_2 | 兵种链第一个未建 (1~7 级巢穴) | buildBuilding |
+| 21 BUILD_3 | 防御链第一个未建 (堡垒→要塞→城堡) | buildBuilding |
+
+- 19-21 的"档位"实为**三条建筑链**选择; 16-18 为**三种招兵策略**
+- 唯一失败条件: 无己方城镇 → return noTarget; 本周无兵 → recruitCreatures 招 0 个 (引擎 clamp, 不报错)
+- 掩码 (recruit_mask/build_mask @ obs[640:704]) = 城镇可招募/可建造状态位域, 与英雄位置无关
+
+### 2. 远程性实证与执行链路
+
+```
+runner (a=16-21) → strategic_env.step → adventure_send_action (atomic)
+  → AAI::yourTurn (阻塞) → adventure_get_action → executeAdvancedAction
+  → nearestOwnTown(cb, cur) → cb->recruitCreatures/buildBuilding  ← 玩家级操作, 与英雄位置无关
+```
+
+- 实证: [ECON] first RECRUIT/BUILD_2 在 step 0-4 触发 (英雄在地图角落)
+- **结论: 模型不需要任何位置提示**; obs 已含位域 (640:704) + 资源字段 (304:311), 掩码保证只从合法集选
+
+### 3. II.3 开经济配置与调优链 (08-29 夜)
+
+| 配置 | 值 | 教训/依据 |
+|------|-----|----------|
+| economy_force | **24 步** | 50 步实测学费过重: 50 步原地空转 (16-21 不移动) = -25 步罚 + 延误奔矿 50 步, r 均值 -93; 改 24 后 -4.5 (B2 方案原值) |
+| explore | 0.3 (0.2→) | 经济动作初期防 entropy 塌 |
+| nk2_shaping_scale | 0.45 (0.3→) | 经济长程行为需更强势函数 |
+| RECRUIT 奖励 | **+12/档** (+5→) | 自主经济卡 0.6/局平台, 提高相对占矿+30 的吸引力 |
+| BUILD_2 奖励 | **+15** (+8→) | 同上 |
+| 城镇引导 | **降级移除** | RECRUIT/BUILD 玩家级远程无需到城; 城镇贪心远距必卡死 (每局烧 6 步 + [TOWN_BLOCKED] 常态); [TOWN] +30 保留为路过事件 |
+
+单局经济收益上限: RECRUIT×3 (+36) + BUILD_2 (+15) + 闭环 (+15) = **+66**, 与占矿 +30 同量级。
+
+### 4. 效果时序 (启动段 ep1-55)
+
+| 阶段 | avg_r | 特征 |
+|------|-------|------|
+| 50 步版 | -0.6 | 强制期空转学费深负 -134 |
+| 24 步版 | -0.2 | 自主 MOVE_TO 涌现, r 均值 -4.5 |
+| 奖励上调后 | 0.0→-0.5 震荡 | **正局质量新高 +75.3/+62.3** (占矿+经济+势函数叠加), 正局率 53%; 深负偶发 (-90.7, 接战战损型) |
+
+- 自主 16-21: 0 → 0.6 → 1.0 → 0.8/局 (破零但未爆发, 奖励梯度传播中)
+- [ECON] 事件稳定 1.2 次/局 (RECRUIT 首访 + BUILD_2)
+- ⚠ [ECON] 不在主日志转储词表 — 观察 grep `/tmp/hermes_ep_*.log` (待办: 词表补 [ECON])
+
+### 5. T04 战局结构认知 (用户判断核验的方法论沉淀)
+
+- T04 **零守卫** — "打不过的守卫"不存在; 深负主因 = vs blue NK2 英雄接战战损 (red 战斗 Router 回退 StupidAI 接战必弱)
+- Router 回退只在接战时触发 — 模型学会避战后频率自然下降 (最近窗口 0 条); 根治需 C++ 重编 (跨 .so RTTI cast 问题, 留停训窗口)
+- r<-150 局从未出现 = blue 从未推平我方 (blue 胜利 -200 clip±300 真实传递的判定标志)
+- 深负 -45~-90 窄带 = 战损势函数 + 200 步游荡步罚累积, 非团灭定局
+
 ## 二十五、训练日志数据管道 (2026-08-29, P4 死锁聚合产出)
 
 > 三层日志的分工、生命周期与已知陷阱。分析工具: analyze_deadlock.py (纪元聚合) / analyze_ab.py (A/B+晋级)。
