@@ -621,15 +621,16 @@ try:
         if _rpts and econ_resource_step is None:
             if any(hx_e == _rx and hy_e == _ry for (_rx, _ry) in _rpts):
                 econ_resource_step = traj["steps"]
-        # --- 优先级1: RECRUIT (16/17/18) first 每档 +12 + 每次执行 +2 (2026-08-29 II.3 调优) ---
+        # --- 优先级1: RECRUIT (16/17/18) first 每档 +12 + 每次执行 +1 (2026-08-29 II.3 调优) ---
         # first 大额引导 (被 economy_force 强制期消费属预期); 每次小额 = 自主通道的持续即时信号
         # (根因: first 被强制期截胡后, 自主 16-21 为零奖励动作 → 90+ 局自主卡 0.6/局不涨)
         # 保险丝: 每档每局上限 5 次发奖 (防 spam; 资源/每周兵量天然封顶)
+        # 2026-08-29 撤梯子第②步: 每次 +2→+1 (自主 4.3/局 固化确认, 半价渐进; first 不动 — 每局一次性开局经济引导)
         if a in (16, 17, 18):
             econ_recruit_count[a] += 1
             _rc_rewarded = econ_recruit_count[a] <= 5
             if _rc_rewarded:
-                r += 2.0
+                r += 1.0
             if not econ_recruit_first[a]:
                 r += 12.0
                 econ_recruit_first[a] = True
@@ -641,19 +642,19 @@ try:
                         econ_closure_done = True
                         print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
             elif _rc_rewarded:
-                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +2", flush=True)
-        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行 +3 (2026-08-29 II.3 调优) ---
+                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +1", flush=True)
+        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行 +1.5 (2026-08-29 II.3 调优; 撤梯子半价 3→1.5) ---
         if a == 20:
             econ_build2_count += 1
             _b2_rewarded = econ_build2_count <= 5
             if _b2_rewarded:
-                r += 3.0
+                r += 1.5
             if not econ_build2_done:
                 r += 15.0
                 econ_build2_done = True
                 print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +15", flush=True)
             elif _b2_rewarded:
-                print(f"[ECON] build2 (act20) step {traj['steps']} +3", flush=True)
+                print(f"[ECON] build2 (act20) step {traj['steps']} +1.5", flush=True)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
