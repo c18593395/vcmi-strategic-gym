@@ -282,6 +282,7 @@ try:
     # 08-31 占城观测埋点 (只观测不改奖励): 蓝城 owner 1→0 事件
     town_owner_init = None   # {town_id: owner} 首步快照
     town_capture_logged = set()  # 已记录捕获的城 id
+    recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
@@ -737,6 +738,17 @@ try:
                                 print(f"[TOWN_CAPTURE] blue town id={_tid9} owner 1->0 at step {traj['steps']} (observe only, no reward)", flush=True)
                 except Exception:
                     pass
+                # 08-31 撤梯子③-S1 建设观测 (只观测不加奖): 己方城 recruit_mask 位增 = 新巢穴建成
+                # S2/S3 建设奖的基线数据源 (触发频率/每局次数)
+                for _ti7 in range(8):
+                    _tb7 = 336 + _ti7 * 18
+                    _tid7 = int(obs[_tb7])
+                    if _tid7 > 0 and int(obs[_tb7+1]) == 0:  # 己方城
+                        _rm7 = int(obs[_tb7+14]) | int(obs[_tb7+15])
+                        _prev7 = recruit_mask_prev.get(_tid7)
+                        if _prev7 is not None and (_rm7 & ~_prev7 & 0xFFFF):
+                            print(f"[BUILD_NEW] own town id={_tid7} new dwelling bits={_rm7 & ~_prev7 & 0xFFFF:#06x} at step {traj['steps']} (observe only)", flush=True)
+                        recruit_mask_prev[_tid7] = _rm7
         # --- 优先级3 (每步必算): 兵力power增量 × 0.01 (招兵→正; 战斗损耗→负不惩罚) ---
         # 2026-08-29 B 方案: 0.001→0.01 — 招 1 个 tier0 兵 (value 10) 原 +0.01 不可见, 现 +0.1;
         # 高级兵价值 900 → +9.0, 与 RECRUIT +12 同量级, 让"招到兵"有可学习信号 (战损负向同步放大, 促进避战保兵)
@@ -753,23 +765,25 @@ try:
         if econ_prev_army_power is not None:
             _dp = _army_now - econ_prev_army_power
             if _dp > 0:
-                r += 0.01 * _dp
+                r += 0.02 * _dp
+                # 08-31 S1 招兵效果观测 (只观测): dp>0 = 兵力上英雄 (取兵链路/城内招兵)
+                print(f"[RECRUITED] army power +{_dp:.0f} at step {traj['steps']} (observe only)", flush=True)
         econ_prev_army_power = _army_now
         # --- 优先级4 (前半): 首次踩资源点格 → 记步 ---
         _rpts = get_resource_points(args.mapname)
         if _rpts and econ_resource_step is None:
             if any(hx_e == _rx and hy_e == _ry for (_rx, _ry) in _rpts):
                 econ_resource_step = traj["steps"]
-        # --- 优先级1: RECRUIT (16/17/18) first 每档 +12 + 每次执行 +1 (2026-08-29 II.3 调优) ---
+        # --- 优先级1: RECRUIT (16/17/18) first 每档 +12 + 每次执行小额 (2026-08-29 II.3 调优) ---
         # first 大额引导 (被 economy_force 强制期消费属预期); 每次小额 = 自主通道的持续即时信号
-        # (根因: first 被强制期截胡后, 自主 16-21 为零奖励动作 → 90+ 局自主卡 0.6/局不涨)
         # 保险丝: 每档每局上限 5 次发奖 (防 spam; 资源/每周兵量天然封顶)
-        # 2026-08-29 撤梯子第②步: 每次 +2→+1 (自主 4.3/局 固化确认, 半价渐进; first 不动 — 每局一次性开局经济引导)
+        # 2026-08-29 撤梯子②: 每次 +2→+1; 2026-08-31 撤梯子③-S1: +1→+0.5 (递归半价, 每窗 x0.5 直至实质归零;
+        #   同步兵力系数 0.01→0.02 + 效果观测 [RECRUITED]/[BUILD_NEW] — 糖减半效果信号翻倍, 总激励平滑迁移)
         if a in (16, 17, 18):
             econ_recruit_count[a] += 1
             _rc_rewarded = econ_recruit_count[a] <= 5
             if _rc_rewarded:
-                r += 1.0
+                r += 0.5
             if not econ_recruit_first[a]:
                 r += 12.0
                 econ_recruit_first[a] = True
@@ -781,19 +795,19 @@ try:
                         econ_closure_done = True
                         print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
             elif _rc_rewarded:
-                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +1", flush=True)
-        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行 +1.5 (2026-08-29 II.3 调优; 撤梯子半价 3→1.5) ---
+                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +0.5", flush=True)
+        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行小额 (撤梯子② 3→1.5; ③-S1 1.5→0.75) ---
         if a == 20:
             econ_build2_count += 1
             _b2_rewarded = econ_build2_count <= 5
             if _b2_rewarded:
-                r += 1.5
+                r += 0.75
             if not econ_build2_done:
                 r += 15.0
                 econ_build2_done = True
                 print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +15", flush=True)
             elif _b2_rewarded:
-                print(f"[ECON] build2 (act20) step {traj['steps']} +1.5", flush=True)
+                print(f"[ECON] build2 (act20) step {traj['steps']} +0.75", flush=True)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
