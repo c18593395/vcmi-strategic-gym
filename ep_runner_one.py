@@ -149,7 +149,15 @@ def get_objectives(mapname):
             with zipfile.ZipFile(p) as z:
                 objs = json.loads(z.read("objects.json"))
             mines = [(int(o["x"]), int(o["y"])) for k, o in objs.items() if k.startswith("mine_")]
-            towns = [(int(o["x"]), int(o["y"])) for k, o in objs.items() if k.startswith("town_")]
+            # 2026-08-31 TOWN 轴修复: 过滤我方城 (训练方=red, owner 在 options.owner) —
+            # 己方城 step0 即在身旁, 计入会使 [TOWN]+30 变免费糖; 只保留 blue/中立城
+            towns = []
+            for k, o in objs.items():
+                if k.startswith("town_"):
+                    _own = str(o.get("options", {}).get("owner", "")).lower()
+                    if _own == "red":
+                        continue
+                    towns.append((int(o["x"]), int(o["y"])))
             _OBJ_CACHE[mapname] = (mines, towns)
         except Exception:
             _OBJ_CACHE[mapname] = ([], [])
@@ -264,6 +272,16 @@ try:
     # 2026-08-29 II.3 调优: 每次执行小额奖励的计数器 (保险丝 每档/局上限 5 次)
     econ_recruit_count = {16: 0, 17: 0, 18: 0}
     econ_build2_count = 0
+    # 2026-08-31 回城取兵引导: 英雄 visit 己方城 → 强制 RECRUIT 窗 (兵直上英雄部队)
+    # 机制: C++ RECRUIT dst = town->getUpperArmy() = visiting hero → visit 状态招兵直接进英雄 5 槽
+    # → 兵力增量奖励 0.01×dp 立刻生效 (此前招兵进城 garrison, 该奖励管道对 RECRUIT 是断的)
+    visit_econ_steps = 0     # 剩余取兵窗步数 (触发=4 步 16/17/18 轮换)
+    visit_econ_cooldown = 0  # 冷却 (窗结束/触发后 30 步内不再触发, 防锁死城内 spam 招 0)
+    own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
+    own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
+    # 08-31 占城观测埋点 (只观测不改奖励): 蓝城 owner 1→0 事件
+    town_owner_init = None   # {town_id: owner} 首步快照
+    town_capture_logged = set()  # 已记录捕获的城 id
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
@@ -380,6 +398,28 @@ try:
         # MOVE_TO 采样强制 (2026-08-19 第5轮): 每局前 N 步强制动作 24 — 第4轮 bias(+2.0) 对从未见过的码无效 (24 零出现)
         if args.move_to_force > 0 and traj["steps"] < args.move_to_force and red_model is not None:
             a = 24
+        # 2026-08-31 回城取兵检测: 英雄位于己方城 (dist<=1) → 启动 4 步 RECRUIT 窗 (带 30 步冷却防 spam)
+        # 己方城识别: obs towns 段 [336+ti*18], owner==0 (红方) + pos 非零 (空槽全 0 排除)
+        # 触发信号 = recruit_mask 非零 (城有巢穴可招) — garrison 字段 C++ fill 恒 0 (strategic_state.cpp L724 memset, 未实现), 不可用
+        # 关键机制: visit 状态 RECRUIT dst=getUpperArmy()=英雄 → 新招兵直上部队, 无需 garrison 存量
+        if visit_econ_cooldown > 0:
+            visit_econ_cooldown -= 1
+        if args.objective_reward > 0 and red_model is not None and visit_econ_steps <= 0 and visit_econ_cooldown <= 0:
+            try:
+                _ah0 = int(obs[3203]) if obs[3203] >= 0 else 0
+                _hb0 = 128 + _ah0 * 26
+                _hx0, _hy0 = int(obs[_hb0+2]), int(obs[_hb0+3])
+                for _ti0 in range(8):
+                    _tb0 = 336 + _ti0 * 18
+                    if int(obs[_tb0+1]) == 0 and (int(obs[_tb0+2]) > 0 or int(obs[_tb0+3]) > 0):
+                        if abs(_hx0 - int(obs[_tb0+2])) <= 1 and abs(_hy0 - int(obs[_tb0+3])) <= 1:
+                            _rm0 = int(obs[_tb0+14]) | int(obs[_tb0+15])
+                            if _rm0 > 0:
+                                visit_econ_steps = 4
+                                print(f"[TOWN_VISIT] own town recruit window at step {traj['steps']} recruit_mask={_rm0}", flush=True)
+                            break
+            except Exception:
+                pass
         # 经济动作采样强制 (2026-08-24 Level 3): 每局前 N 步强制 16-21 轮换 (RECRUIT/BUILD 引导)
         # 模型从未见过这些码 → logits 极负 → bias 无效, 采样强制 (move_to_force 同款教训)
         # 2026-08-29 B 方案"每日提醒": 前 N 步连续强制后, 每 40 步插入 4 步经济轮换 —
@@ -394,6 +434,12 @@ try:
             if econ_force_now:
                 econ_acts = [16, 17, 18, 19, 20, 21]  # RECRUIT_1/2/3, BUILD_1/2/3 轮换
                 a = econ_acts[traj["steps"] % len(econ_acts)]
+        # 2026-08-31 回城取兵窗 (最高优先覆盖): 强制 RECRUIT 轮换 — visit 己方城时招兵直上英雄部队
+        if visit_econ_steps > 0:
+            a = [16, 17, 18][traj["steps"] % 3]
+            visit_econ_steps -= 1
+            if visit_econ_steps == 0:
+                visit_econ_cooldown = 30
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:
@@ -454,6 +500,43 @@ try:
                             obj_best is None or int(tt[5]) < obj_best[0]
                         ):
                             obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
+                # 2026-08-31 TOWN 轴引导恢复: 矿占完后引导最近非我方城 (占城 = 1v7 终极目标语义) —
+                # 约束防卡死复发 (此前 324 次 [TOWN_BLOCKED] 教训): ① 只在 mine_taken 后启用 (先经济后占城)
+                # ② 不设距离上限 — blue 城全在对角远端 (20X20 图 hero→城 ~22 格, 30X30 ~42), dist<=20 会让轴再死;
+                #    远城贪心失败由 move_stall (6步) + town_blocked 本局禁用兜底, 每局学费上限 6 步 vs first +30
+                # ③ first-only +30 天然限收益
+                town_best = None
+                if args.objective_reward > 0 and mine_taken and not town_blocked and not town_visited:
+                    for (_tx, _ty) in get_objectives(args.mapname)[1]:
+                        _td = abs(_tx - hx) + abs(_ty - hy)
+                        if town_best is None or _td < town_best[0]:
+                            town_best = (_td, _tx, _ty)
+                # 2026-08-31 回城取兵引导: 己方城 recruit_mask 非零 (有巢穴可招) → 引导 MOVE_TO 己方城
+                # (visit 后取兵窗发 RECRUIT, 新兵直上英雄部队)
+                # 优先级 = 守卫 > 矿 > 回城取兵 > blue城占城 > 资源堆 (取兵高频+近城, 战力成长是 1v7 核心);
+                # 触发信号 = recruit_mask (C++ fill_v3_fields 填充) — garrison 字段 C++ 恒 0 未实现, 不可用;
+                # 约束: dist<=25 (取兵是常规行为不该跨图跑) ; 卡死由 move_stall 通用放弃 (目标可反复出现, 不禁用)
+                own_town_best = None
+                if args.objective_reward > 0:
+                    for _ti1 in range(8):
+                        _tb1 = 336 + _ti1 * 18
+                        if int(obs[_tb1+1]) == 0 and (int(obs[_tb1+2]) > 0 or int(obs[_tb1+3]) > 0):
+                            _rm1 = int(obs[_tb1+14]) | int(obs[_tb1+15])
+                            if _rm1 > 0:
+                                _od1 = abs(int(obs[_tb1+2]) - hx) + abs(int(obs[_tb1+3]) - hy)
+                                if _od1 <= 25 and _od1 > 0 and (own_town_best is None or _od1 < own_town_best[0]):
+                                    own_town_best = (_od1, int(obs[_tb1+2]), int(obs[_tb1+3]))
+                    # 诊断日志 (边沿触发): 区分"引导没启动"(此条不打) vs "启动了没走到"(打了但无 [TOWN_VISIT])
+                    if own_town_best is not None:
+                        if not own_town_guiding:
+                            own_town_guiding = True
+                            if own_town_guide_count < 5:
+                                print(f"[OWN_TOWN_GUIDE] garrison pickup guide started dist={own_town_best[0]} at step {traj['steps']}", flush=True)
+                            own_town_guide_count += 1
+                    else:
+                        own_town_guiding = False
+                elif own_town_guiding:
+                    own_town_guiding = False
                 if guard_best is not None:
                     tx, ty, tz = guard_best[1], guard_best[2], hz
                     next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
@@ -473,6 +556,28 @@ try:
                     move_stall = 0
                     move_guard_target = False
                     move_town_target = (next_dir_idx == -1)
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps
+                elif own_town_best is not None:
+                    # 2026-08-31 回城取兵分支: 到达后 visit 检测块自动开取兵窗 (RECRUIT 兵直上英雄)
+                    # move_town_target=False — 己方城卡死只走通用 move_stall 放弃, 不触发 town_blocked (blue城专用)
+                    tx, ty, tz = own_town_best[1], own_town_best[2], hz
+                    next_dir_idx = -1
+                    move_target = (tx, ty, tz)
+                    move_stall = 0
+                    move_guard_target = False
+                    move_town_target = False
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps
+                elif town_best is not None:
+                    # 2026-08-31 TOWN 引导分支: 优先级 = 守卫 > 矿 > 城 > 资源堆 —
+                    # 城不在 target_list (C++ 不填) → next_dir_idx=-1 走 Python BFS/贪心; move_town_target=True 启用卡死兜底
+                    tx, ty, tz = town_best[1], town_best[2], hz
+                    next_dir_idx = -1
+                    move_target = (tx, ty, tz)
+                    move_stall = 0
+                    move_guard_target = False
+                    move_town_target = True
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps
                 elif best is not None:
@@ -594,10 +699,44 @@ try:
                 mine_taken = True
                 r += args.objective_reward
                 print(f"[MINE] mine captured at step {traj['steps']} +{args.objective_reward}", flush=True)
-            if not town_visited and any(hx_e == _tx and hy_e == _ty for (_tx, _ty) in _towns):
-                town_visited = True
-                r += args.objective_reward
-                print(f"[TOWN] town visited at step {traj['steps']} +{args.objective_reward}", flush=True)
+            # 2026-08-31 TOWN 判定修复: 精确站上城格 → dist<=1 (8邻+自身) —
+            # 根因 (结构性): 城格 template mask 中心 'A'=actionable+blocking, 英雄访问停在邻格,
+            # 英雄坐标结构性不可能等于城坐标 → ==判定永假 (1850 局 0 次).
+            # 防假糖: first-only (每局一次) + 我方城已过滤 (get_objectives)
+            _tow_owner = None
+            if not town_visited:
+                for _tx, _ty in _towns:
+                    if abs(hx_e - _tx) <= 1 and abs(hy_e - _ty) <= 1:
+                        # 08-31 埋点②: 记录被访问城的 owner (验证 visited 糖真假: owner=blue 路过 / red 真占领)
+                        for _ti9 in range(8):
+                            _tb9 = 336 + _ti9 * 18
+                            if int(obs[_tb9]) > 0 and int(obs[_tb9+2]) == _tx and int(obs[_tb9+3]) == _ty:
+                                _tow_owner = int(obs[_tb9+1])
+                                break
+                        town_visited = True
+                        r += args.objective_reward
+                        _ow_tag = 'captured' if _tow_owner == 0 else f'enemy-held({_tow_owner})'
+                        print(f"[TOWN] town visited at step {traj['steps']} +{args.objective_reward} owner={_ow_tag}", flush=True)
+                        break
+            # 08-31 埋点①: 占城观测 (只观测不改奖励) — 蓝城 owner 1→0 = 真占领事件
+            # 占城率 = grep [TOWN_CAPTURE] 次数/局数; R6 修复前若占城需战斗则恒 0 (基线数据)
+            if red_model is not None:
+                try:
+                    _own_map = {}
+                    for _ti8 in range(8):
+                        _tb8 = 336 + _ti8 * 18
+                        _tid8 = int(obs[_tb8])
+                        if _tid8 > 0:
+                            _own_map[_tid8] = int(obs[_tb8+1])
+                    if town_owner_init is None:
+                        town_owner_init = _own_map
+                    else:
+                        for _tid9, _ow9 in _own_map.items():
+                            if _tid9 not in town_capture_logged and town_owner_init.get(_tid9) == 1 and _ow9 == 0:
+                                town_capture_logged.add(_tid9)
+                                print(f"[TOWN_CAPTURE] blue town id={_tid9} owner 1->0 at step {traj['steps']} (observe only, no reward)", flush=True)
+                except Exception:
+                    pass
         # --- 优先级3 (每步必算): 兵力power增量 × 0.01 (招兵→正; 战斗损耗→负不惩罚) ---
         # 2026-08-29 B 方案: 0.001→0.01 — 招 1 个 tier0 兵 (value 10) 原 +0.01 不可见, 现 +0.1;
         # 高级兵价值 900 → +9.0, 与 RECRUIT +12 同量级, 让"招到兵"有可学习信号 (战损负向同步放大, 促进避战保兵)

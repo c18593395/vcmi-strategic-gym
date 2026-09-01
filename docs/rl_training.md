@@ -144,7 +144,7 @@ which automate the following processes:
 
 ### Using the RL algos directly
 
-<img src="components-rl-algos.png" alt="components-rl-algos" height="300px">
+<img src="diagrams/components-rl-algos.png" alt="components-rl-algos" height="300px">
 
 In its simplest form, training an agent involves running the file containing
 the RL algorithm implementation as the main python module. Training RL models
@@ -178,7 +178,7 @@ included in this document soon.
 
 ### Optimizing hyperparameters
 
-<img src="components-rl-optimizers.png" alt="components-rl-optimizers" height="300px">
+<img src="diagrams/components-rl-optimizers.png" alt="components-rl-optimizers" height="300px">
 
 Typically, training an RL model involves some form of hyperparameter
 optimization. The example below shows how to optimize hyperparameters using
@@ -199,7 +199,7 @@ vcmi-gym [W&B project](https://wandb.ai/s-manolloff/vcmi-gym) are trained.
 
 #### Evaluating a single model
 
-<img src="components-rl-eval-single.png" alt="components-rl-eval-single" height="300px">
+<img src="diagrams/components-rl-eval-single.png" alt="components-rl-eval-single" height="300px">
 
 The below example evaluates a single model and then exits:
 
@@ -228,7 +228,7 @@ to `true`.
 
 #### Continuously evaluating new models
 
-<img src="components-rl-eval-auto.png" alt="components-rl-eval-auto" height="300px">
+<img src="diagrams/components-rl-eval-auto.png" alt="components-rl-eval-auto" height="300px">
 
 An automated approach which automatically pulls newly uploaded models from W&B,
 evaluates them and pushes back model annotations and metrics in a distributed
@@ -244,7 +244,7 @@ while the evaluators can be distributed across one or more physical machines.
 
 #### Creating, evaluating and rebalancing maps
 
-<img src="components-rl-mapgen.png" alt="components-rl-mapgen" height="300px">
+<img src="diagrams/components-rl-mapgen.png" alt="components-rl-mapgen" height="300px">
 
 To create a new map:
 

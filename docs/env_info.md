@@ -204,7 +204,7 @@ All 12685 floats in the observation represent encoded information for a total
 of 20 stacks (10 attacker stacks, 10 defender stacks) and 165 hexes
 (the number of hexes on the battlefield).
 
-<img src="observation_space.png" alt="observation_space" height=300px>
+<img src="diagrams/observation_space.png" alt="observation_space" height=300px>
 
 ### <a id="stacks"></a> Stacks
 
