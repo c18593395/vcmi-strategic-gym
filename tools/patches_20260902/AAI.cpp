@@ -254,22 +254,36 @@ int3 executeAdvancedAction(CCallback * cb, int a, const CGHeroInstance * cur)
 		// 只认 garrisonHero/visitingHero dst (CGameHandler L2438)。
 		// 同 case 22 进城流程: moveHero 城锚点触发 visit (VCMI 自动弹 query 自动接受),
 		// visiting 状态下 getUpperArmy()=英雄, 新兵直上英雄部队 (取兵直上设计落地)。
-		fprintf(stderr, "[RL-DIAG5] townFound=%d visitedNow=%d\n", town ? 1 : 0, (cur->getVisitedTown() == town) ? 1 : 0);
+		{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] enter townFound=%d visited=%d vhero=%d\n", town ? 1 : 0, cur->getVisitedTown() ? 1 : 0, town->getVisitingHero() ? 1 : 0); fclose(dg); } }
 		if (!cur->getVisitedTown() || cur->getVisitedTown() != town)
 		{
 			int3 tp = town->visitablePos();
 			int3 standPos = cur->convertFromVisitablePos(tp);
 			// 2026-09-01 P1 修正: 仅相邻才尝试进城 (moveHero 单格限制, 远距离必失败白等 2s);
 			// 远距离 → 快速放弃本次招兵 (等 TOWN_VISIT 取兵窗引导英雄回城后再招)
-			if (distSq(standPos, cur->pos) > 2)
+			// 2026-09-02 P1c: 邻接判定改 visitable 坐标口径 (Chebyshev<=1) —
+			// 旧守卫用锚点坐标 distSq>2, 城/英雄锚点偏移导致邻接英雄被判远
+			// (71/71 全部误弃, afterMove=0); a==8 同款双路径: 锚点不同走一步,
+			// 已在锚点则走对象格本身触发 visit
+			int3 hv = cur->visitablePos();
+			int3 tv2 = town->visitablePos();
+			int dxv = tv2.x - hv.x; if (dxv < 0) dxv = -dxv;
+			int dyv = tv2.y - hv.y; if (dyv < 0) dyv = -dyv;
+			if (dxv > 1 || dyv > 1)
 				return noTarget;
-			cb->moveHero(cur, standPos, false);
+			if (standPos != cur->pos)
+				cb->moveHero(cur, standPos, false);
+			else
+				cb->moveHero(cur, tp, false);  // 已在锚点: 走对象格触发 visit (a==8 同款)
+			{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] afterMove pos=(%d,%d) stand=(%d,%d) visited=%d vhero=%d\n", (int)cur->pos.x, (int)cur->pos.y, (int)standPos.x, (int)standPos.y, cur->getVisitedTown() ? 1 : 0, town->getVisitingHero() ? 1 : 0); fclose(dg); } }
 			for (int i2 = 0; i2 < 20; i2++) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				if (cur->getVisitedTown() == town)
 					break;
+				{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] w2 i2=%d visited=%d vhero=%d\n", i2, cur->getVisitedTown() ? 1 : 0, town->getVisitingHero() ? 1 : 0); fclose(dg); } }
 			}
 			for (int i3 = 0; i3 < 20; i3++) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); fprintf(stderr, "[RL-DIAG5] wait i3=%d visited=%d\n", i3, cur->getVisitedTown() ? 1 : 0); if (cur->getVisitedTown()) break; }
+			{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] w3 visited=%d vhero=%d pos=(%d,%d)\n", cur->getVisitedTown() ? 1 : 0, town->getVisitingHero() ? 1 : 0, (int)cur->pos.x, (int)cur->pos.y); fclose(dg); } }
 if (!cur->getVisitedTown())
 				return noTarget;  // 进城失败, 放弃本次招兵 (不招进 garrison 黑洞)
 		}

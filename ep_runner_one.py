@@ -338,6 +338,7 @@ try:
     # → 兵力增量奖励 0.01×dp 立刻生效 (此前招兵进城 garrison, 该奖励管道对 RECRUIT 是断的)
     visit_econ_steps = 0     # 剩余取兵窗步数 (触发=4 步 16/17/18 轮换)
     visit_econ_cooldown = 0  # 冷却 (窗结束/触发后 30 步内不再触发, 防锁死城内 spam 招 0)
+    start_home = True        # 2026-09-02 出发前招兵阶段: 每局开局先回城招兵带兵再探索 (用户设计)
     own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
     own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
     # 08-31 占城观测埋点 (只观测不改奖励): 蓝城 owner 1→0 事件
@@ -502,6 +503,35 @@ try:
             visit_econ_steps -= 1
             if visit_econ_steps == 0:
                 visit_econ_cooldown = 30
+        # 2026-09-02 出发前招兵 (用户设计, 每局确定性): 先回城招兵带兵再探索 —
+        # 英雄未邻接己方城时强制 MOVE_TO 己方城 (move_town_bfs 引导); 邻接后交由
+        # 上方 visit 检测开取兵窗 (16/17/18), 引擎 P1/P1b 完成 visit+招兵直上英雄;
+        # 取兵窗结束 (visit_econ_steps 归零) 本阶段自动解除 → 正常探索.
+        # 终止保险: 无己方城 / 步数 > 80 放弃 (远图不无限烧步); 邻接开局 (20X20) 直接触发取兵窗
+        if start_home and args.objective_reward > 0 and red_model is not None and visit_econ_steps <= 0:
+            _ah2 = int(obs[3203]) if obs[3203] >= 0 else 0
+            _hb2 = 128 + _ah2 * 26
+            _hx2, _hy2, _hz2 = int(obs[_hb2+2]), int(obs[_hb2+3]), int(obs[_hb2+4])
+            _own = None
+            for _ti2 in range(8):
+                _tb2 = 336 + _ti2 * 18
+                if int(obs[_tb2+1]) == 0 and (int(obs[_tb2+2]) > 0 or int(obs[_tb2+3]) > 0):
+                    _own = (int(obs[_tb2+2]), int(obs[_tb2+3]))
+                    break
+            if _own is None or traj["steps"] > 80:
+                start_home = False  # 无己方城 / 超时放弃
+                print(f"[START_HOME] abort at step {traj['steps']} own={_own} hero=({_hx2},{_hy2})", flush=True)
+            elif max(abs(_own[0] - _hx2), abs(_own[1] - _hy2)) <= 1:
+                start_home = False      # 已邻接 → visit 检测下拍开取兵窗 (冷却保持, 防 spam)
+                print(f"[START_HOME] adjacent at step {traj['steps']} own={_own} hero=({_hx2},{_hy2})", flush=True)
+            else:
+                if traj["steps"] == 0 or (not move_target) or (move_target and (move_target[0] != _own[0] or move_target[1] != _own[1])):
+                    print(f"[START_HOME] guide own={_own} hero=({_hx2},{_hy2}) at step {traj['steps']}", flush=True)
+                a = 24  # 强制回城, 覆盖 economy_force (远距离招兵在邻接守卫下只会空转)
+                move_target = (_own[0], _own[1], _hz2)
+                move_guard_target = False
+                move_town_target = False
+                move_town_bfs = True
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:

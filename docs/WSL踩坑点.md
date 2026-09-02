@@ -288,3 +288,19 @@
 - **现象 1**: 补丁串内嵌 printf 的 %d 被 python `% k` 格式化消费 → TypeError; **现象 2**: 源码锚点含行尾空白/Tab 缩进 → 精确字符串 count=0; **现象 3**: `while: pos=find(...)` 后 pos 停在行首不越过插入点 → 死循环吞内存 (叠加编译压死 WSL, 见 #131)
 - **正确姿势**: % 用占位符 @@ + .replace; 锚点前先 sed -n 'X,Yp' | cat -A 看实际字节; 行级插入用 split('\n') 遍历; 补丁前必备份 (cp .bak_标签_时间戳)
 - 状态: 🔴 操作坑, 规范先行
+
+### #136 🔴 C++ 诊断代码远程生成三连坑: 引号拼接 / 尾杂引号 / 作用域外引用 (09-02)
+
+- **现象 1**: Python 补丁模板双引号拼接 bug 产生 `fprintf(dg, ""[RL-DIAG7]` → 编译错 stray '\'; **现象 2**: 模板参数尾部多杂引号 `? 1 : 0");` → missing terminating " character; **现象 3**: w3 诊断放在 i3 循环外但引用循环变量 i3 → 'i3' was not declared in this scope
+- **修复实录**: `sed -i 's/fprintf(dg, ""\[RL-DIAG7\]/fprintf(dg, "[RL-DIAG7]/g'` 修现象 1; `sed 's/? 1 : 0"); fclose/? 1 : 0); fclose/g'` 修现象 2; 去掉 i3 引用改打 pos 修现象 3
+- **正确姿势**: 生成后必 `grep -F '[RL-DIAG7]' 目标 | cat -A` 自检引号/尾字符; sed 替换式内 `\[` 易被消费致 grep Invalid range end → 用 grep -F 固定串验证; 诊断引用变量必须在同作用域; 每补一处立即增量编译 (-j4) 通过再下一处
+- **关联**: #135 补丁脚本三坑姊妹篇 (彼时是脚本机制坑, 本次是生成代码内容坑)
+- 状态: 🔴 操作坑, 规范先行
+
+### #137 🔴 VCMI 坐标系双口径坑: 锚点 pos vs visitablePos, 邻接判定必错 (09-02)
+
+- **现象**: P1 邻接守卫用锚点坐标 `distSq(standPos, cur->pos) > 2` → 邻接英雄被误判"远", 71/71 全部误弃 (DIAG7: enter 有动作, afterMove 恒 0); 改 visitablePos() Chebyshev≤1 口径后同场景放行
+- **机制**: `cur->pos` 与 `visitablePos()` 差 convertFromVisitablePos 对象相关偏移; 城锚点在 3x3 mask 中心 (mask=["VVVVV","VVAVV","VVVVV"]), 英雄 visit 停在邻格 — 锚点坐标系下"邻接"对城锚点距离可达 2-3, 守卫阈值 2 必误杀
+- **正确姿势**: 邻接/距离/守卫判定一律 **visitable 口径** (`visitablePos()` 双方 Chebyshev≤1); 锚点坐标仅作 moveHero 目的地; 已在锚点时改走对象格本身触发 visit (与 a==8 双路径同款)
+- **关联**: 知识库"城格不可站"条 (TOWN 判定 dist≤1 同源); 踩坑 #133 (getUpperArmy)
+- 状态: 🔴 认知坑, 已修复 (P1c)

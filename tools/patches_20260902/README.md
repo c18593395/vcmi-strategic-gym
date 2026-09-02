@@ -4,7 +4,7 @@
 
 | 文件 | 部署路径 (WSL) | 内容 |
 |------|----------------|------|
-| AAI.cpp | `~/vcmi-native/AI/MMAI/AAI/AAI.cpp` | P1: case16-18 招兵前 visit 块 + 邻接守卫; P1b: dst 显式 getVisitingHero(); 临时诊断 (rl_recruit_diag, 验证后删) |
+| AAI.cpp | `~/vcmi-native/AI/MMAI/AAI/AAI.cpp` | P1: case16-18 招兵前 visit 块 + 邻接守卫; P1b: dst 显式 getVisitingHero(); **P1c (09-02 下午): 邻接守卫改 visitablePos() Chebyshev≤1 口径 + 双路径 moveHero (修锚点坐标系误杀 71/71, 踩坑 #137)**; DIAG7 临时诊断 (rl_recruit_diag, 验证后删) |
 | strategic_state.cpp | `~/vcmi-native/ML/strategic_state.cpp` | P3: towns 段 garrison[7] 填充 (getUpperArmy) |
 
 双目录同步副本: `~/vcmi-native-build/` 同名文件已 cp 同步。
