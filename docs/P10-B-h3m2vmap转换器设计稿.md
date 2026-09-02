@@ -182,6 +182,35 @@ h3m2vmap --in "<name>.h3m" --out out.vmap
 - 版本备注：fork 版本串实际为 **VCMI 1.8.0**（此前文档按 1.7.4 记述），B2 接口行为以实源码为准（本设计稿所有行号引用均已对 WSL 树核实）
 - 待验证 V1（cb=nullptr）顺带降险：selftest 已证 GameLibrary 初始化独立可用，B2 首日即可直接实测 loadMap 路径
 
+## 8. 旁路工具 — vmap2h3m 反向转换（2026-09-01 完成）
+
+引擎**无 H3M 写出器**（只有 vmap saveMap），反向转换自建：`py/vmap2h3m.py`（Python, SOD 格式），读 vmap zip → 写官方 H3M 二进制。范围 = 训练图特征集 5 类对象（hero/town/mine/resource/monster）+ 全地形。
+
+### 关键实现路线
+
+- **格式知识源** = `scripts/h3m_tool.py` 的 reader 镜像（其逆向实测字节布局 = 写回依据）+ 引擎 `CMapLoaderH3M.cpp` 交叉校验
+- **模板(def)来源** = donor 官方图库：按 (id,subid) 匹配后**原样复制 raw 条目**（含 anim/blockMask/visitMask），文件内对象 id 一致性天然成立，绕开 H3M 原始编号考证；缺条目时同 id 任意条目 patch subid 字节（外观可能错位但引擎可读）。默认扫 data/Maps 官方图（约 1-2 分钟，可后续加 pickle 缓存）
+- **映射数据源** = 引擎 config json 的 index 字段（`Mods/vcmi/Content/config/creatures/*.json`、`heroes/*.json` 的 shortIdentifier→index），不硬编码大表。注意 VCMI creature index 含升级兵（castle: 0 pikeman 1 halberdier 2 archer 3 marksman 4 griffin 5 royal 6 swordsman…），与官方 H3 编号一致
+- vmap 对象 hero 的真英雄 = `options.type`（subtype 是职业名如 core:alchemist）；owner red=0 blue=1 中立=255
+
+### 踩坑实录（写回字节错位三连，均由 h3m_tool strict 对账定位）
+
+| # | 错位 | 事实 |
+|---|------|------|
+| 1 | main_town 段 | AB+ 格式 hasMainTown 后有 **2 个额外字节**（h3m_tool 实测逆向），漏写则 players 段后全错位 |
+| 2 | hero artifact 槽 | **SOD = 19 槽**（`artifactSlotsCount=18 if ver in (ROE,AB) else 19`），写 18 差 2B |
+| 3 | resource 段 | `readMessageAndGuards` 的 skip4 在 msg=1 分支**内部**，msg=0 时仅 1B + u32 amount + skip4 = 9B |
+
+### 验证链（两层）
+
+1. 字节级：`h3m_tool.parse_objects(tolerant=False)` strict 读回对账——T04/T03 双图 **skipped=0, strict OK**
+2. 引擎级：h3m2vmap 新增 `--check-h3m`（`CMapService::loadMap(buffer版)` 真实读回）——T04(36x36,9obj)/T03(30x30,10obj) 转换产物 + 官方图 For Sale(514obj) 对照 **全部 ENGINE LOAD OK**
+
+### 引擎 loadMap 调用两事实（设计稿 §5 V1 已实测定论）
+
+- **V1 结论：cb=nullptr 可用**（对象构造仅存指针，加载全程未解引用）
+- modName 不可传 ""——readLocalizedString → `getModLanguage("")` → ModsStorage 抛异常 core dump；必须传引擎内建合法 modContext **"map"**（`CModHandler::getModLanguage` 特判）
+
 ## 7. 与现有文档的关系
 
 - A 步实测结论 / 实施序：`docs/当前任务清单.md` P10 段

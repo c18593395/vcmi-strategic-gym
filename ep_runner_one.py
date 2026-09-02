@@ -179,6 +179,65 @@ def get_map_width(mapname):
         _MAP_SIZE_CACHE[mapname] = w
     return _MAP_SIZE_CACHE[mapname]
 
+# 2026-09-01 改法一 (城镇轴 greedy→全图 BFS): 修 greedy 寻路陷阱 —
+# 20X20_02 (岩石簇 9-10,2-5 / 15-17,10-11 卡死 greedy → TOWN_BLOCKED 100%) 与 30X30_01 (岩石簇 16-19,10-11) 同时受益。
+# 通行性静态源 = vmap surface_terrain.json (rc00_ 岩石不可走; wa 前缀水体不可走), 地形每局不变 → 按 mapname 缓存
+_PASS_CACHE = {}
+def get_passable_grid(mapname):
+    """全图通行性 bool 矩阵 grid[y][x] (True=可走); 读取失败返回 None (调用方退回原局部 BFS/贪心)"""
+    if mapname not in _PASS_CACHE:
+        try:
+            p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
+            with zipfile.ZipFile(p) as z:
+                terr = json.loads(z.read("surface_terrain.json"))
+            _h, _w = len(terr), len(terr[0])
+            grid = np.ones((_h, _w), dtype=bool)
+            for _y in range(_h):
+                for _x in range(_w):
+                    _c = str(terr[_y][_x])
+                    if _c.startswith("rc") or _c.startswith("wa"):  # rock / water
+                        grid[_y][_x] = False
+            _PASS_CACHE[mapname] = grid
+        except Exception:
+            _PASS_CACHE[mapname] = None
+    return _PASS_CACHE[mapname]
+
+def bfs_full_dir(mapname, hx, hy, tx, ty, blocked=None):
+    """全图 BFS (8 邻, 对角禁穿双岩角 — 与引擎行进规则一致), 返回 (第一步方向动作码 0-7, 路径步数)。
+    不可达 / 目标在岩石上 / 无地形数据 → (None, -1)
+    blocked: 本局动态障碍格集合 (敌方英雄等, 引擎实时拒绝通过的格) — 地形层 BFS 看不见, 需外部喂"""
+    grid = get_passable_grid(mapname)
+    if grid is None:
+        return None, -1
+    H, W = grid.shape
+    if not (0 <= tx < W and 0 <= ty < H) or not grid[ty][tx]:
+        return None, -1  # 目标格不可走 → 结构性不可达
+    if hx == tx and hy == ty:
+        return None, -1  # 已到达
+    prev = {(hx, hy): None}
+    q = deque([(hx, hy)])
+    while q:
+        cx, cy = q.popleft()
+        if cx == tx and cy == ty:
+            break
+        for d, (ddx, ddy) in enumerate(_DIRS):
+            nx, ny = cx + ddx, cy + ddy
+            if 0 <= nx < W and 0 <= ny < H and (nx, ny) not in prev and grid[ny][nx]:
+                if blocked and (nx, ny) in blocked:
+                    continue  # 2026-09-01 改法三: 动态障碍格 (敌方英雄) 视为不可通行
+                if ddx != 0 and ddy != 0 and not (grid[cy][nx] or grid[ny][cx]):
+                    continue  # 对角穿角禁行 (两正交邻格全堵时不许斜穿)
+                prev[(nx, ny)] = ((cx, cy), d)
+                q.append((nx, ny))
+    if (tx, ty) not in prev:
+        return None, -1
+    cur, first, plen = (tx, ty), None, 0
+    while prev[cur] is not None:
+        cur, d0 = prev[cur]
+        first = d0
+        plen += 1
+    return first, plen
+
 # 2026-08-28 Level 3: 资源点 (矿/资源堆) 缓存 — 经济闭环奖励检测：访问资源点→50步内招兵=+15
 # 从 vmap objects.json 读 mine_* (金矿等) 和 resource_* (木/矿堆)，记录 (x,y)
 _RESOURCE_CACHE = {}
@@ -269,6 +328,8 @@ try:
     town_visited = False
     town_blocked = False     # 城镇贪心卡死 → 本局禁用城优先
     move_town_target = False # 当前粘滞目标是否为城镇 (卡死判定用)
+    move_town_bfs = False    # 2026-09-01 改法二: 当前目标是否 BFS 引导城镇 (blue城/回城取兵) — 卡死判定用 BFS plen
+    dyn_blocked = set()      # 2026-09-01 改法三: 本局动态障碍格 (敌方英雄堵路时实探记录) — BFS 绕行用
     # 2026-08-29 II.3 调优: 每次执行小额奖励的计数器 (保险丝 每档/局上限 5 次)
     econ_recruit_count = {16: 0, 17: 0, 18: 0}
     econ_build2_count = 0
@@ -451,11 +512,21 @@ try:
             next_dir_idx = -1  # I.2: 默认无 next_dir
             if move_target is not None:
                 tx, ty, tz = move_target
-                if tx is None or (abs(tx - hx) + abs(ty - hy) == 0):
+                # 2026-09-01 改法四: 城镇目标邻接即到达 — 引擎禁踩城格 (城格 pas=0, visitable-not-standable),
+                # 旧判定要求 dist==0 踩上城格 → 邻格恒 stall + 把目标城格误入 dyn_blocked 黑名单 (自毁目标);
+                # 判距口径 = 切比雪夫 (8邻) 与 TOWN/TOWN_VISIT 判定一致 — 曼哈顿会漏对角邻格
+                # (复现: hero(3,3) tgt(2,2) 曼哈顿=2 不清目标 → 停滞废弃, 取兵窗开了兵没取)
+                if move_town_bfs and max(abs(tx - hx), abs(ty - hy)) <= 1:
+                    move_target = None
+                    move_guard_target = False
+                    move_town_target = False
+                    move_town_bfs = False
+                elif tx is None or (abs(tx - hx) + abs(ty - hy) == 0):
                     if tx is not None:
                         move_target = None  # 已到达
                         move_guard_target = False
                         move_town_target = False
+                        move_town_bfs = False
                 else:
                     # 粘滞: 查找 target_list 匹配索引获取 next_dir
                     tl_tmp = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
@@ -468,6 +539,10 @@ try:
                     # 城镇目标 (Python 注入, C++ 不填) — 恢复标记 (卡死禁用判定用)
                     move_town_target = any((tx == _tw[0] and ty == _tw[1])
                                            for _tw in get_objectives(args.mapname)[1])
+                    # 2026-09-01 改法二: BFS 引导城镇目标 (blue城 / 己方取兵城) — 卡死判定用 BFS plen
+                    move_town_bfs = move_town_target or any(
+                        (tx == int(obs[336 + _ti * 18 + 2]) and ty == int(obs[336 + _ti * 18 + 3]))
+                        for _ti in range(8) if int(obs[336 + _ti * 18 + 1]) == 0)
             if tx is None:
                 tl = np.asarray(obs[3251:3315], dtype=np.float32).reshape(8, 8)
                 best = None
@@ -508,10 +583,15 @@ try:
                 # ③ first-only +30 天然限收益
                 town_best = None
                 if args.objective_reward > 0 and mine_taken and not town_blocked and not town_visited:
+                    # 2026-09-01 改法一: 选址从 greedy Manhattan 改为全图 BFS —
+                    # ① 不可达的城直接跳过 (不设目标 → 不烧 6 步学费, [TOWN_BLOCKED] 不再触发);
+                    # ② 可达的城按真实路径步数取最近 (绕岩石后 Manhattan 近的未必真近)
                     for (_tx, _ty) in get_objectives(args.mapname)[1]:
-                        _td = abs(_tx - hx) + abs(_ty - hy)
-                        if town_best is None or _td < town_best[0]:
-                            town_best = (_td, _tx, _ty)
+                        _dir, _plen = bfs_full_dir(args.mapname, hx, hy, _tx, _ty, blocked=dyn_blocked)
+                        if _dir is None:
+                            continue
+                        if town_best is None or _plen < town_best[0]:
+                            town_best = (_plen, _tx, _ty)
                 # 2026-08-31 回城取兵引导: 己方城 recruit_mask 非零 (有巢穴可招) → 引导 MOVE_TO 己方城
                 # (visit 后取兵窗发 RECRUIT, 新兵直上英雄部队)
                 # 优先级 = 守卫 > 矿 > 回城取兵 > blue城占城 > 资源堆 (取兵高频+近城, 战力成长是 1v7 核心);
@@ -525,7 +605,9 @@ try:
                             _rm1 = int(obs[_tb1+14]) | int(obs[_tb1+15])
                             if _rm1 > 0:
                                 _od1 = abs(int(obs[_tb1+2]) - hx) + abs(int(obs[_tb1+3]) - hy)
-                                if _od1 <= 25 and _od1 > 0 and (own_town_best is None or _od1 < own_town_best[0]):
+                                # 2026-09-01 改法一: 可达性过滤 (BFS 不可达 → 不引导, 防 greedy 卡死烧 move_stall)
+                                _d1, _ = bfs_full_dir(args.mapname, hx, hy, int(obs[_tb1+2]), int(obs[_tb1+3]), blocked=dyn_blocked)
+                                if _od1 <= 25 and _od1 > 0 and _d1 is not None and (own_town_best is None or _od1 < own_town_best[0]):
                                     own_town_best = (_od1, int(obs[_tb1+2]), int(obs[_tb1+3]))
                     # 诊断日志 (边沿触发): 区分"引导没启动"(此条不打) vs "启动了没走到"(打了但无 [TOWN_VISIT])
                     if own_town_best is not None:
@@ -545,6 +627,7 @@ try:
                     move_stall = 0
                     move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
                     move_town_target = False
+                    move_town_bfs = False
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps  # 新目标 (余守卫) → 重置倒计时
                 elif obj_best is not None:
@@ -557,17 +640,20 @@ try:
                     move_stall = 0
                     move_guard_target = False
                     move_town_target = (next_dir_idx == -1)
+                    move_town_bfs = False
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps
                 elif own_town_best is not None:
                     # 2026-08-31 回城取兵分支: 到达后 visit 检测块自动开取兵窗 (RECRUIT 兵直上英雄)
                     # move_town_target=False — 己方城卡死只走通用 move_stall 放弃, 不触发 town_blocked (blue城专用)
+                    # move_town_bfs=True — 改法二: 取兵城同为 BFS 引导, 卡死判定用 BFS plen (修绕岩误判)
                     tx, ty, tz = own_town_best[1], own_town_best[2], hz
                     next_dir_idx = -1
                     move_target = (tx, ty, tz)
                     move_stall = 0
                     move_guard_target = False
                     move_town_target = False
+                    move_town_bfs = True
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps
                 elif town_best is not None:
@@ -579,6 +665,7 @@ try:
                     move_stall = 0
                     move_guard_target = False
                     move_town_target = True
+                    move_town_bfs = True
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps
                 elif best is not None:
@@ -587,20 +674,27 @@ try:
                     move_stall = 0
                     move_guard_target = False
                     move_town_target = False
+                    move_town_bfs = False
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps  # 新目标 (矿/资源) → 重置倒计时
                 else:
                     move_target = None
                     move_guard_target = False
                     move_town_target = False
+                    move_town_bfs = False
             if tx is not None:
                 # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
                 nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1
                 if nd >= 0:
                     a = nd
                 else:
-                    # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
+                    # 2026-09-01 改法一: 城镇目标 (nd<0 非守卫) 先走全图 BFS 绕岩石, 失败再退 15×15 局部 BFS → 贪心
                     if not move_guard_target:
+                        _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)
+                        if _fd is not None:
+                            a = _fd
+                    # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
+                    if not move_guard_target and (a < 0 or a > 7):
                         bfs_dir = bfs_path(obs, tx, ty)
                         if bfs_dir is not None:
                             a = bfs_dir
@@ -640,17 +734,36 @@ try:
                                 if pas[d]:
                                     a = d
                                     break
-                # 卡住检测: 连续 6 步距离不减小 → 放弃换目标 (被堵/绕路)
-                cur_dist = abs(tx - hx) + abs(ty - hy)
+                # 卡住检测: 连续 6 步进度不减小 → 放弃换目标 (被堵/绕路)
+                # 2026-09-01 改法二: BFS 引导的城镇目标 (blue城/回城取兵) 改用 BFS 剩余路径长度判进度 —
+                # 绕岩路径前段曼哈顿不降反升, 旧判定 6 步即误判 TOWN_BLOCKED (重启后 6/10 局误触发 →
+                # 占城引导被禁 → 200 步超时深负, avg_r 被压 0 的主因);
+                # BFS plen 持续下降 = 合法绕行不误杀; 位置不动/原地打转 plen 不减 = 真卡死;
+                # BFS 不可达 (返回 -1) 回退曼哈顿 → 真不可达照常触发兜底放弃
+                if move_town_bfs:
+                    _plen_now = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)[1]
+                    cur_dist = _plen_now if _plen_now >= 0 else abs(tx - hx) + abs(ty - hy)
+                else:
+                    cur_dist = abs(tx - hx) + abs(ty - hy)
                 if cur_dist >= move_stall_prev:
                     move_stall += 1
+                    # 2026-09-01 改法三: 停滞 = BFS 首步格被引擎拒绝 (实探: 敌方英雄等动态障碍) —
+                    # 把该格记入本局黑名单, 后续 BFS 重规划绕行; 诊断埋点打印阻挡格
+                    if move_town_bfs and move_stall == 1:
+                        _sdir, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)
+                        _bx, _by = -1, -1
+                        if _sdir is not None:
+                            _bx, _by = hx + _DIRS[_sdir][0], hy + _DIRS[_sdir][1]
+                            if (_bx, _by) != (tx, ty):  # 目标格本身 (城格 visitable) 不入黑名单, 防自毁目标
+                                dyn_blocked.add((_bx, _by))
+                        print(f"[TOWNSTALL] hero=({hx},{hy}) tgt=({tx},{ty}) plen={cur_dist} block=({_bx},{_by}) pas={[int(x) for x in obs[3211:3219]]}", flush=True)
                 else:
                     move_stall = 0
                 move_stall_prev = cur_dist
                 if move_stall >= 6:
                     if move_town_target and args.objective_reward > 0 and not town_blocked:
-                        town_blocked = True  # 城镇贪心卡死 → 本局禁用城优先, 防无限卡城循环
-                        print(f"[TOWN_BLOCKED] town unreachable via greedy, disable town priority at step {traj['steps']}", flush=True)
+                        town_blocked = True  # 城镇 BFS 进度真卡死 → 本局禁用城优先, 防无限卡城循环
+                        print(f"[TOWN_BLOCKED] town BFS progress stalled at step {traj['steps']} hero=({hx},{hy}) tgt=({tx},{ty})", flush=True)
                     move_target = None
                     move_stall = 0
             else:
@@ -752,12 +865,16 @@ try:
         # --- 优先级3 (每步必算): 兵力power增量 × 0.01 (招兵→正; 战斗损耗→负不惩罚) ---
         # 2026-08-29 B 方案: 0.001→0.01 — 招 1 个 tier0 兵 (value 10) 原 +0.01 不可见, 现 +0.1;
         # 高级兵价值 900 → +9.0, 与 RECRUIT +12 同量级, 让"招到兵"有可学习信号 (战损负向同步放大, 促进避战保兵)
-        # 5 army slots: field 10/12/14/16/18 = creature_id; 11/13/15/17/19 = count
-        _slot_weights = [10, 40, 120, 350, 900]
+        # (旧注释 "5 slots field 10-19 id+count 交错" 是错误布局假设, 已废弃 — 见下方 P2 注)
+        # 2026-09-01 P2 取兵链路: obs 英雄槽真实布局 = army 7 个纯 count 在 field 15-21
+        # (strategic_env.py _build_obs: 无 creature_id 字段); 旧读法 11-19 混入 knowledge/max_mana
+        # 且假设 id+count 交错布局 — 全错位, 导致 [RECRUITED]/兵力增量奖励恒失效。
+        # 权重沿用 VCMI AI value 阶梯 (T1-T5), T6/T7 外推
+        _slot_weights = [10, 40, 120, 350, 900, 1600, 2500]
         _army_now = 0.0
-        for _si in range(5):
+        for _si in range(7):
             try:
-                _cnt = int(nobs[b_e + 11 + 2*_si])
+                _cnt = int(nobs[b_e + 15 + _si])
                 if _cnt > 0:
                     _army_now += _cnt * _slot_weights[_si]
             except:

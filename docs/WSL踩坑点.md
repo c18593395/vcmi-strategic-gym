@@ -245,3 +245,46 @@
 - **正确姿势**: 方括号事件词统计必须带右括号精确匹配 `'\[TOWN\]'` (转义链: wsl bash -c 双引号内 \[ 会被消费一层, 跨层转义需实测); 或改用无歧义子串 `'town visited'`
 - 关联: 坑 #122 (转储词表盲区) 的变体 — 统计口径坑第二例
 - 状态: ⚠️ 认知坑
+
+### #130 🔴 PowerShell 双引号内 \ 子表达式展开: wsl 复杂命令被撕裂 (09-02)
+
+- **现象**: wsl bash -c \
+
+### #130 🔴 PowerShell 双引号内 $(...) 子表达式展开: wsl 复杂命令被撕裂 (09-02)
+
+- **现象**: `wsl bash -c "... $(ls -t ...) ..."` 中 `$(...)` 被 PowerShell 当子表达式先行执行 (报 head 不存在/空变量), bash 收到残缺命令; heredoc 正文同样被撕 (本次归档操作亲自复现)
+- **正确姿势**: 复杂命令/长文本写入文件 (Write 工具 → /mnt/d/.../_tmp_xxx) 再 `wsl bash -c "cat 文件 >> 目标"`, 用完即删; 单条简单命令才直接 wsl bash -c
+- 状态: 🔴 操作坑, 规范先行
+
+### #131 🔴 编译 -j8 与训练并发压死 WSL: 0x8007274c 连接失败 (09-02)
+
+- **现象**: cmake --build -j8 (MMAI 大编译单元) 与 v5 训练 (PPO+VCMI episode) 并发 → WSL 服务整体无响应 (`wsl -e echo` 超时 Wsl/Service/0x8007274c, ps/systemctl 全挂)
+- **恢复**: 仅 `wsl --shutdown` 可解 (训练丢未保存进度); 恢复后必须重建 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'` (随 VM 死亡, 踩坑 #114)
+- **正确姿势**: 重编 .so 前 `systemctl --user stop homm3-train-v5` 编完再启; 或 -j4 上限; 产物验证 ls -la 大小 + strings 特征串
+- 状态: 🔴 已踩, 规范先行
+
+### #132 🔴 主日志选择性转储口径假象: [ECON]/[RECRUITED] 不在白名单 (09-02)
+
+- **现象**: 主日志 grep [ECON]/[RECRUITED] = 0 → 误判"招兵从未执行"; 实际 runner stdout 全量进 /tmp/hermes_ep_*.log, 主日志只转储部分事件词 ([MINE]/[TOWN]/[ZOMBIE] 在, [ECON]/[RECRUITED]/[BUILD_NEW] 不在)
+- **正确姿势**: 经济/效果类信号一律查 hermes (`grep -h ECON /tmp/hermes_ep_*.log`); 主日志只看白名单内事件
+- **关联**: 坑 #122/#129 统计口径坑第三例
+- 状态: 🔴 认知坑, 已纠正
+
+### #133 🔴 VCMI 1.8 getUpperArmy() 不含 visiting hero: 与 HoMM3 直觉相反 (09-02)
+
+- **现象**: CGTownInstance.cpp L879-884 `if(getGarrisonHero()) return getGarrisonHero(); return this;` — 只返回 garrisonHero 或 town 本身; 英雄 visit 后 dst 仍非英雄 (实测 visit=1 但 dstIsHero=0)
+- **危害**: "getUpperArmy 优先 visiting hero" 的直觉假设使 P1 visit 修复后兵仍进 garrison 黑洞; 知识库 08-31 条目关键推论因此错误 (已修正)
+- **正确姿势**: 招兵给 visiting hero 时显式 `dst = town->getVisitingHero()` (public const, CGTownInstance.h L132)
+- 状态: 🔴 认知坑, 已修复 (P1b)
+
+### #134 🔴 fprintf(stderr) 在 MMAI server 内不可见: console 重定向 (09-02)
+
+- **现象**: AAI.cpp 内 fprintf(stderr,...) 诊断在 hermes/主日志均不出现 ([MMAI-DIAG] init 行证明启动期 stderr 通 hermes, 但 AI 运行期输出被吞)
+- **正确姿势**: C++ 侧诊断写独立文件 `{FILE* dg = fopen("/tmp/xxx.log","a"); if(dg){fprintf(dg,...); fclose(dg);} }`; 基建: /tmp/rl_recruit_diag.log (取兵链路诊断, 验证后可删)
+- 状态: 🔴 排查坑, 基建可用
+
+### #135 🔴 Python 补丁脚本三连坑: % 格式化冲突 / 锚点缩进失配 / while pos 不前进死循环 (09-02)
+
+- **现象 1**: 补丁串内嵌 printf 的 %d 被 python `% k` 格式化消费 → TypeError; **现象 2**: 源码锚点含行尾空白/Tab 缩进 → 精确字符串 count=0; **现象 3**: `while: pos=find(...)` 后 pos 停在行首不越过插入点 → 死循环吞内存 (叠加编译压死 WSL, 见 #131)
+- **正确姿势**: % 用占位符 @@ + .replace; 锚点前先 sed -n 'X,Yp' | cat -A 看实际字节; 行级插入用 split('\n') 遍历; 补丁前必备份 (cp .bak_标签_时间戳)
+- 状态: 🔴 操作坑, 规范先行
