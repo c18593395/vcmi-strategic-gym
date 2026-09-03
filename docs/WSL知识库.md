@@ -228,3 +228,24 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 - 埋点五件套: ①埋点 ②空 result 防御 (埋点 SKIP 行覆盖诊断, 显式防御未做) ③fuse 300s ⑤AAI 六处 [AAI DBG] fprintf 清理 (保留 selectionMade) — 已执行; ④Router cast 专项绑 R6
 - 部署后 10 ep × 6 图 (T04 全覆盖) 零复发; 若复发, /tmp/hermes_ep_*.log 按上表区分法定位
 - 运维经验: `\\wsl.localhost\Ubuntu\home\...` UNC 路径可直接用编辑工具改 WSL 文件 (免 bash sed 转义坑); PowerShell 管道内 head/grep 会走 Windows 侧报不存在, wsl 命令内管道须整体在引号内
+
+## R6 战斗 AI 修复: onnxruntime 部署 + USING_ONNX=1 (09-03)
+
+### 机制与修复
+
+- 根因: MMAI CMakeLists `add_definitions(-DUSING_ONNX=0)` → factory.cpp CreateBAI 的 `#if USING_ONNX` 块不编译 → 返回空 shared_ptr → router.cpp:438 `dynamic_cast<V13::BAI*>` 断言 → fallback StupidAI (红方战斗恒 StupidAI, 训练第一天起如此)
+- 修复: onnxruntime 1.19.2 linux-x64 (与 Windows 树 onnxruntime-win-x64-1.19.2 同版) → /opt/onnxruntime (include/ + lib/), ldconfig 注册; CMakeLists: USING_ONNX=1 + `target_include_directories(MMAI PRIVATE /opt/onnxruntime/include)` + `target_link_libraries(MMAI PRIVATE /opt/onnxruntime/lib/libonnxruntime.so)`; 双树同步 (vcmi-native + vcmi-native-build); 重编 `cmake --build rel --target MMAI -j4` 一次通过; vtest 副本同步
+- 版本依据: Windows 侧曾用 win-x64-1.19.2 编译成功 ( /mnt/d/vcmi_model_ai/ 实锤), C API 头跨平台通用
+
+### 模型加载双路径 (关键认知)
+
+- **MMAI_USER (训练自对弈)**: threadconnector.cpp L476 `leftModel = Function wrapper (f_getAction0 Python 回调)` → ModelType::USER → router case USER → CreateBAI → V13::BAI 包装; **战斗动作由 Python 策略经回调提供, 不需要 onnx 模型文件** — USING_ONNX=1 只解锁 BAI 包装层
+- **PATH 模式 (C++ 内推理)**: modelLeft=PATH → CreateNNModel(path) 经 VCMI ResourceHandler (EResType::AI_MODEL) 加载 .onnx → version==13 → V13::NNModel; 需部署 bc_model_v3464b.onnx 到 VCMI AI_MODEL 资源路径 (尚未部署, 训练不需要)
+- factory version 门禁: readVersion 读模型 metadata "version" 键, 非 13 抛异常 (WSL factory 仅支持 13)
+
+### 验证方法 (对照法)
+
+- 修复前: hermes ep 日志每战必有 `[Router] battleStart exception: dynamic cast to V13::BAI failed — fallback to StupidAI` (历史累计 748 次)
+- 修复后 (ep_11638 实测): BattleProcessor::startBattle DONE + 三层 query 栈 (movement93→visit94→battle95) + **零 Router fallback** + R7 埋点全链 (`notifyObjectAboutRemoval ENTER hasResult=1 objType=town` → `battleFinished RETURN winner=0`)
+- 运行时: `ldd rel/bin/AI/libMMAI.so | grep onnx` 解析到 /opt/onnxruntime/lib/libonnxruntime.so.1
+- ⚠ 战斗强度变化 = 非平稳 (StupidAI→V13 BAI+Python 策略), 战略层 act 序列不变已验证, avg_r/胜率波动需后续观察

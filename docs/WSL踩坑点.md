@@ -323,3 +323,11 @@
 - **现象**: R7 埋点凭直觉写 `visitedObject->typeName()` — CGObjectInstance 实际 API 是 `getTypeName()` (CGObjectInstance.h L54), 编译期才暴露; 若在停训练窗口内编译失败则窗口拉长
 - **正确姿势**: 停训练窗口前先在源码 grep 验证所有新用 API (类成员名/方法签名); 本次因编译前验证流程 (queryID/result 虚成员 grep) 已验两项, 漏了 typeName — 流程执行不彻底
 - 状态: 🟡 流程坑, 规范先行
+
+### #141 🔴 WSL 断网 + Windows 有网: 双机协作下载方案 (09-03)
+
+- **现象**: R6 修复需下载 onnxruntime, WSL 侧 GitHub/镜像/pypi/gitee 全部 unreachable (连 baidu 都不通), 但 Windows 侧 curl 正常 (200 OK); WSL 无代理端口 (7890/10809/1080 全无监听, 系统代理 ProxyEnable=0)
+- **危害**: WSL 内直接 curl/pip download 全失败, 白烧多轮重试
+- **正确姿势**: **Windows 侧 curl.exe 下载 → 落 /mnt/d → WSL 解压安装** (`curl.exe -o D:\...\_tmp_ort.tgz <url>` → `wsl -u root tar xzf /mnt/d/... -C /opt/onnxruntime --strip-components=1`); 头文件跨平台通用 (win-x64 包 include 可直接给 linux 编译用, 但库必须 linux 版); 用完删临时文件
+- **关联**: 下次 WSL 断网先 `curl.exe` 测 Windows 侧, 通则走 /mnt/d 桥, 勿在 WSL 内重试网络
+- 状态: 🔴 环境坑, 方案已验证
