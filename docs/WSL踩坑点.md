@@ -344,4 +344,5 @@
 - **事实 1**: `core:footman` 在当前 VCMI fork 不存在 — T05 全部 4 图加载失败 (`Failed to resolve identifier monster::core:footman`); gen_level3.py 含 footman 守卫同样不可用 → **T04 实际 0 守卫的历史成因**。可用生物以现有图 hero army 实测为准 (swordsman/archer/peasant ✓)
 - **事实 2**: 冒烟/训练运行时地图路径 = `rel/bin/data/Maps/` (VCMI ResourceHandler DATA 根), `Maps/training/` 是生成源不是运行时路径; 新 vmap 必须 cp 到 rel/bin/data/Maps/ 才能被 ep_runner 加载
 - **事实 3**: VCMI moveHero 到**敌方英雄格**被 "destination tile is blocked" 拒绝 (英雄战不由此触发); **monster 格可进入 = 触发战斗** (T03 机制)。mapname 必含 "adventure"/"s1"/"mini" (strategic_env assert) 且 header.name 需同名
-- 状态: 🟡 认知坑, 已沉淀
+- **事实 4 (09-03 补)**: T05 全 4 图三类非法 identifier 加载失败 — monster `core:footman`(8处) / resource `core:resourceGold/Wood/Rare`(15处, 命名风格错, 正确=core:gold/wood/crystal) / hero `core:inham`(4处→core:iona); resource options 还缺 amount。**教训: 生成图的每个 identifier 必须以 fork 已加载图的实测值为准** (T04 hero/monster/town/resource 类型全表 = 安全校准集); 逐个报错逐个修 = 三轮返工, 应先全量对照校准集再写图
+- 状态: 🟡 认知坑, 已沉淀 (T05 已修复验证 4/4 通过)
