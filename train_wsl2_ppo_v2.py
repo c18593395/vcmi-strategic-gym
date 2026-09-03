@@ -39,6 +39,11 @@ MAPS = [
     "T04_adventure_30X30_04_mir.vmap",
     "T04_adventure_36X36_03_mir.vmap",
     "T04_adventure_36X36_04_mir.vmap",
+    # 09-03 T05 混入轮换 (用户拍板: 战斗密度提升打破固化剧本) — T05 已修复加载 (footman/inham/resource 三类 identifier), 4 守卫挡矿路, 战斗信号密度来源
+    "T05_adventure_36X36_01.vmap",
+    "T05_adventure_36X36_02.vmap",
+    "T05_adventure_52X52_01.vmap",
+    "T05_adventure_52X52_02.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
@@ -116,9 +121,13 @@ def run_episode(mapname, blue_model=None):
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.5, 1.0 - ep_count / 200)  # 2026-08-25: 下限 0.5 常驻 (原衰减到 0 → 模型失去目标驱动 → 乱逛/横跳/零战斗)
     cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
-    if mapname.startswith("T04"):
+    if mapname.startswith(("T04", "T05")):
         # 2026-08-29 T04: 目标远 (矿 dist 25~41, T03 守卫 d<=6), 强制期需覆盖奔矿闭环 → 60 步常驻
-        cmd.extend(["--move_to_force", "60"])
+        # 09-03 T05 混入: 36X36/52X52 矿 dist 同量级, 与 T04 同款 60 步
+        # 09-03 晚 60→200 (T05 局实测: 引导 60 步内被 start_home/econ 窗瓜分, 60 步后撤走 →
+        # 模型新图熵塌缩 endTurn 连刷 + 城边徘徊 200 步 r=-126 卡死; 全程引导带英雄去矿
+        # → 路径穿守卫 → 触发战斗 +100; T04 局 60-97 步完结不受影响)
+        cmd.extend(["--move_to_force", "200"])
     else:
         cmd.extend(["--move_to_force", str(int(30 * move_scale))])  # 2026-08-25: 15→30 (最近目标几步即达, 15 步引导结束时还没走向矿/守卫)
     # ===== Level 3 II.3 开经济 (2026-08-29): 启用 (B2 方案定值 24 步, 50 步实测学费过重 -25 空转罚+延误奔矿, 08-29 改回) =====
