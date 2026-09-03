@@ -331,3 +331,17 @@
 - **正确姿势**: **Windows 侧 curl.exe 下载 → 落 /mnt/d → WSL 解压安装** (`curl.exe -o D:\...\_tmp_ort.tgz <url>` → `wsl -u root tar xzf /mnt/d/... -C /opt/onnxruntime --strip-components=1`); 头文件跨平台通用 (win-x64 包 include 可直接给 linux 编译用, 但库必须 linux 版); 用完删临时文件
 - **关联**: 下次 WSL 断网先 `curl.exe` 测 Windows 侧, 通则走 /mnt/d 桥, 勿在 WSL 内重试网络
 - 状态: 🔴 环境坑, 方案已验证
+
+### #142 🔴 C++ if 无花括号 + fprintf 抢作用域: 招兵循环 UB 潜伏爆雷 (09-03)
+
+- **现象**: AAI.cpp a==18 分支 `if (!creatures[i].second.empty())` 无花括号, 后续补丁插入的 fprintf 单语句抢走 if 作用域 → `cb->recruitCreatures(...)` 无条件对所有 tier 执行, 空 tier `second.front()` = UB; 训练 96ep 潜伏未爆, 冒烟图内存布局不同 → segfault libMMAI.so+0x49948 (runNetwork 线程, RAX=0 解引用)
+- **定位手段**: dmesg segfault 行 `ip ... in libMMAI.so[49948,...]` → `addr2line -e libMMAI.so -f -C 0x49948` 直接给出源码行 (带符号的 .so 才行, #126 strip 坑注意)
+- **正确姿势**: 给无花括号 if 追加语句时必须连原句一起包花括号; fprintf 诊断行插入前后用 `cat -A` 核对作用域; 编译警告 "too many arguments for format" = fprintf 参数/占位符失配线索, 勿忽略
+- 状态: 🔴 已修复 (加花括号+break 对齐 16/17)
+
+### #143 🟡 vmap 地图三个加载事实: footman 缺失 / 运行时路径 / 英雄格阻挡 (09-03)
+
+- **事实 1**: `core:footman` 在当前 VCMI fork 不存在 — T05 全部 4 图加载失败 (`Failed to resolve identifier monster::core:footman`); gen_level3.py 含 footman 守卫同样不可用 → **T04 实际 0 守卫的历史成因**。可用生物以现有图 hero army 实测为准 (swordsman/archer/peasant ✓)
+- **事实 2**: 冒烟/训练运行时地图路径 = `rel/bin/data/Maps/` (VCMI ResourceHandler DATA 根), `Maps/training/` 是生成源不是运行时路径; 新 vmap 必须 cp 到 rel/bin/data/Maps/ 才能被 ep_runner 加载
+- **事实 3**: VCMI moveHero 到**敌方英雄格**被 "destination tile is blocked" 拒绝 (英雄战不由此触发); **monster 格可进入 = 触发战斗** (T03 机制)。mapname 必含 "adventure"/"s1"/"mini" (strategic_env assert) 且 header.name 需同名
+- 状态: 🟡 认知坑, 已沉淀
