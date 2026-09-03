@@ -32,6 +32,13 @@ MAPS = [
     "T04_adventure_30X30_02.vmap",
     "T04_adventure_36X36_01.vmap",
     "T04_adventure_36X36_02.vmap",
+    # 09-03 加图 (观察窗触发条件①: 96ep 自发经济仍 0 + 固化依旧): 180° 旋转变体, 0 守卫同级同特征
+    "T04_adventure_20X20_03_mir.vmap",
+    "T04_adventure_20X20_04_mir.vmap",
+    "T04_adventure_30X30_03_mir.vmap",
+    "T04_adventure_30X30_04_mir.vmap",
+    "T04_adventure_36X36_03_mir.vmap",
+    "T04_adventure_36X36_04_mir.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
