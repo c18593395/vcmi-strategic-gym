@@ -858,7 +858,7 @@ class StrategicEnv(gym.Env):
         adventure_wait_for_turn() 和 adventure_send_action()。
         """
         if timeout is None:
-            timeout = min(self._vcmi_timeout, 900)
+            timeout = min(self._vcmi_timeout, 300)  # R7 fix (2026-09-03): fuse 900→300s — 冻结实测 13min 未触发窗口过长; 正常单步等待 <10s, 300s 余量充足
         self._ensure_libml_loaded()
         if self._libml is None:
             raise RuntimeError("libmlclient.so not loaded")

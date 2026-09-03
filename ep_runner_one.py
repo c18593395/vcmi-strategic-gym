@@ -204,21 +204,36 @@ def get_passable_grid(mapname):
 
 def bfs_full_dir(mapname, hx, hy, tx, ty, blocked=None):
     """全图 BFS (8 邻, 对角禁穿双岩角 — 与引擎行进规则一致), 返回 (第一步方向动作码 0-7, 路径步数)。
-    不可达 / 目标在岩石上 / 无地形数据 → (None, -1)
-    blocked: 本局动态障碍格集合 (敌方英雄等, 引擎实时拒绝通过的格) — 地形层 BFS 看不见, 需外部喂"""
+    不可达 / 无地形数据 → (None, -1)
+    blocked: 本局动态障碍格集合 (敌方英雄等, 引擎实时拒绝通过的格) — 地形层 BFS 看不见, 需外部喂
+    2026-09-02 晚修复 (21 次全弃真因): 城格 pas=0 (visitable-not-standable, 引擎禁踩),
+    旧版目标格不可走 → 直接结构性不可达 → start_home/占城引导/回城取兵三处城目标恒判死 →
+    贪心裸奔 hero 徘徊城外 2 格 TOWNSTALL fuse。现降级: 目标 8 邻可站格作代理目标 (多目标
+    BFS 最近者), 邻接即达 — 与 start_home adjacent / 引擎 visitablePos Chebyshev≤1 口径一致"""
     grid = get_passable_grid(mapname)
     if grid is None:
         return None, -1
     H, W = grid.shape
-    if not (0 <= tx < W and 0 <= ty < H) or not grid[ty][tx]:
-        return None, -1  # 目标格不可走 → 结构性不可达
+    if not (0 <= tx < W and 0 <= ty < H):
+        return None, -1
+    targets = [(tx, ty)] if grid[ty][tx] else []
+    if not targets:
+        for _ddx, _ddy in _DIRS:
+            _nx, _ny = tx + _ddx, ty + _ddy
+            if 0 <= _nx < W and 0 <= _ny < H and grid[_ny][_nx]:
+                targets.append((_nx, _ny))
+        if not targets:
+            return None, -1  # 城被围死 (8 邻全不可站) → 真不可达
+        if any(hx == _sx and hy == _sy for _sx, _sy in targets):
+            return None, 0   # hero 已在可站邻格 (= 已邻接), plen=0 供卡死判定递减
     if hx == tx and hy == ty:
         return None, -1  # 已到达
     prev = {(hx, hy): None}
     q = deque([(hx, hy)])
+    _tgt_set = set(targets)
     while q:
         cx, cy = q.popleft()
-        if cx == tx and cy == ty:
+        if (cx, cy) in _tgt_set:
             break
         for d, (ddx, ddy) in enumerate(_DIRS):
             nx, ny = cx + ddx, cy + ddy
@@ -229,9 +244,10 @@ def bfs_full_dir(mapname, hx, hy, tx, ty, blocked=None):
                     continue  # 对角穿角禁行 (两正交邻格全堵时不许斜穿)
                 prev[(nx, ny)] = ((cx, cy), d)
                 q.append((nx, ny))
-    if (tx, ty) not in prev:
+    _hit = next((p for p in _tgt_set if p in prev), None)
+    if _hit is None:
         return None, -1
-    cur, first, plen = (tx, ty), None, 0
+    cur, first, plen = _hit, None, 0
     while prev[cur] is not None:
         cur, d0 = prev[cur]
         first = d0
@@ -341,6 +357,17 @@ try:
     start_home = True        # 2026-09-02 出发前招兵阶段: 每局开局先回城招兵带兵再探索 (用户设计)
     own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
     own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
+
+    def _towns_dump(obs):
+        # [START_HOME] begin/abort 诊断 (09-02 晚): 8 城段全转储 (id,owner,x,y) —
+        # 一次看清 obs 里到底有哪些城 / owner 语义 (嫌疑: T04 敌方目标城 owner 被 obs 标 0,
+        # start_home 把敌城当己方城引导 hero 奔过去, visit 敌城 +30 后终局, 招兵分支 0 进入)
+        parts = []
+        for _ti in range(8):
+            _tb = 336 + _ti * 18
+            if int(obs[_tb+2]) > 0 or int(obs[_tb+3]) > 0:  # pos 非零 = 有效槽 (与选城判据一致)
+                parts.append(f"id{int(obs[_tb])}o{int(obs[_tb+1])}@({int(obs[_tb+2])},{int(obs[_tb+3])})")
+        return " ".join(parts) if parts else "NONE"
     # 08-31 占城观测埋点 (只观测不改奖励): 蓝城 owner 1→0 事件
     town_owner_init = None   # {town_id: owner} 首步快照
     town_capture_logged = set()  # 已记录捕获的城 id
@@ -518,9 +545,13 @@ try:
                 if int(obs[_tb2+1]) == 0 and (int(obs[_tb2+2]) > 0 or int(obs[_tb2+3]) > 0):
                     _own = (int(obs[_tb2+2]), int(obs[_tb2+3]))
                     break
+            if traj["steps"] == 0:
+                # [START_HOME] begin: 首拍全城段转储 — 坐实 obs owner 语义 (嫌疑: T04 敌方目标城 owner 被标 0)
+                print(f"[START_HOME] begin step=0 hero=({_hx2},{_hy2}) towns=[{_towns_dump(obs)}]", flush=True)
             if _own is None or traj["steps"] > 80:
+                _why = "no_own_town" if _own is None else "timeout>80"
                 start_home = False  # 无己方城 / 超时放弃
-                print(f"[START_HOME] abort at step {traj['steps']} own={_own} hero=({_hx2},{_hy2})", flush=True)
+                print(f"[START_HOME] abort({_why}) at step {traj['steps']} own={_own} hero=({_hx2},{_hy2}) towns=[{_towns_dump(obs)}]", flush=True)
             elif max(abs(_own[0] - _hx2), abs(_own[1] - _hy2)) <= 1:
                 start_home = False      # 已邻接 → visit 检测下拍开取兵窗 (冷却保持, 防 spam)
                 print(f"[START_HOME] adjacent at step {traj['steps']} own={_own} hero=({_hx2},{_hy2})", flush=True)

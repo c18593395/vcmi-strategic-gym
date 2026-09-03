@@ -304,3 +304,22 @@
 - **正确姿势**: 邻接/距离/守卫判定一律 **visitable 口径** (`visitablePos()` 双方 Chebyshev≤1); 锚点坐标仅作 moveHero 目的地; 已在锚点时改走对象格本身触发 visit (与 a==8 双路径同款)
 - **关联**: 知识库"城格不可站"条 (TOWN 判定 dist≤1 同源); 踩坑 #133 (getUpperArmy)
 - 状态: 🔴 认知坑, 已修复 (P1c)
+
+### #138 🔴 SearchReplace 模糊匹配残片: old_str 微差致插入错位 (09-03)
+
+- **现象**: 向 md 文档插入条目时 old_str 与原文有细微差异 (标点/空格), 工具不报错而是模糊对齐, 在目标位置产生 `④ **P1d- **P1d-v2` 类残片 (新内容嵌进旧行中段)
+- **正确姿势**: 插入后必 grep 关键词复核落位与上下文; 发现残片: Grep 定位 → 精确读取上下文 → 二次 SearchReplace 修复; old_str 从 Read 输出逐字复制, 勿凭记忆重打
+- 状态: 🔴 操作坑, 规范先行
+
+### #139 🔴 /mnt/d venv 已不存在: systemd-run 相对路径启动失败 (09-03)
+
+- **现象**: v5 历史启动命令 `--working-directory=/mnt/d/Bigdata/hero3_fresh + venv/bin/python` 重启时报 `No such file or directory` — /mnt/d/Bigdata/hero3_fresh/venv 目录已消失; 实际训练 venv 在 `/home/administrator/vcmi-workspace/venv` (Phase A 验证 vcmi_gym 解析路径时已实锤)
+- **危害**: systemd-run 返回 "Running as unit" 但进程秒死 (is-active=inactive), 训练假启动; unit 随 --collect 自动消失 (status 报 could not be found), 不好查
+- **正确姿势**: 启动命令一律用绝对路径 `exec /home/administrator/vcmi-workspace/venv/bin/python`; 重启后必验 `is-active` + tail 主日志确认 resume 行, 不能只看 systemd-run 返回值
+- 状态: 🔴 操作坑, 已纠正 (绝对路径重启成功)
+
+### #140 🟡 C++ API 假设编译前必 grep 验证: typeName() 不存在实为 getTypeName() (09-03)
+
+- **现象**: R7 埋点凭直觉写 `visitedObject->typeName()` — CGObjectInstance 实际 API 是 `getTypeName()` (CGObjectInstance.h L54), 编译期才暴露; 若在停训练窗口内编译失败则窗口拉长
+- **正确姿势**: 停训练窗口前先在源码 grep 验证所有新用 API (类成员名/方法签名); 本次因编译前验证流程 (queryID/result 虚成员 grep) 已验两项, 漏了 typeName — 流程执行不彻底
+- 状态: 🟡 流程坑, 规范先行

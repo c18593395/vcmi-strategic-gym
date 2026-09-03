@@ -21,12 +21,15 @@
 #include "battle/BattleAction.h"
 #include "battle/CPlayerBattleCallback.h"
 #include "callback/CCallback.h"
+#include "pathfinder/PathfinderCache.h"
+#include "pathfinder/CGPathNode.h"
 #include "callback/CDynLibHandler.h"
 #include "constants/EntityIdentifiers.h"
 #include "constants/Enumerations.h"
 #include "constants/NumericConstants.h"
 #include "gameState/CGameState.h"
 #include "mapping/CMap.h"
+#include "mapping/TerrainTile.h"
 #include "mapObjects/CGDwelling.h"
 #include "mapObjects/CGObjectInstance.h"
 #include "mapObjects/CGHeroInstance.h"
@@ -269,12 +272,88 @@ int3 executeAdvancedAction(CCallback * cb, int a, const CGHeroInstance * cur)
 			int3 tv2 = town->visitablePos();
 			int dxv = tv2.x - hv.x; if (dxv < 0) dxv = -dxv;
 			int dyv = tv2.y - hv.y; if (dyv < 0) dyv = -dyv;
+			{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] guard hv=(%d,%d) tv=(%d,%d) dx=%d dy=%d\n", (int)hv.x, (int)hv.y, (int)tv2.x, (int)tv2.y, dxv, dyv); fclose(dg); } }
 			if (dxv > 1 || dyv > 1)
-				return noTarget;
+			{
+				// 2026-09-02 P1d-v2: 引擎寻路直走门格 — moveHero 沿路径多格推进, 移动力尽停半路, 下拍续走, 踏上门格即 visit
+				// (P1d-v1 单步正交逼近两缺陷实测 09-02: ①x 向候选格被挡 → 单轴退化, tv=(0,3) hero x=27, dx=26 永不收敛
+				//  ②回合末移动力<100 单步失败, hero 恒 (3,4) 8 连弃原地打转; ③实锤 hero appearance offset=(1,0) 非 (0,0),
+				//  tv=town->visitablePos()=真门格, 如城锚点 (2,3)-(2,0)=(0,3); guard hv/tv 打点口径可信)
+				int3 preP = cur->pos;
+				int3 standGoal = cur->convertFromVisitablePos(tp);  // 门格左邻普通坐标 (P1e-r2: 实测城 body blocked, 仅作最终步 dst)
+				std::vector<int3> pathVec;
+				int pturns = -1;
+				try
+				{
+					// P1e 修复 P1d-v2 双病灶: ①moveHero dst=普通坐标, 传 visitable 门格被 server 二次换算出图拒 (13 次 0 推进根因1)
+					// ②单点 moveHero 受 areNeighbours 限一格, 跨多格必拒 (根因2); 改 client pathfinder + path 版逐格推进
+					// P1e-r2: pfProbe 实测 standGoal=(1,3) 城 body blocked (turns=255 acc=0) — 中间目标改门格 8 邻中
+					// pathfinder 可达格, path 至该格后尾补 standGoal 单步, server 落位 hmpos=门格自动 visit
+					PathfinderCache pfCache(cb, PathfinderOptions(*cb));
+					auto paths = pfCache.getPathsInfo(cur);
+					int3 msz = cb->getMapSize();
+					int3 midGoal(-1,-1,-1);
+					bool midOK = false;
+					for (int dy = -1; dy <= 1 && !midOK; dy++)
+						for (int dx = -1; dx <= 1 && !midOK; dx++)
+						{
+							if (dx == 0 && dy == 0)
+								continue;
+							int3 c = tp + int3(dx, dy, 0);
+							if (c.x < 0 || c.y < 0 || c.z < 0 || c.x >= msz.x || c.y >= msz.y || c.z >= msz.z)
+								continue;
+							const CGPathNode * pn = paths->getPathInfo(c);
+							bool ok = pn && pn->reachable() && pn->turns == 0;
+							{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] pfCand (%d,%d) turns=%u acc=%d ok=%d\n", (int)c.x, (int)c.y, pn ? (unsigned)pn->turns : 255, pn ? (int)pn->accessible : -1, ok ? 1 : 0); fclose(dg); } }
+							if (ok)
+							{
+								midGoal = c;
+								midOK = true;
+							}
+						}
+					if (midOK)
+						pturns = 0;
+					if (midOK && midGoal != cur->pos)
+					{
+						CGPath cgpath;
+						if (paths->getPath(cgpath, midGoal))
+							for (auto it = cgpath.nodes.rbegin(); it != cgpath.nodes.rend(); ++it)
+							{
+								if (it->coord == cur->convertToVisitablePos(cur->pos))
+									continue;  // P1e-r3: 起点按格子坐标比较 (CGPathNode=格子坐标, cur->pos=锚点坐标)
+								if (it->turns > 0)
+									break;  // 移动力尽段截断: server 逐格校验必拒, 留下拍续走
+								pathVec.push_back(cur->convertFromVisitablePos(it->coord));  // P1e-r3: 格子→锚点坐标 (moveHero 内部 convertToVisitablePos(dst) 减 offset 得落格, 错配=幽灵 x-1 偏移)
+							}
+					}
+				}
+				catch (const std::exception & e)
+				{
+					FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] approach2P EXC: %s\n", e.what()); fclose(dg); }
+				}
+				catch (...)
+				{
+					FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] approach2P EXC unknown\n"); fclose(dg); }
+				}
+				// 尾补最终步: 尾位(实际/将到)与 standGoal 邻接 → 追加; server 落位 hmpos=门格自动 visit
+				{
+					int3 tail = pathVec.empty() ? cur->pos : pathVec.back();
+					int adx = tail.x - standGoal.x; if (adx < 0) adx = -adx;
+					int ady = tail.y - standGoal.y; if (ady < 0) ady = -ady;
+					if (adx <= 1 && ady <= 1 && tail.z == standGoal.z && !(tail == standGoal))
+						pathVec.push_back(standGoal);
+				}
+				if (!pathVec.empty())
+					cb->moveHero(cur, pathVec, false);  // path 版: server 逐格推进, 末步踏 standGoal 触发 visit
+				else
+					cb->moveHero(cur, standGoal, false);  // fallback 单步 (邻接时合法; pathfinder 失败兜底)
+				{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] approach2P from=(%d,%d) to=(%d,%d) goal=(%d,%d) plen=%d turns=%d\n", (int)preP.x, (int)preP.y, (int)cur->pos.x, (int)cur->pos.y, (int)standGoal.x, (int)standGoal.y, (int)pathVec.size(), pturns); fclose(dg); } }
+				return noTarget;  // 本拍结束; 下拍: 邻接→主路径招兵 / 未到→approach2 续走 (每拍必前进直到移动力尽)
+			}
 			if (standPos != cur->pos)
 				cb->moveHero(cur, standPos, false);
-			else
-				cb->moveHero(cur, tp, false);  // 已在锚点: 走对象格触发 visit (a==8 同款)
+// P1e: 已在 standPos — 落位那步 server 已按 hmpos=门格触发 visit; 旧 moveHero(tp) 传
+// visitable 坐标必被 convertToVisitablePos 二次换算出图拒 (根因1 同源), 删除该无效调用
 			{FILE* dg = fopen("/tmp/rl_recruit_diag.log", "a"); if (dg) { fprintf(dg, "[RL-DIAG7] afterMove pos=(%d,%d) stand=(%d,%d) visited=%d vhero=%d\n", (int)cur->pos.x, (int)cur->pos.y, (int)standPos.x, (int)standPos.y, cur->getVisitedTown() ? 1 : 0, town->getVisitingHero() ? 1 : 0); fclose(dg); } }
 			for (int i2 = 0; i2 < 20; i2++) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));

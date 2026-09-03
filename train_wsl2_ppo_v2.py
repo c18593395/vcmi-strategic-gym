@@ -156,9 +156,11 @@ def run_episode(mapname, blue_model=None):
                     lines = f.readlines()
                 # P4 (08-29): 词表补 [GUARD] (守卫首胜事件此前从不进主日志) + "Assertion" (引擎断言崩溃行不带 [ERROR] 方括号, 漏网)
                 # 08-29+: [MINE]/[TOWN] (T04 目标引导首访事件)
+                # 09-02+: [START_HOME]/[RECRUITED] (招兵四拍判据链 1/4 与 4/4 拍, ep 日志逐局覆盖防丢失)
                 highlights = [l.rstrip("\n") for l in lines
                               if any(k in l for k in ("[ZOMBIE]", "[ENDTURN_FUSE]", "[ERROR]", "[GUARD]",
                                                       "[MINE]", "[TOWN",
+                                                      "[START_HOME]", "[RECRUITED]",
                                                       "Assertion",
                                                       "end ep at step", "fuse-break",
                                                       "cycle_detect triggered", "penalty END_TURN"))]
