@@ -40,8 +40,8 @@ MAPS = [
     "T04_adventure_36X36_03_mir.vmap",
     "T04_adventure_36X36_04_mir.vmap",
     # 09-03 T05 混入轮换 (用户拍板: 战斗密度提升打破固化剧本) — T05 已修复加载 (footman/inham/resource 三类 identifier), 4 守卫挡矿路, 战斗信号密度来源
+    # 09-04 移除 36X36_02: 守卫过强 (swordsman8+archer10+peasant15 vs 红15peasant) 6 局全负 (-79~-122) 拖 avg_r, 调低守卫兵量后再回归
     "T05_adventure_36X36_01.vmap",
-    "T05_adventure_36X36_02.vmap",
     "T05_adventure_52X52_01.vmap",
     "T05_adventure_52X52_02.vmap",
 ]
