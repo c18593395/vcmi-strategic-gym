@@ -25,22 +25,25 @@ OPPONENT_POOL_SIZE = 10
 
 # === 2026-08-29 Level 3 晋级 (II.2): T04 六图, 经济动作 16-21 仍关 (开经济 = 第二阶段, 一次一轴) ===
 # T03 毕业战绩: eval 10/10 全胜 avg_r=99 / 最近100局首胜率 64% / 30X30_01 A/B 44局 0% 大负率
+# ===== T04 课程 (退役存档 09-04, 如需回退换回) =====
+# MAPS = [
+#     "T04_adventure_20X20_01.vmap",
+#     "T04_adventure_20X20_02.vmap",
+#     "T04_adventure_30X30_01.vmap",
+#     "T04_adventure_30X30_02.vmap",
+#     "T04_adventure_36X36_01.vmap",
+#     "T04_adventure_36X36_02.vmap",
+#     # 09-03 加图 (观察窗触发条件①: 96ep 自发经济仍 0 + 固化依旧): 180° 旋转变体, 0 守卫同级同特征
+#     "T04_adventure_20X20_03_mir.vmap",
+#     "T04_adventure_20X20_04_mir.vmap",
+#     "T04_adventure_30X30_03_mir.vmap",
+#     "T04_adventure_30X30_04_mir.vmap",
+#     "T04_adventure_36X36_03_mir.vmap",
+#     "T04_adventure_36X36_04_mir.vmap",
+# ]
+# === 09-04 T05 全面化 (方案 B, 用户拍板): 判据实质达标 (T05 三图高分剧本近乎全胜 32/34 局 + 自发经济 0→54 次/40ep + 200 步局 24.4% 无大负局) → 全切 T05 三图 ===
+# T04 12 图退役存档 (原版 6 + _mir 6): T04 剧本 15-48 分已被 T05 战斗剧本 130-143 全面超越
 MAPS = [
-    "T04_adventure_20X20_01.vmap",
-    "T04_adventure_20X20_02.vmap",
-    "T04_adventure_30X30_01.vmap",
-    "T04_adventure_30X30_02.vmap",
-    "T04_adventure_36X36_01.vmap",
-    "T04_adventure_36X36_02.vmap",
-    # 09-03 加图 (观察窗触发条件①: 96ep 自发经济仍 0 + 固化依旧): 180° 旋转变体, 0 守卫同级同特征
-    "T04_adventure_20X20_03_mir.vmap",
-    "T04_adventure_20X20_04_mir.vmap",
-    "T04_adventure_30X30_03_mir.vmap",
-    "T04_adventure_30X30_04_mir.vmap",
-    "T04_adventure_36X36_03_mir.vmap",
-    "T04_adventure_36X36_04_mir.vmap",
-    # 09-03 T05 混入轮换 (用户拍板: 战斗密度提升打破固化剧本) — T05 已修复加载 (footman/inham/resource 三类 identifier), 4 守卫挡矿路, 战斗信号密度来源
-    # 09-04 移除 36X36_02: 守卫过强 (swordsman8+archer10+peasant15 vs 红15peasant) 6 局全负 (-79~-122) 拖 avg_r, 调低守卫兵量后再回归
     "T05_adventure_36X36_01.vmap",
     "T05_adventure_52X52_01.vmap",
     "T05_adventure_52X52_02.vmap",

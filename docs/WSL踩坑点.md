@@ -345,4 +345,6 @@
 - **事实 2**: 冒烟/训练运行时地图路径 = `rel/bin/data/Maps/` (VCMI ResourceHandler DATA 根), `Maps/training/` 是生成源不是运行时路径; 新 vmap 必须 cp 到 rel/bin/data/Maps/ 才能被 ep_runner 加载
 - **事实 3**: VCMI moveHero 到**敌方英雄格**被 "destination tile is blocked" 拒绝 (英雄战不由此触发); **monster 格可进入 = 触发战斗** (T03 机制)。mapname 必含 "adventure"/"s1"/"mini" (strategic_env assert) 且 header.name 需同名
 - **事实 4 (09-03 补)**: T05 全 4 图三类非法 identifier 加载失败 — monster `core:footman`(8处) / resource `core:resourceGold/Wood/Rare`(15处, 命名风格错, 正确=core:gold/wood/crystal) / hero `core:inham`(4处→core:iona); resource options 还缺 amount。**教训: 生成图的每个 identifier 必须以 fork 已加载图的实测值为准** (T04 hero/monster/town/resource 类型全表 = 安全校准集); 逐个报错逐个修 = 三轮返工, 应先全量对照校准集再写图
-- 状态: 🟡 认知坑, 已沉淀 (T05 已修复验证 4/4 通过)
+- **事实 5 (09-04 补, 重大)**: vmap 加载失败**不报错退出而是 fallback 复用已缓存图** → `map=` 标签与实际加载图脱钩! 实锤: _mir 图 6 张未 cp 到运行时路径, 训练 197ep 中 "T04_mir" 局实为 T05/T04 缓存图 (三连 r=141.53 局声称 20X20/36X36 不同尺寸但 obs_nz=223+act 逐字节相同 = 同一张图)。**检验方法: 同图 obs_nz 特征带一致 + 跨尺寸图 obs_nz 必不同 (20X20≈369 / 36X36≈246-309 / 52X52≈223 但 act 结构不同)**; 新增图必须 cp 到 rel/bin/data/Maps/ 并用 obs_nz 特征带对照验证真实加载
+- **事实 6 (09-04)**: Edit 工具替换 MAPS 列表时 old_string 只匹配尾部 → 旧列表未闭合 + 新 MAPS 重复赋值 = SyntaxError; 改列表赋值前必读全文确认块边界, 旧块转注释存档
+- 状态: 🟡 认知坑, 已沉淀 (T05 已修复验证 4/4 通过; _mir 已补副本验证真实加载)
