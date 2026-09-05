@@ -43,10 +43,15 @@ OPPONENT_POOL_SIZE = 10
 # ]
 # === 09-04 T05 全面化 (方案 B, 用户拍板): 判据实质达标 (T05 三图高分剧本近乎全胜 32/34 局 + 自发经济 0→54 次/40ep + 200 步局 24.4% 无大负局) → 全切 T05 三图 ===
 # T04 12 图退役存档 (原版 6 + _mir 6): T04 剧本 15-48 分已被 T05 战斗剧本 130-143 全面超越
+# 09-05 扩图: +3 镜像变体 (gen_t05_expand.py, 守卫同步旋转难度不变) + 36X36_02 守卫减半回归 (swordsman8→4/archer10→5/peasant15→8 可赢难度) = 3→7 张
 MAPS = [
     "T05_adventure_36X36_01.vmap",
+    "T05_adventure_36X36_02.vmap",
     "T05_adventure_52X52_01.vmap",
     "T05_adventure_52X52_02.vmap",
+    "T05_adventure_36X36_01_mir.vmap",
+    "T05_adventure_52X52_01_mir.vmap",
+    "T05_adventure_52X52_02_mir.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
