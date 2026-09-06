@@ -52,6 +52,9 @@ MAPS = [
     "T05_adventure_36X36_01_mir.vmap",
     "T05_adventure_52X52_01_mir.vmap",
     "T05_adventure_52X52_02_mir.vmap",
+    # 09-06 T06 前置 (方案 A, 只加大图轴不加多敌轴): 72X72 1v1 duel 变体 (fix_t06_maps.py 去 hero_2/3+town_2/3)
+    # identifier 三类修复同 T05 套路 (inham→edric/iona/alchemist / resourceGold→gold / monster→三兽集), inspect 5 图全绿
+    "T06_adventure_72X72_01_duel.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
@@ -129,9 +132,10 @@ def run_episode(mapname, blue_model=None):
     # 第4轮教训: bias(+2.0) 对 BC 从未见过的码无效 (logit 极负, 55ep 24 零出现) → 采样强制才有效
     move_scale = max(0.5, 1.0 - ep_count / 200)  # 2026-08-25: 下限 0.5 常驻 (原衰减到 0 → 模型失去目标驱动 → 乱逛/横跳/零战斗)
     cmd.extend(["--move_to_bias", str(2.0 * move_scale)])
-    if mapname.startswith(("T04", "T05")):
+    if mapname.startswith(("T04", "T05", "T06")):
         # 2026-08-29 T04: 目标远 (矿 dist 25~41, T03 守卫 d<=6), 强制期需覆盖奔矿闭环 → 60 步常驻
         # 09-03 T05 混入: 36X36/52X52 矿 dist 同量级, 与 T04 同款 60 步
+        # 09-06 T06 duel 混入: 72X72 大图矿 dist 更远, 同款 60 步
         # 09-03 晚 60→200 实验失败回滚 (09-04 复查): 200 版 13/32 挂死局 + r=-429 + a=2 占 34% 第一大
         # + TOWNSTALL 10.4/ep — 全程引导把英雄拖着撞墙 (obj_best 长局/新图频繁失效, 无目标 fallback
         # endTurn 遍地); 60 版对照 18ep avg_r 1.8 有 +131 局 — 回滚 60, 观察窗继续
