@@ -348,3 +348,35 @@
 - **事实 5 (09-04 补, 重大)**: vmap 加载失败**不报错退出而是 fallback 复用已缓存图** → `map=` 标签与实际加载图脱钩! 实锤: _mir 图 6 张未 cp 到运行时路径, 训练 197ep 中 "T04_mir" 局实为 T05/T04 缓存图 (三连 r=141.53 局声称 20X20/36X36 不同尺寸但 obs_nz=223+act 逐字节相同 = 同一张图)。**检验方法: 同图 obs_nz 特征带一致 + 跨尺寸图 obs_nz 必不同 (20X20≈369 / 36X36≈246-309 / 52X52≈223 但 act 结构不同)**; 新增图必须 cp 到 rel/bin/data/Maps/ 并用 obs_nz 特征带对照验证真实加载
 - **事实 6 (09-04)**: Edit 工具替换 MAPS 列表时 old_string 只匹配尾部 → 旧列表未闭合 + 新 MAPS 重复赋值 = SyntaxError; 改列表赋值前必读全文确认块边界, 旧块转注释存档
 - 状态: 🟡 认知坑, 已沉淀 (T05 已修复验证 4/4 通过; _mir 已补副本验证真实加载)
+
+### #132 🔴 identifier 校验集混入 subtype 字段值: core:alchemist 拒启动 → 1 步空壳局 (09-06)
+
+- **现象**: T06 原图 1v3 两局完全一致的异常形态 = `ep_steps=1 / obs_nz=0 / r=12.50 / act=[16]` (非随机偶发, 确定性复现); 其余 6 图正常
+- **真因**: fix_t06_maps.py 初版 VALID_HERO 含 `core:alchemist` — **alchemist 是职业名 (hero 的 subtype 字段合法值), 不是英雄名** (options.type); 引擎报 `Couldn't resolve hero identifier core:alchemist` → Failed to launch → runner 第一步收 done 空壳局; castle.json 实测英雄全名单 = orrin/valeska/edric/sylvia/lordHaart/sorsha/christian/tyris/... (16 个)
+- **修复**: 4 原图 hero_3 alchemist→core:christian (fix_t06_hero3.py, castle.json 实名); duel 变体因删 hero_2/3 不受影响 (侥幸正常的原因)
+- **教训**: identifier 校验集必须逐一实测验证 (引擎真实加载), **不能混入 subtype/template 类字段值** — 它们类型系统相同但命名空间不同; 排查信号 = "异常形态完全一致" 即确定性配置错误, 非随机故障
+- 状态: ✅ 已修复 (inspect 8 图全绿 + 单集复现引擎启动成功)
+
+### #133 🔴 ServerPlugin HeroPool 对称校验拒多敌课程: 1v3 及 1v7 全部无法启动 (09-06)
+
+- **现象**: alchemist 修复后 1v3 仍拒启动: `Added pool 0 of owner 0/1: default` → `ERROR Failed to launch game: Owners have differently sized pools`
+- **真因**: fork 训练栈 `server/ML/ServerPlugin.cpp` pool matching — 非 randomHeroes 模式且恰好 2 owner 时, 强制双方同名 pool 英雄数相等 (T04/T05/duel 全 1v1 天然通过, 1v3 red1 vs blue3 → 1≠3 throw)
+- **修复**: 大小不等降级 stdout 警告 (`pool size mismatch ... skip`), pool **名**不同仍 throw (真配错图仍可发现); **libmlserverplugin.so 是独立 SHARED 库不触"勿重编 libvcmi.so"铁律** (server/ML/CMakeLists add_library mlserverplugin SHARED; 单文件重编 -j4, cmake --build rel/ --target mlserverplugin)
+- **运维**: 备份链 .bak_pool_0906 (.so+源码); 副本同步 vtest/bin + hero3_vcmi/build/bin (route-backups/vcmi-gym 为历史备份不同步); **1v7 课程前置障碍已扫除**
+- 状态: ✅ 已修复部署 (1v3 真实首局 73 步 r=82.38 闭环)
+
+### #134 ⚠️ transient unit 停止即消失: systemctl start 报 Unit not found (09-06)
+
+- **现象**: `systemctl --user stop homm3-train-v5` 后想 `start` 恢复 → `Unit homm3-train-v5.service not found`
+- **真因**: v5 是 systemd-run 创建的 **transient unit**, `--collect` 使停止后 unit 定义被自动收集清除 — stop/start 模式只适用常驻 unit 文件
+- **正确姿势**: 每次重启必须 systemd-run 重建 (命令固化 `py/restart_train_v5.sh`; **venv 必须绝对路径** /home/administrator/vcmi-workspace/venv/bin/python — hero3_fresh/ 下无 venv, 旧记录 `exec venv/bin/python` 相对写法在当前目录结构下必挂)
+- 关联: 踩坑 #114 (keepalive) 的姊妹坑 — 两坑叠加 = 夜里中断后早上既 start 不了还得重建
+- 状态: ✅ 已固化脚本
+
+### #135 ⚠️ 隔夜中断形态与恢复序: keepalive 丢失 → 非优雅关机 → checkpoint 回滚 (09-07)
+
+- **现象**: 夜里训练中断, 早上 resume 点 (546379) 落后最后日志进度 (547071) ~700 步 (≈10 局样本未入档)
+- **机理链**: Windows 侧 keepalive 会话丢失 (关机/会话清理) → VM idle shutdown 广播 SIGTERM **不走 systemctl stop 优雅保存路径** → 模型状态停在最后一次自动存档
+- **恢复序 (开机后)**: ①先补挂 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'` (见 #114) ②再 `py/restart_train_v5.sh` (transient unit 需重建, 见 #134) ③grep 'Loaded train state' 确认 resume 点
+- **损失评估**: 回滚量 = 中断前日志 step - 存档 step, 小则几局大则一夜; 存档一致性无损
+- 状态: ✅ 已恢复 + keepalive 已补挂 (09-07 晨)

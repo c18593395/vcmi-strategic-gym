@@ -272,3 +272,33 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 - 60 版 (现行): 200 步局 ~20-25%, 浅负 (-11) 或正分 (10-31 有事件收益) — obj_best 目标可达性问题, 引导目标选择优化待立项
 - 200 版 (已回滚): 全程引导放大 obj_best 失效 → 拖墙 200 步 r=-429 — **引导时长不是解**
 - T05_36X36_02 特例: 守卫过强 6 局全负, 移出轮换待调守卫回归
+
+## T06 课程: duel→1v3 分层上线 + 双根因 (09-06/07)
+
+### 课程结构与判据
+- T06 4 张原图 (72X72_01/02 + 108X108_01/02) 结构 = **1v3** (1 red 英雄+城 vs 3 blue 英雄+3 城对角) + 5 金矿 + 15 资源 + 20 野怪; 一次叠加 3 难度轴 (大图/多敌/3 城胜利) 违反"一次一轴" → **duel 变体分层** (去 hero_2/3+town_2/3 = 只加大图轴, gen_t06_duel.py 批量产出 72X72_01/02 + 108X108_01/02 四张)
+- duel 站稳判据 (登记任务清单): ①≥30 局且 avg_r 无恶化 (后 1/3 ≥ 前 1/3×0.8) ②自发经济 ≥80% 局 ③200 步局 ≤20% ④守卫胜闭环 ≥70% — **实测 32 局 4/4 达标** (83.0 vs 65.1 比值 1.27 / 100% / 0% / 96.9%), 当日触发 1v3 上线
+- 观察统计脚本 `py/check_duel_watch.py <尾窗>`: 自发经济 (act 序列 index≥24 的 16-21) / 200 步局 / r 分布 / T05 同口径对照 一键出表
+
+### 双根因 (1 步空壳局的确定性形态)
+1. **identifier 命名空间混淆**: alchemist 是职业名 (subtype 字段) 非英雄名 → 引擎 `Couldn't resolve hero identifier` 拒启动 → runner 1 步收 done, obs_nz=0 (空观测)。判定信号: 多局异常**形态完全一致** = 确定性配置错误。英雄实名以 `vcmi-native/config/heroes/castle.json` 顶层 key 为准 (orrin/valeska/edric/sylvia/lordHaart/sorsha/christian/tyris/rion/adela/cuthbert/adelaide/ingham/sanya/loynis/caitlin)
+2. **HeroPool 对称校验**: ServerPlugin (server/ML/ServerPlugin.cpp) 非 randomHeroes + 恰好 2 owner 时强制双方同名 pool 英雄数相等 — 1v3 (1≠3) / 1v7 全拒。已放宽: 大小不等降级 stdout 警告, pool 名不同仍 throw。**mlserverplugin 是独立 SHARED 库** (add_library mlserverplugin SHARED), 重编不触 libvcmi.so 铁律; 构建 = `cmake --build ~/vcmi-native/rel --target mlserverplugin -j4`, 副本同步 vtest/bin + hero3_vcmi/build/bin
+- 1v3 真实首局: **73 步守卫胜 r=82.38** (vs duel 基线 75.5 同水平) — blue 3 roaming 英雄未速攻破防
+
+### 教训
+- identifier 校验集 (VALID_*) 每一项必须引擎实测过, 校验脚本与之同步维护 — ** subtype/template 字段值与 object 命名空间同形不同义**
+- duel 变体 "侥幸正常" 掩盖 hero_3 错误 (删对象绕过了坏 identifier) — 批量生成变体后**原图必须原样保留验证**, 不能只测变体
+
+## a1ea3f4d2d 摘取 + battle-only ModelAI 链路 (09-06)
+
+### NKAI mutex race 摘取 (上游官方 fix)
+- patch: `AIStatus::removeQuery` 删锁 → `AIStatus::receivedAnswerConfirmation` 函数头加锁 (NK1/NK2 双文件, fork 无 NK1 只改 NK2); **安全性前提 = removeQuery 全树唯一调用点在 receivedAnswerConfirmation 内 (持锁后调用, std::mutex 非递归无死锁)**
+- ⚠ 语义变化: removeQuery 现要求调用方自带外层锁 — 未来新增调用点必须持锁
+- 已落 WSL vcmi-native + Windows vcmi/ 双树 (cp 同步防 R5); **重编部署 (libMMAI.so) 待下次停训窗** — 源码先行是摘取窗标准动作
+- 价值: 该函数是 R7 battle-query-hang 同区, 裸跑访问 requestToQueryID/remainingQueries 与其他线程并发 = 真 race
+
+### battle-only 场景 ModelAI 选择 (静态验证通过)
+- **关键链路实锤**: battle-only 对局玩家全 AI → `CClient` L253-257 → red 走 g_adventure_allied_ai 注入或 settings["ai"]["adventureAlliedAI"], 其余走 aiNameForPlayer() → adventureEnemyAI → `CDynLibHandler::getNewAI(name)` → `AI/<name>.dll` — **battle-only 玩家 AI 走 adventure AI 链 (GetNewAI/CGlobalAI), 不走 getNewBattleAI (独立战斗 AI)**
+- 四要素全绿: ModelAI.dll 导出 GetNewAI (战斗回调由 CGlobalAI→CBattleGameInterface 继承承接) / schema adventure*AI enum allow ModelAI (660ea59c28) / 运行时 settings 双配 "ModelAI" / DLL+onnxruntime+bc_model 部署在 D:\vcmi-fork-build\bin
+- **缺口 (登记)**: schema combat*AI (combatEnemyAI/combatAlliedAI/combatNeutralAI) 的 "MMAI" 选项无对应 DLL (bin/AI 无 MMAI.dll) — auto-fight 链 (CPlayerInterface L1874 getNewBattleAI) 与中立玩家战斗选 "MMAI" 必失败; ModelAI.dll 无 GetNewBattleAI 导出不能填 combat*。修法 (待需要): ModelAI 补导出 GetNewBattleAI 工厂 + combat* enum 补 "ModelAI"
+- 运行时 GUI 冒烟步骤: VCMI_client.exe → 单人游戏 → 战斗模式按钮 → 查 `Documents\My Games\vcmi\logs\VCMI_Client_log.txt` 验证 "lead by ModelAI" + battle 回调

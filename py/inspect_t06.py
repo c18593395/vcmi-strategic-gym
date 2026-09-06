@@ -6,7 +6,7 @@ VALID_CREATURES = {'core:peasant', 'core:archer', 'core:swordsman'}
 VALID_TOWN = {'core:dungeon', 'core:conflux'}
 VALID_RES = {'core:gold', 'core:wood', 'core:crystal'}
 VALID_MINE = {'core:goldMine'}
-VALID_HERO = {'core:edric', 'core:iona', 'core:alchemist'}
+VALID_HERO = {'core:edric', 'core:iona', 'core:christian'}  # 09-06 修正: alchemist 是职业名(subtype 字段)非英雄名, 引擎报 "Couldn't resolve hero identifier"
 
 for p in sorted(glob.glob('/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_*.vmap')):
     z = zipfile.ZipFile(p)

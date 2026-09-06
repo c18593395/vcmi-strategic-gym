@@ -54,7 +54,11 @@ MAPS = [
     "T05_adventure_52X52_02_mir.vmap",
     # 09-06 T06 前置 (方案 A, 只加大图轴不加多敌轴): 72X72 1v1 duel 变体 (fix_t06_maps.py 去 hero_2/3+town_2/3)
     # identifier 三类修复同 T05 套路 (inham→edric/iona/alchemist / resourceGold→gold / monster→三兽集), inspect 5 图全绿
+    # 09-06 晚 1v3 上线 (判据 4/4 达标: 32 局 后1/3 avg 83.0 vs 前1/3 65.1 比值 1.27 上行 / 自发 100% / 200步局 0% / 守卫胜 96.9%):
+    # 混入 72X72_01 原版 (1 red vs 3 blue 英雄+3 蓝城, 只加多敌轴), MAPS 7→8
+    # 回退线: avg_r 跌幅>30% (vs duel 基线 75.5) 或挂死局>40% → 移除回 7 图
     "T06_adventure_72X72_01_duel.vmap",
+    "T06_adventure_72X72_01.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [

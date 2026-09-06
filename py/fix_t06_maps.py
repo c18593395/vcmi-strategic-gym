@@ -25,7 +25,7 @@ MON_MAP = {"core:footman": "core:swordsman", "core:pikeman": "core:swordsman",
 VALID_CREATURES = {'core:peasant', 'core:archer', 'core:swordsman'}
 VALID_TOWN = {'core:dungeon', 'core:conflux'}
 VALID_RES = {'core:gold', 'core:wood', 'core:crystal'}
-VALID_HERO = {'core:edric', 'core:iona', 'core:alchemist'}
+VALID_HERO = {'core:edric', 'core:iona', 'core:christian'}  # 09-06 修正: alchemist 是职业名非英雄名
 
 
 def load_vmap(p):
