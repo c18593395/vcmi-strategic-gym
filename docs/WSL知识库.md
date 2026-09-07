@@ -324,3 +324,25 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 - 取"最后一次启动后"窗口: `L=$(grep -n 'Loaded train state' f | tail -1 | cut -d: -f1)` + `tail -n +$L` — 写进 py/_tmp_xxx.sh 由 wsl bash 执行 (绕开 #130 $var 撕裂), 用完即删
 - 窗口校验两件套: `wc -l` 看体量 + `tail -1` 应为最新 `step=... ep=...` 行 — 边界对才开统计
 - `py/check_duel_watch.py` 尾窗 200ep 口径与行号窗口口径互补: 前者跨重启看趋势, 后者精确到本次运行
+
+## a1ea3f4d2d 部署纠偏: target 归属判定法 (09-07 晚)
+
+### 结论 — 训练栈无需重编, race 不在链路
+
+- **归属实锤**: 摘取改动 `AI/Nullkiller2/AIGateway.cpp` → 产物 **libNullkiller2.so**; 训练栈实际加载 **libMMAI.so** (源码 = `AI/MMAI/`, 独立实现 AAI/BAI/main.cpp, 与 NK2 两套代码)
+- **加载链证据**: train_wsl2_ppo_v2.py `--blue_ai MMAI_RANDOM --blue_adventure_ai MMAI` (C8.5 起替代 NK2, 见 L129 弃用注释: NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM); 自弈 red/blue = MMAI_USER → 全走 libMMAI.so
+- **同构扫描**: AI/MMAI/ 全目录 grep `removeQuery|receivedAnswerConfirmation` = 0 命中 — 上游 NKAI race 在 MMAI 库不存在
+- **cmake 零编译行解读**: `Built target MMAI` 无 Building 行 = target 依赖未变的**正确信号** (AIGateway.cpp 非 MMAI 依赖), 不是故障
+- **处置**: 改动保留 NK2 源码树 (Windows/WSL 双树已同步); 将来回用 NK2 对手时 `cmake --build ~/vcmi-native/rel --target Nullkiller2` + 同步 vtest/bin/AI 即生效; `libMMAI.so.bak_race_0907_2252` ×2 备份留档
+
+### 登记规范 (踩坑 #137)
+
+- "上游修复摘取 → 待重编部署"类任务, 登记前必须双确认:
+  1. **改动文件 → target**: 看 `AI/<目录>/CMakeLists.txt` 确认源码归属 (AI 下多 AI 库并存: BattleAI/EmptyAI/MMAI/Nullkiller2/StupidAI)
+  2. **运行时 → .so**: 看 train py `--xxx_ai` 参数推 lib<名>.so 加载链
+- 同形不同源: NKAI/NK2/MMAI 三个词指三代 AI 库, 文档与任务登记中禁混用
+
+### 开机恢复实录 (09-07 晚, #135 恢复序第三次)
+
+- 关机前优雅 stop 存档 step=564079 → 开机 keepalive (wsl.exe sleep infinity 常驻) → restart_train_v5.sh → resume 564079 **零损失** (前两次中断均有回滚, 本次关机前主动 stop 的价值实证: 优雅停 = 零损失, 被动死 = 回滚)
+- GUI battle-only 冒烟: 客户端未跑前 VCMI_Client_log.txt 为 8-29 旧会话 — 验证前先查日志 mtime 防验错文件

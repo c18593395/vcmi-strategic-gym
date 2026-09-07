@@ -384,3 +384,11 @@
 - **正确姿势**: 行号法三步 — `L=$(grep -n 'Loaded train state' f | tail -1 | cut -d: -f1)` → `tail -n +$L f > /tmp/cur_win.log` → 对窗口文件统计; (注意 $var 需在 bash 脚本文件内展开, 见 #130)
 - **教训**: 统计口径先验证窗口边界 (`wc -l` + `tail -1` 应为最新进度行), 再看数字 — 窗口错则一切统计无效
 - 状态: 🔴 已踩当日修复, 固化于临时脚本套路
+
+### #137 🟡 ".so 待重编"任务登记未验 target 归属: 改 A 源码却去编 B 库 (09-07)
+
+- **现象**: a1ea3f4d2d (NKAI mutex race fix) 摘取改的是 `AI/Nullkiller2/AIGateway.cpp` (= libNullkiller2.so 源码域), 但登记的部署任务写成"重编 libMMAI.so"; 执行时 `cmake --build --target MMAI` 零编译行 (`Built target MMAI` 无任何 Building 行) — cmake 正确: AIGateway.cpp 非 MMAI target 依赖
+- **根因链**: ①训练栈 `--blue_ai MMAI_RANDOM` + 自弈 MMAI_USER → 运行时加载 libMMAI.so (源码 = AI/MMAI/, 与 Nullkiller2 完全两套) ②NK2 已因内存爆炸弃用 → race 根本不在训练链路 ③MMAI/ 全目录 grep removeQuery/receivedAnswerConfirmation = 0 命中, 无同构代码
+- **教训**: 登记"待重编"任务前两问 — ①改动文件属于哪个 target (看 AI/<目录>/CMakeLists.txt) ②训练栈运行时实际加载哪个 .so (看 train py 的 --xxx_ai 参数); 零编译行 = 依赖未变的正确信号, 不是编译失败
+- **现状处置**: 改动留在 NK2 源码树 (双树已同步), 未来回用 NK2 时重编 libNullkiller2.so 即生效; 误备份 libMMAI.so.bak_race_0907_2252 ×2 留档无害
+- 状态: 🟡 已纠偏结案, 登记规范沉淀
