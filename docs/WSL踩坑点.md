@@ -392,3 +392,28 @@
 - **教训**: 登记"待重编"任务前两问 — ①改动文件属于哪个 target (看 AI/<目录>/CMakeLists.txt) ②训练栈运行时实际加载哪个 .so (看 train py 的 --xxx_ai 参数); 零编译行 = 依赖未变的正确信号, 不是编译失败
 - **现状处置**: 改动留在 NK2 源码树 (双树已同步), 未来回用 NK2 时重编 libNullkiller2.so 即生效; 误备份 libMMAI.so.bak_race_0907_2252 ×2 留档无害
 - 状态: 🟡 已纠偏结案, 登记规范沉淀
+
+### #138 🔴 fork Windows 构建 DLL 污染: 24 种 GCC 版本混装 = 内存损坏 (09-08)
+
+- **现象**: fork VCMI GUI 到 lobby 后崩, headless+testmap 也崩; 崩溃地址随机 (NULL+8 / 0x260021d8be0) — 典型内存损坏; 官方 VCMI 不崩 (MSVC 纯统一)
+- **真因**: fork bin 目录 324 个 DLL 来自 24 种 GCC 版本 (Rev5 16.1.0 102个 / Rev1 16.2.0 54个 / Rev2 16.1.0 47个 ... 甚至 4.8.0 1个); VCMI_lib.dll / VCMI_client.exe 编译用 GCC 16.2.0, 但 STL 对象跨 DLL 边界时混入 15.x/14.x STL ABI — 内存布局不兼容 = 随机崩
+- **根因链**: 多次手动复制 DLL (OBS lua51 → msys64 lib → ...) 叠加清理时误删+重建, MSYS2 pacman 升级后各包 DLL GCC 版本漂移无统一规范
+- **修复**: 备份 fork 特有文件 (VCMI_client.exe / VCMI_lib.dll / SDL2 系列 / avcodec-63 系列 / BattleAI.dll / onnxruntime.dll / lua51.dll) → 清空 bin 所有 DLL → robocopy msys64 mingw64/bin/*.dll 全量覆盖 → 还原 fork 特有文件; 323 DLL 最终 GCC 分布: 16.1→164 / 16.2→56 / 15.2→67 / 14.2→8 (同大版本 ABI 兼容)
+- **教训**: ①Windows 二进制混装 GCC 版本 = 定时炸弹, 必须单一大版本 ②fork GUI 崩溃排查第一步先看 `strings *.dll | grep 'GCC:' | sort -u` ③fork 构建在 WSL GCC 13.3.0 交叉 → Windows 端 DLL 源是 MSYS2, 两者版本必须对齐 (或用 WSL gcc produce .dll 直接拷)
+- 状态: ✅ 已修复 + 固化流程 (备份 → 清空 → robocopy msys64 → 还原)
+
+### #139 🔴 官方 VCMI 1.7.5 与 fork ModelAI.dll ABI 不兼容: MSVC vs GCC name mangling (09-08)
+
+- **现象**: 官方 VCMI 1.7.5 (MSVC) 拷贝 ModelAI.dll (GCC 16.2.0) + 必需的 GCC 运行时 DLL (libstdc++-6/libgcc_s_seh-1/libwinpthread-1) → 启动报错 "无法定位程序输入点 LIBRARY 于动态链接库 AI\ModelAI.dll"
+- **真因**: 双方 VCMI_lib.dll 同一个 `GameLibrary::LIBRARY` 全局变量, MSVC 导出名 `?LIBRARY@@3PEAVGameLibrary@@EA`, GCC 导出名纯 `LIBRARY` — DLL 加载时找不到 `LIBRARY` 符号
+- **尝试过**: 用 fork VCMI_lib.dll (GCC) 覆盖官方的 → 官方 client 是 MSVC 编译, 反过来找不到 MSVC 修饰的符号 → 同样崩; 跨编译器混 lib 无可行路径
+- **结论**: 官方 VCMI 1.7.5 (MSVC) **永远无法加载** fork ModelAI.dll (GCC); 必须用同代同编译器的 VCMI; 路径 = 用 fork (GCC) 全链路 / 或 ModelAI 用 MSVC 重编 / 或等官方 VCMI 1.8.0 MSVC + 重编 AI
+- **替代验证**: fork VCMI GUI (DLL 修复后) → lobby → 战斗模式 → ModelAI 加载成功: `Player blue will be lead by ModelAI` → `Opening ModelAI` → `Loaded ModelAI` ✅ (崩在 AI 首轮行动是别的问题, 不是加载)
+- 状态: 🟡 已定位结案, 替代验证通过
+
+### #140 🟡 VCMI 数据目录隔离实验结论 (09-08)
+
+- **现象**: fork/官方 VCMI 均崩 → 做隔离实验: 重命名 `My Games/vcmi` → 官方 VCMI 新目录空的 → 不崩; 逐步回搬 Data/Mods/Maps/config → 定位 **Maps 目录** 非根因 (169 个原版 .h3m 时间戳 1999-03-28, 无坏文件); 真正根因在 fork 二进制/DLL (见 #138)
+- **过程快照**: msys64 DLL 覆盖后 fork 到 main menu + lobby + PlayerStartsTurn → 崩在 AI 首轮行动 (NULL+8, StupidAI 也崩 → 非 ModelAI 逻辑); headless+testmap debugStartTest 初始化路径更早崩
+- **教训**: GUI 崩溃定位先排除数据目录 (重命名隔离 5 分钟), 再看二进制; DLL 版本检查命令 `strings *.dll | grep 'GCC:' | sort -u` 10 秒定位
+- 状态: 🟡 隔离方法固化, 根因已分流

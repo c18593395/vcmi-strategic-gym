@@ -346,3 +346,83 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 
 - 关机前优雅 stop 存档 step=564079 → 开机 keepalive (wsl.exe sleep infinity 常驻) → restart_train_v5.sh → resume 564079 **零损失** (前两次中断均有回滚, 本次关机前主动 stop 的价值实证: 优雅停 = 零损失, 被动死 = 回滚)
 - GUI battle-only 冒烟: 客户端未跑前 VCMI_Client_log.txt 为 8-29 旧会话 — 验证前先查日志 mtime 防验错文件
+
+---
+
+## Windows VCMI GUI 冒烟完整记录 (09-08)
+
+### 环境总览
+
+| 项目 | 值 |
+|------|-----|
+| fork 路径 | `D:\vcmi-fork-build\bin\VCMI_client.exe` |
+| fork 版本 | 1.8.0.5078fe76 |
+| fork 编译器 | WSL GCC 13.3.0 交叉编译 → Windows PE |
+| Windows DLL 源 | MSYS2 mingw64 (gcc 16.x 主) |
+| 官方 VCMI | `D:\Program Files\VCMI\` 1.7.5 MSVC |
+| ModelAI.dll | `D:\vcmi-fork-build\bin\AI\ModelAI.dll` (GCC 16.2.0) |
+| 数据目录 | `C:\Users\Administrator\Documents\My Games\vcmi\` |
+| **隔离备份** | `C:\Users\Administrator\Documents\My Games\vcmi.bak\` (1862MB) |
+
+### DLL 修复流程 (踩坑 #138)
+
+```
+Step 1: 备份 fork 特有文件 (非 msys64 自带)
+  → VCMI_client.exe / VCMI_lib.dll / SDL2* / avcodec-63 / avformat-63 / avutil-61
+  → swresample-7 / swscale-10 / libsquish.dll / lua51.dll / BattleAI.dll
+  → 存 D:\vcmi-fork-build\_fork_originals\
+
+Step 2: 清空 bin 所有 324 个 DLL
+Step 3: robocopy C:\msys64\mingw64\bin\*.dll D:\vcmi-fork-build\bin\ /COPY:DAT /R:1 /W:1
+Step 4: 还原 fork 特有文件
+→ 最终 323 DLL, GCC 分布: 16.1→164 / 16.2→56 / 15.2→67 / 14.2→8
+```
+
+### fork GUI 功能层级 (修复后)
+
+| 场景 | 结果 | 说明 |
+|------|------|------|
+| 启动 | ✅ main menu | 标题 `VCMI - Open Heroes 3 1.8.0` |
+| N → 单人游戏 | ✅ lobby | 收到 LobbyUpdateState |
+| lobby → 战斗模式 tab | ✅ | LobbySetBattleOnlyModeStartInfo |
+| 选图 → 开始 | ✅ PlayerStartsTurn | `Server gives turn to red` |
+| AI 首轮行动 | ❌ 崩 | `Attempt to read from 0x8` (NULL+8), 3 秒后触发 |
+| headless + testmap | ❌ 崩 | `debugStartTest` 早期初始化路径 |
+
+### ModelAI 加载链路验证 ✅
+
+```
+INFO - Player blue will be lead by ModelAI
+INFO - Opening ModelAI
+INFO - Loaded ModelAI
+INFO - Player green will be lead by ModelAI
+INFO - Opening ModelAI
+INFO - Loaded ModelAI
+```
+
+**四要素全链贯通**: settings → aiNameForPlayer → getNewAI("ModelAI") → LoadLibrary → 导出 GetNewAI → 构造成功 → onnxruntime → bc_model_v3464b.onnx
+
+### 崩溃根因分布
+
+| 位置 | 条件 | 根因 |
+|------|------|------|
+| GUI 进 lobby 后 | DLL 24 种 GCC 混装 | STL ABI 内存损坏 → 已修复 |
+| 游戏启动 AI 首轮 | DLL 统一后 | NULL+8 空指针 (StupidAI 也崩 → 非 ModelAI) |
+| headless + testmap | 始终崩 | debugStartTest 初始化路径 (与 GUI 不同) |
+| 官方 VCMI + ModelAI.dll | 官方 client + fork AI | MSVC vs GCC name mangling 不兼容 (踩坑 #139) |
+
+### 08-29 能跑 68 场的条件对比
+
+| 项目 | 08-29 当时 | 09-08 现在 |
+|------|-----------|-----------|
+| fork bin DLL | 应是干净的 (只复制必要 DLL) | 24 种 GCC 混装 (多次复制污染) |
+| battle-only 入口 | GUI (VCMI_client.exe) | GUI 同 |
+| ModelAI 加载 | 成功 (68 场) | 成功 ✅ (同一路径) |
+| AI 首轮行动 | 没崩 | 崩 (需单独排查) |
+
+### 后续行动建议
+
+1. **AI 首轮 NULL+8 崩**: 看 fork 自定义 `ML/MLClient.cpp` init_vcmi 路径 vs GUI debugStartTest 是否差异; 用 Judgement Day (5KB 最小图) 排除图复杂度
+2. **Windows 端跑 AI 冒烟**: fork GUI + DLL 已修, AI 加载 OK, 行动崩需独立 debug
+3. **WSL fork 原生跑**: fork 源码 `ML/main.cpp` 是 Linux headless 入口, rel/ 目录下跑
+4. **DLL 修复固化脚本**: 写 `py/fix_fork_dll.ps1` 自动执行 4 步
