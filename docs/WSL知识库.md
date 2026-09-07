@@ -302,3 +302,25 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 - 四要素全绿: ModelAI.dll 导出 GetNewAI (战斗回调由 CGlobalAI→CBattleGameInterface 继承承接) / schema adventure*AI enum allow ModelAI (660ea59c28) / 运行时 settings 双配 "ModelAI" / DLL+onnxruntime+bc_model 部署在 D:\vcmi-fork-build\bin
 - **缺口 (登记)**: schema combat*AI (combatEnemyAI/combatAlliedAI/combatNeutralAI) 的 "MMAI" 选项无对应 DLL (bin/AI 无 MMAI.dll) — auto-fight 链 (CPlayerInterface L1874 getNewBattleAI) 与中立玩家战斗选 "MMAI" 必失败; ModelAI.dll 无 GetNewBattleAI 导出不能填 combat*。修法 (待需要): ModelAI 补导出 GetNewBattleAI 工厂 + combat* enum 补 "ModelAI"
 - 运行时 GUI 冒烟步骤: VCMI_client.exe → 单人游戏 → 战斗模式按钮 → 查 `Documents\My Games\vcmi\logs\VCMI_Client_log.txt` 验证 "lead by ModelAI" + battle 回调
+
+## 1v3 首周判据数据面达标 + 训练全面后台化 (09-07)
+
+### 1v3 (T06_adventure_72X72_01) 观察窗数据 — 判据数据面达标
+
+- **爬坡轨迹**: 首夜窗 23 有效局 avg≈68.9 (含 r=4.0 早期战败) → 午后窗口 15 局 **avg≈80.4** (75.1~86.11), **已超 duel 基线 75.5** (+6.5%); 前 1/3 avg 80.0 → 后 1/3 81.8 上行; 早期战败局消失 (最低 75.1) — 模型在多敌图持续变强
+- **健康指标**: 自发经济 100% 局 / 200 步局 0% / ZOMBIE/FUSE 0 / obs_nz=301 独立特征带稳定 — 回退线 (avg -30% 或挂死 >40%) 从未接近
+- **多敌图 reward 反超 1v1 的解读**: 1v3 图 3 蓝城+5 金矿 vs duel 2 城 3 矿 — 经济事件 (MINE/RECRUITED) 目标更多, 蓝方 roaming 未形成有效压制, 红方经济剧本空间更大; 不代表战斗变强, 守卫胜闭环口径同前
+- **8 图随机轮换波动认知**: 选图 = `random.choice(MAPS)` 均匀随机 (train_wsl2_ppo_v2.py), 85 局窗口 52X52_01 出现 18 次 (期望 10.6, +2.4σ) 属正常波动 — 图分布偏差不作课程异常信号, 看 r 与健康指标
+- **判据口径**: 1v3 首周判据 4 项 (累计局数 ≥30 / avg_r 后 1/3 ≥ 前 1/3×0.8 / 自发 ≥80% / 200 步局 ≤20%) 数据面已达标; "守卫胜闭环 ≥70%" 与蓝英雄击杀事件随窗继续跟踪
+
+### 训练实例归属与后台化 (09-07 午后恢复实录)
+
+- **中断形态**: systemd unit 06:35 被外部 stop + 用户 09:43 前台终端启动 (PID 400 pts/0) → 该终端实例随后死亡, keepalive 亦丢 → 16:09 发现双 inactive (踩坑 #135 恢复序第二次实战: 补挂 keepalive → restart_train_v5.sh → grep resume 点)
+- **resume 锚点**: checkpoint 555165 vs 日志残留 556410 (损失 ~1245 步 ≈10 局, 非优雅中断正常损耗); resume 后 5h+ 稳定 125 局零 ZOMBIE
+- **前台跑法风险定论**: 前台终端实例**无 systemd 存档兜底**, 终端一关训练即死且 checkpoint 停在最后一次自动存档 — 训练一律走 `py/restart_train_v5.sh` 后台 transient unit (keepalive + 存档双保险)
+
+### 多 resume 日志窗口统计套路 (踩坑 #136 配套)
+
+- 取"最后一次启动后"窗口: `L=$(grep -n 'Loaded train state' f | tail -1 | cut -d: -f1)` + `tail -n +$L` — 写进 py/_tmp_xxx.sh 由 wsl bash 执行 (绕开 #130 $var 撕裂), 用完即删
+- 窗口校验两件套: `wc -l` 看体量 + `tail -1` 应为最新 `step=... ep=...` 行 — 边界对才开统计
+- `py/check_duel_watch.py` 尾窗 200ep 口径与行号窗口口径互补: 前者跨重启看趋势, 后者精确到本次运行

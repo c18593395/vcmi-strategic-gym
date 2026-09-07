@@ -246,14 +246,10 @@
 - 关联: 坑 #122 (转储词表盲区) 的变体 — 统计口径坑第二例
 - 状态: ⚠️ 认知坑
 
-### #130 🔴 PowerShell 双引号内 \ 子表达式展开: wsl 复杂命令被撕裂 (09-02)
+### #130 🔴 PowerShell 双引号内 $(...) / $var 子表达式展开: wsl 复杂命令被撕裂 (09-02, 09-07 补 $var 近亲)
 
-- **现象**: wsl bash -c \
-
-### #130 🔴 PowerShell 双引号内 $(...) 子表达式展开: wsl 复杂命令被撕裂 (09-02)
-
-- **现象**: `wsl bash -c "... $(ls -t ...) ..."` 中 `$(...)` 被 PowerShell 当子表达式先行执行 (报 head 不存在/空变量), bash 收到残缺命令; heredoc 正文同样被撕 (本次归档操作亲自复现)
-- **正确姿势**: 复杂命令/长文本写入文件 (Write 工具 → /mnt/d/.../_tmp_xxx) 再 `wsl bash -c "cat 文件 >> 目标"`, 用完即删; 单条简单命令才直接 wsl bash -c
+- **现象**: `wsl bash -c "... $(ls -t ...) ..."` 中 `$(...)` 被 PowerShell 当子表达式先行执行 (报 head 不存在/空变量), bash 收到残缺命令; heredoc 正文同样被撕 (本次归档操作亲自复现); **$var 变量同理** — `wsl bash -c "L=$(grep -n ...); tail -n +$L f"` 中 `$L` 被 PowerShell 展开为空 → bash 收到 `tail -n + f` 报 invalid number (09-07 复现, 即使 `\$` 转义在跨 PowerShell→wsl 两层解析下仍不可靠)
+- **正确姿势**: 复杂命令/长文本写入文件 (Write 工具 → py/_tmp_xxx.sh) 再 `wsl bash -c "bash 文件"`, 用完即删; 单条简单命令才直接 wsl bash -c
 - 状态: 🔴 操作坑, 规范先行
 
 ### #131 🔴 编译 -j8 与训练并发压死 WSL: 0x8007274c 连接失败 (09-02)
@@ -380,3 +376,11 @@
 - **恢复序 (开机后)**: ①先补挂 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList 'sleep infinity'` (见 #114) ②再 `py/restart_train_v5.sh` (transient unit 需重建, 见 #134) ③grep 'Loaded train state' 确认 resume 点
 - **损失评估**: 回滚量 = 中断前日志 step - 存档 step, 小则几局大则一夜; 存档一致性无损
 - 状态: ✅ 已恢复 + keepalive 已补挂 (09-07 晨)
+
+### #136 🔴 多 resume 日志取"最后一次启动后窗口"的 awk 陷阱: tac|awk|tac 返回全文件 (09-07)
+
+- **现象**: 想取最后一次 `Loaded train state` 之后的日志窗口统计, 用 `tac f | awk '/Loaded train state/{f=1} f' | tac` — 结果拿到**全文件** (441 条 ZOMBIE 假计数, 实际当前窗口 0 条); `awk '/pat/,0'` 同样只从**第一个**匹配点开始, 混入历史窗口
+- **真因**: 日志经多次重启含**多个** `Loaded train state` 行 — tac 后该行成为首行立即触发 f=1, 全部倒序内容都通过, 再 tac 回来 = 原文件; awk 范围式 `/pat/,0` 从首个匹配生效, 均无法定位"最后一次"
+- **正确姿势**: 行号法三步 — `L=$(grep -n 'Loaded train state' f | tail -1 | cut -d: -f1)` → `tail -n +$L f > /tmp/cur_win.log` → 对窗口文件统计; (注意 $var 需在 bash 脚本文件内展开, 见 #130)
+- **教训**: 统计口径先验证窗口边界 (`wc -l` + `tail -1` 应为最新进度行), 再看数字 — 窗口错则一切统计无效
+- 状态: 🔴 已踩当日修复, 固化于临时脚本套路
