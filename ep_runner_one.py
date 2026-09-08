@@ -123,6 +123,14 @@ parser.add_argument("--guard_done_steps", type=int, default=0,
 parser.add_argument("--objective_reward", type=float, default=0.0,
                     help="T04 目标引导 (2026-08-29): 首占矿/首进城镇各 +N 一次性事件奖励 (0=关闭)。T04 无守卫缺目标驱动源, 复用守卫 +100 同款模式")
 args = parser.parse_args()
+# 0909 T06 双死锁修复 (用户拍板): ① move_to_force →200 全程 — 蓝城引导天然在守卫胜后
+# (step 38-58+), 60 步强制窗外模型不采 24, 引导激活了也驱动不了模型; ② guard_done →0 —
+# 15 步收局掐死蓝城引导, 禁用 GUARD_DONE, 200 truncation 兜底 (capture +100 激励包配套)。
+# T04/T05 不受影响; capture 触发率稳定后撤梯子 (200→常规窗)。
+if args.mapname.startswith('T06'):
+    args.move_to_force = 200
+    args.guard_done_steps = 0
+
 
 # 2026-08-25: 守卫目标 — C++ target_list 无守卫 (重编环境崩无法部署), Python 从 vmap 读守卫位置补进 MOVE_TO 目标池
 # 守卫在矿 8 邻, 从英雄视角常比矿更近 → 先走向守卫 → 触发战斗 (T03 课程目标)
@@ -320,6 +328,8 @@ try:
     move_stall_prev = 10**9
     prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
     guard_first_win = False  # 2026-08-26: 首胜 (守卫清除) 已发
+    guard_blacklist = set()  # 0909: 守卫引导失败黑名单 (hero 站上守卫格即加入, 本局不再引导该守卫)
+    guard_fail = {}          # 0909 II: 守卫邻格停滞计数 (dist<=2 每步 +1, 3 步未胜 → 黑名单)
     guard_done_countdown = None  # 2026-08-29: 守卫胜利后自动终局倒计时 (None=未触发/关闭; 新目标重置)
     prev_guard_d = None  # 2026-08-27 方案A: 守卫接近梯度基线 (最近守卫曼哈顿距离)
     # P3 (BND-20260828-01 解封): 接近梯度 rate, 默认 0.5; --guard_grad_scale_by_map 时按图幅放大
@@ -371,6 +381,11 @@ try:
     # 08-31 占城观测埋点 (只观测不改奖励): 蓝城 owner 1→0 事件
     town_owner_init = None   # {town_id: owner} 首步快照
     town_capture_logged = set()  # 已记录捕获的城 id
+    # 09-08 蓝英雄击杀观测 (只观测不加奖): heroes 段全知 (H.4 直读 ps.getHeroes()),
+    # 蓝英雄 id 消失 = 击杀/移除事件。1v3 结案战斗质量指标①数据源。
+    # 双写: print → hermes_ep (逐局覆盖) + 追加 battle_quality_events.log (持久, check_duel_watch.py 读)
+    bhero_ids_prev = None    # 上一步 blue 英雄 id 集合
+    BHERO_EV_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
     recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
@@ -615,8 +630,16 @@ try:
                 # 2026-08-25: 守卫恒优先 — 守矿机制: 先占矿守卫消失, 战斗永不触发 → 守卫在 15 格内一律先打守卫
                 # 一步可达 (8 邻) 的守卫优先 (直接从英雄格进守卫, 避免经过矿/资源)
                 guard_best = None
+                # 0909 守卫引导失败黑名单: hero 站上守卫格 = 战斗已触发 (位置重合法同 [GUARD] 奖励口径)
+                # → 本局黑名单该守卫 — T06 duel 实锤振荡陷阱: hero 在 (4,6)↔(5,7) 守卫格回跳 26/60 步
+                # (战斗未触发/未胜 + 排除逻辑只在 hero 恰在格上时生效, 离格后 guard_best 又选中 → 往复),
+                # capture 路径被堵; 黑名单后引导自动切蓝城, 打不赢就绕; T05 一次即胜的局不受影响
                 for (gx, gy, gz) in get_guards(args.mapname):
                     if gz != hz:
+                        continue
+                    if gx == hx and gy == hy:
+                        guard_blacklist.add((gx, gy))
+                    if (gx, gy) in guard_blacklist:
                         continue
                     gd = abs(gx - hx) + abs(gy - hy)
                     adj = (gd <= 2 and abs(gx - hx) <= 1 and abs(gy - hy) <= 1)
@@ -626,6 +649,14 @@ try:
                         (adj == guard_best[3] and gd < guard_best[0])
                     ):
                         guard_best = (gd, gx, gy, adj)
+                # 0909 II: fail-count 黑名单 — "站上格"条件实测没接住 (hero 在邻格反复被引擎拒,
+                # 从未站上 → 位置重合条件永不触发, act 逐字复现振荡); 改为邻格停滞计数:
+                # guard_best 选中且 dist<=2 (已贴脸) 每步 +1, 3 步未胜 → 黑名单
+                if guard_best is not None and guard_best[0] <= 2:
+                    _gb = (guard_best[1], guard_best[2])
+                    guard_fail[_gb] = guard_fail.get(_gb, 0) + 1
+                    if guard_fail[_gb] >= 3:
+                        guard_blacklist.add(_gb)
                 # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) —
                 # 占领后 (mine_taken) 排除防粘死。
                 # 2026-08-29 II.3 调优: 城镇注入降级移除 — RECRUIT/BUILD 为玩家级远程操作无需到城,
@@ -643,7 +674,12 @@ try:
                 #    远城贪心失败由 move_stall (6步) + town_blocked 本局禁用兜底, 每局学费上限 6 步 vs first +30
                 # ③ first-only +30 天然限收益
                 town_best = None
-                if args.objective_reward > 0 and mine_taken and not town_blocked and not town_visited:
+                # 0909: T06 大图矿引导断链实锤 (72X72 target_list top-8 距离排序被近目标挤占,
+                # obj_best 恒 None → [MINE]=0 → mine_taken 永 False → 蓝城引导死锁, capture +100 死信) →
+                # T06 绕过 mine_taken 门槛 (capture 激励包配套引导); T04/T05 行为不变 (前置保留)。
+                # 卡死防护沿用: BFS 不可达跳过 + move_stall 放弃 + town_blocked 本局禁用
+                _t06_direct = args.mapname.startswith('T06')
+                if args.objective_reward > 0 and (mine_taken or _t06_direct) and not town_blocked and not town_visited:
                     # 2026-09-01 改法一: 选址从 greedy Manhattan 改为全图 BFS —
                     # ① 不可达的城直接跳过 (不设目标 → 不烧 6 步学费, [TOWN_BLOCKED] 不再触发);
                     # ② 可达的城按真实路径步数取最近 (绕岩石后 Manhattan 近的未必真近)
@@ -659,7 +695,12 @@ try:
                 # 触发信号 = recruit_mask (C++ fill_v3_fields 填充) — garrison 字段 C++ 恒 0 未实现, 不可用;
                 # 约束: dist<=25 (取兵是常规行为不该跨图跑) ; 卡死由 move_stall 通用放弃 (目标可反复出现, 不禁用)
                 own_town_best = None
-                if args.objective_reward > 0:
+                # 0909: T06 取兵引导限次 2 — 实锤 T06 duel 首局 [TOWN_VISIT]×4 (step 67/105/145/187,
+                # garrison 每周期回满 → 取兵引导复活) 与蓝城引导反复震荡, 200 步耗在往返没到蓝城
+                # (r=28.68 vs 旧守卫胜剧本 78); T06 蓝城单程 ~95 格, 200 步预算容不下取兵往返;
+                # start_home 已保底 1 次取兵, 限次后兵力成长靠开局; T04/T05 不限 (城近无往返成本)
+                _t06_limit_own = args.mapname.startswith('T06') and own_town_guide_count >= 2
+                if args.objective_reward > 0 and not _t06_limit_own:
                     for _ti1 in range(8):
                         _tb1 = 336 + _ti1 * 18
                         if int(obs[_tb1+1]) == 0 and (int(obs[_tb1+2]) > 0 or int(obs[_tb1+3]) > 0):
@@ -847,11 +888,39 @@ try:
                         guard_done_countdown = args.guard_done_steps  # 启动终局倒计时 (新目标会重置)
                     print(f"[GUARD] guard ({gx},{gy}) fought & won at step {traj['steps']} +100", flush=True)
                     break
+        # 09-08 蓝英雄击杀观测 (只观测不改奖): nobs heroes 段 [128+hi*26], 字段0=id/1=owner,
+        # owner!=0 且 id>0 = blue 英雄; 与上步集合差集 = 消失事件 (击杀/移除; H.4 全知无 fog 误报)。
+        # 截断误报防护: MAX_HEROES=8 槽, 1v3 red1+blue3=4 槽富余; blue 新招英雄挤爆 8 槽时会误报,
+        # 事件行带 live 槽数供甄别 (live>=8 时该事件可疑)。
+        _bnow = set()
+        for _hi in range(8):
+            _hb = 128 + _hi * 26
+            if int(nobs[_hb]) > 0 and int(nobs[_hb+1]) != 0:
+                _bnow.add(int(nobs[_hb]))
+        # 0908 实测: heroes 段偶发整段空拍 (live=0, 9/9 事件全此形态: T05×6 + T06×3) →
+        # 空拍 = 观测无效 (非真实歼灭), 跳过差集与 prev 更新 (防误报 + 防 prev 集合被清空);
+        # 空拍根因 (obs 填充链) 待后续立项排查
+        if _bnow:
+            if bhero_ids_prev is None:
+                bhero_ids_prev = _bnow
+            else:
+                for _gid in sorted(bhero_ids_prev - _bnow):
+                    _msg = (f"[BHERO_KILL] map={args.mapname} blue_hero_id={_gid} at step {traj['steps']}"
+                            f" live_slots={len(_bnow)} (observe only)")
+                    print(_msg, flush=True)
+                    try:
+                        with open(BHERO_EV_LOG, "a") as _bf:
+                            _bf.write(_msg + "\n")
+                    except Exception:
+                        pass
+                bhero_ids_prev = _bnow
         # 2026-08-27 方案A: 守卫接近梯度 — 每接近守卫 1 格 +0.3 (净正, 压过 -0.1 步罚, 引导走向守卫)
         # get_guards 静态 vmap 位置; 英雄所在的守卫格 = 已清除 (战斗后守卫消失), 排除避免 min_d=0 恒
         _guards = get_guards(args.mapname)
         if _guards:
-            _live = [(gx, gy) for (gx, gy, gz) in _guards if not (hx2 == gx and hy2 == gy)]
+            # 0909: 黑名单守卫同步排除 — 否则接近梯度把 hero 拉回已放弃的守卫, 与引导对抗成新振荡源
+            _live = [(gx, gy) for (gx, gy, gz) in _guards
+                     if not (hx2 == gx and hy2 == gy) and (gx, gy) not in guard_blacklist]
             if _live:
                 _min_d = min(abs(hx2 - gx) + abs(hy2 - gy) for (gx, gy) in _live)
                 if prev_guard_d is not None:
@@ -909,7 +978,25 @@ try:
                         for _tid9, _ow9 in _own_map.items():
                             if _tid9 not in town_capture_logged and town_owner_init.get(_tid9) == 1 and _ow9 == 0:
                                 town_capture_logged.add(_tid9)
-                                print(f"[TOWN_CAPTURE] blue town id={_tid9} owner 1->0 at step {traj['steps']} (observe only, no reward)", flush=True)
+                                # 09-08 1v3 完整胜利路径引导 (用户拍板): capture +100 复用守卫一次性事件模式,
+                                # 仅 T06 双图生效 (T04/T05 剧本零扰动 = 守卫胜判据对照组); 每城一次天然封顶
+                                # (logged 集合); 不直接触发终局, countdown 重置同 [MINE]/[GUARD] 新目标语义
+                                # (占城后引导模型继续下一目标); 检测滞后 1 step (obs=上轮 nobs, L1085 同步)
+                                if args.mapname.startswith('T06'):
+                                    r += 100.0
+                                    if guard_done_countdown is not None:
+                                        guard_done_countdown = args.guard_done_steps
+                                    _msg = (f"[TOWN_CAPTURE] map={args.mapname} blue town id={_tid9} owner 1->0 "
+                                            f"at step {traj['steps']} +100 (capture reward)")
+                                    print(_msg, flush=True)
+                                    # 旁路事件文件 (BHERO_KILL 同款): 主进程白名单改码需停训, 旁路零停训可观测
+                                    try:
+                                        with open(BHERO_EV_LOG, "a") as _bf:
+                                            _bf.write(_msg + "\n")
+                                    except Exception:
+                                        pass
+                                else:
+                                    print(f"[TOWN_CAPTURE] blue town id={_tid9} owner 1->0 at step {traj['steps']} (observe only, no reward)", flush=True)
                 except Exception:
                     pass
                 # 08-31 撤梯子③-S1 建设观测 (只观测不加奖): 己方城 recruit_mask 位增 = 新巢穴建成

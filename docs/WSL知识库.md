@@ -477,3 +477,48 @@ dummy 输入构造: `obs = randn(28114)*0.01 float32`, `ei_flat = zeros((2,0)) i
 - **铁律流**: 旧版备份 `~/backup-so-sync-0908/libMMAI.so.pre-sync` → 优雅停 (journal: 08:17:53 Stopping → 08:17:56 Stopped; train_loop.log `Saved STATE_PATH (step=580111)`) → cp ×2 → `py/restart_train_v5.sh` (systemd-run) → `Loaded train state (step=580111)` 无缝 resume
 - **踩坑 #134 二次复现**: stop 后 `systemctl start` 报 not found (transient unit 已收集消失); 且 **is-active 对已消失 unit 输出 `inactive` (exit 4) 不报错** — 停机确认要看 journalctl + `Saved STATE_PATH`, 勿信 is-active
 - **训练影响**: 零 — 训练走 baggage 路径 (--blue_ai MMAI_RANDOM, Python 回调), 不触发 router 资源路径逻辑; 此修复只惠及 battle-only GUI 场景 (ModelAI/MMAI 独立读 mmai-settings.json)
+
+---
+
+## T06 capture 路径攻坚: 引导系统机理与激励包全链 (09-09)
+
+### 引导系统机理 (本次逆向实锤, 修正历史认知)
+
+- **五层目标优先级链** (ep_runner_one.py 引导块): 守卫 (15 格内恒优先, 守矿机制) > 矿 (obj_best, target_list type=1) > 回城取兵 (own_town_best, dist<=25 + recruit_mask) > 蓝城占城 (town_best, BFS 可达性过滤) > 资源堆 (best)
+- **动作替换制 (核心机理)**: 引导块算出 move_target (tx 非 None) 即接管 — MOVE_TO 执行块把动作替换为方向动作 (优先 C++ next_dir `obs[3330+idx]` → 全图 BFS `bfs_full_dir` → 15×15 BFS → 贪心回退); **与 move_to_force 强制窗无关** — 强制窗只决定 a 的初值是 24 还是模型采样
+- **MOVE_TO(24) = 中间语义**: 发送 24 → 执行块翻译为方向 → traj 记录方向 — act 序列永远无 24 (全历史 0 命中)。判定引导生效看 move_target 是否非 None, 不看 act (踩坑 #144)
+- **卡死防护三件套** (城镇目标): BFS 不可达直接跳过 (不烧学费) / move_stall 6 步放弃 / town_blocked 本局禁用
+
+### capture 激励包四件套 (全链落点)
+
+| # | 内容 | 落点 | 语义 |
+|---|------|------|------|
+| 1 | TOWN_CAPTURE +100 奖励 | ep_runner L943-957 | owner 1→0 (真占领) 检测滞后 1 step (obs=上轮 nobs); 仅 T06 双图; 每城一次封顶 (logged 集合) |
+| 2 | 旁路事件文件 | battle_quality_events.log | 主日志白名单改码需停训 → BHERO_KILL 同款旁路 (行带 map= 自含归属) |
+| 3 | 蓝城引导直通 | ep_runner L655-656 | T06 绕过 town_best 的 mine_taken 门槛 (大图 target_list top-8 挤占 → [MINE]=0 → 门槛永假) |
+| 4 | 守卫振荡黑名单 | ep_runner L331/L631-658/L912-914 | fail-count 贴脸计数 (dist<=2 每步 +1, 3 步未胜黑名单) + 梯度块联动排除 |
+
+配套: T06 args 覆盖 (L126-132) move_to_force=200 + guard_done_steps=0 (15 步收局掐死引导 — **真死锁**; move_to_force 窗是伪死锁, 见踩坑 #144)
+
+### 四轮死锁诊断史 (现象 → 根因 → 修复)
+
+1. **capture 0 触发 (激励死信)** — 守卫奖能被发现是因守卫挡路; 蓝城 95 格外无引导信号模型永远发现不了 → 修 mine_taken 门槛
+2. **门槛修复后仍 0** — guard_done=15 步收局, town_best 活 15 步走不到蓝城 → 修 guard_done=0 (200 truncation 兜底)
+3. **200 步 truncation r=28** — 取兵震荡: [TOWN_VISIT]×4 (step 67/105/145/187, garrison 周期回满 → own_town 引导复活) 与蓝城引导打架 → 修 T06 取兵引导限次 2
+4. **仍 r=30** — 守卫格振荡陷阱: hero (4,6)↔(5,7) 回跳 26/60 步 (traj_ep.json 位置序列实锤) → 修守卫黑名单 (v1 站上格失效 → v2 fail-count, 踩坑 #145)
+
+### 验证数据 (r 递增 = 逐轮生效)
+
+28.68 → 30.03 → 41.80 (v1 黑名单) → **93.95 (v2 fail-count, 46 步守卫胜快速闭环)** — 振荡解除, 引导奔蓝城
+
+### 方法论沉淀
+
+- **振荡定位法**: 解析 /tmp/traj_ep.json 的 hero 位置序列 (obs[3203] active hero → heroes 段 [128+idx*26+2/3] 的 x,y) — 回跳计数 (pos[i]==pos[i-2]) + 唯一位置数两指标, 10 分钟定位空间级振荡; act 序列逐字相同 = 确定性剧本
+- **局耗时分型**: 主日志 time 字段差分 — 冻结型 (单步 >=300s, fuse 可兜) vs 慢性型 (全程 4-8s/步, fuse 雷达外, 踩坑 #147)
+- **埋点甄别**: 差集检测类埋点看 live 槽形态 — 9/9 同一形态 = 埋点 bug 而非行为 (踩坑 #146)
+
+### 遗留
+
+- **T06 守卫战斗未触发** (引擎侧): 疑与 fix_t06_maps.py aggression=guard 补丁相关 — hero 站守卫格战斗不发生, 引导层黑名单绕行不影响 capture, 待专项
+- **间歇性局级慢速** (踩坑 #147): 16% 局 4-8s/步, 根因未定位, 登记观察
+- **撤梯子登记**: capture 触发率稳定后 move_to_force 200 → 常规窗 (200 全程 = 发现期模型自主性受限的必要代价)
