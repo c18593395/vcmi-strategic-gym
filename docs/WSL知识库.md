@@ -426,3 +426,54 @@ INFO - Loaded ModelAI
 2. **Windows 端跑 AI 冒烟**: fork GUI + DLL 已修, AI 加载 OK, 行动崩需独立 debug
 3. **WSL fork 原生跑**: fork 源码 `ML/main.cpp` 是 Linux headless 入口, rel/ 目录下跑
 4. **DLL 修复固化脚本**: 写 `py/fix_fork_dll.ps1` 自动执行 4 步
+
+## v13 战斗 onnx 部署与推理验证 (09-08)
+
+### 数据缺口定性 (推翻旧认知)
+
+| 文件 | 实际身份 | 定性依据 |
+|------|---------|---------|
+| bc_model_v3464b.onnx | **战略模型** (3464 维输入) | metadata 无 version 键 → MMAI v13 factory `readVersion` 直接拒绝 |
+| defender-ipnkyfqb-best3.onnx | 38 字节断链占位文本 | 非模型文件 |
+| **defender-fqcbvmti-best7.onnx** | **有效 v13 战斗模型** (22.4MB) | 官方 vcmi-gym releases 成品 (v1.4), 推理验证 PASS |
+
+- 本地重导出不可行: 战斗 checkpoint 缺失, export 管线无权重可用 → 数据缺口只能从官方渠道补
+- **模型选型**: `fqcbvmti-best7` (v1.4) = 4 输入静态版, 匹配 fork C++; `tukbajrv` (v1.0) = 5 输入动态版 (nbr_flat/all_sizes) **弃用** — 与 C++ V13::NNModel 接口不符
+
+### C++ V13::NNModel 接口 (源码实锤, 验证脚本据此构造)
+
+- **4 输入**: `obs` float[28114] / `ei_flat` int64[2,sum_e] / `ea_flat` **float**[sum_e,1] (⚠ 不是 int64) / `lengths` int32[7]
+- **6 输出**: `act0_probs`[4] / `hex1_probs`[4,165] / `hex2_probs`[165,165] + 3 masks
+- `LT_COUNT = EI(V13::LinkType::_count)` = 7 (vcmi-native/AI/MMAI/BAI/v13/nn_model.cpp:30)
+
+### 验证方法: onnxruntime 直推 (绕过 GUI 不确定性)
+
+`py/verify_v13_inference.py` — WSL `/usr/bin/python3` 自带 onnxruntime 1.26.0, 零安装:
+
+```bash
+wsl bash -c "python3 /mnt/d/Bigdata/hero3_fresh/py/verify_v13_inference.py"
+# 模型路径: ~/mmai-battle-test/config/MMAI/models/defender-fqcbvmti-best7.onnx
+# PASS 判据: 6 输出 shape 全精确匹配 + act0_probs softmax 和=1.0
+```
+
+dummy 输入构造: `obs = randn(28114)*0.01 float32`, `ei_flat = zeros((2,0)) int64`, `ea_flat = zeros((0,1)) float32`, `lengths = zeros(7) int32` — 空 entity 表合法 (纯 obs 推理)。
+
+### 部署位置 (battle-only 环境)
+
+- 模型: `~/mmai-battle-test/config/MMAI/models/defender-fqcbvmti-best7.onnx`
+- 引用: `~/mmai-battle-test/config/MMAI/CONFIG/mmai-settings.json` 四键 `models.attacker/.attacker.siege/.defender/.defender.siege` 全切此文件
+- 已知妥协: side=1 时 defender 模型跑 attacker 键 (官方只有 defender 命名成品); 若运行报输入不匹配, 后备 v2.0 `attacker-pdpyqkrb-best7.onnx`
+
+### GUI 全链路验证两次受挫教训 (为何改直推)
+
+- run1 (timeout 180s): `Player red will be lead by MMAI` 正常 → 但 **MMAI 战斗模型加载时机 = red 自己开战时** (battleStart → BAI → 读 mmai-settings.json), Elbow Room 下 red AAI 避战 3 轮不撞怪 → 模型加载链路根本没被走到; timeout 杀进程后 core dump
+- run2 (timeout 900s): 客户端 ~5min 在 NK2 tileRevealed/heroMoved 回调后自发 core dump (无 C++ 异常日志), red 仅 18 条 AAI 日志 — **与模型无关, 是客户端 GUI/NK2 层稳定性问题**
+- 结论: 等 red 自主撞怪的 GUI 编排路线不可靠; **onnxruntime 直推是确定性的验证层** (接口契约级验证), GUI 全链路留待客户端修复后复验
+
+## router bug 修复版 .so 停机窗口同步结案 (09-08)
+
+- **同步内容**: MMAI router.cpp 资源路径 bug (assembleFromFiles 缺 `config/` 前缀 → mmai-settings.json 恒读空 → 恒 fallback) 修复版 libMMAI.so 从 `vcmi-native-build/rel/bin/AI/` 同步到训练目录
+- **md5 链**: 修复版 `77840da2ae41151a4d532aac7039b4e2` ↔ 旧版 `3a28f494debc3c02497738100d560880` (Sep 3); **vtest/bin/AI/ 经 md5 确认同属旧版副本, 一并同步** — 现四副本一致 (构建树/训练目录/vtest/mmai-battle-test)
+- **铁律流**: 旧版备份 `~/backup-so-sync-0908/libMMAI.so.pre-sync` → 优雅停 (journal: 08:17:53 Stopping → 08:17:56 Stopped; train_loop.log `Saved STATE_PATH (step=580111)`) → cp ×2 → `py/restart_train_v5.sh` (systemd-run) → `Loaded train state (step=580111)` 无缝 resume
+- **踩坑 #134 二次复现**: stop 后 `systemctl start` 报 not found (transient unit 已收集消失); 且 **is-active 对已消失 unit 输出 `inactive` (exit 4) 不报错** — 停机确认要看 journalctl + `Saved STATE_PATH`, 勿信 is-active
+- **训练影响**: 零 — 训练走 baggage 路径 (--blue_ai MMAI_RANDOM, Python 回调), 不触发 router 资源路径逻辑; 此修复只惠及 battle-only GUI 场景 (ModelAI/MMAI 独立读 mmai-settings.json)

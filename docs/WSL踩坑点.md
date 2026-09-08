@@ -367,6 +367,7 @@
 - **真因**: v5 是 systemd-run 创建的 **transient unit**, `--collect` 使停止后 unit 定义被自动收集清除 — stop/start 模式只适用常驻 unit 文件
 - **正确姿势**: 每次重启必须 systemd-run 重建 (命令固化 `py/restart_train_v5.sh`; **venv 必须绝对路径** /home/administrator/vcmi-workspace/venv/bin/python — hero3_fresh/ 下无 venv, 旧记录 `exec venv/bin/python` 相对写法在当前目录结构下必挂)
 - 关联: 踩坑 #114 (keepalive) 的姊妹坑 — 两坑叠加 = 夜里中断后早上既 start 不了还得重建
+- **补充 (09-08 二次复现)**: stop 后 `systemctl --user is-active homm3-train-v5` 对**已消失的 unit 照样输出 `inactive` (exit 4)**, 不报 not found — is-active 结果不能作为 unit 存在性判据; 且 `stop` 一个已消失 unit 也可能静默成功, 停机确认要看 journalctl (`Stopped homm3-train-v5.service` + train_loop.log 出现 `Saved STATE_PATH`) 而非 is-active; 重启一律 `py/restart_train_v5.sh` 勿走 systemctl start
 - 状态: ✅ 已固化脚本
 
 ### #135 ⚠️ 隔夜中断形态与恢复序: keepalive 丢失 → 非优雅关机 → checkpoint 回滚 (09-07)
