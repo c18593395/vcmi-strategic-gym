@@ -522,3 +522,91 @@ dummy 输入构造: `obs = randn(28114)*0.01 float32`, `ei_flat = zeros((2,0)) i
 - **T06 守卫战斗未触发** (引擎侧): 疑与 fix_t06_maps.py aggression=guard 补丁相关 — hero 站守卫格战斗不发生, 引导层黑名单绕行不影响 capture, 待专项
 - **间歇性局级慢速** (踩坑 #147): 16% 局 4-8s/步, 根因未定位, 登记观察
 - **撤梯子登记**: capture 触发率稳定后 move_to_force 200 → 常规窗 (200 全程 = 发现期模型自主性受限的必要代价)
+
+---
+
+## Windows GUI 死锁排查闭环 + 弹窗崩溃定性 (09-09)
+
+### 死锁根因链 (minidump 终结证据)
+
+```
+现象: ModelAI GUI 复测, AI 行动后 ~2s 画面永久冻结 (主线程 + runNetwork 双双死等)
+
+根因链:
+  ModelAI heroMoved 回调 (网络线程)
+    → 启动 detached 延迟线程调 endTurn
+    → detached 线程生命周期失控, 持锁路径随线程退出失效
+    → ENGINE->interfaceMutex 状态损坏 (永久失锁)
+    → 全进程死等
+
+minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结构已 free)
+```
+
+### ModelAI 修复方案 (D:\vcmi_model_ai\model_ai.cpp)
+
+| 路径 | 触发条件 | 处理 |
+|------|---------|------|
+| heroMoved | 移动完成, 无战斗 (battle_active=false) | 回调内同步 endTurn + in_my_turn=false |
+| battleEnded | 战斗打完 (网络线程回调) | battle_active=false → 同步 endTurn + in_my_turn=false (防对方战斗的 battleEnded 误触发) |
+| yourTurn | 正常回合开始 | 原有模式不变 |
+
+关键语义: 同步 endTurn 非阻塞成立的前提 = `waitTillRealize=false` (与 yourTurn 回调模式一致)。**回调线程内禁开 detached 线程做续接动作** — 生命周期失控 = 锁资源泄漏定时炸弹 (踩坑 #148)。
+
+### minidump 工具链 (py/ 五件套, 下次直接复用)
+
+| 脚本 | 用途 | 关键点 |
+|------|------|--------|
+| take_dump.py | 活进程抓 full dump | ctypes 直调 MiniDumpWriteDump (MiniDumpWithFullMemory\|HandleData\|FullMemoryInfo); rundll32 路线不可靠 |
+| walk_stuck_dump.py | 手动解析 Memory64ListStream | minidump 库对 full dump 支持差: type=9 流, n_ranges/base_rva/data_rva 三段式, 栈内存手动读 |
+| identify_all_threads.py | 批量线程栈→函数归属 | .pdata 函数边界 (bisect) + 导出表, 无符号栈 RVA 落函数 |
+| stuck4_cfbb.py | 单函数边界定位 | 疑似线程 start_routine (VCMI_lib+0xcfbb00 类) 的 .pdata 反查 |
+| stuck4_heap.py | 堆/锁 owner 检查 | GAME 对象全局槽 (exe+0xa879b0 主线程 / exe+0x958920 网络) 指向对照 + owner 指针堆块上下文 |
+
+排查流: 冻结现场抓 dump → 手解 Memory64List 读栈 → .pdata 归属函数 → 锁 owner 归属 (pthread 结构生死) → 定位持锁退出线程。
+
+### 弹窗崩溃定性: 系统虚拟内存耗尽 (VCMI 无责)
+
+时间线 (07:14-07:19, 2026-09-09):
+
+```
+07:14:46  Resource-Exhaustion 2004 — 3×python.exe 共 36GB commit (各 11.5-12.5GB)
+07:18:52  pwsh.exe (.NET Runtime 内部错误)
+07:18:53  GDEPService.exe (0xe06d7363)
+07:18:55  agent-tool-host.exe (0xc0000409)
+07:19:01  dwm.exe (dwmcore.dll 0xc00001ad) + LiveKernelEvent 141
+07:46     cc1plus.exe RADAR_PRE_LEAK (编译链内存压力)
+```
+
+- **VCMI 排除证据**: 无 WER APPCRASH (Application Id 1000 无 VCMI_client 记录)、bin 目录无新 rpt/dmp (仅 09-08 旧档)、gui3 复测日志 endTurn after heroMoved 正常流转
+- **模式识别**: 多个不相关进程短窗齐崩 + LiveKernelEvent = 资源耗尽/GPU 驱动指纹; dwm 崩 → 画面冻结, 伪装成"游戏卡死"
+- **排查命令** (踩坑 #149): Application 1000/1001 (崩溃详情) + System Resource-Exhaustion-Detector 2004 (直接列元凶 PID 与字节数) + CommitUsed/Limit 对照
+- 待用户确认: 3×python 来源 (进程已退); 干净环境 (5.6GB free / commit 23/55GB) 可安全复测
+
+### 线程生命周期插桩 (源码已改, exe 未重编 — 待编译生效)
+
+插桩点 (D:\Bigdata\hero3_fresh\vcmi\ 树, `[THREAD] xxx ENTER/EXIT tid=` stderr 打点):
+
+| 文件 | 线程/函数 | 嫌疑背景 |
+|------|----------|---------|
+| client/CServerHandler.cpp | threadRunNetwork (runNetwork) | 网络线程, 回调来源 |
+| client/ServerRunner.cpp | threadRunLocalServer (runServer) | 本地 server 线程 |
+| server/CVCMIServer.cpp | progressTrackingThread | **短生命周期 detached 嫌疑** |
+| client/Client.cpp | startPlayerBattleAction (unlockGuard 区间) | interfaceMutex 临时放锁窗口 |
+| client/battle/BattleInterface.cpp | autofightingAI aiThread (detach) | **detached 嫌疑** |
+
+⚠ **VCMI_client.exe 仍是 08-18 产物, 插桩未生效** — NK2 编译错误已修 (AIStatus turnCounter 声明缺失 / getDate→getCalendar() / showGarrisonDialog 参数), 下次重编即带上; 插桩是为 GUI 死锁复发时一击定位准备的雷达, 非当前阻塞项。
+
+### GUI 复测环境规范 (复测前 checklist)
+
+1. 界面语言 English + 输入法 ENG (踩坑 #151)
+2. settings ai.adventureAlliedAI/adventureEnemyAI = "ModelAI" (踩坑 #152, 被清空过一次)
+3. 确认无大内存任务并行 (WSL 训练停机 / 无编译 / 无异常 python) — 踩坑 #149
+4. 启动方式带 stderr 重定向 (gui*_stdout.log/gui*_stderr.log, 崩溃现场有最后日志)
+5. 冻结时别关进程 — take_dump.py 抓现场 dump
+
+### 遗留待办
+
+- 用户确认 3×python 来源 (07:14 资源耗尽元凶)
+- 干净环境 GUI 复测一场 (死锁修复 + battleEnded 路径验证)
+- 插桩版客户端重编 (低优先, 复发雷达)
+- v13 战斗模型 Windows 侧适配评估 (MODELAI_MODEL 指向 v13 需核实 model_infer.cpp 接口, 4 输入接口契约见上章)

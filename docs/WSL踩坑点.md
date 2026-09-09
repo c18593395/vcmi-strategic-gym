@@ -452,3 +452,43 @@
 - **排查锚点**: ep_runner CPU 26% (在等引擎) + 服务器侧无对应打点 → 疑宿主资源抖动/引擎偶发慢模式, 根因未定位
 - **教训**: ①局耗时分析用 time 字段差分 (主日志 step 行), 超 2 倍中位数即异常局 ②"fuse 未触发" ≠ "没有慢问题" — fuse 只兜死等, 兜不了慢性慢 ③诊断先分型: 冻结型 (fuse 可兜) vs 慢性型 (需外部监控)
 - 状态: 🟡 登记观察, 恶化再专项
+
+### #148 🔴 GUI 死锁根因: detached 线程持锁路径退出 → interfaceMutex 永久失锁 (09-09)
+
+- **现象**: ModelAI GUI 复测, AI 行动后 ~2s 画面永久冻结; minidump 实锁 owner = 已死线程的 pthread 结构, 主线程 + runNetwork 双双死等 ENGINE->interfaceMutex
+- **根因**: ModelAI `heroMoved` 回调 (网络线程) 启动 detached 延迟线程调 `endTurn` — detached 线程生命周期失控, 持锁路径随线程退出失效 → interfaceMutex 状态损坏 (永久失锁), 全进程死等
+- **修复 (D:\vcmi_model_ai\model_ai.cpp)**: 移除 detached 线程 → `heroMoved` (无战斗) / `battleEnded` (有战斗) 回调内**同步调用 endTurn** (waitTillRealize=false 非阻塞, 与 yourTurn 回调模式一致) + battle_active 原子变量区分两条路径 + in_my_turn 及时重置防 battleEnded 误触发
+- **教训**: ①回调线程里禁开 detached 线程做续接动作 — 生命周期失控 = 锁资源泄漏定时炸弹 ②GUI 锁问题的终结证据是 minidump 的锁 owner 归属, 不是猜测 ③同步 endTurn 的前提是非阻塞语义, 先确认 waitTillRealize=false 再同步
+- 状态: ✅ 修复部署 (旧版备份 ModelAI.dll.bak_0908_deadlock), gui3 复测 endTurn after heroMoved 正常流转
+
+### #149 🔴 多进程齐崩 = 系统资源耗尽特征, 勿误判应用代码 (09-09)
+
+- **现象**: GUI 复测弹窗崩溃, 直觉归因 VCMI 代码 — 实锤为系统级: 07:14:46 Windows 资源耗尽诊断 (事件 2004, **3 个 python.exe 共吃 36GB commit**, 各 11.5-12.5GB) → 07:18:52-07:19:01 pwsh/GDEPService/agent-tool-host/**dwm.exe** (dwmcore.dll 0xc00001ad) 四进程连锁崩 + LiveKernelEvent 141
+- **关键排除证据**: VCMI_client.exe **无** WER APPCRASH 事件、无新 rpt/dmp → 代码层无新崩溃; 复测撞上资源耗尽窗口 (commit 打满 → 分配失败 → 卡死/弹窗)
+- **排查命令沉淀**: `Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1001}` (APPCRASH 详情) + `System` 日志 ProviderName='Microsoft-Windows-Resource-Exhaustion-Detector' Id=2004 (虚拟内存不足, 直接列出元凶进程与占用字节数) + `Get-CimInstance Win32_OperatingSystem` 算 CommitUsed/Limit
+- **教训**: ①"弹窗崩溃"先查 WER 事件日志再怀疑代码 — 单进程崩看 Application 1000, **多进程齐崩 = 资源耗尽指纹** ②dwm.exe 崩会伪装成"游戏卡死/崩" (画面冻结) ③Resource-Exhaustion 2004 直接给元凶 PID 与字节数, 一查一个准
+- 状态: ✅ 定性完毕 (VCMI 无责); 3×python 来源待用户确认 (进程已退无法回查)
+
+### #150 🟡 Windows minidump 抓取与解析三坑 (09-09)
+
+- **坑 1**: rundll32 调 MiniDumpWriteDump 失败 (文件不存在/权限) → 改 `py/take_dump.py` ctypes 直调 API (`MiniDumpWithFullMemory|HandleData|FullMemoryInfo`)
+- **坑 2**: python minidump 库对 full dump 支持差 — `baseaddr` 属性名错 (实为 `baseaddress`)、LOCATION_DESCRIPTOR 无 len()、Memory64List 栈内存读不到 → `py/walk_stuck_dump.py` 手动解析 stream directory + Memory64ListStream (type=9, n_ranges/base_rva/data_rva 三段式)
+- **坑 3**: 无符号栈只见 RVA — `py/identify_all_threads.py` 用 .pdata 段函数边界 (bisect) + 导出表把线程栈 RVA 归属到函数; `stuck4_cfbb.py` 定位疑似线程 start_routine; `stuck4_heap.py` 查 GAME/mutex 周边堆完整性
+- **教训**: ①工具链固化在 py/ 下五件套, 下次 GUI 死锁直接复用 ②minidump 库不可信时手解二进制格式反而快 (格式文档充分) ③抓 dump 时机 = 冻结现场时 (MiniDumpWriteDump 可对活进程抓)
+- 状态: ✅ 工具链可用, 死锁 owner 定位全靠它
+
+### #151 🟡 Windows GUI 中文界面 + 第三方输入法: 两条独立崩溃路径 (09-09)
+
+- **现象 A**: 中文界面下选图 → "Disaster happened. Attempt to read from 0x0" — **界面语言编码转换崩溃**, 与地图/逻辑无关
+- **现象 B**: 第三方输入法 DLL 注入游戏进程 → 堆损坏 (随机时点崩), 与 "忘记切输入法" 复测记录吻合
+- **规避**: VCMI 界面语言切 English + 系统输入法切英文 (ENG) 再复测; 两坑均无需改代码
+- **教训**: ①中文 Windows 环境跑开源 GUI, 语言/输入法是独立于代码的崩溃源, 复测前先固定这两变量 ②崩溃现象随环境变量消失 = 环境因, 随代码版本复现 = 代码因
+- 状态: ✅ 切英文后选图通过 (后续卡死另案, 见 #149)
+
+### #152 🟡 fork Windows 构建 AI DLL 缺失: settings 默认名无对应产物 (09-08 闭环, 09-09 归档编号)
+
+- **现象**: battle-only 对局 "Server gives turn to red 后 3 秒崩", StupidAI 也崩 — 初判 ModelAI 逻辑问题, 实锤与模型无关
+- **根因**: `Client.cpp L253-257` 全 AI 玩家无条件走 `CDynLibHandler::getNewAI(settings ai.adventureEnemyAI)`, 默认值 "Nullkiller2" 而 `bin/AI/` 仅 ModelAI.dll + 2016 官方旧 BattleAI.dll — build.ninja 只有 NK2/StupidAI 的 .obj 编译规则**无链接目标** (fork Windows 构建从未产出 adventure AI DLL) → LoadLibraryW error 126 → throw → 崩
+- **修复**: settings.json (My Games/vcmi/config) 恢复 ai.adventureAlliedAI/adventureEnemyAI = "ModelAI"; 验证 PASS (headless testmap day=31 回合轮转正常, query 链闭合)
+- **教训**: ①配置里的 AI 名必须与 bin/AI/ 下 DLL 文件名一一对应, aiNameForPlayer 的存在性检查只查文件不查配置 ②"StupidAI 也崩"排除模型嫌疑但没排除配置/DLL 供给层 ③排查入口 = Windows 事件日志三类签名 (fork 0x40000015@VCMI_lib / 0xc0000374 堆 / fail-fast) + IFEO PageHeap 复现
+- 状态: ✅ 已闭环 (任务清单 09-08 条), 本条补踩坑编号归档
