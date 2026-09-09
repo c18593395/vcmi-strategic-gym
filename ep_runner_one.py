@@ -1,4 +1,4 @@
-import sys, os, json, argparse, random, zipfile
+import sys, os, json, argparse, random, zipfile, time
 from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -133,6 +133,25 @@ if args.mapname.startswith('T06'):
 
 
 # 2026-08-25: 守卫目标 — C++ target_list 无守卫 (重编环境崩无法部署), Python 从 vmap 读守卫位置补进 MOVE_TO 目标池
+# 0910 visitable 口径换算 (守卫假 +100 根因修复): vmap objects.json x,y = setAnchorPos = 引擎
+# anchor 语义 (ObjectTemplate.cpp: 'A'=VISIBLE|BLOCKED|VISITABLE 本体格, 'V'=可通行), 而 hero
+# 移动到 visitable 格才 visit 触发战斗/占矿; visitable = anchor − visitableOffset, offset =
+# mask 中第一个 'A'/'T' 格 (y 外 x 内, 与 C++ calculateVisitableOffset 同序)。anchor 格判据
+# (旧 [GUARD]) = hero 路过贴脸格假糖 (ep_1386 站 (10,9) 拿 +100 全程 0 战斗) + 真战胜后站
+# visitable 格漏奖 (ep_418 [GUARD] step32 早于 battleStarted)。towns 不换算: [TOWN] dist<=1
+# 与 obs towns pos (引擎 anchor 直报) 两侧同 anchor 语义历史自洽 (241 次 owner 匹配)。
+def _anchor_to_visitable(o):
+    """vmap 对象 anchor (x,y) → visitable 格坐标; mask 缺失/无 A/T 时原样返回"""
+    try:
+        mask = o["template"]["mask"]
+        for y, row in enumerate(mask):
+            for x, ch in enumerate(row):
+                if ch in ("A", "T"):  # A/T = VISITABLE 格 (T=BLOCKED|VISITABLE, A=+VISIBLE|BLOCKED)
+                    return (int(o["x"]) - x, int(o["y"]) - y)
+    except Exception:
+        pass
+    return (int(o["x"]), int(o["y"]))
+
 # 守卫在矿 8 邻, 从英雄视角常比矿更近 → 先走向守卫 → 触发战斗 (T03 课程目标)
 _GUARD_CACHE = {}
 def get_guards(mapname):
@@ -141,7 +160,7 @@ def get_guards(mapname):
             p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
             with zipfile.ZipFile(p) as z:
                 objs = json.loads(z.read("objects.json"))
-            _GUARD_CACHE[mapname] = [(int(o["x"]), int(o["y"]), int(o.get("l", 0)))
+            _GUARD_CACHE[mapname] = [(*_anchor_to_visitable(o), int(o.get("l", 0)))
                                      for k, o in objs.items() if k.startswith("monster_")]
         except Exception as e:
             _GUARD_CACHE[mapname] = []
@@ -156,7 +175,9 @@ def get_objectives(mapname):
             p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
             with zipfile.ZipFile(p) as z:
                 objs = json.loads(z.read("objects.json"))
-            mines = [(int(o["x"]), int(o["y"])) for k, o in objs.items() if k.startswith("mine_")]
+            # 0910 矿换算 visitable 口径 (同守卫修复): [MINE] 判据 hero pos == 矿位, 站上矿
+            # visitable 格 (门格) = visit 已发生 = 占矿完成; 旧 anchor 格判据同假糖风险
+            mines = [_anchor_to_visitable(o) for k, o in objs.items() if k.startswith("mine_")]
             # 2026-08-31 TOWN 轴修复: 过滤我方城 (训练方=red, owner 在 options.owner) —
             # 己方城 step0 即在身旁, 计入会使 [TOWN]+30 变免费糖; 只保留 blue/中立城
             towns = []
@@ -302,6 +323,7 @@ if args.model and os.path.exists(args.model):
             red_model = None
 
 traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "terrain_grid": [], "steps": 0, "total_rew": 0.0}
+_ep_t0 = time.time()  # 0910: 局耗时打点 — 间歇性慢速 (4-8s/步局) 定量画像数据源 (历史样本已丢失, 从此积累)
 try:
     env = StrategicEnv(
         mapname=args.mapname, max_turns=args.max_turns,
@@ -899,7 +921,21 @@ try:
                 _bnow.add(int(nobs[_hb]))
         # 0908 实测: heroes 段偶发整段空拍 (live=0, 9/9 事件全此形态: T05×6 + T06×3) →
         # 空拍 = 观测无效 (非真实歼灭), 跳过差集与 prev 更新 (防误报 + 防 prev 集合被清空);
-        # 空拍根因 (obs 填充链) 待后续立项排查
+        # 0910 根因分析: 空拍 = C++ L644 清 id=-1 后填充循环 0 行 (段全 -1); 主候选 = 战斗瞬态竞态
+        # (obs 填充线程恰落 server 战斗初始化/结算窗口, 三起同 step 56 = 守卫战斗点吻合)。
+        # 诊断增强: 空拍时转储 8 槽原始值 + 场景字段 → 复发一击定位 (R7 同款埋点先行):
+        #   全槽 id=-1 = 填充跑但循环 0 行 (竞态/遍历空) | 全槽 id=0 = 共享内存未填充/重映射
+        #   red 在 blue 空 = owner/遍历异常 | red 也空 = 整段视角异常
+        if not _bnow:
+            _slots = " ".join(f"{int(nobs[128+_j*26])}/{int(nobs[128+_j*26+1])}" for _j in range(8))
+            _diag = (f"[HEROSEG_EMPTY] map={args.mapname} step={traj['steps']} slots(id/owner)=[{_slots}]"
+                     f" ah={int(nobs[3203])} cur_p={int(nobs[3])} go={_info.get('game_over')}")
+            print(_diag, flush=True)
+            try:
+                with open(BHERO_EV_LOG, "a") as _bf:
+                    _bf.write(_diag + "\n")
+            except Exception:
+                pass
         if _bnow:
             if bhero_ids_prev is None:
                 bhero_ids_prev = _bnow
@@ -1182,4 +1218,5 @@ except Exception as e:
 # 最终写入（正常退出时覆盖，确保完整数据）
 with open(args.outfile, "w") as f:
     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
+print(f"[EP_TIME] map={args.mapname} steps={traj['steps']} secs={time.time()-_ep_t0:.0f} r={traj['total_rew']:.1f} err={'yes' if 'error' in traj else 'no'}", flush=True)
 os._exit(0)

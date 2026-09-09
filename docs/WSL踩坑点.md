@@ -492,3 +492,39 @@
 - **修复**: settings.json (My Games/vcmi/config) 恢复 ai.adventureAlliedAI/adventureEnemyAI = "ModelAI"; 验证 PASS (headless testmap day=31 回合轮转正常, query 链闭合)
 - **教训**: ①配置里的 AI 名必须与 bin/AI/ 下 DLL 文件名一一对应, aiNameForPlayer 的存在性检查只查文件不查配置 ②"StupidAI 也崩"排除模型嫌疑但没排除配置/DLL 供给层 ③排查入口 = Windows 事件日志三类签名 (fork 0x40000015@VCMI_lib / 0xc0000374 堆 / fail-fast) + IFEO PageHeap 复现
 - 状态: ✅ 已闭环 (任务清单 09-08 条), 本条补踩坑编号归档
+
+### #153 🔴 [GUARD]/[MINE] 位置重合判据 anchor↔visitable 失真: 1442 条假糖 + 真战斗漏奖 (09-10)
+
+- **现象**: T05 高分剧本 r 130-168 / duel r=93.95 的 +100 构成可疑; ep_1386 hero 站 (10,9) 拿 +100 但全程 0 引擎战斗; ep_418 [GUARD] step32 早于 battleStarted (发奖时战斗还没发生)
+- **根因**: vmap objects.json x,y = `setAnchorPos` = 引擎 **anchor** 语义; monster 本体格 (BLOCKED|VISITABLE) = anchor − visitableOffset (mask 'A' 格位置, 3×3 中心 → offset(1,1)); hero 移动到 visitable 格才 visit 触发战斗 → 旧判据查 anchor 格 = hero **路过贴脸格假发奖**, 真战胜后站 visitable 格判据不匹配**漏奖**
+- **修复**: ep_runner `_anchor_to_visitable()` 解析 template.mask 复刻 C++ `calculateVisitableOffset` (找 'A'/'T'), get_guards/get_objectives mines 换算; towns 不换算 ([TOWN] dist<=1 两侧同 anchor 语义自洽); 下游黑名单/梯度/fail-count/引导目标经源头自动生效
+- **教训**: ①位置重合判据必须核对引擎坐标语义 (anchor vs visitable), Python 静态表与引擎对象坐标系不是天然一致 ②事件奖励口径优先 obs 直报字段 (owner 变化/对象消失), 位置重合是最后手段 ③假糖污染所有下游统计 — 归因前先查数据采集口径
+- 状态: ✅ 修复已实施 (py_compile + 单测 3 组 + 真图对照全过), 新口径首命中验证 (duel (4,6) ×2 局 / 52X52_02_mir (38,39) 均为 vis 位), 遗留 = T06 守卫战斗触发时有时无 (aggression) 专项
+
+### #154 🟡 PowerShell 包裹 wsl bash -c 时 $var/$( ) 被 PowerShell 层吃掉 (09-10)
+
+- **现象**: `wsl bash -c 'for f in ...; do ... $f ...; done'` 循环变量全空 / `$(cmd)` 被当 PowerShell 子表达式报 "Variable reference is not valid"
+- **根因**: PowerShell 先解析外层字符串, `$f`/`$A`/`$(...)` 在到达 bash 前已被展开为空; 单引号包裹也不可靠 (多层嵌套)
+- **规避**: ①复杂 bash 逻辑一律写成脚本文件 (py/ 下, 参照 audit_r5_trees.sh/stat_t06_guard_battle.sh) 再 `wsl bash 脚本路径` 执行 ②简单单命令才用 wsl bash -c 内联 ③确认: 无变量替换需求的 heredoc python 内嵌代码可直接用
+- 状态: ✅ 固化 (本次新增 4 个 py/ 脚本均此模式)
+
+### #155 🟡 pkill -f 同名串自杀: 当前 shell cmdline 含目标名即被自己杀 (09-10)
+
+- **现象**: `wsl bash -c 'pkill -f diag_obj_dump; ... python py/diag_obj_dump.py ...'` 整条命令 exit 15 (SIGTERM), 输出文件都没创建
+- **根因**: pkill -f 匹配**全部进程 cmdline** — 同一条 bash 命令行里含 "diag_obj_dump.py" 字面量 (python 调用部分), bash 自身 cmdline 命中模式被杀; `[d]` 字符类技巧只防住 pkill 参数本身, 防不了同行其它部分的字面量
+- **规避**: ①pkill 单独一次工具调用 (与目标操作分开) ②或精确 pgrep 取 PID 再 kill ③或模式用字符类且确保整条命令无其他字面量命中
+- 状态: ✅ 固化
+
+### #156 🟡 import ep_runner_one 有模块级副作用: 会初始化 env 并跑游戏 (09-10)
+
+- **现象**: 单测 `from ep_runner_one import _anchor_to_visitable` 直接启动 MMAI/VCMI 初始化 + query 流跑到 qid 470+, 输出 141KB
+- **根因**: 模块顶层有 env 构造/初始化逻辑 (非全部包在 main guard), import 即执行
+- **规避**: ①测试主模块内函数 → 把被测逻辑复制到独立脚本 (或先重构主模块把纯函数抽出) ②禁 import 主模块做单测 ③print 结果必须 flush (被杀进程时缓冲丢失, 建议脚本内加 -u 或 sys.stdout.reconfigure(line_buffering=True))
+- 状态: ✅ 固化 (改用独立脚本内联逻辑验证)
+
+### #157 🟡 局耗时数据不可回溯: hermes 日志逐局覆盖 + ep 行无 time 字段 (09-10)
+
+- **现象**: 间歇性慢速 (16% 局 4-8s/步) 需要历史样本定量画像时, /tmp/hermes_ep_*.log 只剩 2-3 个最新局, 主日志 ep 行 (ep_steps/r/act/obs_nz/map) 无耗时字段
+- **修复**: ep_runner 加 `_ep_t0` + 局尾 `[EP_TIME] map= steps= secs= r= err=` 打点 + 主日志白名单补 [EP_TIME] (train_wsl2_ppo_v2.py, 主进程改动需优雅重启生效); 基线首样本 52X52_02_mir 73步94s = 1.29s/步
+- **教训**: ①观测埋点要前瞻性常驻, "登记观察积累样本"必须确认样本真在积累 (hermes 覆盖机制会丢) ②per-ep 临时日志只做即时诊断, 长期统计字段必须进主日志白名单
+- 状态: ✅ 基建完成, 慢局复发时聚合 [EP_TIME] 定位

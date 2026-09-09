@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # 批量: 所有线程栈 -> VCMI_client/VCMI_lib/ModelAI 帧全量解析 (pdata 归属) -> 线程身份表
-import struct, bisect, re
+import struct, bisect, re, sys
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 
-DUMP = r"D:\Bigdata\hero3_fresh\gui_stuck4_0909.dmp"
+DUMP = sys.argv[1] if len(sys.argv) > 1 else r"D:\Bigdata\hero3_fresh\gui_stuck4_0909.dmp"
 f = open(DUMP, "rb")
 d = f.read(32)
 num_streams, dir_rva = struct.unpack_from("<II", d, 8)

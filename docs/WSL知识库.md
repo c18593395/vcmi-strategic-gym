@@ -610,3 +610,55 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 - 干净环境 GUI 复测一场 (死锁修复 + battleEnded 路径验证)
 - 插桩版客户端重编 (低优先, 复发雷达)
 - v13 战斗模型 Windows 侧适配评估 (MODELAI_MODEL 指向 v13 需核实 model_infer.cpp 接口, 4 输入接口契约见上章)
+
+---
+
+## VCMI 对象坐标体系: anchor↔visitable 双坐标系 (09-10, [GUARD]/[MINE] 假糖根因章)
+
+### 语义链 (源码实锤, 修 [GUARD]/[MINE] 假糖+漏奖的理论基础)
+
+1. **vmap objects.json 的 x,y = `setAnchorPos` = 引擎 `CGObjectInstance::pos`** (MapFormatJson.cpp L1175-1209: `pos.x=configuration["x"]; instance->setAnchorPos(pos)`)
+2. **mask 字符语义** (ObjectTemplate.cpp L245-249):
+   - `'V'` = VISIBLE (可通行不阻挡)
+   - `'B'` = VISIBLE|BLOCKED
+   - `'A'` = VISIBLE|BLOCKED|VISITABLE (**对象本体格**)
+   - `'T'` = BLOCKED|VISITABLE
+3. **visitable 格 = pos − getVisitableOffset()**; calculateVisitableOffset 扫 mask (y 外 x 内) 找第一个 isVisitableAt 格的 (x,y) 即 offset
+4. monster/hero 标准 mask: monster 3×3 `["VVV","VAV","VVV"]` → A 中心 → **offset(1,1), 真怪位 = anchor−(1,1)**; hero 3×2 `["VVV","VAV"]` → offset(1,1), 但 CGHeroInstance::pos 特殊 (英雄 obs pos = anchor 直报, 诊断局 hero=(3,3)=anchor 零差) — **hero 判据用 anchor 口径与 obs 自洽, monster/mine 判据必须用 visitable 口径**
+5. **行为推论**: hero 走上怪 visitable 格 = visit + 战斗 (autofight 秒胜后站该格); hero 站 anchor 格 = 与怪贴脸但不 visit (anchor 是 V 格 passable) → 无战斗
+
+### 对 Python 侧的约束 (ep_runner)
+
+- `get_guards`/`get_objectives` (mines) 必须换算 visitable 口径 — `_anchor_to_visitable()` 复刻 C++ 算法
+- `towns` 保持 anchor 口径: obs towns pos = 引擎 anchor 直报, 两侧同语义 ([TOWN] dist<=1 历史自洽 241 次匹配)
+- **混用禁忌**: 同一比较式两端必须同坐标系 (Python 静态表 vs obs 直报 vs C++ target_list 各有口径)
+- 事件奖励检测优先 obs 直报字段 (owner 变化/对象消失 = TOWN_CAPTURE 同款), 位置重合是最后手段
+
+### 影响面与验证
+
+- 失真期数据: [GUARD] 1442 条 (全 T05 时期) / T04 占矿 92% 口径 / T05-T06 r 高分构成 — 全部需按"挤水分"重读
+- 诊断工具: py/diag_obj_dump.py (引擎 hero/towns 实位, 单图 2s) / py/analyze_36X36_02*.py (布局+地形 ASCII)
+- 新口径首命中: duel (4,6) ×2 局 / 52X52_02_mir (38,39) 均为 vis 位 (与 [EP_TIME] map 字段互证)
+- 遗留专项: T06 守卫战斗触发时有时无 (ep_418 真发生 vs 0909 振荡局未触发, aggression 补丁相关)
+
+---
+
+## 0910 停训窗工程记录 (三树/审计/设计稿)
+
+### NK2 三树分叉合并 (a1ea3f4d2d 结案)
+
+- **libMMAI.so 无需重编二次实锤**: race 在 NK2 域, 训练栈 --blue_ai MMAI_RANDOM 不加载 NK2 (MMAI/ grep 0 命中 + 运行时 so 无 NK2 符号)
+- **双向分叉**: 构建树独有 TBB 防 OOM fix (`max_allowed_parallelism=4`, C8.5) / 源码树独有 a1ea3f4d2d+[ML-*] 打点+battleEnded/ring6 fix → 任一侧重编都丢对方修复
+- **合并**: TBB fix 摘回源码树 (构造函数开头 3 行, tab 缩进) + cp 构建树 (diff IDENTICAL); Windows vcmi/ 树精确插入 TBB 3 行
+- **Windows 树 API 级分叉不可镜像**: getCalendar()/showGarrisonDialog MetaString 新签名 = 09-09 NK2 编译修复, 各树匹配各自引擎版本; 同步只做 fix 级摘取 (TBB 这类引擎无关补丁)
+- 三树双标记验证: a1ea3f4d2d=2 / max_allowed_parallelism=1 全绿; NK2 运行时 so 未重编 (无消费者, 回用时重编即生效)
+
+### R5 双树审计方法论 (py/audit_r5_trees.sh + audit_r5_filter.sh)
+
+- diff --strip-trailing-cr 必加 (CRLF/LF 噪音); 关键词过滤 (ML-/ENGINE/打点/fix) 区分功能性差异 vs 版本演进噪音
+- 审计结论: 四文件中唯一功能性缺口 = ServerPlugin HeroPool 放宽 (已同步 b1685966d1); CGameHandler/CServerHandler/Client 差异 = GUI 栈 (ENGINE null 保护+[THREAD] 插桩) vs headless 栈 (升级自动选技能+quick_exit) 各自适配, **强行对齐反破坏构建**
+- ServerPlugin 退出语义差异 (std::exit vs quick_exit+VCMI_APPLE 分支) 同为各树适配
+
+### 工程注意 (踩坑 #154-#157 详)
+
+- PowerShell 包裹 wsl bash: $var 被吃 → 复杂逻辑写 py/ 脚本文件; pkill -f 自杀陷阱; import ep_runner_one 有副作用; hermes 日志覆盖丢样本 → [EP_TIME] 进主日志白名单
