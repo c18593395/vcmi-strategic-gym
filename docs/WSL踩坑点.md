@@ -528,3 +528,49 @@
 - **修复**: ep_runner 加 `_ep_t0` + 局尾 `[EP_TIME] map= steps= secs= r= err=` 打点 + 主日志白名单补 [EP_TIME] (train_wsl2_ppo_v2.py, 主进程改动需优雅重启生效); 基线首样本 52X52_02_mir 73步94s = 1.29s/步
 - **教训**: ①观测埋点要前瞻性常驻, "登记观察积累样本"必须确认样本真在积累 (hermes 覆盖机制会丢) ②per-ep 临时日志只做即时诊断, 长期统计字段必须进主日志白名单
 - 状态: ✅ 基建完成, 慢局复发时聚合 [EP_TIME] 定位
+
+### #158 🔴 interfaceMutex 泄漏: onPacketReceived 锁作用域收窄破坏 makeUnlockGuard 不变量 (09-10, GUI 死锁根因①)
+
+- **现象**: --testmap 全 AI 局每次回合切换后整体冻结 (Resp=False); dump 显示 runNetwork 卡在 onPacketReceived 的 pthread_mutex_lock + 主线程卡在 USEREVENT 同一把锁; [MUTEX] 打点实锤 LOCKED 后无配对 UNLOCK 即 onPacketReceived EXIT = 锁泄漏
+- **根因**: onPacketReceived (CServerHandler.cpp:1061) 的 scoped_lock 只覆盖 DISCONNECTING 检查 (源码级作用域即如此), 包处理 (pack->visit) 无锁运行; 而深层 handler CPlayerInterface::waitWhileDialog (CPlayerInterface.cpp:1393) 的 `makeUnlockGuard` 语义 = "析构时重锁恢复现场" — 无锁调用时析构重锁**凭空加锁且无人配对解锁** → 每次回合切换泄漏一锁
+- **修复**: onPacketReceived 用 `optional<unique_lock<GameEngine::LoggingMutex>>` 持锁覆盖整个 pack->visit, 恢复"包处理持锁"不变量
+- **教训**: ①makeUnlockGuard/makeUnlockSharedGuard 隐含前提 = "调用者持锁" — **任何锁作用域改动必须全链审查所有 guard 用户** ②guard 是 RAII 但"恢复现场"型 guard 的不变量靠调用约定, 编译器/RAII 救不了 ③LeakSanitizer 类工具不覆盖 std::mutex, 只能靠打点收支对账 ([MUTEX] LOCKED vs UNLOCK 计数)
+- 状态: ✅ 修复 + day=31 验证
+
+### #159 🔴 SPECTATOR 无 PlayerState: getPlayerState(-4) 返回 null 无判空崩溃 (09-10, 死锁修复后第二层)
+
+- **现象**: 死锁修复后跑到 day=2 崩溃 `0xC0000005 读 0x6d8`, 前奏是 "getResource: No player info!" ×N 刷屏; dump 崩点 `mov rdi,[rax+0x6d8]` 前一条是 `call CGameInfoCallback::getPlayerState(PlayerColor, bool)` (IAT 0xa9e5b8)
+- **根因**: testmap-onlyai 的观众视角接口 playerID=**SPECTATOR(-4)** (崩溃时 rdx=0xfffffffc 实锤), 游戏状态里 SPECTATOR 无 PlayerState → getPlayerState 返回 null → AdventureMapShortcuts::optionCanViewQuests (L647) `->quests.empty()` 无判空解引用 (+0x6d8/+0x6e0 = vector begin/end 对)
+- **修复**: optionCanViewQuests 判空 (CPlayerInterface.cpp:1363 已有同类先例 "PS NULL GUARD: spectator has no PlayerState")
+- **教训**: ①onlyai/观战模式引入后, 所有 `getPlayerState(interface->playerID)` 调用点都要假设 SPECTATOR; 上游无此模式所以上游代码天然不防 ②崩溃前奏的 verbose 警告刷屏 ("No player info!") 就是同源查询失败信号, 看到 spam 就该想到同族调用里有没有漏判空的
+- 状态: ✅ 修复 + day=31 验证
+
+### #160 🟡 winpthreads Normal mutex 不记录 owner: dump 静态分析定不出持锁者 (09-10)
+
+- **现象**: 冻结 dump 里读 interfaceMutex (ENGINE+0x98) 的 pthread_mutex_t, 值 {state=2, type=0, +0x08=0x1618, owner=0xffffffff} — 曾把 0x1618 误判为持锁死线程 TID
+- **根因**: ①winpthreads `pthread_mutex_t` 本体是**指针** (GENERIC_INITIALIZER=-1 惰性初始化), 真结构体在堆上; ②内部布局 `{state(Unlocked/Locked/Waiting), type(Normal/Errorcheck/Recursive), event(auto-reset HANDLE!), rec_lock, owner}` — **仅 Recursive/Errorcheck 记录 owner, Normal 恒 0xffffffff**; 0x1618 = event 句柄 (内核 HANDLE 数值巧合性地小)
+- **规避**: ①std::mutex 死锁的持锁者定位**必须运行时打点** (LoggingMutex: LOCKED/UNLOCK + tid + `__builtin_return_address(0)` → .pdata 映射锁点), dump 只能证明"锁被持有"不能证明"谁持有" ②冻结 dump 抓晚了锁内存会被复用污染 (gui8 教训), 抓现场要快
+- 状态: ✅ LoggingMutex 已常驻 GameEngine (复发雷达)
+- 关联: 知识库 "09-10 GUI 死锁终局闭环" 章
+
+### #161 🟡 MinGW windows.h 宏污染三连: IGNORE / NOMINMAX / 作用域 (09-10 重编)
+
+- **现象**: 插桩加 `#include <windows.h>` 后连环编译错: ①Canvas.h `IGNORE` 枚举成员报 "expected identifier before numeric constant" ②NOMINMAX 重定义冲突 (libstdc++ os_defines.h 预定义) ③`GetCurrentThreadId` 未声明 (部分 TU 无传递包含)
+- **根因**: winbase.h `#define IGNORE` (NOGDI 排除的是 wingdi, **winbase 排不掉**); libstdc++ 的 os_defines.h 已 `#define NOMINMAX 1`, 裸 `#define NOMINMAX` (空体) 与之不同 → 重定义告警/错误
+- **规避**: ①标准防污染块 `#ifndef` 全守卫 + `WIN32_LEAN_AND_MEAN/NOMINMAX/NOGDI/NOUSER/NOKERNEL/NOSOUND` + `#undef IGNORE` (windows.h 之后) ②非 Windows 兜底 `static inline unsigned long GetCurrentThreadId(){return 0;}` ③**LoggingMutex 等包装器的实现放 .cpp, 头文件只留声明** — 避免在广包含头文件里引入 windows.h (一处污染全树枚举/标识符)
+- 状态: ✅ 固化 (5 处插桩 TU 统一模式)
+
+### #162 🟡 fork Windows 重编四坑: genex 泄漏 / 链接序 / 缺符号 / 数据目录 (09-10)
+
+- **①CMake regen 泄漏**: libFacade/CMakeLists.txt 的 `target_link_libraries(vcmi PUBLIC $<TARGET_PROPERTY:vcmiMain,INTERFACE_LINK_LIBRARIES>)` 嵌套 genex 在 regen 时把 `$<LINK_ONLY:ws2_32>` 原样写进 build.ninja → ninja "bad $-escape"; 修补: `$<LINK_ONLY:X>`→`X` 再裸 token→`-lX` (**每次 CMakeLists 改动触发 regen 都要重修**)
+- **②MinGW 链接序**: VCMI_server.exe 链接行 servercommon.a 在 VCMI_lib import lib 之前, servercommon 新增的 lib 符号引用 (__imp_) 解析不到; 修复: serverapp 行尾重复 `vcmi` (ld 从左到右, archive 后需再给 import lib)
+- **③ENABLE_ML=OFF 缺符号**: AIGateway.cpp include 的是 ML/strategic_state.h, adventure_capture_turn 定义在 ML 侧 (OFF 不编) — 修复: facade_SRCS 加 server/strategic_state.cpp (仅依赖 lib 头) + `target_compile_definitions(vcmi PRIVATE VCMI_DLL=1)` (否则 dllimport 视图 __imp_ 未定义); **注意 target_compile_definitions 必须在 add_library 之后**
+- **④NK2 残留**: AIGateway.cpp 三处 `getDate` (L177/778/1678) → `getCalendar().getCurrentDay()`; 一个未声明占位函数 `showGarrisonDialog_unused_placeholder` (09-09 手改残留) 删除
+- 状态: ✅ 三产物 09-10 版落地, 备份 bin_backup_0910
+
+### #163 🟡 二进制 ≠ 源码树: 08-18 exe 含未提交临时 hack, 行为对不上源码 (09-10)
+
+- **现象**: 08-18 编译的 VCMI_client.exe 启动后**无人操作自动进 battle lobby + 自动开局** (Twins + ModelAI), 全源码树 grep 找不到任何自动开局逻辑 (EntryPoint/openLobby/MLClient 全排除)
+- **根因**: 08-18 构建时的源码状态含未提交的临时 hack (有头验证期改动, 后来没进树) — **二进制是某个历史瞬间的快照, 源码树是另一个**; "08-18 产物 + 全部已提交修复" 的假设不成立
+- **规避**: ①复测行为对不上源码预期时, 先怀疑二进制/源码漂移 (git log 时间 vs 产物时间戳) ②重编后行为变化 (如自动开局消失) 不是回归, 是 hack 消失 ③新复测口径 = `--testmap Maps/Twins.h3m` (确定性、源码可解释、bypass lobby 崩溃)
+- 状态: ✅ 固化 (复测口径已更新进知识库 checklist)

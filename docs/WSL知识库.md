@@ -582,9 +582,9 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 - **排查命令** (踩坑 #149): Application 1000/1001 (崩溃详情) + System Resource-Exhaustion-Detector 2004 (直接列元凶 PID 与字节数) + CommitUsed/Limit 对照
 - 待用户确认: 3×python 来源 (进程已退); 干净环境 (5.6GB free / commit 23/55GB) 可安全复测
 
-### 线程生命周期插桩 (源码已改, exe 未重编 — 待编译生效)
+### 线程生命周期插桩 (09-10 重编后已生效 — 实战立功)
 
-插桩点 (D:\Bigdata\hero3_fresh\vcmi\ 树, `[THREAD] xxx ENTER/EXIT tid=` stderr 打点):
+插桩点 (D:\Bigdata\hero3_fresh\vcmi\ 树, `[THREAD] xxx ENTER/EXIT tid=` stderr 打点; **09-10 重编落地, gui8-12 实战定位死锁链路功臣**):
 
 | 文件 | 线程/函数 | 嫌疑背景 |
 |------|----------|---------|
@@ -594,22 +594,50 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 | client/Client.cpp | startPlayerBattleAction (unlockGuard 区间) | interfaceMutex 临时放锁窗口 |
 | client/battle/BattleInterface.cpp | autofightingAI aiThread (detach) | **detached 嫌疑** |
 
-⚠ **VCMI_client.exe 仍是 08-18 产物, 插桩未生效** — NK2 编译错误已修 (AIStatus turnCounter 声明缺失 / getDate→getCalendar() / showGarrisonDialog 参数), 下次重编即带上; 插桩是为 GUI 死锁复发时一击定位准备的雷达, 非当前阻塞项。
+⚠ ~~VCMI_client.exe 仍是 08-18 产物, 插桩未生效~~ → **09-10 三产物重编落地, 插桩已生效** (复发雷达, 常驻保留)。
+
+### 09-10 GUI 死锁终局闭环: LoggingMutex 锁打点 → 两层根因 → 修复验证 (day=31)
+
+**诊断方法论 (从 dump 静态分析到运行时打点的升级)**:
+
+1. 官方 crashinfo.dmp (mini dump) 有 Exception 流 + MemoryList 但**无崩溃线程栈内存** → 只能定位崩点 RVA (exe+0x216556 类), 用 `.pdata` 函数边界 + Capstone 反汇编到指令级 (py/parse_crashinfo_mini.py / disasm_gui11_crash2.py)
+2. **winpthreads Normal mutex (std::mutex) 不记录 owner** — dump 里锁结构 `{state=2(Waiting), type=0(Normal), event=0x1618, rec_lock, owner=0xffffffff}`: 0x1618 是 **auto-reset event 句柄不是 TID** (曾误判"持锁死线程"); owner 字段仅 Recursive/Errorcheck 记录 → **dump 静态分析定不出持锁者, 必须运行时打点**
+3. **LoggingMutex 包装器** (client/GameEngine.h 嵌套类, 实现在 GameEngine.cpp): lock/unlock/try_lock 全打点 `[MUTEX] LOCKED/UNLOCK tid= ra=` — `ra=__builtin_return_address(0)` + .pdata 映射 = 锁点级定位; 实现放 .cpp 避免 windows.h 污染广包含头文件
+4. 冻结时 stderr 末条 `LOCKED` 无配对 `UNLOCK` = 持锁者; `LOCKED` 与 `EXIT` 同线程相邻 = **该线程返回时泄漏锁**
+
+**两层根因**:
+
+| 层 | 机制 | 修复 |
+|----|------|------|
+| ① interfaceMutex 泄漏 | onPacketReceived 锁只覆盖 DISCONNECTING 检查, 包处理无锁运行; 回合切换 playerStartsTurn→waitWhileDialog (CPlayerInterface.cpp:1393) 的 makeUnlockGuard "解锁→等对话框→析构重锁" 无人配对 → **每次回合切换泄漏一锁** → runNetwork 下一包自死锁 + 主线程 USEREVENT 死等 | onPacketReceived 用 `optional<unique_lock>` 持锁覆盖整个 pack->visit, 恢复"包处理持锁"不变量 (makeUnlockGuard 配对成立) |
+| ② SPECTATOR 空指针 | onlyai 观众接口 playerID=SPECTATOR(-4) 无 PlayerState → AdventureMapShortcuts::optionCanViewQuests (L647) `getPlayerState->quests.empty()` 空指针读 0x6d8 (崩溃时 rdx=0xfffffffc=-4=SPECTATOR) | 判空 (CPlayerInterface.cpp:1363 已有同类先例) |
+
+**修复验证 (gui12, --testmap 全 AI 局)**: day=31 持续运行 (对标 09-08 headless 基准) / 62 次 INFER / 7 次 battleStarted + 1 次 battleFinished(winner=1) 战斗链闭合 / 零冻结零崩溃 / [MUTEX] 2.9 万次收支平衡 (差 -2 待观察)。heroMoved→endTurn 多轮闭环 = 09-09 ModelAI 修复验证通过。
+
+**关键教训**:
+- `makeUnlockGuard` 的隐含前提 = "调用者持锁" — 持锁不变量被上层破坏时 (锁作用域收窄), 下层 guard 的"恢复现场"变成"凭空加锁" — **锁作用域改动必须全链审查 makeUnlockGuard/makeUnlockSharedGuard 用户**
+- 惰性初始化 winpthreads: `pthread_mutex_t` 本体是指针 (GENERIC_INITIALIZER=-1), 真结构体在堆上 {state,type,event,rec_lock,owner}
+- 官方 crash handler 的 dmp 在对话框期间 0 字节, dismiss 后才落盘; mini dump 无栈内存, full dump (take_dump.py) 才有 — 但**冻结类问题 dump 抓晚了锁内存会被复用污染, 栈可信数据不可信**
+
+**复测口径变更**: 新二进制 (09-10) 无 08-18 临时自动开局 hack → 用 `VCMI_client.exe --testmap Maps/Twins.h3m` 直开全 AI 局 (ModelAI×2 + 观众视角), bypass lobby 选图 UI; gui4/6 的 SelectionTab 崩溃 (lastMap 自动选图路径, 未修) 与此流程无关。观察标记: `[INFER] day=N act=X` (adventure AI) / `[BTL-AI]` (battle AI) / `[ML-battleStarted]` / `[ML-q] CGCreature::battleFinished winner=N` (战斗结算闭合) / "actGot false in applying 10MakeAction" = ModelAI 战斗出招偶发被拒 (09-08 已知非致命)。
+
+**Windows 重编构建坑全集** (msys64 GCC 16.2 + Ninja, 详见踩坑 #156-#161): libFacade genex 泄漏 / serverapp 链接序 / facade VCMI_DLL=1+strategic_state.cpp / NK2 getDate 残留 / windows.h 宏污染 (IGNORE)。
 
 ### GUI 复测环境规范 (复测前 checklist)
 
-1. 界面语言 English + 输入法 ENG (踩坑 #151)
+1. 界面语言 English; 输入法已程序化屏蔽 (09-10 ImmDisableIME 编入客户端, 不再需要手动切 ENG — 踩坑 #151 闭环)
 2. settings ai.adventureAlliedAI/adventureEnemyAI = "ModelAI" (踩坑 #152, 被清空过一次)
 3. 确认无大内存任务并行 (WSL 训练停机 / 无编译 / 无异常 python) — 踩坑 #149
 4. 启动方式带 stderr 重定向 (gui*_stdout.log/gui*_stderr.log, 崩溃现场有最后日志)
-5. 冻结时别关进程 — take_dump.py 抓现场 dump
+5. 冻结时别关进程 — take_dump.py 抓现场 dump; **并立刻抓 stderr 末条 [MUTEX] (LoggingMutex 打点已常驻)**
+6. AI 全自动复测口径: `--testmap Maps/Twins.h3m` (人肉点击 lobby 路径有 SelectionTab 未修崩溃, 见踩坑 #157)
 
 ### 遗留待办
 
-- 用户确认 3×python 来源 (07:14 资源耗尽元凶)
-- 干净环境 GUI 复测一场 (死锁修复 + battleEnded 路径验证)
-- 插桩版客户端重编 (低优先, 复发雷达)
+- ~~用户确认 3×python 来源 (07:14 资源耗尽元凶)~~ / ~~干净环境 GUI 复测 (死锁修复 + battleEnded 验证)~~ / ~~插桩版客户端重编~~ — **09-10 全部闭环** (详见上章)
 - v13 战斗模型 Windows 侧适配评估 (MODELAI_MODEL 指向 v13 需核实 model_infer.cpp 接口, 4 输入接口契约见上章)
+- gui4/6 SelectionTab 崩溃未修 (lastMap 自动选图路径, --testmap 口径下无关)
+- [MUTEX] 差值 -2 观察项 (个别 makeUnlockGuard 未持锁上下文调用)
 
 ---
 
