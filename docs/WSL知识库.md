@@ -888,3 +888,46 @@ vcmi-native 与 workspace 共享 .git 但 **HEAD 不同** (native=e4afa2a87 旧�
 
 - T06 duel 攒 3-4 局稳态样本后拍板: 有收益保留 / 无收益且 T05 持续慢 → 评估回滚
 - libNullkiller2.so 无旧版备份 (git 源码可回退重编, 风险可接受)
+
+## T13 外挂 AI 协议客户端与 Lobby 包 (09-11, P8 前置)
+
+### 范围
+
+- 目标: 外部 AI 不改 VCMI 代码, 用 VCMI 官方 TCP/CPack 协议作为客户端接入, 服务 1V7 多人对战 P8。
+- 代码入口: `py/vcmi_protocol/`。
+  - `serialization.py`: LVarInt / string dedup / set / pointer-present / pointer 占位读取。
+  - `packs.py`: 战略包、客户端包、战斗包、Lobby 包。
+  - `protocol.py`: `VCMIProtocolClient` + `QueryManager`。
+  - `model_bridge.py`: obs(3464) → action(0-24) → 协议包。
+  - `tests/test_e2e.py`: P8-A 实机入口 + 离线单测。
+- 提交: `bdce29a` (`t13.10: lobby protocol and p8 harness`)。
+
+### Lobby 包要点
+
+| typeID | 包 | 用途 | 状态 |
+|---:|---|---|---|
+| 216 | `LobbyClientConnected` | server 通知客户端已连接 / 大厅参与者基础信息 | 可解析, 待实机校验 |
+| 217 | `LobbyClientDisconnected` | 客户端断开 | 可解析, 待实机校验 |
+| 218 | `LobbyChatMessage` | 大厅聊天 | 可解析, 待实机校验 |
+| 226 | `LobbyUpdateState` | 大厅状态更新 | 可解析主路径, `CMapInfo` 字段暂占位 |
+| 229 | `LobbySetMap` | 设置地图 | 仅最简实现, 待实机校验 |
+| 265 | `LobbyQueryState` | 查询大厅状态 | 无字段, 可发送 |
+| 266 | `LobbyModsCheck` | 大厅兼容检查响应 | 可解析, 待实机校验 |
+
+### 实机 P8 入口
+
+```bash
+python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
+```
+
+实机判据:
+1. TCP 连 VCMI server 成功。
+2. 收到 `LobbyClientConnected` 或 `LobbyUpdateState`。
+3. AI 回合收到 `PlayerStartsTurn`。
+4. AI 发送 `EndTurn` 后收到 `PackageApplied`。
+5. 混人+混 AI 完成至少 1 局无崩溃。
+
+### 验证
+
+离线验证已完成: `python py/vcmi_protocol/tests/test_e2e.py` → `144 passed, 0 failed`。
+实机多人局尚未完成; 当前只完成 P8-A 入口脚本和 Lobby 协议前置, 不伪造对战结果。

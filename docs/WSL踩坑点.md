@@ -400,3 +400,12 @@
 
 **教训**: 上游 benchmark 收益数字（+40%）不能外推到本项目负载；落地后必须用**同图 EP_TIME 严格对比法**（新旧栈同 map 对比消除地图难度变量）判定，且要等稳态样本（≥3 局）再下结论。
 
+### 待归档新增
+
+#### #185 T13.10 Lobby/P8 前置完成但实机多人局未完成 (2026-09-11) — ⚠️ 待查
+- **状态**: ⚠️ 待查
+- **背景**: T13 外挂 AI 协议客户端完成 `py/vcmi_protocol/`, 新增 Lobby 包解析与 P8-A 实机入口; 离线单测 `144 passed, 0 failed`。
+- **坑**: 离线解析通过 ≠ 真实 VCMI server 接受。Lobby 握手、玩家槽位、StartInfo/CMapInfo、跨客户端同步仍需实机抓包验证; 不能把 `LobbyUpdateState` 部分字段占位解析当作完成多人局。
+- **正确口径**: 完成的是 P8 前置: TCP/CPack/Query/ModelBridge/Lobby 基础包。未完成的是 P8-B/C: 实机启动 VCMI server/client, AI 与人类同局完成至少 1 局。
+- **复现/验证**: `python py/vcmi_protocol/tests/test_e2e.py` 离线全绿; 实机入口 `python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m`。
+- **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a`。
