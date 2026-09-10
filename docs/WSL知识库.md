@@ -630,7 +630,7 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 3. 确认无大内存任务并行 (WSL 训练停机 / 无编译 / 无异常 python) — 踩坑 #149
 4. 启动方式带 stderr 重定向 (gui*_stdout.log/gui*_stderr.log, 崩溃现场有最后日志)
 5. 冻结时别关进程 — take_dump.py 抓现场 dump; **并立刻抓 stderr 末条 [MUTEX] (LoggingMutex 打点已常驻)**
-6. AI 全自动复测口径: `--testmap Maps/Twins.h3m` (人肉点击 lobby 路径有 SelectionTab 未修崩溃, 见踩坑 #157)
+6. AI 全自动复测口径: `--testmap Maps/Twins.h3m` (人肉点击 lobby 路径有 SelectionTab 未修崩溃, 见遗留待办)
 
 ### 遗留待办
 
@@ -638,6 +638,7 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 - v13 战斗模型 Windows 侧适配评估 (MODELAI_MODEL 指向 v13 需核实 model_infer.cpp 接口, 4 输入接口契约见上章)
 - gui4/6 SelectionTab 崩溃未修 (lastMap 自动选图路径, --testmap 口径下无关)
 - [MUTEX] 差值 -2 观察项 (个别 makeUnlockGuard 未持锁上下文调用)
+- **第三崩溃待立项 (09-10 gui12 浸泡 day=31 后)**: 主线程 `0xC0000005 读 0x10`, RIP=exe+0x20c09f (fn 0x20bf60) — `getter(0x1a47c0)->fieldD0->call(0x1bd2b0)` 返回 null → `cmp [rax+0x10], 0x22`; 崩溃时 Rdx=R8=**SPECTATOR(-4)** — 观众视角战斗结算 UI 同族空指针 (battleFinished 后触发); crashinfo.dmp 18:13 版已存, parse_crashinfo_mini.py + resolve_ra.py 可续查
 
 ---
 
