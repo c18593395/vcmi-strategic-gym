@@ -706,7 +706,7 @@ try:
                     # ① 不可达的城直接跳过 (不设目标 → 不烧 6 步学费, [TOWN_BLOCKED] 不再触发);
                     # ② 可达的城按真实路径步数取最近 (绕岩石后 Manhattan 近的未必真近)
                     for (_tx, _ty) in get_objectives(args.mapname)[1]:
-                        _dir, _plen = bfs_full_dir(args.mapname, hx, hy, _tx, _ty, blocked=dyn_blocked)
+                        _dir, _plen = bfs_full_dir(args.mapname, hx, hy, _tx, _ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
                         if _dir is None:
                             continue
                         if town_best is None or _plen < town_best[0]:
@@ -730,7 +730,7 @@ try:
                             if _rm1 > 0:
                                 _od1 = abs(int(obs[_tb1+2]) - hx) + abs(int(obs[_tb1+3]) - hy)
                                 # 2026-09-01 改法一: 可达性过滤 (BFS 不可达 → 不引导, 防 greedy 卡死烧 move_stall)
-                                _d1, _ = bfs_full_dir(args.mapname, hx, hy, int(obs[_tb1+2]), int(obs[_tb1+3]), blocked=dyn_blocked)
+                                _d1, _ = bfs_full_dir(args.mapname, hx, hy, int(obs[_tb1+2]), int(obs[_tb1+3]), blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
                                 if _od1 <= 25 and _od1 > 0 and _d1 is not None and (own_town_best is None or _od1 < own_town_best[0]):
                                     own_town_best = (_od1, int(obs[_tb1+2]), int(obs[_tb1+3]))
                     # 诊断日志 (边沿触发): 区分"引导没启动"(此条不打) vs "启动了没走到"(打了但无 [TOWN_VISIT])
@@ -814,7 +814,7 @@ try:
                 else:
                     # 2026-09-01 改法一: 城镇目标 (nd<0 非守卫) 先走全图 BFS 绕岩石, 失败再退 15×15 局部 BFS → 贪心
                     if not move_guard_target:
-                        _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)
+                        _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
                         if _fd is not None:
                             a = _fd
                     # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
@@ -865,7 +865,7 @@ try:
                 # BFS plen 持续下降 = 合法绕行不误杀; 位置不动/原地打转 plen 不减 = 真卡死;
                 # BFS 不可达 (返回 -1) 回退曼哈顿 → 真不可达照常触发兜底放弃
                 if move_town_bfs:
-                    _plen_now = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)[1]
+                    _plen_now = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})[1]
                     cur_dist = _plen_now if _plen_now >= 0 else abs(tx - hx) + abs(ty - hy)
                 else:
                     cur_dist = abs(tx - hx) + abs(ty - hy)
@@ -874,7 +874,7 @@ try:
                     # 2026-09-01 改法三: 停滞 = BFS 首步格被引擎拒绝 (实探: 敌方英雄等动态障碍) —
                     # 把该格记入本局黑名单, 后续 BFS 重规划绕行; 诊断埋点打印阻挡格
                     if move_town_bfs and move_stall == 1:
-                        _sdir, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=dyn_blocked)
+                        _sdir, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
                         _bx, _by = -1, -1
                         if _sdir is not None:
                             _bx, _by = hx + _DIRS[_sdir][0], hy + _DIRS[_sdir][1]
