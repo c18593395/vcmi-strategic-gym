@@ -1150,3 +1150,76 @@ ML 强定义优先, 客户端默认空走 settings。
 - 验证: 冒烟 (训练同款参数+MOVE_TO 强制) 2 场战斗 winner=0、0 断言、引擎存活; 续训 ep 156/200 步满局 r=43/19.75 ✅
 - 教训: ① 恢复 .so 必须用 md5 对照"实际跑过验证期"的那对, 不能凭 mtime/目录名猜版本 (backup-mlclient-brp-0827 里的 5d2b9e9d 是修复前快照不是好版本); ② 构建树 rel/bin 可能是未验证的实验构建, 整对部署前先单独核对 libmlclient 可用性; ③ 诊断备份要用独立文件名, 别让诊断版覆盖备份; ④ 冒烟必须带训练同款 env (LD_LIBRARY_PATH/STRATEGIC_STATE_LIB/裸地图名/MOVE_TO 强制), 否则动作全被拒造成假象
 
+### 133. VCMI 1.8 getUpperArmy() 不含 visiting hero: 与 HoMM3 直觉相反 (2026-09-02)
+- **现象**: CGTownInstance.cpp L879-884 `if(getGarrisonHero()) return getGarrisonHero(); return this;` — 只返回 garrisonHero 或 town 本身; 英雄 visit 后 dst 仍非英雄 (实测 visit=1 但 dstIsHero=0)
+- **危害**: "getUpperArmy 优先 visiting hero" 的直觉假设使 P1 visit 修复后兵仍进 garrison 黑洞; 知识库 08-31 条目关键推论因此错误 (已修正)
+- **正确姿势**: 招兵给 visiting hero 时显式 `dst = town->getVisitingHero()` (public const, CGTownInstance.h L132)
+- 状态: 🔴 认知坑, 已修复 (P1b)
+
+### 134. fprintf(stderr) 在 MMAI server 内不可见: console 重定向 (2026-09-02)
+- **现象**: AAI.cpp 内 fprintf(stderr,...) 诊断在 hermes/主日志均不出现 ([MMAI-DIAG] init 行证明启动期 stderr 通 hermes, 但 AI 运行期输出被吞)
+- **正确姿势**: C++ 侧诊断写独立文件 `{FILE* dg = fopen("/tmp/xxx.log","a"); if(dg){fprintf(dg,...); fclose(dg);} }`; 基建: /tmp/rl_recruit_diag.log (取兵链路诊断, 验证后可删)
+- 状态: 🔴 排查坑, 基建可用
+
+### 137. VCMI 坐标系双口径坑: 锚点 pos vs visitablePos, 邻接判定必错 (2026-09-02)
+- **现象**: P1 邻接守卫用锚点坐标 `distSq(standPos, cur->pos) > 2` → 邻接英雄被误判"远", 71/71 全部误弃 (DIAG7: enter 有动作, afterMove 恒 0); 改 visitablePos() Chebyshev≤1 口径后同场景放行
+- **机制**: `cur->pos` 与 `visitablePos()` 差 convertFromVisitablePos 对象相关偏移; 城锚点在 3x3 mask 中心 (mask=["VVVVV","VVAVV","VVVVV"]), 英雄 visit 停在邻格 — 锚点坐标系下"邻接"对城锚点距离可达 2-3, 守卫阈值 2 必误杀
+- **正确姿势**: 邻接/距离/守卫判定一律 **visitable 口径** (`visitablePos()` 双方 Chebyshev≤1); 锚点坐标仅作 moveHero 目的地; 已在锚点时改走对象格本身触发 visit (与 a==8 双路径同款)
+- **关联**: 知识库"城格不可站"条 (TOWN 判定 dist≤1 同源); 踩坑 #133 (getUpperArmy)
+- 状态: 🔴 认知坑, 已修复 (P1c)
+
+### 140. C++ API 假设编译前必 grep 验证: typeName() 不存在实为 getTypeName() (2026-09-03)
+- **现象**: R7 埋点凭直觉写 `visitedObject->typeName()` — CGObjectInstance 实际 API 是 `getTypeName()` (CGObjectInstance.h L54), 编译期才暴露; 若在停训练窗口内编译失败则窗口拉长
+- **正确姿势**: 停训练窗口前先在源码 grep 验证所有新用 API (类成员名/方法签名); 本次因编译前验证流程 (queryID/result 虚成员 grep) 已验两项, 漏了 typeName — 流程执行不彻底
+- 状态: 🟡 流程坑, 规范先行
+
+### 167. ServerPlugin HeroPool 对称校验拒多敌课程: 1v3 及 1v7 全部无法启动 (2026-09-06)
+- **现象**: alchemist 修复后 1v3 仍拒启动: `Added pool 0 of owner 0/1: default` → `ERROR Failed to launch game: Owners have differently sized pools`
+- **真因**: fork 训练栈 `server/ML/ServerPlugin.cpp` pool matching — 非 randomHeroes 模式且恰好 2 owner 时, 强制双方同名 pool 英雄数相等 (T04/T05/duel 全 1v1 天然通过, 1v3 red1 vs blue3 → 1≠3 throw)
+- **修复**: 大小不等降级 stdout 警告 (`pool size mismatch ... skip`), pool **名**不同仍 throw (真配错图仍可发现); **libmlserverplugin.so 是独立 SHARED 库不触"勿重编 libvcmi.so"铁律** (server/ML/CMakeLists add_library mlserverplugin SHARED; 单文件重编 -j4, cmake --build rel/ --target mlserverplugin)
+- **运维**: 备份链 .bak_pool_0906 (.so+源码); 副本同步 vtest/bin + hero3_vcmi/build/bin (route-backups/vcmi-gym 为历史备份不同步); **1v7 课程前置障碍已扫除**
+- 状态: ✅ 已修复部署 (1v3 真实首局 73 步 r=82.38 闭环)
+
+### 148. GUI 死锁根因: detached 线程持锁路径退出 → interfaceMutex 永久失锁 (2026-09-09)
+- **现象**: ModelAI GUI 复测, AI 行动后 ~2s 画面永久冻结; minidump 实锁 owner = 已死线程的 pthread 结构, 主线程 + runNetwork 双双死等 ENGINE->interfaceMutex
+- **根因**: ModelAI `heroMoved` 回调 (网络线程) 启动 detached 延迟线程调 `endTurn` — detached 线程生命周期失控, 持锁路径随线程退出失效 → interfaceMutex 状态损坏 (永久失锁), 全进程死等
+- **修复 (D:\vcmi_model_ai\model_ai.cpp)**: 移除 detached 线程 → `heroMoved` (无战斗) / `battleEnded` (有战斗) 回调内**同步调用 endTurn** (waitTillRealize=false 非阻塞, 与 yourTurn 回调模式一致) + battle_active 原子变量区分两条路径 + in_my_turn 及时重置防 battleEnded 误触发
+- **教训**: ①回调线程里禁开 detached 线程做续接动作 — 生命周期失控 = 锁资源泄漏定时炸弹 ②GUI 锁问题的终结证据是 minidump 的锁 owner 归属, 不是猜测 ③同步 endTurn 的前提是非阻塞语义, 先确认 waitTillRealize=false 再同步
+- 状态: ✅ 修复部署 (旧版备份 ModelAI.dll.bak_0908_deadlock), gui3 复测 endTurn after heroMoved 正常流转
+
+### 158. interfaceMutex 泄漏: onPacketReceived 锁作用域收窄破坏 makeUnlockGuard 不变量 (2026-09-10, GUI 死锁根因①)
+- **现象**: --testmap 全 AI 局每次回合切换后整体冻结 (Resp=False); dump 显示 runNetwork 卡在 onPacketReceived 的 pthread_mutex_lock + 主线程卡在 USEREVENT 同一把锁; [MUTEX] 打点实锤 LOCKED 后无配对 UNLOCK 即 onPacketReceived EXIT = 锁泄漏
+- **根因**: onPacketReceived (CServerHandler.cpp:1061) 的 scoped_lock 只覆盖 DISCONNECTING 检查 (源码级作用域即如此), 包处理 (pack->visit) 无锁运行; 而深层 handler CPlayerInterface::waitWhileDialog (CPlayerInterface.cpp:1393) 的 `makeUnlockGuard` 语义 = "析构时重锁恢复现场" — 无锁调用时析构重锁**凭空加锁且无人配对解锁** → 每次回合切换泄漏一锁
+- **修复**: onPacketReceived 用 `optional<unique_lock<GameEngine::LoggingMutex>>` 持锁覆盖整个 pack->visit, 恢复"包处理持锁"不变量
+- **教训**: ①makeUnlockGuard/makeUnlockSharedGuard 隐含前提 = "调用者持锁" — **任何锁作用域改动必须全链审查所有 guard 用户** ②guard 是 RAII 但"恢复现场"型 guard 的不变量靠调用约定, 编译器/RAII 救不了 ③LeakSanitizer 类工具不覆盖 std::mutex, 只能靠打点收支对账 ([MUTEX] LOCKED vs UNLOCK 计数)
+- 状态: ✅ 修复 + day=31 验证
+
+### 159. SPECTATOR 无 PlayerState: getPlayerState(-4) 返回 null 无判空崩溃 (2026-09-10, 死锁修复后第二层)
+- **现象**: 死锁修复后跑到 day=2 崩溃 `0xC0000005 读 0x6d8`, 前奏是 "getResource: No player info!" ×N 刷屏; dump 崩点 `mov rdi,[rax+0x6d8]` 前一条是 `call CGameInfoCallback::getPlayerState(PlayerColor, bool)` (IAT 0xa9e5b8)
+- **根因**: testmap-onlyai 的观众视角接口 playerID=**SPECTATOR(-4)** (崩溃时 rdx=0xfffffffc 实锤), 游戏状态里 SPECTATOR 无 PlayerState → getPlayerState 返回 null → AdventureMapShortcuts::optionCanViewQuests (L647) `->quests.empty()` 无判空解引用 (+0x6d8/+0x6e0 = vector begin/end 对)
+- **修复**: optionCanViewQuests 判空 (CPlayerInterface.cpp:1363 已有同类先例 "PS NULL GUARD: spectator has no PlayerState")
+- **教训**: ①onlyai/观战模式引入后, 所有 `getPlayerState(interface->playerID)` 调用点都要假设 SPECTATOR; 上游无此模式所以上游代码天然不防 ②崩溃前奏的 verbose 警告刷屏 ("No player info!") 就是同源查询失败信号, 看到 spam 就该想到同族调用里有没有漏判空的
+- 状态: ✅ 修复 + day=31 验证
+
+### 160. winpthreads Normal mutex 不记录 owner: dump 静态分析定不出持锁者 (2026-09-10)
+- **现象**: 冻结 dump 里读 interfaceMutex (ENGINE+0x98) 的 pthread_mutex_t, 值 {state=2, type=0, +0x08=0x1618, owner=0xffffffff} — 曾把 0x1618 误判为持锁死线程 TID
+- **根因**: ①winpthreads `pthread_mutex_t` 本体是**指针** (GENERIC_INITIALIZER=-1 惰性初始化), 真结构体在堆上; ②内部布局 `{state(Unlocked/Locked/Waiting), type(Normal/Errorcheck/Recursive), event(auto-reset HANDLE!), rec_lock, owner}` — **仅 Recursive/Errorcheck 记录 owner, Normal 恒 0xffffffff**; 0x1618 = event 句柄 (内核 HANDLE 数值巧合性地小)
+- **规避**: ①std::mutex 死锁的持锁者定位**必须运行时打点** (LoggingMutex: LOCKED/UNLOCK + tid + `__builtin_return_address(0)` → .pdata 映射锁点), dump 只能证明"锁被持有"不能证明"谁持有" ②冻结 dump 抓晚了锁内存会被复用污染 (gui8 教训), 抓现场要快
+- 状态: ✅ LoggingMutex 已常驻 GameEngine (复发雷达)
+- 关联: 知识库 "09-10 GUI 死锁终局闭环" 章
+
+### 165. GUI 线程边界无 catch-all: 未捕获 C++ 异常直通 SEH filter → "Disaster happened" + 僵尸进程 (2026-09-10, 第五崩)
+- **现象**: 浸泡测试 (soak_gui14) 用户点系统菜单 (SettingsMainWindow 正常打开) 1.1s 后，runServer (tid=42544) 与 runNetwork (tid=45960) 双双 "Disaster happened" 但**进程存活成僵尸** (Responding=True / 802MB / 游戏逻辑死 / GUI 消息泵空转) — 与第四崩 (MainGUI 死 → 0xC0000409 → 进程退出) 模式不同
+- **取证链**: ①日志 Disaster 行后无异常文本 — CConsoleHandler.cpp `onUnhandledException` (L119-140, SEH filter) 只打 "Disaster happened." + Thread ID, **不打 Reason** (Reason 只在 `onTerminate` L146 打) → 无文本即 SEH filter 路径实锤 ②21.7MB dmp = `MiniDumpWithDataSegs` 非 FullMemory (`extraDump` 设置未开), 堆上异常对象文本取不到 ③`py/parse_crash_dmp.py` 手解 minidump: 异常流 (type 6) `Code=0x20474343` = GCC/MinGW SEH 模式 C++ 异常标记 (ASCII "GCC ") → **未捕获 C++ 异常实锤, 非 AV**
+- **根因**: `ServerRunner.cpp` runServer lambda 完全裸奔无 try/catch; `CServerHandler.cpp` threadRunNetwork 只 catch `TerminationRequestedException` — 两线程边界抛出的 C++ 异常绕过 std::terminate 直达 OS unhandled filter; 两线程先后触发 filter, 疑似并发 MiniDumpWriteDump 挂起 → 僵尸
+- **修复**: ①runServer 只包 `server->run()` (**不包 prepare/promise.set_value** — prepare 抛异常时主线程会永久挂在 `promise.get_future().get()`) ②threadRunNetwork 追加 catch std::exception + catch(...), 双路日志 (logGlobal 进 VCMI_Client_log.txt + `fprintf [THREAD] xxx THREW` 进 stderr 便于 grep)
+- **工具沉淀**: `py/parse_crash_dmp.py` — minidump 异常流 (ThreadId/Code/Address/nparams) + 模块表 (type 4, MINIDUMP_MODULE 108 字节) + ASLR 换算 (runtimeVA − runtimeBase + PE_ImageBase = addr2line 地址, ImageBase 在 e_lfanew+4+20+24) → 实测定位到 KERNELBASE.dll RaiseException 内部
+- **教训**: ①**线程入口 = 异常边界, catch-all 必须兜底** — GCC SEH 下未捕获 C++ 异常不走 terminate handler 直达 OS filter ②"Disaster happened" 无 Reason = SEH filter 路径; 有 Reason = onTerminate 路径 — 两者排查方向完全不同 ③日志无文本时转 dmp 拿异常码, 0x20474343 一眼定性 ④良性刷屏别淹没: getPlayerStatus "No such player!" (观战敌回合轮询) / getResource "No player info!" (层切换资源栏刷新) 均良性
+- 状态: ✅ 修复部署 + soak_gui15 复测 PASS (93617 行 stderr 零 THREW/零 Disaster, 含 KingdomOverview 直接点击); 异常原始 throw 点未闭合 (已 instrumented, 复发即给出 e.what() 且不再僵尸化)
+### 166. NK2 死锁修复链 (08-16/17, 详见 vcmi-ml-module refs/deadlock-chain)
+- **close 卡死**: env.close() 嵌入模式卡死 (58% CPU, close 线程 5s 超时无效) → SAVED 后直接 os._exit(0) 跳过
+- **battle query 卡顶**: 三层 query 栈 + notifyObjectAboutRemoval 中断 → QueriesProcessor::removeQuery 任意位置强制移除
+- **battleResultAccepted**: 改用 removeQuery (onRemoval 只调一次防段错误 + 移除后触发暴露链)
+- **采集 bash wrapper**: 逐局独立 (防跨局状态泄漏)
+- **训练前必验**: npz 英雄位置 + 动作分布 (防模型输出全空/全非法)
+

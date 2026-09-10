@@ -9,7 +9,7 @@
 
 
 
-### 当前训练（C4）
+### 当前训练（C4, 历史）
 
 
 
@@ -45,7 +45,57 @@
 
 
 
-### 观测向量结构 (256 维)
+
+### 当前训练（v5, 截至 2026-09-11）
+
+| 参数 | 值 |
+|------|-----|
+| 脚本 | train_wsl2_ppo_v2.py |
+| 算法 | PPO |
+| 网络 | MLP: 3464→256→128→25(act+crit) |
+| Episodes | 1000 |
+| Steps/ep | 200 |
+| Batch | 2048 |
+| 学习率 | 3e-4 |
+| Clip | 0.2 |
+| Epochs | 6 |
+| KL_TARGET | 0.50 |
+| KL_COEF | 0.3 |
+| Entropy | -0.05 |
+| 设备 | cuda (RTX3060) |
+| 地图 | T05 6图 + T06 duel + 72X72_01 (共8图) |
+| 对手 | blue=MMAI_RANDOM |
+| NK2 shaping | 0.45 |
+| objective_reward | 30 (矿/城事件) |
+| move_to_force | 60 |
+| economy_force | 24 |
+| reward clip | ±300 |
+| Checkpoint | 每 50 step, 保留 10 个 |
+| OBS_DIM | 3464 |
+| N_ACTIONS | 25 (0-24, 25-63 预留) |
+
+**训练运行方式**: WSL systemd transient unit `homm3-train-v5`, 优雅停止 = 零损失
+**训练日志**: `train_loop.log`
+**健康判据**: r 双峰 — 130-160(守卫胜) / 5-30(只招兵), 均健康
+**分析日志**: 先按 ROUND 头切片, batch 行 ~27 局 1 条属正常
+**runner 标记**: [GUARD]/[ZOMBIE] 进 `/tmp/hermes_ep_{pid}.log` 不进主日志
+
+**NK2+超参全表**: batch2048/LR3e-4/KL_TARGET0.5/KL_COEF0.3/entropy-0.05/move_to_force60/
+objective_reward30/economy_force24/reward_clip±300; 全表见 vcmi-rl-training refs/。
+
+**NK2死锁修复链 (08-16/17)**: 详见 vcmi-ml-module refs/deadlock-chain+battle-query-hang;
+close卡死→SAVED后os._exit; 采集bash wrapper逐局独立; 采集/训练前必验npz英雄位置+动作分布
+
+### 观测向量结构 (3464 维)
+
+| 索引 | 内容 | 长度 |
+|------|------|------|
+| 0-25 | Global + Player state | 26 |
+| 26-127 | Heroes (6 × 16字段) | 102 |
+| 128-473 | Towns (8 × 43字段) | 346 |
+| 474-480 | 填充/特殊字段 | 7 |
+| 336-480 | Towns 段 (含 garrison 填充, 09-02) | 145 |
+| 3464 | 总维度 | 3464 |
 
 
 

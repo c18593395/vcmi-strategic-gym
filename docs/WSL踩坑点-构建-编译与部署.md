@@ -564,9 +564,7 @@
 
 - visitable 对象的 tile blocked()=true 但英雄可以走到上面 -- BFS 需豁免目标格
 
-- z-level: HoMM3 地图有地面/地下两层, BFS 必须按层搜索
-
-- 不要用全局 sed 替换 -- 会破坏不同作用域的同名变量
+- z-level: HoMM3 地图有地面/地下两层
 
 
 
@@ -577,4 +575,98 @@
 - 根因: .o 是 8-2 旧缓存, 后续所有链接都用旧 .o — 源码修复 ≠ 部署修复
 - 处理: rm .o + make mlclient (单文件重编成功, 不碰 strategic_state.h 就安全)
 - 教训: 改 server 代码后必须确认 .o 实际重编 (ls mtime); 部署验证用行为 (CBattleQuery 卡顶)
+
+### 111. mlclient 重编崩: strategic_state.h 同步后重编即崩 (08-26)
+- **现象**: strategic_state.h 同步后重编 mlclient → start_vcmi 未调 → GAME null → 崩溃
+- **注意**: 纯 8-23 源码也崩, 不是同步问题本身
+- **安全操作**: 单个 .cpp 的 .o 重编 + 链接成功 (BRP/CGameHandler/AAI), 勿碰 .h
+- **备份**: 工作 .so 在 `backup-t03-target-20260825_233554/`
+- **教训**: 改 build 树前必备份 .so+source; 不要碰 .h 头文件, 只改 .cpp
+
+### 125. C++ 符号排查 grep 模式坑: typeinfo/vtable 是 mangled 名 (2026-08-31)
+- **现象**: 排查 Router 断言时 `readelf -sW libMMAI.so | grep -c typeinfo` 返回 0 → 误判 "RTTI 全部隐藏/缺失", 顺着 visibility 假设全量重编 (走弯路)
+- **真因**: C++ 符号在 readelf 输出里是 mangled 名 — typeinfo=`_ZTI*`/`_ZTS*`, vtable=`_ZTV*`; 字面 "typeinfo" 永远匹配不到。新旧 .so 符号表结构其实完全相同 (3260 行)
+- **正确姿势**: `grep -E '_ZTI.*BAI'` / `_ZTV` / `_ZTS`; 或 `c++filt` 反修饰后再 grep
+- **教训**: 二进制符号排查先用已知存在的符号 (如确认存在的类) 校准 grep 模式, 再下 "缺失" 结论
+- 状态: ⚠️ 认知坑, 无代码改动
+
+### 126. cmake 重编 build type 覆盖坑: Release 触发 strip → 953KB 空壳 .so (2026-08-31)
+- **现象**: 全量重编 libMMAI 时手传 `-DCMAKE_BUILD_TYPE=Release` (原构建 = RelWithDebInfo) → 产物从 18.7MB 缩到 953KB, symtab/vtable/typeinfo 全空
+- **危害**: 若没注意大小直接部署 = 运行时符号全无, 故障排查地狱
+- **正确姿势**: 重编前先查 `grep CMAKE_BUILD_TYPE <build>/CMakeCache.txt` 对齐原值; 产物验证必查 `ls -la` 大小 vs 旧版
+- 状态: ⚠️ 操作坑, 已纠正 (最终以 RelWithDebInfo 重编 18.7MB fe48be90)
+
+### 127. cmake 增量操作顺序坑: set_target_properties 需重 configure / rm 须在 cmake 前 (2026-08-31)
+- **现象 1**: CMakeLists 加 `set_target_properties(MMAI PROPERTIES CXX_VISIBILITY_PRESET "default")` 后直接 make → 仍用老 flags (hidden) — **target 属性改动需重新 configure 才生成新 flags.make**
+- **现象 2**: `rm -rf CMakeFiles/MMAI.dir` 放在 cmake **之后** → 把 configure 刚生成的 build.make 一起删了 → "No rule to make target build.make"
+- **正确顺序**: `rm -rf <T>.dir` → `cmake ..` (重配) → `make <T>`; flags 验证: `grep -o '\-fvisibility=[a-z]*' <T>.dir/flags.make` (注意 #125 的模式坑, 精确匹配 `=hidden`)
+- 关联: KNOWLEDGE.md visibility 修复条 (该修复只在 ENABLE_MMAI_TEST 测试块内, 正式构建从未生效 — 见知识库 USING_ONNX 条)
+- 状态: ⚠️ 操作坑
+
+### 142. C++ if 无花括号 + fprintf 抢作用域: 招兵循环 UB 潜伏爆雷 (2026-09-03)
+- **现象**: AAI.cpp a==18 分支 `if (!creatures[i].second.empty())` 无花括号, 后续补丁插入的 fprintf 单语句抢走 if 作用域 → `cb->recruitCreatures(...)` 无条件对所有 tier 执行, 空 tier `second.front()` = UB; 训练 96ep 潜伏未爆, 冒烟图内存布局不同 → segfault libMMAI.so+0x49948 (runNetwork 线程, RAX=0 解引用)
+- **定位手段**: dmesg segfault 行 `ip ... in libMMAI.so[49948,...]` → `addr2line -e libMMAI.so -f -C 0x49948` 直接给出源码行 (带符号的 .so 才行, #126 strip 坑注意)
+- **正确姿势**: 给无花括号 if 追加语句时必须连原句一起包花括号; fprintf 诊断行插入前后用 `cat -A` 核对作用域; 编译警告 "too many arguments for format" = fprintf 参数/占位符失配线索, 勿忽略
+- 状态: 🔴 已修复 (加花括号+break 对齐 16/17)
+
+### 152. fork Windows 构建 AI DLL 缺失: settings 默认名无对应产物 (2026-09-08 闭环, 09-09 归档编号)
+- **现象**: battle-only 对局 "Server gives turn to red 后 3 秒崩", StupidAI 也崩 — 初判 ModelAI 逻辑问题, 实锤与模型无关
+- **根因**: `Client.cpp L253-257` 全 AI 玩家无条件走 `CDynLibHandler::getNewAI(settings ai.adventureEnemyAI)`, 默认值 "Nullkiller2" 而 `bin/AI/` 仅 ModelAI.dll + 2016 官方旧 BattleAI.dll — build.ninja 只有 NK2/StupidAI 的 .obj 编译规则**无链接目标** (fork Windows 构建从未产出 adventure AI DLL) → LoadLibraryW error 126 → throw → 崩
+- **修复**: settings.json (My Games/vcmi/config) 恢复 ai.adventureAlliedAI/adventureEnemyAI = "ModelAI"; 验证 PASS (headless testmap day=31 回合轮转正常, query 链闭合)
+- **教训**: ①配置里的 AI 名必须与 bin/AI/ 下 DLL 文件名一一对应, aiNameForPlayer 的存在性检查只查文件不查配置 ②"StupidAI 也崩"排除模型嫌疑但没排除配置/DLL 供给层 ③排查入口 = Windows 事件日志三类签名 (fork 0x40000015@VCMI_lib / 0xc0000374 堆 / fail-fast) + IFEO PageHeap 复现
+- 状态: ✅ 已闭环 (任务清单 09-08 条), 本条补踩坑编号归档
+
+### 161. MinGW windows.h 宏污染三连: IGNORE / NOMINMAX / 作用域 (2026-09-10 重编)
+- **现象**: 插桩加 `#include <windows.h>` 后连环编译错: ①Canvas.h `IGNORE` 枚举成员报 "expected identifier before numeric constant" ②NOMINMAX 重定义冲突 (libstdc++ os_defines.h 预定义) ③`GetCurrentThreadId` 未声明 (部分 TU 无传递包含)
+- **根因**: winbase.h `#define IGNORE` (NOGDI 排除的是 wingdi, **winbase 排不掉**); libstdc++ 的 os_defines.h 已 `#define NOMINMAX 1`, 裸 `#define NOMINMAX` (空体) 与之不同 → 重定义告警/错误
+- **规避**: ①标准防污染块 `#ifndef` 全守卫 + `WIN32_LEAN_AND_MEAN/NOMINMAX/NOGDI/NOUSER/NOKERNEL/NOSOUND` + `#undef IGNORE` (windows.h 之后) ②非 Windows 兜底 `static inline unsigned long GetCurrentThreadId(){return 0;}` ③**LoggingMutex 等包装器的实现放 .cpp, 头文件只留声明** — 避免在广包含头文件里引入 windows.h (一处污染全树枚举/标识符)
+- 状态: ✅ 固化 (5 处插桩 TU 统一模式)
+
+### 162. fork Windows 重编四坑: genex 泄漏 / 链接序 / 缺符号 / 数据目录 (2026-09-10)
+- **①CMake regen 泄漏**: libFacade/CMakeLists.txt 的 `target_link_libraries(vcmi PUBLIC $<TARGET_PROPERTY:vcmiMain,INTERFACE_LINK_LIBRARIES>)` 嵌套 genex 在 regen 时把 `$<LINK_ONLY:ws2_32>` 原样写进 build.ninja → ninja "bad $-escape"; 修补: `$<LINK_ONLY:X>`→`X` 再裸 token→`-lX` (**每次 CMakeLists 改动触发 regen 都要重修**)
+- **②MinGW 链接序**: VCMI_server.exe 链接行 servercommon.a 在 VCMI_lib import lib 之前, servercommon 新增的 lib 符号引用 (__imp_) 解析不到; 修复: serverapp 行尾重复 `vcmi` (ld 从左到右, archive 后需再给 import lib)
+- **③ENABLE_ML=OFF 缺符号**: AIGateway.cpp include 的是 ML/strategic_state.h, adventure_capture_turn 定义在 ML 侧 (OFF 不编) — 修复: facade_SRCS 加 server/strategic_state.cpp (仅依赖 lib 头) + `target_compile_definitions(vcmi PRIVATE VCMI_DLL=1)` (否则 dllimport 视图 __imp_ 未定义); **注意 target_compile_definitions 必须在 add_library 之后**
+- **④NK2 残留**: AIGateway.cpp 三处 `getDate` (L177/778/1678) → `getCalendar().getCurrentDay()`; 一个未声明占位函数 `showGarrisonDialog_unused_placeholder` (09-09 手改残留) 删除
+- 状态: ✅ 三产物 09-10 版落地, 备份 bin_backup_0910
+
+### 163. 二进制 ≠ 源码树: 08-18 exe 含未提交临时 hack, 行为对不上源码 (2026-09-10)
+- **现象**: 08-18 编译的 VCMI_client.exe 启动后**无人操作自动进 battle lobby + 自动开局** (Twins + ModelAI), 全源码树 grep 找不到任何自动开局逻辑 (EntryPoint/openLobby/MLClient 全排除)
+- **根因**: 08-18 构建时的源码状态含未提交的临时 hack (有头验证期改动, 后来没进树) — **二进制是某个历史瞬间的快照, 源码树是另一个**; "08-18 产物 + 全部已提交修复" 的假设不成立
+- **规避**: ①复测行为对不上源码预期时, 先怀疑二进制/源码漂移 (git log 时间 vs 产物时间戳) ②重编后行为变化 (如自动开局消失) 不是回归, 是 hack 消失 ③新复测口径 = `--testmap Maps/Twins.h3m` (确定性、源码可解释、bypass lobby 崩溃)
+- 状态: ✅ 固化 (复测口径已更新进知识库 checklist)
+
+### 164. MSYS2 ninja 编译 cc1plus 静默失败 0xC0000135: PATH 缺 mingw64\bin (2026-09-10, Windows GUI 栈)
+- **现象**: ninja 编译 VCMI_client 时 `FAILED: ... cc1plus.exe`，错误输出只有 `[Exit code 0xC0000135]` 无任何编译诊断文本
+- **真因**: 0xC0000135 = STATUS_DLL_NOT_FOUND — PowerShell 会话 PATH 未前置 `C:\msys64\mingw64\bin`，cc1plus 自身依赖的 MinGW 运行时 DLL (libisl/libmpfr 等) 加载不到，进程秒死
+- **规范**: 每个编译会话前置 `$env:Path = 'C:\msys64\mingw64\bin;' + $env:Path`; **"Exit code 0xC0000135 且零诊断" = 环境问题非代码问题**，勿顺着报错去查源码
+- 状态: ✅ 固化 (build_client2.log 重编 [5/5] 成功)
+
+### 171. ".so 待重编"任务登记未验 target 归属: 改 A 源码却去编 B 库 (2026-09-07)
+- **现象**: a1ea3f4d2d (NKAI mutex race fix) 摘取改的是 `AI/Nullkiller2/AIGateway.cpp` (= libNullkiller2.so 源码域), 但登记的部署任务写成"重编 libMMAI.so"; 执行时 `cmake --build --target MMAI` 零编译行 (`Built target MMAI` 无任何 Building 行) — cmake 正确: AIGateway.cpp 非 MMAI target 依赖
+- **根因链**: ①训练栈 `--blue_ai MMAI_RANDOM` + 自弈 MMAI_USER → 运行时加载 libMMAI.so (源码 = AI/MMAI/, 与 Nullkiller2 完全两套) ②NK2 已因内存爆炸弃用 → race 根本不在训练链路 ③MMAI/ 全目录 grep removeQuery/receivedAnswerConfirmation = 0 命中, 无同构代码
+- **教训**: 登记"待重编"任务前两问 — ①改动文件属于哪个 target (看 AI/<目录>/CMakeLists.txt) ②训练栈运行时实际加载哪个 .so (看 train py 的 --xxx_ai 参数); 零编译行 = 依赖未变的正确信号, 不是编译失败
+- **现状处置**: 改动留在 NK2 源码树 (双树已同步), 未来回用 NK2 时重编 libNullkiller2.so 即生效; 误备份 libMMAI.so.bak_race_0907_2252 ×2 留档无害
+- 状态: 🟡 已纠偏结案, 登记规范沉淀
+
+### 172. fork Windows 构建 DLL 污染: 24 种 GCC 版本混装 = 内存损坏 (2026-09-08)
+- **现象**: fork VCMI GUI 到 lobby 后崩, headless+testmap 也崩; 崩溃地址随机 (NULL+8 / 0x260021d8be0) — 典型内存损坏; 官方 VCMI 不崩 (MSVC 纯统一)
+- **真因**: fork bin 目录 324 个 DLL 来自 24 种 GCC 版本 (Rev5 16.1.0 102个 / Rev1 16.2.0 54个 / Rev2 16.1.0 47个 ... 甚至 4.8.0 1个); VCMI_lib.dll / VCMI_client.exe 编译用 GCC 16.2.0, 但 STL 对象跨 DLL 边界时混入 15.x/14.x STL ABI — 内存布局不兼容 = 随机崩
+- **根因链**: 多次手动复制 DLL (OBS lua51 → msys64 lib → ...) 叠加清理时误删+重建, MSYS2 pacman 升级后各包 DLL GCC 版本漂移无统一规范
+- **修复**: 备份 fork 特有文件 (VCMI_client.exe / VCMI_lib.dll / SDL2 系列 / avcodec-63 系列 / BattleAI.dll / onnxruntime.dll / lua51.dll) → 清空 bin 所有 DLL → robocopy msys64 mingw64/bin/*.dll 全量覆盖 → 还原 fork 特有文件; 323 DLL 最终 GCC 分布: 16.1→164 / 16.2→56 / 15.2→67 / 14.2→8 (同大版本 ABI 兼容)
+- **教训**: ①Windows 二进制混装 GCC 版本 = 定时炸弹, 必须单一大版本 ②fork GUI 崩溃排查第一步先看 `strings *.dll | grep 'GCC:' | sort -u` ③fork 构建在 WSL GCC 13.3.0 交叉 → Windows 端 DLL 源是 MSYS2, 两者版本必须对齐 (或用 WSL gcc produce .dll 直接拷)
+- 状态: ✅ 已修复 + 固化流程 (备份 → 清空 → robocopy msys64 → 还原)
+
+### 173. 官方 VCMI 1.7.5 与 fork ModelAI.dll ABI 不兼容: MSVC vs GCC name mangling (2026-09-08)
+- **现象**: 官方 VCMI 1.7.5 (MSVC) 拷贝 ModelAI.dll (GCC 16.2.0) + 必需的 GCC 运行时 DLL (libstdc++-6/libgcc_s_seh-1/libwinpthread-1) → 启动报错 "无法定位程序输入点 LIBRARY 于动态链接库 AI\ModelAI.dll"
+- **真因**: 双方 VCMI_lib.dll 同一个 `GameLibrary::LIBRARY` 全局变量, MSVC 导出名 `?LIBRARY@@3PEAVGameLibrary@@EA`, GCC 导出名纯 `LIBRARY` — DLL 加载时找不到 `LIBRARY` 符号
+- **尝试过**: 用 fork VCMI_lib.dll (GCC) 覆盖官方的 → 官方 client 是 MSVC 编译, 反过来找不到 MSVC 修饰的符号 → 同样崩; 跨编译器混 lib 无可行路径
+- **结论**: 官方 VCMI 1.7.5 (MSVC) **永远无法加载** fork ModelAI.dll (GCC); 必须用同代同编译器的 VCMI; 路径 = 用 fork (GCC) 全链路 / 或 ModelAI 用 MSVC 重编 / 或等官方 VCMI 1.8.0 MSVC + 重编 AI
+- **替代验证**: fork VCMI GUI (DLL 修复后) → lobby → 战斗模式 → ModelAI 加载成功: `Player blue will be lead by ModelAI` → `Opening ModelAI` → `Loaded ModelAI` ✅ (崩在 AI 首轮行动是别的问题, 不是加载)
+- 状态: 🟡 已定位结案, 替代验证通过
+
+### 174. VCMI 数据目录隔离实验结论 (2026-09-08)
+- **现象**: fork/官方 VCMI 均崩 → 做隔离实验: 重命名 `My Games/vcmi` → 官方 VCMI 新目录空的 → 不崩; 逐步回搬 Data/Mods/Maps/config → 定位 **Maps 目录** 非根因 (169 个原版 .h3m 时间戳 1999-03-28, 无坏文件); 真正根因在 fork 二进制/DLL (见 #172)
+- **过程快照**: msys64 DLL 覆盖后 fork 到 main menu + lobby + PlayerStartsTurn → 崩在 AI 首轮行动 (NULL+8, StupidAI 也崩 → 非 ModelAI 逻辑); headless+testmap debugStartTest 初始化路径更早崩
+- **教训**: GUI 崩溃定位先排除数据目录 (重命名隔离 5 分钟), 再看二进制; DLL 版本检查命令 `strings *.dll | grep 'GCC:' | sort -u` 10 秒定位
+- 状态: 🟡 隔离方法固化, 根因已分流
 
