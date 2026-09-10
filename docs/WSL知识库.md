@@ -931,3 +931,50 @@ python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
 
 离线验证已完成: `python py/vcmi_protocol/tests/test_e2e.py` → `144 passed, 0 failed`。
 实机多人局尚未完成; 当前只完成 P8-A 入口脚本和 Lobby 协议前置, 不伪造对战结果。
+
+## PpoModelAI teal 卡死修复 + VCMI 新 API 迁移 (09-11, ppomodelai/ C++ 批)
+
+### 背景
+
+Windows 端 PpoModelAI 插件（`ppomodelai/src/`, 256 维 ONNX obs, 训练侧 3464 冻结面不受影响）8 人局卡死：Game B 第 6 个 AI（teal）首次 predict 挂死。本批源码级修复 6 文件 +259/-82，全部注释标 `2026-09-11`。
+
+### ModelInference 单例化 (teal 卡死根因修复)
+
+- **根因**: 8 人局 = 7 个 ModelAI 各自构造 `Ort::Env + Session`（7 份全核线程池），第 6 个 AI teal 首次 predict 挂死。
+- **修复**: `ModelInference::instance(path)` 进程级单例（C++11 magic static，线程安全，同路径只加载一次）；`makeSessionOptions()` 限制线程池 intra=2 / inter=1（obs 仅 256 维，不需要全核池）。
+- **悬垂指针修复**: 旧版 `inputNames` 存 `GetInputNameAllocated(...).get()` 临时对象的 `const char*`（行尾析构后失效）→ ORT "Invalid input name: " 全部 fallback endTurn；改 `std::string` 深拷贝，`Run` 期间用局部 c_str。
+- 调用侧 `make_unique` → `&instance(...)`；加载失败置 `nullptr`（不再半构造）。
+
+### PpoModelAI 卡死防御 + 双坐标门
+
+- **AI_TRACE 宏**: stderr 直通打点 + `fflush`（该插件 logAi 输出在 client log 中零命中，取证据只能靠 stderr 管道）。
+- **yourTurn try/catch 兜底**: 任何异常都必须 `endTurn`，防 AI 回合卡死全局；含 elapsed 计时打点。
+- **moveHero 双坐标门**（gui9 实测，同 09-10 "anchor↔visitable 双坐标系" 章）: `hero->pos` 是模板锚点格，交互格 = `visitablePos()`；server `CGameHandler::moveHero` 对收到的 dst 再做 `convertToVisitablePos(dst)` → **请求参数是 anchor 语义**。本地 tile/pathfinder 判定用 visitable 语义目标，请求参数 `dest = visitableDest + getVisitableOffset()` 转回 anchor。
+- **本地三重门**（全过才发 `moveHero`，任一失败 endTurn，防 server 拒绝 → client `onPacketReceived` 崩溃）:
+  1. tile 拒绝：岩石地形 / `blocked && !visitable`（同 server CGameHandler:949 条件）；
+  2. simultaneous-turns 拒绝：目标格有他人所属对象（client 无法预判 `isContactAllowed`，保守 endTurn）；
+  3. pathfinder 拒绝：`PathfinderCache.getPathsInfo(hero)` 目标不可达 / `turns > 0`（本回合 MP 不够）。
+- **API 签名变化**: `cb->moveHero(moveHero, dest, false, LAND)`（英雄指针 + 无 playerID 参数）；`showGarrisonDialog` 第二参 `CArmedInstance*` → `CGHeroInstance*`（对齐新 CAdventureAI 虚函数）。
+- **DLL 导出补齐**: `GetAiName`/`GetNewAI` 在源码缺失（exports.def 要求）导致链接失败，参照 `AI/MMAI/main.cpp` 约定补在 PpoModelAI.cpp 尾部（含 `__GNUC__` 下 `strcpy_s` 兼容宏）。
+
+### ObsBuilder VCMI 新 API 迁移（obs 语义不变，纯 API 适配）
+
+| 旧 API | 新 API |
+|---|---|
+| `cb->getDate(Date::DAYOFWEEK/WEEK/MONTH)` | `cb->getCalendar().getDayOfWeek()/getWeek()/getMonth()` |
+| `cb->getPlayerStates()`（复数） | `cb->getPlayerState(PlayerColor, false)`（单数逐个查） |
+| `pState->heroes.size() / towns.size()` | `pState->getHeroes().size() / getTowns().size()` |
+| `hero->getHeroType()` | `hero->getHeroTypeID().getNum()` |
+| `hero->experience()` | `hero->exp` |
+| `getPrimSkillLevel(static_cast<...>(0..3))` | `getPrimSkillLevel(PrimarySkill::ATTACK/DEFENSE/SPELL_POWER/KNOWLEDGE)` |
+| include `callback/CPlayerState.h` | `CPlayerState.h`（新路径）+ 新增 `callback/Calendar.h` |
+
+### 构建与可观测性
+
+- **StdInc.h**: 删除自写 `boost::noncopyable` stub —— 其 guard 名与真实 boost guard（`BOOST_CORE_NONCOPYABLE_HPP`）不符导致重定义冲突，连带 `makeDefend` 等类型转换报错；改 `#include "Global.h"`（与 `lib/StdInc.h` 口径一致）直接用系统 boost。
+- **现状**: 源码已改未 commit（09-11 检查确认，本章节即该批档）；`ppomodelai/` 树内无 build/ 产物目录，DLL 是否已重编部署需到 Windows 构建输出路径确认（可用 `strings PpoModelAI.dll | grep AI_TRACE` 判别）。
+- **与训练 v5 关系**: 零。训练栈走 `vcmi_gym` strategic_env + `libmlclient.so`（WSL），不链接 PpoModelAI.dll（Windows 客户端插件），本批不影响在训进程。
+
+### 关联
+
+踩坑 #189-#192 / 知识库 "VCMI 对象坐标体系: anchor↔visitable 双坐标系 (09-10)" 章 / 任务清单 P7。

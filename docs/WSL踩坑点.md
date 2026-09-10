@@ -432,3 +432,32 @@
 - **正确口径**: 只读定判用 alive 判别器四场景表；实跑定判用探针终局 4-tuple + players obs[8:43] sanity dump。
 - **复现/验证**: `python -c` 读 traj 末帧 obs[19]/obs[34]，或探针 `--out py/probe_t06_traj.json` 后看 terminal block。
 - **关联**: #186 / #187 / `py/probe_t06_gameover.py` / 当前任务清单 g3b 事实块。
+
+#### #189 8 人局 7 份 ONNX 实例：teal AI 首次 predict 挂死 (2026-09-11) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（Game B teal 卡死现场），源码修复已落 `ppomodelai/src/` 未 commit
+- **背景**: PpoModelAI 插件 8 人局（7 个 ModelAI 玩家）teal 首次 predict 挂死。
+- **坑**: 每个 ModelAI 各自构造 `Ort::Env + Session` → 7 份全核 ONNX 线程池，第 6 个 AI 起资源放大导致挂死；Game A 单实例正常掩盖问题。
+- **正确口径**: 多 AI 插件推理走进程级单例 `ModelInference::instance()`（C++11 magic static 线程安全，同路径只加载一次）+ 线程池限制（intra 2 / inter 1，obs 仅 256 维够用）；加载失败置 `nullptr` 而非半构造。
+- **关联**: #190 / 知识库 "PpoModelAI teal 卡死修复" 章 / `ppomodelai/src/ModelInference.{h,cpp}`。
+
+#### #190 GetInputNameAllocated 悬垂指针：ORT "Invalid input name: " 全 fallback endTurn (2026-09-11) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（源码审查），修复已落未 commit
+- **背景**: 排查 predict 异常 / 动作全 endTurn 现象。
+- **坑**: 旧版 `inputNames` 存 `session.GetInputNameAllocated(...).get()` —— 返回的 allocator 对象行尾析构，`const char*` 悬垂；ORT 报 "Invalid input name: " 后 inference 全部走 fallback endTurn，表面像"模型不动作"。
+- **正确口径**: ORT C++ API 返回"持有分配的包装器"时，用 `std::string` 深拷贝持有名字，`Run` 调用期间才取局部 c_str；勿存临时对象指针。
+- **关联**: #189 / `ppomodelai/src/ModelInference.cpp`。
+
+#### #191 moveHero 双坐标 anchor↔visitable：server 判 blocked → client 崩溃 (2026-09-11, gui9 实测) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（gui9 卡死/崩溃现场），修复已落未 commit
+- **背景**: PpoModelAI 发出 move 后 server 拒绝或 client `onPacketReceived` 崩溃。
+- **坑**: `hero->pos` 是**模板锚点格**，英雄实际交互格 = `visitablePos()` = `pos - getVisitableOffset()`（英雄模板 1x2，offset 非 0）；server `CGameHandler::moveHero` 对收到的 dst 再做 `convertToVisitablePos(dst)` 且成功后 `setAnchorPos(pack.end)` → **请求参数是 anchor 语义**。本地用 anchor 格直接当目标发 → 双方判的格子错位一格 → server 判 blocked 拒绝。
+- **正确口径**: 本地 tile/pathfinder 判定用 visitable 语义目标；请求参数 `dest = visitableDest + getVisitableOffset()` 转回 anchor。再叠本地三重门（全过才发 move，任一失败 endTurn）：① tile 拒绝（岩石 / `blocked && !visitable`）② simultaneous-turns 目标格有他人对象（保守 endTurn）③ pathfinder `turns>0`/不可达（本回合 MP 不够）。与 09-10 "anchor↔visitable 双坐标系" 章（[GUARD]/[MINE] 假糖根因）同源。
+- **关联**: #189 / 知识库同章 / `ppomodelai/src/PpoModelAI.cpp`。
+
+#### #192 构建/链接/可观测性三坑：boost stub guard 失配 + DLL 导出缺失 + 插件 logAi 失明 (2026-09-11) — ✅ 已修
+- **状态**: ✅ 源码修复已落未 commit
+- **背景**: PpoModelAI 插件重编 + 卡死取证过程。
+- **坑①**: 自写 `boost::noncopyable` stub 的 guard 名与真实 boost guard（`BOOST_CORE_NONCOPYABLE_HPP`）不符 → 重定义冲突 + `makeDefend` 等类型转换连锁报错；修法：删 stub，`StdInc.h` 改 `#include "Global.h"`（与 `lib/StdInc.h` 口径）直接用系统 boost。
+- **坑②**: `exports.def` 要求 `GetAiName`/`GetNewAI` 但源码缺失 → 链接失败；参照 `AI/MMAI/main.cpp` 约定在 `PpoModelAI.cpp` 尾部补齐（`__GNUC__` 下需 `strcpy_s` 兼容宏）。
+- **坑③**: 插件 `logAi` 输出在 client log 中**零命中**（teal 卡死时无 from-turn 内进度可观测）；取证只能靠 stderr 直出（`AI_TRACE` 宏：`fprintf(stderr)` + `fflush`，配合客户端 stderr 管道）。
+- **关联**: #189-#191 / 知识库 "PpoModelAI teal 卡死修复" 章。
