@@ -315,11 +315,11 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 
 ### 训练实例归属与后台化 (09-07 午后恢复实录)
 
-- **中断形态**: systemd unit 06:35 被外部 stop + 用户 09:43 前台终端启动 (PID 400 pts/0) → 该终端实例随后死亡, keepalive 亦丢 → 16:09 发现双 inactive (踩坑 #135 恢复序第二次实战: 补挂 keepalive → restart_train_v5.sh → grep resume 点)
+- **中断形态**: systemd unit 06:35 被外部 stop + 用户 09:43 前台终端启动 (PID 400 pts/0) → 该终端实例随后死亡, keepalive 亦丢 → 16:09 发现双 inactive (踩坑 #169 恢复序第二次实战: 补挂 keepalive → restart_train_v5.sh → grep resume 点)
 - **resume 锚点**: checkpoint 555165 vs 日志残留 556410 (损失 ~1245 步 ≈10 局, 非优雅中断正常损耗); resume 后 5h+ 稳定 125 局零 ZOMBIE
 - **前台跑法风险定论**: 前台终端实例**无 systemd 存档兜底**, 终端一关训练即死且 checkpoint 停在最后一次自动存档 — 训练一律走 `py/restart_train_v5.sh` 后台 transient unit (keepalive + 存档双保险)
 
-### 多 resume 日志窗口统计套路 (踩坑 #136 配套)
+### 多 resume 日志窗口统计套路 (踩坑 #170 配套)
 
 - 取"最后一次启动后"窗口: `L=$(grep -n 'Loaded train state' f | tail -1 | cut -d: -f1)` + `tail -n +$L` — 写进 py/_tmp_xxx.sh 由 wsl bash 执行 (绕开 #130 $var 撕裂), 用完即删
 - 窗口校验两件套: `wc -l` 看体量 + `tail -1` 应为最新 `step=... ep=...` 行 — 边界对才开统计
@@ -335,14 +335,14 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 - **cmake 零编译行解读**: `Built target MMAI` 无 Building 行 = target 依赖未变的**正确信号** (AIGateway.cpp 非 MMAI 依赖), 不是故障
 - **处置**: 改动保留 NK2 源码树 (Windows/WSL 双树已同步); 将来回用 NK2 对手时 `cmake --build ~/vcmi-native/rel --target Nullkiller2` + 同步 vtest/bin/AI 即生效; `libMMAI.so.bak_race_0907_2252` ×2 备份留档
 
-### 登记规范 (踩坑 #137)
+### 登记规范 (踩坑 #171)
 
 - "上游修复摘取 → 待重编部署"类任务, 登记前必须双确认:
   1. **改动文件 → target**: 看 `AI/<目录>/CMakeLists.txt` 确认源码归属 (AI 下多 AI 库并存: BattleAI/EmptyAI/MMAI/Nullkiller2/StupidAI)
   2. **运行时 → .so**: 看 train py `--xxx_ai` 参数推 lib<名>.so 加载链
 - 同形不同源: NKAI/NK2/MMAI 三个词指三代 AI 库, 文档与任务登记中禁混用
 
-### 开机恢复实录 (09-07 晚, #135 恢复序第三次)
+### 开机恢复实录 (09-07 晚, #169 恢复序第三次)
 
 - 关机前优雅 stop 存档 step=564079 → 开机 keepalive (wsl.exe sleep infinity 常驻) → restart_train_v5.sh → resume 564079 **零损失** (前两次中断均有回滚, 本次关机前主动 stop 的价值实证: 优雅停 = 零损失, 被动死 = 回滚)
 - GUI battle-only 冒烟: 客户端未跑前 VCMI_Client_log.txt 为 8-29 旧会话 — 验证前先查日志 mtime 防验错文件
@@ -364,7 +364,7 @@ P1 的邻接守卫 `distSq(standPos, cur->pos) > 2` 用**锚点坐标** — 城/
 | 数据目录 | `C:\Users\Administrator\Documents\My Games\vcmi\` |
 | **隔离备份** | `C:\Users\Administrator\Documents\My Games\vcmi.bak\` (1862MB) |
 
-### DLL 修复流程 (踩坑 #138)
+### DLL 修复流程 (踩坑 #172)
 
 ```
 Step 1: 备份 fork 特有文件 (非 msys64 自带)
@@ -409,7 +409,7 @@ INFO - Loaded ModelAI
 | GUI 进 lobby 后 | DLL 24 种 GCC 混装 | STL ABI 内存损坏 → 已修复 |
 | 游戏启动 AI 首轮 | DLL 统一后 | NULL+8 空指针 (StupidAI 也崩 → 非 ModelAI) |
 | headless + testmap | 始终崩 | debugStartTest 初始化路径 (与 GUI 不同) |
-| 官方 VCMI + ModelAI.dll | 官方 client + fork AI | MSVC vs GCC name mangling 不兼容 (踩坑 #139) |
+| 官方 VCMI + ModelAI.dll | 官方 client + fork AI | MSVC vs GCC name mangling 不兼容 (踩坑 #173) |
 
 ### 08-29 能跑 68 场的条件对比
 
@@ -475,7 +475,7 @@ dummy 输入构造: `obs = randn(28114)*0.01 float32`, `ei_flat = zeros((2,0)) i
 - **同步内容**: MMAI router.cpp 资源路径 bug (assembleFromFiles 缺 `config/` 前缀 → mmai-settings.json 恒读空 → 恒 fallback) 修复版 libMMAI.so 从 `vcmi-native-build/rel/bin/AI/` 同步到训练目录
 - **md5 链**: 修复版 `77840da2ae41151a4d532aac7039b4e2` ↔ 旧版 `3a28f494debc3c02497738100d560880` (Sep 3); **vtest/bin/AI/ 经 md5 确认同属旧版副本, 一并同步** — 现四副本一致 (构建树/训练目录/vtest/mmai-battle-test)
 - **铁律流**: 旧版备份 `~/backup-so-sync-0908/libMMAI.so.pre-sync` → 优雅停 (journal: 08:17:53 Stopping → 08:17:56 Stopped; train_loop.log `Saved STATE_PATH (step=580111)`) → cp ×2 → `py/restart_train_v5.sh` (systemd-run) → `Loaded train state (step=580111)` 无缝 resume
-- **踩坑 #134 二次复现**: stop 后 `systemctl start` 报 not found (transient unit 已收集消失); 且 **is-active 对已消失 unit 输出 `inactive` (exit 4) 不报错** — 停机确认要看 journalctl + `Saved STATE_PATH`, 勿信 is-active
+- **踩坑 #168 二次复现**: stop 后 `systemctl start` 报 not found (transient unit 已收集消失); 且 **is-active 对已消失 unit 输出 `inactive` (exit 4) 不报错** — 停机确认要看 journalctl + `Saved STATE_PATH`, 勿信 is-active
 - **训练影响**: 零 — 训练走 baggage 路径 (--blue_ai MMAI_RANDOM, Python 回调), 不触发 router 资源路径逻辑; 此修复只惠及 battle-only GUI 场景 (ModelAI/MMAI 独立读 mmai-settings.json)
 
 ---
@@ -623,6 +623,38 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 
 **Windows 重编构建坑全集** (msys64 GCC 16.2 + Ninja, 详见踩坑 #156-#161): libFacade genex 泄漏 / serverapp 链接序 / facade VCMI_DLL=1+strategic_state.cpp / NK2 getDate 残留 / windows.h 宏污染 (IGNORE)。
 
+### 09-10 第三崩溃立项闭环: 观众 SPECTATOR onTileLeftClicked 空指针 (判空修复 + 重编生效, 剩 GUI 浸泡复测)
+
+**崩溃现场** (crashinfo.dmp 2026-09-10 18:13:24 版, gui12 浸泡 day=31 后): 主线程 TID=6028, `0xC0000005 读 0x10`, RIP=exe+0x20c09f (fn 0x20bf60, fn+0x13f), Rax=0 (null 返回值), **Rdx=R8=0xfffffffc=SPECTATOR(-4) 寄存器证据链**, 栈内存 0 bytes (mini dump 老规矩)。
+
+**指令链译码** (py/disasm_gui12_crash3.py, 对齐扫描后精确命中崩点):
+
+```
+call 0x1a47c0            ; GAME->interface()
+mov  rcx,[rax+0xd0]      ; ->localState (CPlayerInterface 字段偏移 0xd0)
+call 0x1bd2b0            ; PlayerLocalState::getCurrentArmy() → 返回 null
+cmp  [rax+0x10],0x22     ; ->ID != Obj::HERO(34)  ← 解引用 null 崩溃点
+; 前文 cmp eax,0x22 / 0x62 = canSelect 计算的 Obj::HERO(34)/Obj::TOWN(98) 短路判断
+```
+
+**函数定位**: fn 0x20bf60 = AdventureMapInterface::onTileLeftClicked — 字符串四重锚定 ("adventure"/"showMovePath"/"gameTweaks"/"simpleObjectSelection"/"Nothing is selected..."), 函数边界 +0x20bf60..+0x20c748 (0x7e8, .pdata 提取)。
+
+**根因链** (与第二崩溃同族 — 观众接口缺 SPECTATOR 防护, 同日双杀):
+
+1. onlyai 观众 playerID=SPECTATOR(-4) 无 PlayerState, **永不轮到回合** → onPlayerTurnStarted 的 setSelection 三级 fallback (getCurrentHero→getOwnedTowns→getWanderingHero(0), AdventureMapInterface.cpp L446-456) 永不触发 → `PlayerLocalState::currentSelection` 恒 null
+2. battleFinished 战斗结算后 UI 恢复冒险地图, 偶发输入事件触发 onTileLeftClicked → L548 `getCurrentArmy()->ID` 无判空解引用收割此雷
+3. **官方防护不对称实锤**: onTileHovered L629 已有判空早退 (官方自己防护了 hover 却漏了 click); getCurrentArmy() 本身判空存在 (PlayerLocalState.cpp L154-160), 崩在调用方
+
+**同族审计** (全客户端 `getCurrentArmy()->` 无判空 5 处): 仅 AdventureMapInterface.cpp L548 为真崩点; L693 (onTileHovered 内) 有 L629 防护安全; ClientCommandManager.cpp L506/507/511 三处为手动调试命令低风险不动。
+
+**修复** (AdventureMapInterface.cpp L548 前): `getCurrentArmy()` 判空 return — **双覆盖**: ① 观战模式 ② 真人玩家英雄全灭 (removeWanderingHero→setSelection(nullptr), PlayerLocalState.cpp L241) 后点地图同雷。
+
+**重编落地 (09-10 19:24, 停训窗核实后执行)**: 训练已 inactive (load 0.00) 天然窗口 → ninja 增量编译 6 步全绿 (仅 AdventureMapInterface.cpp + Version.cpp 重编 + 三链接, 未触 CMake regen 无 genex 泄漏) → VCMI_client.exe 19:24:16 版 (1.8.0.ec87c2826a, 17,988,193B) + VCMI_lib.dll 同步更新。headless 冒烟 PASS (`--headless --testmap Maps/Twins.h3m` 5 分钟: 5.2 万行日志主循环流转 / BattleEnded+MapObjectVisitQuery 战斗结算闭合 / stderr 零字节 / 无崩溃)。**剩 GUI 浸泡复测** (需用户在场): `--testmap Maps/Twins.h3m` 观众视角过战斗结算点 + 地图点击不再崩。
+
+**方法论增量**: mini dump 无栈内存时反汇编窗口起点未对齐会出 `add byte ptr [rax-0x75], cl` 类伪影 — 对齐扫描 (枚举起始偏移找能精确命中崩点地址的解码路径) 后指令全部正确译码 (disasm_gui12_crash3.py 已内置)。
+
+**⚠ 重编 PATH 坑 (09-10 新踩, cc1plus 静默死亡)**: 非 msys2 PATH 环境下 (PowerShell 直调 ninja) 编译全败 — c++.exe driver 正常 (`--version` OK) 但 spawn 的 **cc1plus.exe 0xC0000135 (STATUS_DLL_NOT_FOUND) 静默死亡, EXIT=1 全程零错误输出** (DLL 依赖 gmp/mpfr 等在 mingw64\bin, 靠 PATH 搜索; driver 自身静态无此依赖) — 极易误判为代码错误/资源耗尽。修复 = 编译前 `$env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:PATH`; 诊断技巧 = 直接跑 `cc1plus.exe --version`, exit code **3221225781** 即 DLL_NOT_FOUND 实锤。
+
 ### GUI 复测环境规范 (复测前 checklist)
 
 1. 界面语言 English; 输入法已程序化屏蔽 (09-10 ImmDisableIME 编入客户端, 不再需要手动切 ENG — 踩坑 #151 闭环)
@@ -638,7 +670,7 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 - v13 战斗模型 Windows 侧适配评估 (MODELAI_MODEL 指向 v13 需核实 model_infer.cpp 接口, 4 输入接口契约见上章)
 - gui4/6 SelectionTab 崩溃未修 (lastMap 自动选图路径, --testmap 口径下无关)
 - [MUTEX] 差值 -2 观察项 (个别 makeUnlockGuard 未持锁上下文调用)
-- **第三崩溃待立项 (09-10 gui12 浸泡 day=31 后)**: 主线程 `0xC0000005 读 0x10`, RIP=exe+0x20c09f (fn 0x20bf60) — `getter(0x1a47c0)->fieldD0->call(0x1bd2b0)` 返回 null → `cmp [rax+0x10], 0x22`; 崩溃时 Rdx=R8=**SPECTATOR(-4)** — 观众视角战斗结算 UI 同族空指针 (battleFinished 后触发); crashinfo.dmp 18:13 版已存, parse_crashinfo_mini.py + resolve_ra.py 可续查
+- ~~**第三崩溃待立项 (09-10 gui12 浸泡 day=31 后)**: 主线程 `0xC0000005 读 0x10`, RIP=exe+0x20c09f...~~ — **09-10 立项当日全闭环** (崩点=onTileLeftClicked L548 getCurrentArmy() 空指针, 判空修复源码落地 + 19:24 重编生效 + headless 冒烟 PASS, 详见上章); 唯一遗留 = **GUI 浸泡复测** (需用户在场, 观众过战斗结算点 + 地图点击不再崩)
 
 ---
 
@@ -691,3 +723,112 @@ minidump 判据: 锁 owner = 已死线程的 pthread 结构 (heap 中线程结�
 ### 工程注意 (踩坑 #154-#157 详)
 
 - PowerShell 包裹 wsl bash: $var 被吃 → 复杂逻辑写 py/ 脚本文件; pkill -f 自杀陷阱; import ep_runner_one 有副作用; hermes 日志覆盖丢样本 → [EP_TIME] 进主日志白名单
+
+---
+
+## Windows GUI 观众模式崩溃系列闭环 (09-09/10)
+
+> 观众视角 (SPECTATOR/-4) 引入后连续暴露五个崩溃点，全部修复 + soak_gui15 浸泡复测 PASS (用户全流程确认：战斗结算/层切换/系统菜单/KingdomOverview 直接点击，stderr 93617 行零 THREW/零 Disaster)。
+
+### 五崩清单与修复落点
+
+| # | 崩溃点 | 根因 | 修复 | 验证 |
+|---|--------|------|------|------|
+| 一/二 | (前窗已闭环) | — | — | — |
+| 第三崩① | 回合切换后整体冻结 | interfaceMutex 泄漏: onPacketReceived scoped_lock 只盖 DISCONNECTING 检查, pack->visit 无锁运行 → waitWhileDialog 的 makeUnlockGuard "析构重锁" 凭空加锁无人解锁 (踩坑 #158) | onPacketReceived 改 `optional<unique_lock>` 持锁覆盖整个包处理 | [MUTEX] 收支对账 + day=31 |
+| 第三崩② | day=2 崩 0xC0000005 读 0x6d8 | SPECTATOR 无 PlayerState, optionCanViewQuests (L647) 空指针解引用 (踩坑 #159) | getPlayerState 判空 (CPlayerInterface.cpp:1363 先例) | day=31 |
+| 第四崩 | 点 kingdom overview 弹窗崩 (0xC0000409 进程退出) | AdventureMapShortcuts::showOverview (L134) → CKingdomInterface L765 howManyHeroes → lib 域 throw, 观众无玩家数据 | showOverview() 加 spectator 守卫 (client 域, lib 只读) | soak_gui15 直接点击 PASS |
+| 第五崩 | 点系统菜单 1.1s 后双线程 "Disaster happened" + 僵尸进程 | runServer/runNetwork 线程边界无 catch-all, 未捕获 C++ 异常 (0x20474343) 直通 SEH filter (踩坑 #165) | 两线程 catch std::exception + catch(...) 双路日志 ([THREAD] THREW 标记) | soak_gui15 零 THREW/零 Disaster |
+
+### 第五崩取证方法论 (复发时直接复用)
+
+- **"Disaster happened" 语义分流**: 日志行后**无 Reason** = SEH filter 路径 (onUnhandledException, CConsoleHandler.cpp L119, SetUnhandledExceptionFilter 注册于 L284); **有 Reason** = onTerminate 路径 (L146)。无 Reason 时别在日志里找异常文本 — 根本不打
+- **minidump 手工解析** (`py/parse_crash_dmp.py`): header "MDMP" → stream 目录; type 6 = ExceptionStream (ThreadId@+0, Code@+8, Address@+24, nparams@+32, params@+40); type 4 = ModuleListStream (MINIDUMP_MODULE 108 字节); ASLR 换算 `runtimeVA − runtimeBase + PE_ImageBase` = addr2line 地址
+- **异常码速查**: 0x20474343 = GCC C++ 未捕获异常 (非 AV, 不用怀疑野指针); 0xC0000005 = AV 解引用; 0xC0000409 = fail-fast/stack buffer; 0xC0000135 = DLL 缺失 (编译环境, 踩坑 #164)
+- **默认 dmp 只 21.7MB** (MiniDumpWithDataSegs) — 堆上异常对象文本取不到; 要堆内容需 settings `general.extraDump=true` 开 FullMemory; 僵尸进程成因 = 两线程并发触发 filter 疑似 MiniDumpWriteDump 挂起
+- **僵尸 vs 崩溃退出判别**: 进程存活但窗口无响应游戏逻辑死 = 线程死于 SEH filter (GUI 泵还活); 进程直接退 = MainGUI 线程死。两种模式根因域不同
+
+### 观众模式良性刷屏判据 (勿误判崩溃前奏)
+
+- `getPlayerStatus "No such player!"` 持续刷屏 (20-30ms 间隔) = 观战/敌回合状态轮询, 良性
+- `getResource "No player info!"` ×7 = 层切换 (地表/地底) 后资源栏刷新, 良性
+- 真崩溃信号 = "Disaster happened" / "THREW:" / WER APPCRASH 事件; 复测 checklist 仍以知识库既有条目为准 (英文界面 + ENG 输入法 + settings AI 双配 + stderr 重定向)
+
+### 遗留观察项 (非阻塞)
+
+- 第五崩原始 throw 点未知 (dmp 只能拿到异常码) — 已 instrumented, 复发时 [THREAD] THREW 直接给 e.what() 且不再僵尸化
+- "Attack cannot be performed" 服务器拒绝; [MUTEX] 差值残留; gui4/6 SelectionTab 未修
+- GUI 栈与 headless 栈源码分叉为各树适配 (R5 双树审计结论), 强行对齐会破坏构建
+
+---
+
+## VCMI 网络协议与外挂 AI 架构调研 (09-11, GitHub 深度分析)
+
+**触发**: 调研 xsa-dev/homm3env + Issue #5586 + VCMI 网络层源码，探索"模型外挂"可行性。
+
+### 核心发现
+
+1. **VCMI develop 所有 AI 都是进程内直接回调 (CCallback)** — EmptyAI 的 `yourTurn` 只做 `cb->selectionMade(0); cb->endTurn()`，编译为 OBJECT 库链接进 server，完全不经过网络层。`AIFactory.h` 证实：所有 AI (BattleAI/Nullkiller2/MMAI/StupidAI/EmptyAI) 通过 `createAdventureAI(name)` / `createBattleAI(name)` 静态构造，无动态加载。
+
+2. **VCMI 网络层是完整的命令服务器** — `lib/network/` 有 `NetworkServer`(TCP server) + `NetworkConnection`(client 连接) + `NetworkHandler`(包分发) + `NetworkDiscovery`(UDP 广播)。客户端发 `CPackForServer` 包，server 处理后发 `CPackForClient` 包。**Server 对客户端一视同仁**，不区分人类 vs AI。
+
+3. **`PacksForServer.h` 已定义所有战略层操作** (二进制序列化协议，非 JSON)：
+   - `MoveHero(path, layer, hid, transit)` — 移动英雄
+   - `EndTurn()` — 结束回合
+   - `RecruitCreatures(tid, dst, crid, amount, level)` — 招募
+   - `BuildStructure(tid, bid)` / `RazeStructure` — 建造/拆除
+   - `UpgradeCreature(pos, id, cid)` — 升级兵种
+   - `HireHero(hid, tid, nhid)` / `DismissHero(hid)` — 雇佣/解散
+   - `SpellResearch(tid, spellAtSlot, accepted)` — 研究法术
+   - `SetFormation(hid, formation)` / `SetTactics(hid, enabled)` — 阵型/战术
+   - `CastAdvSpell(hid, sid, pos)` — 战略法术
+   - `MakeAction(BattleAction, battleID)` — 战斗行动 (BattleAction = MMAI 内部同结构体)
+   - `QueryReply(qid, reply)` — 回复查询
+   - `TradeOnMarketplace(...)` / `ExchangeArtifacts(...)` / `BuyArtifact(...)` — 经济
+   - `BulkMoveArmy/BulkSplitStack/BulkMergeStacks` — 批量部队操作
+   - `BuildBoat(objid)` / `SaveGame(fname)` / `SetObjectProperty(...)` — 杂项
+
+4. **`PacksForClient.h` 客户端收到的包**:
+   - `NewTurn(day, heroesMovement, heroesMana, availableCreatures, playerIncome, ...)` — 回合开始
+   - `TryMoveHero(id, result, start, end, movePoints, fowRevealed, attackedFrom)` — 移动结果
+   - `PackageApplied(player, requestID, packType, result)` — 执行结果
+   - `PlayerStartsTurn(queryID, player)` — Query 类型，需回复
+   - `HeroLevelUp/CommanderLevelUp/BlockingDialog/GarrisonDialog` — 均为 Query，必须回复 `QueryReply`
+
+5. **`features/battle-ml` 分支是死分支** — 最后提交 2022-07-19，作者 nullkiller，从未合并。xsa-dev/homm3env 基于此分支，其 JSON over TCP 协议是私有协议，当前 develop 无对应 server 端代码。
+
+6. **Issue #5586 (LLM Learning Game Integration) 是纯提案** — 创建者 VCMIchatbot，4 条评论无人接活。提案的"TCP 命令服务器 + JSON 序列化"其实 VCMI 已经有了，只是格式是二进制不是 JSON。
+
+### 外挂 AI 架构
+
+```
+VCMI Server (不改代码)
+  ├─ 人类客户端 (vcmiclient) ← TCP
+  └─ 外部 AI (自定义客户端) ← TCP ← 模型
+```
+
+- 外挂 AI 实现 `NetworkConnection` 协议 + `CPackForServer` 序列化
+- Server 不区分人类 vs AI
+- `MakeAction` 里的 `BattleAction` 与 MMAI 内部同结构体 — 战斗层和战略层共用协议
+- 所有 `Query` 类型必须回复 `QueryReply`，否则 server 卡住
+
+### 外挂路径评估
+
+| 路径 | 难度 | 说明 |
+|------|------|------|
+| A. 逆向二进制序列化 | 高 | 读 `Serializeable.h` + `NetworkHandler.cpp` 推字节布局 |
+| B. C++ 写 VCMI headless client | 中 | 用 VCMI 头文件，类似 EmptyAI 但走网络 |
+| C. 给 VCMI 加 JSON 包装层 | 中 | 改官方代码，维护成本高 |
+| D. Python 实现序列化 | 高 | struct + 变长字段处理 |
+
+**结论**: 外挂方案对终极目标 (人 vs 人 vs 模型联网) 是更好的架构，但序列化逆向是当前瓶颈。短期继续 .so 直连，长期可探索路径 B (C++ headless client)。
+
+### 参考项目评估
+
+| 项目 | 价值 | 说明 |
+|------|------|------|
+| xsa-dev/homm3env | 低 | 2021 SOC 比赛骨架，RL 环境全是 stub，JSON 协议是死分支私有协议 |
+| vcmi-gym (smanolloff) | 高 | MMAI 官方训练栈，PPO-DNA + GNN + ONNX，架构可参考 |
+| CleanRL (vwxyzjn) | 中 | PPO 单文件实现，超参对照参考 |
+| Issue #5586 | 低 | 纯提案，无人实施 |
+| agentic-factorio-ai | 中 | LLM+RL 分层架构范式参考 |
