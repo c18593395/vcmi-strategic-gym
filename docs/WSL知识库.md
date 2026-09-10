@@ -972,7 +972,7 @@ Windows 端 PpoModelAI 插件（`ppomodelai/src/`, 256 维 ONNX obs, 训练侧 3
 ### 构建与可观测性
 
 - **StdInc.h**: 删除自写 `boost::noncopyable` stub —— 其 guard 名与真实 boost guard（`BOOST_CORE_NONCOPYABLE_HPP`）不符导致重定义冲突，连带 `makeDefend` 等类型转换报错；改 `#include "Global.h"`（与 `lib/StdInc.h` 口径一致）直接用系统 boost。
-- **现状**: 源码已改未 commit（09-11 检查确认，本章节即该批档）；`ppomodelai/` 树内无 build/ 产物目录，DLL 是否已重编部署需到 Windows 构建输出路径确认（可用 `strings PpoModelAI.dll | grep AI_TRACE` 判别）。
+- **现状**: 源码已 commit (`0aa2047`); **DLL 重编 + 部署已确证 (09-11)**: `ppomodelai/build/ModelAI.dll` mtime 04:39:17 晚于全部源文件 (03:15~04:20), 二进制标记 4/4 命中 (`ONNX singleton session created` / `yourTurn enter` / `dest rejected by tile check` / `GetNewAI`); 部署副本 `D:/vcmi-fork-build/bin/AI/ModelAI.dll` 同大小 4647678 B + 同时间戳; 旧版备份 `backup_0911_lib/ModelAI_v4_552350.dll`。
 - **与训练 v5 关系**: 零。训练栈走 `vcmi_gym` strategic_env + `libmlclient.so`（WSL），不链接 PpoModelAI.dll（Windows 客户端插件），本批不影响在训进程。
 
 ### 关联
