@@ -409,3 +409,26 @@
 - **正确口径**: 完成的是 P8 前置: TCP/CPack/Query/ModelBridge/Lobby 基础包。未完成的是 P8-B/C: 实机启动 VCMI server/client, AI 与人类同局完成至少 1 局。
 - **复现/验证**: `python py/vcmi_protocol/tests/test_e2e.py` 离线全绿; 实机入口 `python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m`。
 - **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a`。
+
+#### #186 vcmienv ERROR 日志级下 T06 终局双重失明：超时 forcing 零痕迹，9/10 判真实 game_over (2026-09-11) — ✅ 实锤（只读）
+- **状态**: ✅ 实锤（只读取证），探针已写待错窗执行
+- **背景**: 排查 [GUARD_DONE] 早停 + TOWNSTALL 可达性 + target_list 排序链时，需定判 T06 历史 10 局终局来源。
+- **坑**: ep_runner L330 传 `vcmienv_loglevel="ERROR"` → strategic_env L883 WARNING "timed out after 300s" 与 L766 INFO "Episode done" 双双被抑制；进 ep 日志的超时痕迹只有 L725 ERROR "adventure_wait timed out: … — forcing episode end"，而 9/10 历史 T06 局该 ERROR 缺失 ⇒ 判为真实 game_over（纠正此前"旁证指向超时 forcing"的推断）。但 L1182 步尾静默 break + 训练高亮词表无超时词 ⇒ 超时 forcing 路径依旧双重失明，是隐藏的终止源。
+- **正确口径**: 判 T06 终局来源不靠日志推，用 obs[19]/[34] alive 判别器（见 #188）或探针 `vcmienv_loglevel="INFO"` 实跑（`py/probe_t06_gameover.py`，错窗执行：停 v5 → 跑 → 重启）。
+- **关联**: #187 / #188 / `py/probe_t06_gameover.py` / 当前任务清单 g3b 事实块 / ep_runner L330-L332 / strategic_env L724-L736、L766、L883、L1182。
+
+#### #187 NK2 模式无末步 ±200：末局 reward 无终局方向判别力 (2026-09-11) — ✅ 实锤
+- **状态**: ✅ 实锤（只读取证）
+- **背景**: 曾试图从 EP_TRAJ 末局 r 定判胜负（预设 NK2 末步注入胜负 ±200 reward）。
+- **坑**: `--use_nk2_shaping` 下 `_calc_reward` L1057 提前 return，胜负 ±200 不进管道；r=135.4 级数值在 timeout/go=1/go=2 三场景均可凑出，末 r 无判别力。
+- **正确口径**: 终局方向只信 obs alive 判别器（#188）或探针终局 4-tuple dump，不用末 r。
+- **关联**: #186 / #188 / 当前任务清单 g3b 事实块 / strategic_env `_calc_reward` L1057。
+
+#### #188 obs 无 game_over 通道：players 段 alive 作只读判别器，battle_quality_events 死路封档 (2026-09-11) — ✅ 实锤
+- **状态**: ✅ 实锤（只读取证）
+- **背景**: EP_TRAJ 无 terminal 字段 + 9/11 T06 traj 被 52X52 并发跑 (pid 45100) 覆盖丢失，只剩 1/11 样本；需另找只读判别路径。
+- **坑①**: obs 3464 冻结（铁律）无 game_over 通道 → 用 players 段（base=8、每玩家 15 字段、alive 为第 12 个）：红 p0 alive=obs[19]、蓝 p1 alive=obs[34]；配合 C++ alive_count≤1 → game_over=last_alive+1 规则：双 0 = timeout forcing（全零 obs）；obs[19]=1 & obs[34]=0 = go=1 红胜；obs[19]=0 & obs[34]=1 = go=2 蓝胜；双 1 + 200 步到顶 = 截断无 terminal。
+- **坑②**: `battle_quality_events.log` 40 条 T06 HEROSEG_EMPTY 全 `go=0 slots=0/0 ah=0 cur_p=0` = 观测瞬态空拍，非终局事件，死路封档。
+- **正确口径**: 只读定判用 alive 判别器四场景表；实跑定判用探针终局 4-tuple + players obs[8:43] sanity dump。
+- **复现/验证**: `python -c` 读 traj 末帧 obs[19]/obs[34]，或探针 `--out py/probe_t06_traj.json` 后看 terminal block。
+- **关联**: #186 / #187 / `py/probe_t06_gameover.py` / 当前任务清单 g3b 事实块。
