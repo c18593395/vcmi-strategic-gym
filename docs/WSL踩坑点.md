@@ -302,3 +302,101 @@
 
 **教训**: 调研第三方项目时，必须确认其依赖的上游分支是否仍然活跃。homm3env 是 2021 SOC 比赛产物，代码是骨架/存根 (step() 返回 None, update_game_state() 是 pass)，其架构参考价值仅限于"JSON over TCP 概念"，不能直接用。
 
+---
+
+### #178: `MMAI::ASSERT` 宏带 namespace 前缀非法展开 → mlclient-cli 编译失败 (09-11)
+
+**状态**: ✅ 已解决
+
+**现象**: C4 #7632 全量 build 时 `mlclient-cli` 报 `AI/MMAI/common.h:23:9: error: expected unqualified-id before 'if'`。agent-v13/14/15.cpp 各 1 处 `MMAI::ASSERT(err.empty(), ...)` 编译不过。
+
+**根因**: `ASSERT` 宏定义在 `namespace MMAI` 内（common.h L20-23：`#define ASSERT(cond, msg) if(!(cond)) throw std::runtime_error(...)`），但 **C/C++ 宏替换不受命名空间限定**——`MMAI::ASSERT(...)` 被展开成 `MMAI::if(!(cond))`，`MMAI::if` 非法。历史遗留 bug（08-01 起 mlclient-cli target 从未编过，暴露即首编），非 C4 引入。
+
+**处理**: 三处 sed 去 `MMAI::` 前缀（agent-v13.cpp L35 / agent-v14.cpp L35 / agent-v15.cpp L42），vcmi-native 与 vcmi-workspace/vcmi 双仓同步修复，全量 build 后 `[100%] Built target mlclient-cli`。
+
+**教训**: 宏永远不带 `NS::` 前缀调用；凡宏定义在 namespace 内，使用处直接裸名。验证旧项目时注意"从未编译过的 target"可能藏着历史语法债。
+
+---
+
+### #179: std::views 传递 include 断裂 — BuildAnalyzer 需显式 `#include <ranges>` (09-11)
+
+**状态**: ✅ 已解决
+
+**现象**: C4 cherry-pick 后部分文件编译报 `std::views::` 未声明，即使已间接包含其他 C++20 头文件。
+
+**根因**: `<bits/range_to.h>` 等传递 include 链在本工具链版本下不稳定，`std::views` 不能依赖传递引入。
+
+**处理**: 在直接使用 `std::views` 的 TU 显式 `#include <ranges>`。
+
+**教训**: 涉及 C++20 新特性（ranges/coroutines/concepts）必须显式 include，不赌传递引入；不同 GCC/clang 版本传递链差异大。
+
+---
+
+### #180: ResetInfo 周判断新旧 API 映射 — 复合判断 ≡ `period==7` (09-11)
+
+**状态**: ✅ 已解决
+
+**现象**: cherry-pick #7632 引入的 `ResetInfo` 新字段与旧代码 `weeks/days/months` 复合判断（`weeks*7 + days` 之类）语义不一致，NK2 代码按新 API 写。
+
+**根因**: 新版把"第 N 周"判断简化为 `ResetInfo::period == 7`（周期=7 即每周）。
+
+**处理**: 旧复合判断统一改写成 `period==7` 判周；`getDate(DAY)` 取绝对天数、`getDate(DAY_OF_WEEK)` 取 1-7。完整新旧映射表见知识库「C4 #7632 执行记录」章。
+
+**教训**: merge 上游重构性 commit 时，先 grep 出所有旧 API 调用点，逐一按新 API 语义改写，不能只改编译报错处。
+
+---
+
+### #181: getCalendar → getDate 等价改写要点 (09-11)
+
+**状态**: ✅ 已解决
+
+**现象**: #7632 删除 `getCalendar()` 返回结构，日历读取改 `getDate(UNIT)`。
+
+**根因**: 上游 API 重构；`getCalendar` 的 week/month 字段由 `getDate(DAY)`（绝对天数）与 `getDate(DAY_OF_WEEK)`（1-7，周一=1）组合等价替代。
+
+**处理**: `CSpellHandler.h` 等调用点逐处改写；周恒 7 天的语义保持不变。
+
+**教训**: 等价改写前先用小样例算一遍天数/星期对应关系，防止 off-by-one（DAY_OF_WEEK 是 1-based）。
+
+---
+
+### #182: `sed -n` 输出隐藏行首 tab — patch 锚点必须 `cat -A` 实测缩进 (09-11)
+
+**状态**: ✅ 已解决
+
+**现象**: 用 `sed -n 'Xp' file` 取出的行做 SearchReplace 锚点时反复失败；`grep -n` 找到的行与文件实际缩进对不上。
+
+**根因**: 文件内混用 tab 缩进，sed/Read 输出把 tab 渲染成空格（或吞掉前导空白），锚点字符串实际是空格开头而非 tab 开头。
+
+**处理**: 关键锚点先 `cat -A`（或 `sed -n 'Xp' file | cat -A`）实测真实字符再写入 patch；本会话 C4 知识库 SearchReplace 首败（anchor 多算 1 行）也用重读文件末尾确认的方式避免。
+
+**教训**: patch 失败先怀疑"看不见的字符"，`cat -A` 显示 tab(`^I`) 与行尾(`$`)，比反复对照肉眼输出可靠。
+
+---
+
+### #183: .so 副本三目录不在训练链路 — 不同步防污染 (09-11)
+
+**状态**: ✅ 已解决（实锤，无需同步）
+
+**现象**: C4 c4-5 "多副本同步" 步骤要求把新 libvcmi.so 等同步到 vcmi-native-build / vtest / hero3_vcmi/build 三处旧副本；事实核查发现三处均为旧版 .so 且**不在训练运行时链路**，同步反而污染基线。
+
+**根因**: 训练真身架构（0911 实锤链）：`train_wsl2_ppo_v5.sh`（transient unit, systemd-run --collect）→ `train_wsl2_ppo_v2.py`（`LD_LIBRARY_PATH` 硬编码 `rel/bin`，`STRATEGIC_STATE_LIB`=`rel/bin/libmlclient.so`）→ `ep_runner_one.py` → `strategic_env.py`（CDLL 加载 rel/bin/libmlclient.so）→ `threadconnector.cpp` → `MLClient.cpp` `GAME->server().debugStartTest(mapname)` = **libmlclient 内嵌 server，进程内线程运行，不启动独立 vcmiserver 进程**。三副本目录是历史构建产物，无人引用。
+
+**处理**: 新栈 .so 全部留在 rel/bin 原位即生效，三副本不动；备份安全网 `~/so_backup_0910_7632/`（libvcmi.so.bak_0910 + libMMAI.so）保留用于回滚。
+
+**教训**: "改 .so 后同步全部副本"的旧纪律建立在多副本被引用的假设上；动副本前先 grep 运行时实际加载路径（LD_LIBRARY_PATH / STRATEGIC_STATE_LIB / CDLL 路径）确认真身，副本同步改为"确认真身后再议"。
+
+---
+
+### #184: #7632 后 T05 小图 +15% 变慢 — NK2 收益与图规模相关 (09-11, 观察中)
+
+**状态**: ⚠️ 待查（观察中，回滚安全网在位）
+
+**现象**: 新栈 5 局实测：T05_52X52_mir 旧 97s×6 局极稳 → 新 112s×2 局极稳 = **+15% 慢**（双方极稳，非噪音）；T06_duel 新 4.96s/步落在旧区间 3.67-6.23s/步内（仅 1 局样本）；reward 不劣化（T05 r=166.6/161.8 vs 旧 ~160；T06 r=135.4/137.7 正常）。
+
+**根因（假设）**: 官方 #7632 的 +40% 吞吐 benchmark 是大规模寻路场景；T05 小图 NK2 寻路回合占比低，优化不敏感，且 PathfinderCache 在小图上的维护成本可能是净负。
+
+**处理**: 首窗只观察吞吐与稳定性（纪律：不与其他变更同窗）；T06 duel 需攒 3-4 局稳态样本再判定；T05 若持续 112s 级则判定"本负载无收益"，评估回滚（git revert native 两笔 + workspace 一笔，或换回 `~/so_backup_0910_7632/` 的 libvcmi.so）。
+
+**教训**: 上游 benchmark 收益数字（+40%）不能外推到本项目负载；落地后必须用**同图 EP_TIME 严格对比法**（新旧栈同 map 对比消除地图难度变量）判定，且要等稳态样本（≥3 局）再下结论。
+

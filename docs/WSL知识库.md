@@ -833,3 +833,58 @@ VCMI Server (不改代码)
 | CleanRL (vwxyzjn) | 中 | PPO 单文件实现，超参对照参考 |
 | Issue #5586 | 低 | 纯提案，无人实施 |
 | agentic-factorio-ai | 中 | LLM+RL 分层架构范式参考 |
+
+---
+
+## C4 #7632 NK2 寻路加速 merge 执行记录 (09-10/11, 停训窗大改)
+
+**任务**: 官方 PR #7632 (starius/optimize, NK2 寻路加速 benchmark +40%) cherry-pick 到训练栈。动 libvcmi.so 训练期禁 → 0910 停训窗执行。用户明示"大改，需要备份 + 完整验证"。
+
+### 总体流程 (已收官)
+
+1. **备份** (c4-2): `~/so_backup_0910_7632/` (libvcmi.so.bak_0910 336MB + libMMAI.so)
+2. **cherry-pick** (c4-3): workspace 树 (~/vcmi-workspace/vcmi, 唯一真源) 落 `e28ca31af5` "Merge pull request #7632 from starius/optimize"
+3. **lib 侧增量**: ISpellMechanics.h 接口尾追加 getCastsLimit/getCastsAlreadyPerformed 纯虚 + adventure 4 文件 + pathfinder 13 文件 + EntityIdentifiers 628b^ 特制版 (防 Services 蔓延) → libvcmi.so 02:18 编过
+4. **NK2 适配 4 轮迭代** (c4-4b): ObjectClusterizer .h/.cpp 错配 → CSpell.h include → ArmyManager/BuildAnalyzer Calendar 断层 → 全部收口，libNullkiller2.so 02:42 编过
+5. **全量 build** (32 min): 四件套 libvcmi/libNullkiller2/libMMAI/vcmiserver + 全绿，仅 mlclient-cli 挂 (MMAI::ASSERT 宏 bug, 08-01 遗留, 见踩坑 #178) → 修复后 `[100%] Built target mlclient-cli`
+6. **静态验证** (c4-6): 符号导出 ✓ / ldd 解析 ✓ / StrategicEnv 冒烟 ✓
+7. **git 三笔提交**: native `1c580aee3`(基础层 37 文件) + `0a44db3b9`(NK2 适配 58 文件, 含 EscapeBehavior 入库) / workspace `825a40b8e7`(ASSERT 修复 3 文件, 位于 e28ca31af5 之上)
+
+### 双 worktree 甄别铁律 (37 DIFF 文件一次配平方法论)
+
+vcmi-native 与 workspace 共享 .git 但 **HEAD 不同** (native=e4afa2a87 旧基线 / workspace=e28ca31af5)：
+- 对 native NK2 文件取 `git status` M 状态 × 与 workspace 工作树 diff 组合判定
+- **非 M + DIFF_WS** = 纯 commit 差异 (native 侧从未手改) → cp workspace 版安全 (28 文件一次配平)
+- **M + DIFF_WS** = 训练手改或本会话 patch → 保留不动
+- **例外**: AIGateway.h/.cpp 对配套保持旧版 (与手改保留的 AIGateway.cpp 匹配, 防新 API 断层蔓延)
+
+### API 新旧映射表 (#7632 涉及)
+
+| 新 API (workspace) | 旧等价 (native) | 依据 |
+|---|---|---|
+| `reset.weeks/days/months` 复合判断 | `reset.period == 7` | Configuration.h L57 旧 ResetInfo 单字段 period |
+| `getCalendar().getCurrentDay()` | `getDate(Date::DAY)` | CGameState.cpp L126: DAY=绝对天数 |
+| `getCalendar().getDayOfWeek()` | `getDate(Date::DAY_OF_WEEK)` | DAY_OF_WEEK=周几 1-7, daysPerWeek 恒 7 |
+| `getCalendar().getDaysInWeek()` | 字面量 7 | engineSettings 恒 7 |
+| `lib/spells/CSpell.h` (8eb0 拆分) | `lib/spells/CSpellHandler.h` | native 侧 CSpell.h 是已删除的未跟踪半新文件 |
+
+改写落点 6 处: AIUtility (ResetInfo) / HeroManager / PriorityEvaluator ×2 / DefenceBehavior / ArmyManager / BuildAnalyzer。
+
+### 训练运行时真身架构实锤 (c4-5 事实核查)
+
+- **训练不启动独立 vcmiserver 进程**: `MLClient.cpp start_vcmi()` 走 `GAME->server().debugStartTest(mapname)` = libmlclient 内嵌 server 进程内线程
+- Python 侧全硬编码 `/home/administrator/vcmi-native/rel/bin` (LD_LIBRARY_PATH + STRATEGIC_STATE_LIB)
+- connector_v13.so (08-17) 在进程内线程调用 libmlclient, 不动
+- **结论**: 副本三目录 (vcmi-native-build/vtest/hero3_vcmi/build) 不在训练链路, 不同步防污染 (踩坑 #183)
+
+### 动态观察 (首窗纪律: 只观察吞吐与稳定性, 0911 03:5x 起)
+
+- resume 精准对齐 step=621725 (0910 优雅停训点), 5 局全部 err=no 零崩溃
+- r 基线不劣化: 52X52_mir 新 166.6/161.8 vs 旧均值 ~160
+- **吞吐未兑现 +40%**: T05_52X52_mir 旧 97s×6 → 新 112s×2 (+15% 慢); T06 duel 4.96s/步 在旧区间内但样本不足 (踩坑 #184, 观察中)
+- 回滚路径: so_backup_0910_7632 + `git revert` 两仓
+
+### 遗留
+
+- T06 duel 攒 3-4 局稳态样本后拍板: 有收益保留 / 无收益且 T05 持续慢 → 评估回滚
+- libNullkiller2.so 无旧版备份 (git 源码可回退重编, 风险可接受)
