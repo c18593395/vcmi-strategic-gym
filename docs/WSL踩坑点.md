@@ -549,7 +549,7 @@
 - **状态**: 🟡 分析完成, 3 条路线待用户拍板
 - **实锤**: ① turn 窗口 server 只广播 88/102/116/86/84/91/109 等, **不**单独发 GiveHero/ChangeObjPos/NewObject 位置包 (171KB 之后的 8s 内零 hero 位置包) ② `MoveHero.hid` = 引擎运行时 ObjectInstanceID, ≠ h3m 静态 heroID → P10 h3mtxt 静态 JSON 拿不到 OI, 走不通 ③ server 日志只在英雄实际移动时打 "OI xxx start (x y z)", 挂机玩家无记录。
 - **结论**: Python 外挂要发真实 MoveHero, 必须从 StartGame(224) 的 `LobbyStartGame = StartInfo + CGameState(171KB)` 解析出 `CMap.heroesOnMap` / `CPlayerState.hero` OI + 坐标。CGameState 全量 Python 解析工程量大 (map 对象数组几百个 CGObjectInstance 模板 + 版本门控字段, 见 CGameState.h L196-225)。
-- **三条路线**: **R1 最小 CGameState 解析器** — 只挖到 heroesOnMap + hero OI 为止, 每包校验断言 (width=36/day=1), 工程中等, 收益=完整 MoveHero 闭环 **R2 降级最小闭环** — 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (不依赖地图状态, 城镇 OI 可从 SetAvailableCreatures 拿), MoveHero 留 R1 **R3 C++ headless client** — 直接复用 VCMI 序列化代码 (路径A), 工程量最大但零逆向风险。
+- **三条路线 (改编号为阶段4/5/6)**: **阶段4 最小 CGameState 解析器** — 只挖到 heroesOnMap + hero OI 为止, 每包校验断言 (width=36/day=1), 工程中等, 收益=完整 MoveHero 闭环 **阶段5 降级最小闭环** — 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (不依赖地图状态, 城镇 OI 可从 SetAvailableCreatures 拿), MoveHero 留阶段4 **阶段6 C++ headless client** — 直接复用 VCMI 序列化代码 (路径A), 工程量最大但零逆向风险。
 - **复现**: `python py/p8c_capture_hero.py` (dump 171KB → %LOCALAPPDATA%/Temp/p8c_startgame.bin, 离线分析入口)。
 - **关联**: T13.10 P8-B 阶段3 / 技能 vcmi-network-protocol 路径A/B/C / #185 / `docs/序列化协议规格.md` / C++ 结构: `PacksForLobby.h LobbyStartGame` + `CGameState.h L196` + `CMap.h heroesOnMap` + `StartInfo.h L169`。
 

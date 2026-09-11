@@ -981,9 +981,9 @@ Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实�
 三条路线 (待决策):
 | 路线 | 内容 | 工程 | 收益 |
 |---|---|---|---|
-| R1 最小 CGameState 解析器 | Python 只挖到 `CMap.heroesOnMap` + hero OI 为止, 逐字段断言校验 (width=36/day=1) | 中 | 完整 MoveHero 闭环 |
-| R2 降级最小闭环 | 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (城镇 OI 从 SetAvailableCreatures 拿, 不依赖地图状态), MoveHero 留后 | 小 | 战略动作 2/3 打通 |
-| R3 C++ headless client | 路径A 直接复用 VCMI 序列化代码 | 大 | 零逆向风险 |
+| 阶段4 最小 CGameState 解析器 | Python 只挖到 `CMap.heroesOnMap` + hero OI 为止, 逐字段断言校验 (width=36/day=1) | 中 | 完整 MoveHero 闭环 |
+| 阶段5 降级最小闭环 | 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (城镇 OI 从 SetAvailableCreatures 拿, 不依赖地图状态), MoveHero 留后 | 小 | 战略动作 2/3 打通 |
+| 阶段6 C++ headless client | 路径A 直接复用 VCMI 序列化代码 | 大 | 零逆向风险 |
 
 离线分析入口: `python py/p8c_capture_hero.py` (dump 171KB → `%LOCALAPPDATA%\Temp\p8c_startgame.bin`)。
 
