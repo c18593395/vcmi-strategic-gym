@@ -932,6 +932,49 @@ python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
 离线验证已完成: `python py/vcmi_protocol/tests/test_e2e.py` → `144 passed, 0 failed`。
 实机多人局尚未完成; 当前只完成 P8-A 入口脚本和 Lobby 协议前置, 不伪造对战结果。
 
+### GitHub 外部项目调研 (09-11): P8 联机 + P10 转换器可用资源
+
+#### 一、直接服务 P8/T13.10 多人联机 (高价值)
+
+| 项目/资源 | 地址 | 价值 | 利用方式 |
+|---|---|---|---|
+| vcmi/proxy-server | github.com/vcmi/proxy-server | 官方联机代理 (Python), 含完整 lobby 协议文本 (login/rooms/ready/START 等) | P8-D 跨机器部署直接参考其协议章节; 人vs人vs模型联网的中转环节 |
+| vcmiclient CLI 多人参数 (官方 manpage) | manpages.ubuntu.com manpage vcmiclient | 无 UI 直开多人局 | 见下方 P8-B/C CLI 方案 — P8-B/C 实机验证核心 |
+| vcmi PR #4253 | github.com/vcmi/vcmi/pull/4253 | `settings["server"]["localPort"]=0` 随机端口绑定 | 并行多实例 VCMI 不抢端口; P8 并行验证/未来多人训练用 |
+| 官方 Networking.md | vcmi/vcmi develop docs | 4 字节长度+payload 与 global lobby JSON 协议权威文档 | 与我们逆向的序列化规格互证, 可作 `docs/序列化协议规格.md` 官方佐证链接 |
+
+**P8-B/C CLI 方案 (09-11, 绕开 lobby UI 点击)**:
+
+```bash
+# 1. 启动 server: 客户端 1 直开多人局 (red+blue 双人类槽, AI 填其余)
+VCMI_client.exe --loadserver --loadnumplayers 2   --loadhumanplayerindices 0 --loadhumanplayerindices 1 --loadplayer 0   --testmap Maps/Twins.h3m
+
+# 2. 第二客户端 (可远程): 控蓝方
+vcmiclient --loadplayer 1 --loadserverip 127.0.0.1 --loadserverport 3030
+
+# 3. 外挂 AI 客户端 (py/vcmi_protocol): 连同 server, 接任意 AI 槽
+python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
+```
+
+要点:
+- `--loadnumplayers 2` + 两次 `--loadhumanplayerindices` = 声明双人类槽; `--loadplayer 0` = 本客户端控红方
+- 第二客户端 `--donotstartserver` 变体 = 只连接不自起 server
+- 全链 = server (客户端1 内嵌) + 人类客户端 (1/2) + 外挂 AI 客户端 (py) → P8-B (AI 加入/退出) / P8-C (人+AI 混合局) 全自动, 不碰 lobby SelectionTab 崩溃路径
+- 实机时需核对 fork 1.8 是否已含 `--load*` 参数 (官方 develop 有; fork 未验)
+
+#### 二、服务 P10 h3m2vmap 转换器 (中高价值)
+
+| 项目 | 地址 | 价值 | 利用方式 |
+|---|---|---|---|
+| h3mtxt | github.com/alexanderbelous/h3mtxt | .h3m/.h3c ↔ JSON 双向 CLI | P10-C 改写规则: JSON 层改写 (删城/封路/挪矿) 再转回 h3m, 免手撸二进制; 第二对账工具 |
+| homm3tools | github.com/potmdehex/homm3tools (155★, MIT) | h3m 解析/编辑/map_editor C 工具集 | P10-C 备选参考; hd_edition/h3complete 格式细节 |
+
+#### 三、已覆盖/明确排除
+
+- smanolloff/vcmi-gym + smanolloff/vcmi = 本项目主仓/fork 本体, 无新增量
+- vcmi Issue #5586 (LLM 接入提案) = 已调研, 无人实施, 维持排除
+- HoTSPyBot / BOT-MMORPG-AI 等像素/截图 bot = 与引擎内接口路线相反, 不用
+
 ## PpoModelAI teal 卡死修复 + VCMI 新 API 迁移 (09-11, ppomodelai/ C++ 批)
 
 ### 背景
