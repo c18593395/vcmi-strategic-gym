@@ -59,6 +59,44 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带“截至日期”与“结论”。
 
+### P8-D 跨机器部署脚手架 + 实机验证 (09-12, 设计+骨架+本机 13/13 PASS)
+
+**架构**: 3 种拓扑 (A 本地 3 进程 / B 双机 1S+2C / C 三机 1S+3C), HMAC-SHA256 Token 认证 (client_id + timestamp + nonce 签名, ±300s 时间窗, nonce 去重防重放)。
+
+**模块** (`py/vcmi_protocol/`):
+- `auth.py`: SharedKeyManager (32B HSK 生成/校验/落盘 0o600) + AuthToken ([4B len][JSON] 帧) + TokenIssuer/Verifier
+- `remote_connection.py`: RemoteVCMITCPConnection 封装 VCMITCPConnection, `_auth_handshake()` 发 token 帧读 1B ACK (0x01=OK), 指数退避重试
+- `deployment.py`: NodeConfig/DeploymentConfig + ProcessManager (start/stop/health_check) + StatusFileWriter + KeyDistributor + DeploymentManager
+
+**实机验证** (`py/p8d_deploy_probe.py`):
+- `--local` 13/13 PASS: HSK 生成/落盘/轮转 + VCMI_server 启动 + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 2 节点部署命令构造
+- `--remote <host> --port 3030`: 双机模式, 需另一台机器预交换 HSK + 部署 VCMI
+
+**修复 2 处**:
+1. `remote_connection._do_connect` 原调 `VCMITCPConnection._socket_connect` (不存在) → 改用 `VCMITCPConnection.connect()`
+2. `get_stats` 原依赖 `VCMITCPConnection.get_stats` (VCMITCPConnection 无此方法) → 改为仅返回 RemoteConnConfig 层字段
+
+**Windows 兼容**: `StatusFileWriter` 用直接 open (非 atomic rename), Windows 目标已存在时 rename 报错; HSK 权限检查仅 Linux 生效 (Windows NTFS 无 POSIX 权限位)。
+
+**与训练并行**: P8-D 探针占 1 核 + 1 端口 (3030), 与 v5 训练 (12 核) 物理资源不冲突, 可并行。
+
+### T7.4 HERO_DEATH 0 死亡根因 (09-12, 子 agent 分析)
+
+**现象**: step 641977, [HERO_DEATH]=0, 首窗 11 局 0 死亡样本。
+
+**根因**:
+1. **C 方案 proxy 与 HERO_DEATH 正交**: `blue_hero_killed` (blue 英雄被 red 击杀) 仅 +100 reward; HERO_DEATH 触发条件 = red 英雄 8 方向全堵 (`passable.any()=False` → `zombie=True`)。T06 duel 蓝英雄一死 → game_over 当步 end → HERO_DEATH 根本无机会触发。
+2. **T05 36X36 守卫战 autofight 必胜**: [ep_runner_one.py L904](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L904) 注释"autofight 必胜", red 几乎不会战死 → 11 局首窗全守卫胜局, 无 red 死亡事件。
+3. **VCMI 引擎 standardDefeat 未落地**: `game_over==2 → reward -= 50` 依赖 C++ `alive_count <= 1` 判定, 当前未实现 (方案_T74 §6 远期 C++ 课题)。
+
+**建议**:
+- 判据 1 样本池切到 T06 72X72 duel (blue 英雄存活 → red 进攻 → 有反杀全堵机会)
+- ep_runner L1212 加 `[HERO_DEATH]` 诊断埋点 (passable + ah + slots), 区分"真全堵"vs"active_hero 越界 ah=-1"
+- blue_hero_killed 保持不计入 HERO_DEATH (避免双罚, 激励轴错窗纪律)
+- standardDefeat 落地后复核同帧双罚 (T7.4 -50 + engine -200)
+
+**代码坐标**: [ep_runner_one.py L1212-L1223](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L1212) (HERO_DEATH 触发) / [L526](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L526) / [L899](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L899) (zombie 赋值) / [L944-L962](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L944) (C 方案 proxy) / [strategic_env.py L1117](file:///d:/Bigdata/hero3_fresh/vcmi_gym/envs/v13/strategic_env.py#L1117) (game_over==2 判负)
+
 ### Router 断言机制链与战斗 AI 真相 (R6, 截至 2026-08-31)
 
 **症状**: `[Router] battleStart exception: Assertion failed in router.cpp: dynamic cast to V13::BAI failed — fallback to StupidAI`，训练期 15-55% 局出现；**89 局 ZOMBIE 与断言 100% 共现**。

@@ -613,3 +613,21 @@
 - **复现/验证**: `grep -n "TOWNSTALL\|TOWN_BLOCKED" /mnt/d/Bigdata/hero3_fresh/train_loop.log`（3817/460 量级）；修复后同 grep 预期 TOWN_BLOCKED 频次显著下降，且 pas 全 1 的 TOWNSTALL 实例不再出现。
 - **关联**: #204 (0 命中三义性 / 全 log 切窗法) / #195/#201 (重启窗口径: systemd transient unit + keepalive) / 任务清单"活跃任务 6 长期观察集 TOWNSTALL 引导可达性"行 / `ep_runner_one.py` L872-898。
 
+#### #210 T7.4 HERO_DEATH 判据 1 在 T05 负载段恒 0 触发 — C 方案 proxy 与 zombie 全堵正交 (2026-09-12, 子 agent 分析) — ✅ 根因定位
+- **状态**: ✅ 根因已定位（代码 + 日志双向对照），无需修复代码，需切观察窗样本池
+- **背景**: T7.4 死亡惩罚三判据观察，首窗 11 局 T05 36X36/52X52 全部 `[HERO_DEATH]=0`，判据 1 (死亡局 r 转负) 无法验证。子 agent 排查 `ep_runner_one.py` L1212-L1223 + `strategic_env.py` L1117 后定判。
+- **坑**: HERO_DEATH 触发条件 = `zombie_streak >= 2` (8 方向全堵, `passable.any()=False`)，与 C 方案 proxy 的 `blue_hero_killed` (blue 英雄被 red 击杀)**完全正交**（L1216 注释明确"正交"）。T05 守卫战 autofight 必胜 ([ep_runner_one.py L904](file:///d:/Bigdata/hero3_fresh/py/ep_runner_one.py#L904))，red 英雄几乎不战死 → 无全堵机会；T06 duel 蓝英雄一死 → game_over 当步 end → 同样无机会。
+- **正确口径**: 判据 1 样本池应切到 T06 72X72 duel (blue 英雄存活 → red 进攻 → 有反杀全堵机会)；blue_hero_killed 保持不计入 HERO_DEATH (避免双罚, 激励轴错窗纪律)；VCMI 引擎 standardDefeat 未落地前 `game_over==2` 判负不生效 (方案_T74 §6 远期 C++ 课题)。
+- **复现/验证**: `grep -c "HERO_DEATH" /mnt/d/Bigdata/hero3_fresh/train_loop.log` 当前 = 0；切到 T06 duel 图池后观察 1-2 窗 (~100 局) 复核。
+- **关联**: 任务清单"活跃任务 3 T7.4 死亡惩罚" / #204 (0 命中三义性) / `ep_runner_one.py` L1212-L1223 / `strategic_env.py` L1117。
+
+#### #211 P8-D 远程连接 `_do_connect` 调不存在的 `_socket_connect` + Windows atomic rename 失败 (2026-09-12, 实机验证抓出) — ✅ 已修
+- **状态**: ✅ 已修 (commit 待 git 提交)
+- **背景**: P8-D 跨机器部署脚手架 (auth + remote_connection + deployment) 本机实机验证 13/13 PASS 前需修复 2 处。
+- **坑①**: `RemoteVCMITCPConnection._do_connect` 原调 `self._vcmi._socket_connect()` (VCMITCPConnection 无此方法) → 改为 `ok = self._vcmi.connect(); self._sock = self._vcmi.sock`。
+- **坑②**: `StatusFileWriter._write` 用 atomic rename (先写 `.tmp` 再 rename 到 `.json`)，Windows NTFS 目标已存在时 `tmp.rename` 抛 `FileExistsError` → 改为直接 `with open(self._path, 'w') as f: json.dump(data, f)`。
+- **坑③**: HSK 权限 0o600 检查在 Windows 下 `os.chmod` 不生效 (NTFS 无 POSIX 权限位) → 放宽为仅 Linux/macOS 检查，Windows 打印"跳过 POSIX 权限检查"。
+- **正确口径**: 跨机器脚手架本机验证 = 启动真实 VCMI_server + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 部署命令构造；双机验证需另一台机器预交换 HSK + 部署 VCMI。
+- **复现/验证**: `python py/p8d_deploy_probe.py --local` 13/13 PASS；`python py/p8d_deploy_probe.py --remote <host> --port 3030` 双机模式。
+- **关联**: P8-D / `py/vcmi_protocol/remote_connection.py` / `py/vcmi_protocol/deployment.py` / `py/p8d_deploy_probe.py`。
+
