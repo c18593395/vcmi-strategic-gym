@@ -46,7 +46,7 @@
 
 
 
-### 当前训练（v5, 截至 2026-09-11）
+### 当前训练（v5, 截至 2026-09-11 晚 T7.4 上线后）
 
 | 参数 | 值 |
 |------|-----|
@@ -73,8 +73,18 @@
 | Checkpoint | 每 50 step, 保留 10 个 |
 | OBS_DIM | 3464 |
 | N_ACTIONS | 25 (0-24, 25-63 预留) |
+| **T7.4 death_penalty** | **-50 (红英雄死亡帧追加, 全局生效, argparse 可调含 0=关闭; 09-11 晚上线, checkpoint step=637994 续训)** |
 
-**训练运行方式**: WSL systemd transient unit `homm3-train-v5`, 优雅停止 = 零损失
+**T7.4 死亡惩罚 (09-11 上线, 观察期中)**:
+- 落点: ep_runner_one.py zombie 确认点 (zombie_streak>=2 块) — `r += args.death_penalty; traj["rewards"][-1] += args.death_penalty; traj["done"][-1]=True`
+- 日志: `[HERO_DEATH] penalty -50 [ZOMBIE] hero dead (all-blocked xN), end ep at step N` 进主日志白名单 (train_wsl2_ppo_v2.py L194)
+- 语义: 红英雄死 (zombie) → -50; 蓝英雄死 (capture proxy) → +100; 两事件不同帧, 无同帧双罚 (方案_T74 §6 复核)
+- 全局生效不按图分支: T04/T05/T06 统一
+- 回退线: 接战率塌 >30% 或 avg_r 跌 >20% → 降档 -25 或 0 关闭
+- 观察判据 (1-2 窗): 死亡局 r 转负 / [GUARD] 接战率不塌 (±20%) / avg_r 跌幅 <20%
+- 09-11 晚首窗 11 局: 0 次 HERO_DEATH 触发 (T05 52X52 全守卫胜局, 无英雄死亡), avg_r=2.20 (基线 2.34, 跌 6%, 远低于 20% 回退线), [GUARD] 接战正常 — 判据 2/3 暂不触发, 判据 1 待死亡局出现
+
+**训练运行方式**: WSL2 systemd **system 级 enabled unit `homm3-train-v5`** (0911 重构, 容器冷启动自动拉训练; 旧 transient/user 级已废弃), 优雅停止 = 零损失。运维: `wsl -u root systemctl restart/status homm3-train-v5`; 验证存活看 PID etime + 日志 mtime, 别只信 is-active (踩坑 #201)。
 **训练日志**: `train_loop.log`
 **健康判据**: r 双峰 — 130-160(守卫胜) / 5-30(只招兵), 均健康
 **分析日志**: 先按 ROUND 头切片, batch 行 ~27 局 1 条属正常

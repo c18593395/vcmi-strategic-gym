@@ -1188,3 +1188,36 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 ### 关联
 
 踩坑 #201 / #195 / 任务清单 L9 (训练存活机制重构段) / `py/restart_train_v5_sys.sh` / `.wslconfig`。
+
+## T7.4 死亡惩罚上线：zombie 确认点 -50 归档（09-11 晚，停训窗 patch + checkpoint 续训）
+
+### 背景（为什么修）
+- 引擎判负不可达实锤：死亡局 game_over 恒 0（zombie 现象本身即证明 — 英雄死后 yourTurn 仍被调 = 引擎未判 standardDefeat），strategic_env L1117 的 "game_over==2 → -200" 永远轮不到。
+- 定量证据（方案_T74 §1）：首胜后战死 7/7 局；死亡局 r=+50~+93 vs 超时局 r=-18~-107 — **死比活着结算更赚**（步数惩罚烧穿）；capture +100 可被"送死碰运气"套利；死亡点 GAE bootstrap 污染 vloss。
+
+### 设计（ep_runner 层纯 Python，零 C++ 改动）
+- 落点 = zombie 确认点（zombie_streak>=2 块，L1213-1222）："r += args.death_penalty; traj[rewards][-1] += args.death_penalty; traj[done][-1]=True" → GAE 经 done=True 截断 bootstrap，惩罚不污染后续。
+- "--death_penalty" argparse 默认 -50（试探档），上限 -100（对称守卫），0=关闭；全局生效不按图分支（T04/T05/T06 统一，无死亡局零扰动）。
+- 与 C 方案正交：capture proxy +100（蓝英雄死）与 death_penalty -50（红英雄死）落在不同帧/不同事件，不存在同帧双罚（方案_T74 §6 复核：红英雄全灭后蓝英雄已无 target，不会再触发 capture）。
+- 主日志白名单补 "[HERO_DEATH]"（train_wsl2_ppo_v2.py L194 highlights 表），死亡事件进主日志可 grep。
+
+### 参数定档依据
+| 档 | 值 | 依据 |
+|----|-----|------|
+| 试探 | **-50**（当前） | 守卫战 +100 / 死亡 -50：打赢净 +50 仍正 → 不劝退接战（T05 守卫战是核心战斗信号源，过强惩罚=避战退化风险） |
+| 加深 | -100 | 仅当 -50 档送死剧本未消失且接战率不塌 |
+| 回退 | 0 | 接战率塌 >30% 或 avg_r 跌 >20% |
+
+### 部署（09-11 晚停训窗）
+1. "systemctl stop homm3-train-v5" → checkpoint 存 step=637994（日志实锤："Saved STATE_PATH (step=637994) and MODEL_PATH"）。
+2. patch 两处文件语法验证通过：ep_runner_one.py（--death_penalty argparse L127 / zombie 块 L1213-1222 / 日志改 "[HERO_DEATH] penalty -50 [ZOMBIE] ..." 格式）+ train_wsl2_ppo_v2.py（白名单 L194）。
+3. restart："Loaded train state (model+optimizer, step=637994)" 干净续训，KL adaptive 恢复（target=0.5 coef=0.3 kl_ref frozen from BC）；重启后配置 = batch=2048 maps=8（C4 #7632 新栈参数沿用），C 方案标志 grep=3 在位。
+
+### 首窗观察（09-11 晚 11 局，T05 52X52）
+- "[HERO_DEATH]" 触发 0 次 — 11 局全守卫胜局（ep_steps=71~73，GUARD won +100，r=153~166），无英雄死亡事件 → **判据 1（死亡局 r 转负）暂不可验，待实际死亡局出现**。
+- avg_r=2.20 vs 重启前基线 2.34 — 跌 6%，远低于 20% 回退线（判据 3 通过）。
+- [GUARD] 接战正常（ep=10 guard won step 48 / ep=11 guard won step 54），接战率未塌（判据 2 暂通过，样本 11 局需再攒 1 窗）。
+- 结论：无需干预，继续跑；~100 局（1-2 窗）后复核三判据。
+
+### 关联
+方案 "docs/方案_T74_死亡惩罚_20260910.md"（设计稿，实装=本次）/ 踩坑 #195（C 方案 capture proxy，正交关系）/ #201（system 级 unit 运维）/ #204（T7.4 上线验证方法论）/ 任务清单「活跃任务 3」→ 转观察期 / 引擎侧 standardDefeat 判负根修 = 独立 C++ 课题（T7.4 落地后紧接立项，落地时复核 done 双路同帧双罚）。
