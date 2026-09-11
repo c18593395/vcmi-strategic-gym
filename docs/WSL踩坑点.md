@@ -553,3 +553,12 @@
 - **复现**: `python py/p8c_capture_hero.py` (dump 171KB → %LOCALAPPDATA%/Temp/p8c_startgame.bin, 离线分析入口)。
 - **关联**: T13.10 P8-B 阶段3 / 技能 vcmi-network-protocol 路径A/B/C / #185 / `docs/序列化协议规格.md` / C++ 结构: `PacksForLobby.h LobbyStartGame` + `CGameState.h L196` + `CMap.h heroesOnMap` + `StartInfo.h L169`。
 
+#### #204 P8-C 数据源墙第四路线 = SRV-DIAG server 侧注入, 免解析 171KB (2026-09-11, MoveHero 闭环实机 PASS) — ✅ 已实施
+- **状态**: ✅ 落地并实机验证 (vcmi commit bc3e124fa2 + 主仓 7967511)
+- **方案**: 不解析 StartGame blob, 改在 `CGameHandler::start` (`!resume` 分支) `fprintf(stderr, "[SRV-DIAG] HERO OI=%d owner=%d pos=%s", ..., hero->anchorPos().toString())` 逐英雄 dump → Python 外挂 tail server 日志拿运行时 OI+owner+锚点坐标。零逆向、零包解析、跨图通用。
+- **坑中坑 (字段序)**: `TryMoveHero(109)` wire 序 = **id + result + start(int3) + end(int3) + movePoints + fowRevealed(vector) + attackedFrom**, 非直觉 id+start+end+result; 读错会把 SUCCESS(1) 当 FAILED(0) (离线 test_e2e 两侧同错自洽通过, 实机 server trace 对拍才抓出, 与 #199 同型坑)。
+- **MoveHero 语义**: path = 锚点坐标序列, 每步须与英雄当前位置 8 邻域相邻 (`areNeighbours` 检查), layer=0(LAND), transit=false; day1 MP 耗尽后同格移动也回 SUCCESS(=原地 no-op), 不是拒绝。
+- **实锤**: red OI=350 (1,8,0)→(2,7,0) 实移 + blue ModelAI OI=732 (16,1,1)→(15,0,1) + 3 回合轮转 + PackageApplied=True + zero fishy。
+- **脚本**: `py/p8c_movehero_probe.py`。
+- **关联**: #203 (数据源墙分析, 本条=第四路线闭环) / #202 (ChangeHost 时序) / #200 (PlayerStartsTurn 字段序) / `CGameHandler.cpp CGameHandler::start`。
+

@@ -987,7 +987,16 @@ Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实�
 
 离线分析入口: `python py/p8c_capture_hero.py` (dump 171KB → `%LOCALAPPDATA%\Temp\p8c_startgame.bin`)。
 
-- 剩余: 阶段3 路线拍板后实施 → P8-C 混人回合 → P8-D 跨机器
+**P8-C 首步 MoveHero 闭环 PASS (0911 晚, 踩坑 #204, 路线拍板 = SRV-DIAG 破数据源墙)**:
+
+实际落地不走三条路线中的任何一条 171KB 解析 — **在 server 侧注入诊断行, Python 外挂读日志拿运行时状态**:
+- server `CGameHandler::start` (`!resume` 分支) 注入 `[SRV-DIAG] HERO OI=.. owner=.. pos=(x y z)` 逐英雄 dump (vcmi commit bc3e124fa2); Python tail server 日志解析 → 运行时 OI 零逆向到手 (red OI=350 / blue OI=732, Twins 图实测)
+- pos 口径 = `anchorPos()` (MoveHero path 用锚点坐标, 每步须与当前位置 8 邻域相邻; heroes 1x1 anchor==visitable)
+- **踩坑 #204: TryMoveHero(109) 字段序 = id + result + start(int3) + end(int3) + movePoints + fowRevealed(vector) + attackedFrom**, 不是直觉的 id+start+end+result — 字段序读错会把 SUCCESS 解析成 FAILED (离线 test_e2e 两侧同错自洽通过, 实机对拍才抓出, 与 #199 同型)
+- 实机验证: red (1,8,0)→(2,7,0) 实移 (后续同格 = day1 MP 耗尽非拒绝) + blue ModelAI (16,1,1)→(15,0,1) 自主移动 + 三回合轮转 + `PackageApplied(MoveHero)=True` + zero fishy/not-allowed
+- 脚本: `py/p8c_movehero_probe.py` (方案F流程 + 日志 OI 解析 + 决策-移动-结束回合全链)
+
+- 剩余: 阶段3 扩展 RecruitCreatures(187)/QueryReply(197)/BuildStructure(185) (包栈已在, 缺游戏状态感知: 可招兵信息从 SetAvailableCreatures(100) 广播拿) → P8-C 混人回合 → P8-D 跨机器
 
 #### 二、服务 P10 h3m2vmap 转换器 (中高价值)
 
