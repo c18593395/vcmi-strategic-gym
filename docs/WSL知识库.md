@@ -981,7 +981,7 @@ python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
 
 **h3mtxt (alexanderbelous/h3mtxt) 可用, C 步改写规则管线定型**: `h3m → JSON(带注释) → Python 改写 → h3m`。4 张图 roundtrip 全 RAW-IDENTICAL PASS (gzip 解压后逐字节一致; gzip 头 mtime 差异忽略, VCMI 引擎只读解压数据)。
 
-### 构建踩坑三连 (GCC/mingw 独有, 详见踩坑 #196)
+### 构建踩坑三连 (GCC/mingw 独有, 详见踩坑 #199)
 
 上游只测 MSVC, mingw64 GCC 16.2 编不过, 打了 3 个源码补丁 (tools/h3mtxt 本地树):
 1. `H3JsonReaderBase.h` EnumBitmask partial specialization after instantiation → `-fpermissive` 降级 (cmake/h3mtxt_common.cmake 非 MSVC 分支加)

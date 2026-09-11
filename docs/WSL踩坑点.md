@@ -508,7 +508,7 @@
 - **复现/验证**: 任何实机 action 流对照该表逐一验坐标即可；PPoModelAI.cpp 本地 tile 判定同表。
 - **关联**: #191（anchor↔visitable 双坐标）/ 知识库 "mq 模型部署线闭环" 章 / `ppomodelai/src/PpoModelAI.cpp`。
 
-#### #196 h3mtxt (alexanderbelous/h3mtxt) mingw GCC 编译三连坑 (2026-09-11) — ✅ 已解决 (3 源码补丁)
+#### #199 h3mtxt (alexanderbelous/h3mtxt) mingw GCC 编译三连坑 (2026-09-11) — ✅ 已解决 (3 源码补丁)
 - **状态**: ✅ 已解决; roundtrip 4 图全 PASS
 - **背景**: P10-C 备料, Windows mingw64 (GCC 16.2, Ninja, O3+flto) 构建 h3mtxt, 上游只测 MSVC → 编不过, 逐个修。
 - **坑 1 - partial specialization after instantiation**: `H3JsonReaderBase.h` EnumBitmask 模板特化在某些 TU 内晚于隐式实例化 → GCC 硬错误 (MSVC -fpermissive 档)。修: 非 MSVC 分支加 `-fpermissive` (`cmake/h3mtxt_common.cmake`)。
