@@ -85,6 +85,10 @@
 - 09-11 晚首窗 11 局: 0 次 HERO_DEATH 触发 (T05 52X52 全守卫胜局, 无英雄死亡), avg_r=2.20 (基线 2.34, 跌 6%, 远低于 20% 回退线), [GUARD] 接战正常 — 判据 2/3 暂不触发, 判据 1 待死亡局出现
 
 **训练运行方式**: WSL2 systemd **system 级 enabled unit `homm3-train-v5`** (0911 重构, 容器冷启动自动拉训练; 旧 transient/user 级已废弃), 优雅停止 = 零损失。运维: `wsl -u root systemctl restart/status homm3-train-v5`; 验证存活看 PID etime + 日志 mtime, 别只信 is-active (踩坑 #201)。
+
+**V1/V2 双模型切换 (常驻约定)**: `.use_v2` flag 控制加载 V1 或 V2 脚本；V2 的 NaN 已修复（LR=5e-5 + ratio.clamp），V1 作为稳定回退保留。
+
+**训练运维纪律 (常驻约定)**: 改训练脚本 → 清 `__pycache__` → **等 train_loop 自然重启下一轮生效，不主动杀进程**（杀进程会打断训练 + 引起用户 frustration）；改动前先评估"会影响当前训练吗"。
 **训练日志**: `train_loop.log`
 **健康判据**: r 双峰 — 130-160(守卫胜) / 5-30(只招兵), 均健康
 **分析日志**: 先按 ROUND 头切片, batch 行 ~27 局 1 条属正常

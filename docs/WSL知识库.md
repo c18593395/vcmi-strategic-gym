@@ -1010,6 +1010,7 @@ Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实�
 - smanolloff/vcmi-gym + smanolloff/vcmi = 本项目主仓/fork 本体, 无新增量
 - vcmi Issue #5586 (LLM 接入提案) = 已调研, 无人实施, 维持排除
 - HoTSPyBot / BOT-MMORPG-AI 等像素/截图 bot = 与引擎内接口路线相反, 不用
+- **HoMM3 RL 训练不用 computer_use 截图 / vision_analyze 视觉分析** (常驻约束): VCMI Client SDL2 渲染无 UIA 元素, 视觉截图拿不到可用状态; 看游戏状态一律让用户描述或写脚本采集 obs/traj 数据。此约束适用于所有训练相关分析与子 agent 派发。
 
 ## P10-C 备料: h3mtxt roundtrip 验证 PASS (09-11, 训练停机窗)
 
