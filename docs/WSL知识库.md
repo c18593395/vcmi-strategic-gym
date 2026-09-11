@@ -1140,3 +1140,23 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 ### 关联
 
 踩坑 #189-#191 / #195-#198 / `ppomodelai/src/ModelInference.{h,cpp}`、`PpoModelAI.cpp` / `py/probe_onnx_action5.py`、`py/build_modelai.ps1` / 任务清单 P7/P8 头部 mq 增量。
+
+## 09-11 训练存活机制重构: 容器空闲关停根修 (Hermes 侧驱动)
+
+### 问题定性
+- Hermes/脚本侧 `wsl` 命令驱动训练时, 训练活不过单个命令周期 (~17-45s): **发行版容器空闲关停** — 最后一个 wsl 会话退出, WSL 终止整个 Ubuntu+systemd (VM boot_id 恒定不动)。user 级 transient unit (旧 restart_train_v5.sh) 与 system 级 unit 都随容器一起死, 挂法无关。
+- 与 #195 transient unit 坑的关系: #195 是表层 (unit 随会话消失), 本坑是底层 (容器整体终止)。#195 的 "三次复现" 真凶即此。
+
+### 双层修复 (09-11 实装, 验证 PASS)
+1. **Windows keepalive**: `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList '--exec','sleep','infinity'` — 常驻隐藏会话, 容器不空闲关停。Windows 重启后需重起此进程。
+2. **system 级 enabled unit** `homm3-train-v5`: /etc/systemd/system/homm3-train-v5.service, User=administrator, WorkingDirectory=/mnt/d/Bigdata/hero3_fresh, 双 append 到 train_loop.log。容器冷启动时 multi-user.target 自动拉训练。`wsl -u root` 免密安装 (WSL root 通道, 不需要 sudo 密码)。
+- 附带: `.wslconfig` 加 `vmIdleTimeout=2147483647` (VM 层保险; 原尝试 -1 是非法值)。旧 `py/restart_train_v5.sh` 废弃, 备用脚本 `py/restart_train_v5_sys.sh` 留档。
+
+### 运维与验证纪律
+- 重启/状态: `wsl -u root systemctl restart homm3-train-v5` (status 同理); 日志 tail train_loop.log。
+- **验证存活三件套**: `ps -o lstart,etime -C python` (PID 存活时长) + 日志 mtime 推进 + step 行出现。`systemctl is-active` 不可信 — 容器冷启动自动拉起也显示 active。首局 ~6-10min 才出第一条 step 行, banner 反复出现 = 进程被杀循环重启。
+- 0911 实证: checkpoint step=629830 干净续训 → step630016+ 连跑多局 (T05 r=164.0 首局, [GUARD]/[MINE] 正常)。
+
+### 关联
+
+踩坑 #201 / #195 / 任务清单 L9 (训练存活机制重构段) / `py/restart_train_v5_sys.sh` / `.wslconfig`。

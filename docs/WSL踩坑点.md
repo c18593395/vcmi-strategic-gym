@@ -528,3 +528,11 @@
 - **附带坑**: ① exe 不吃 `/c/...` MSYS 路径 → `MSYS_NO_PATHCONV=1` + `C:/...` ② ROE 图拒读 (仅 AB/SoD) ③ 输出 JSON 带 `//` 注释非严格 JSON, Python 解析需 json5 或剥注释 ④ 构建慢 (866 目标 LTO ~40min)。
 - **复现/验证**: `tools/h3mtxt/build/src/h3mtxt/h3mtxt.exe`; roundtrip 判据 = gzip 解压后 raw 逐字节一致 (gzip 头 mtime 差异忽略)。
 - **关联**: 知识库 "P10-C 备料" 章 / #193 (mingw PATH 前置) / P10。
+
+#### #201 WSL 发行版容器空闲关停杀训练 — systemctl is-active 也会骗人 (2026-09-11) — ✅ 已修 (双层)
+- **状态**: ✅ 已修复; 训练 PID 存活 14min+ 连跑多局验证
+- **现象**: Hermes 侧 `wsl bash restart_train_v5.sh` 拉起训练后无日志输出; unit 每次只活 17-45s (14:07/14:27 两次 44s/49s, 14:38 起 system 级 unit 仍 17s 一停)。当时误判两层: 先怪 user-level transient unit (改 system 级无效), 再怪 vmIdleTimeout=-1 非法值 (方向也错)。
+- **根因**: **发行版容器空闲关停** — 最后一个 wsl 会话退出 → WSL 终止整个 Ubuntu+systemd 容器 (非 VM!) → 下条 wsl 命令冷启动容器 → 训练 unit 随命令会话死亡。VM 层 boot_id 恒定 + uptime 连续, journal 里 15:05:07 出现整套 `Stopped multi-user.target` 关停序列但 VM 没重启 = 容器级关停实锤。vmIdleTimeout 只管 VM, 管不到发行版容器。**任何挂法 (user/system 级 unit) 都逃不掉**, 因为死的是整个 systemd。
+- **处理**: 双层修复 ① Windows 侧常驻 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList '--exec','sleep','infinity'` (有活跃会话 → 容器不关停; Windows 重启后需重起) ② system 级 enabled unit `homm3-train-v5` (/etc/systemd/system, User=administrator, StandardOutput=append 到 train_loop.log; `wsl -u root` 免密装, 容器冷启动时自动拉训练)。旧 `py/restart_train_v5.sh` (user 级 transient, 坑 #195/#168) **已废弃**。
+- **教训**: ① 验证训练存活 = `ps -o lstart,etime -C python` (PID 存活时长) + 日志 mtime 推进 + step 行出现, **`systemctl is-active` 会骗人** — 容器冷启动后 unit 自动拉起也显示 active, 但下一会话结束就死 ② 首局需 ~6-10min 才出第一条 step 行, "没日志"≠"没在跑", 要先分清 "进程被杀循环重启" (banner 反复出现) vs "首局未完" ③ container idle shutdown 与 VM idle shutdown 是两层, journal 关停序列 + boot_id + uptime 三件套联合定位 ④ git-bash 调 powershell 时 `$_` 会被 bash 吞掉 (Where-Object 全炸), 用 `tasklist /FI` 替代。
+- **关联**: #195 (transient unit 坑, 本坑为其真解) / #168 / 知识库 09-11 训练存活机制重构章 / 任务清单 L9 运维命令 / `.wslconfig` vmIdleTimeout=2147483647 (VM 层保险, 非本坑根修)。
