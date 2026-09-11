@@ -975,6 +975,46 @@ python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
 - vcmi Issue #5586 (LLM 接入提案) = 已调研, 无人实施, 维持排除
 - HoTSPyBot / BOT-MMORPG-AI 等像素/截图 bot = 与引擎内接口路线相反, 不用
 
+## P10-C 备料: h3mtxt roundtrip 验证 PASS (09-11, 训练停机窗)
+
+### 结论
+
+**h3mtxt (alexanderbelous/h3mtxt) 可用, C 步改写规则管线定型**: `h3m → JSON(带注释) → Python 改写 → h3m`。4 张图 roundtrip 全 RAW-IDENTICAL PASS (gzip 解压后逐字节一致; gzip 头 mtime 差异忽略, VCMI 引擎只读解压数据)。
+
+### 构建踩坑三连 (GCC/mingw 独有, 详见踩坑 #196)
+
+上游只测 MSVC, mingw64 GCC 16.2 编不过, 打了 3 个源码补丁 (tools/h3mtxt 本地树):
+1. `H3JsonReaderBase.h` EnumBitmask partial specialization after instantiation → `-fpermissive` 降级 (cmake/h3mtxt_common.cmake 非 MSVC 分支加)
+2. `H3WriterBase.h` 基类 EnumIndexedArray writeData 与派生类 H3MWriter 同名重载在 GCC 下二义 → 删基类版 (H3MWriter.h 版保留)
+3. `ObjectPropertiesVariant.h` consteval static 成员在类内 alias 默认实参 "used before its definition" → 改 Detail_NS 命名空间 `inline constexpr` 变量模板 `kObjectPropertiesIsInline<T>` (MSVC/Clang 接受原写法, GCC 不接受 complete-class context)
+
+### Roundtrip 验证矩阵
+
+| 图 | 格式 | 结果 |
+|---|---|---|
+| doc/tutorial/test_map.h3m | SoD | PASS (13.9KB raw) |
+| terrain_sprites_cheatsheet.h3m | SoD | PASS (20.4KB) |
+| river_sprites_cheatsheet.h3m | SoD | PASS (2.4KB) |
+| A Viking We Shall Go.h3m (真实对战图 144x144) | AB | PASS (46KB gz) |
+
+**JSON 侧二次转换稳定** (rt1.json → rt1.h3m → rt2.json, 两 JSON 逐字节一致)。
+
+### 已知边界
+
+- 只支持 AB/SoD 格式; **ROE 图直接拒** (`H3MReader: invalid MapFormat`) — P10 选图 "Knee Deep in the Dead.h3m" 是 ROE (format byte=0), **不可用 h3mtxt 改写**, 需换 SoD/AB 图或先用 h3m_tool 升格式
+- 输出 JSON 带非标准 `//` 注释 (非严格 JSON), Python 侧解析需 `json5` 或正则剥注释
+- MSYS 路径坑: exe 收 `/c/...` 路径 "Failed to open", 必须 `MSYS_NO_PATHCONV=1` + `C:/...` 原生路径
+- 构建慢: 866 目标, LTO 全程 ~40min (O3+flto), 增量改 3 头文件触发大范围重编
+
+### P10-C 管线定型
+
+```
+h3mtxt map.h3m map.json          # 1. 二进制→JSON (tool: tools/h3mtxt/build/src/h3mtxt/h3mtxt.exe)
+python rewrite (删城/封路/减守卫)  # 2. JSON 层改写 (先 json5.load 或剥 // 注释)
+h3mtxt map_new.json map_new.h3m  # 3. JSON→二进制
+h3m2vmap --check-h3m map_new.h3m # 4. 引擎校验 (既有 B1 转换器链)
+```
+
 ## PpoModelAI teal 卡死修复 + VCMI 新 API 迁移 (09-11, ppomodelai/ C++ 批)
 
 ### 背景

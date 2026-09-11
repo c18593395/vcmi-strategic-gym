@@ -507,3 +507,14 @@
 - **正确口径**: v5 动作 0-7 移动为 **N-start CW**：0=N..7=NW，`DIR_DX={0,1,1,1,0,-1,-1,-1}` / `DIR_DY={-1,-1,0,1,1,1,0,-1}`。实机铁证：action=5 → moveHero 请求 (10,65)→(9,66) 即 dx=-1,dy=+1 = SW，严格吻合；P2 (105,100)→(104,101)、P6 (67,34)→(66,35) 同向验证。action=7(NW) 对不可达目标被 server 正确拒绝（非 bug）。
 - **复现/验证**: 任何实机 action 流对照该表逐一验坐标即可；PPoModelAI.cpp 本地 tile 判定同表。
 - **关联**: #191（anchor↔visitable 双坐标）/ 知识库 "mq 模型部署线闭环" 章 / `ppomodelai/src/PpoModelAI.cpp`。
+
+#### #196 h3mtxt (alexanderbelous/h3mtxt) mingw GCC 编译三连坑 (2026-09-11) — ✅ 已解决 (3 源码补丁)
+- **状态**: ✅ 已解决; roundtrip 4 图全 PASS
+- **背景**: P10-C 备料, Windows mingw64 (GCC 16.2, Ninja, O3+flto) 构建 h3mtxt, 上游只测 MSVC → 编不过, 逐个修。
+- **坑 1 - partial specialization after instantiation**: `H3JsonReaderBase.h` EnumBitmask 模板特化在某些 TU 内晚于隐式实例化 → GCC 硬错误 (MSVC -fpermissive 档)。修: 非 MSVC 分支加 `-fpermissive` (`cmake/h3mtxt_common.cmake`)。
+- **坑 2 - 基类/派生类同名模板重载二义**: `H3WriterBase::writeData(EnumIndexedArray<...>)` 与 `H3MWriter::writeData(EnumIndexedArray<...>)` — GCC 派生类名字查找把 base 版与 derived 版判二义 (MSVC/Clang 选精确匹配)。修: 删基类版, 保留 H3MWriter 版。
+- **坑 3 - consteval 静态成员类内前向使用**: `ObjectPropertiesVariant::isInline<T>()` 在类内 `std::conditional_t<isInline<T>(),...>` — GCC "used before its definition" (complete-class context 不覆盖 alias 默认实参)。修: 改命名空间级 `inline constexpr` 变量模板 (`Detail_NS::kObjectPropertiesIsInline<T>`), 类内 static_assert 同步换。
+- **口径**: 三坑共同模式 = **GCC 对类内模板实参推导中的成员模板/consteval 前向引用比 MSVC 严**, 上游 MSVC-only 项目跨编译器先预期此类错误; 修复优先级 = 命名空间变量模板 > -fpermissive > 删冗余重载。
+- **附带坑**: ① exe 不吃 `/c/...` MSYS 路径 → `MSYS_NO_PATHCONV=1` + `C:/...` ② ROE 图拒读 (仅 AB/SoD) ③ 输出 JSON 带 `//` 注释非严格 JSON, Python 解析需 json5 或剥注释 ④ 构建慢 (866 目标 LTO ~40min)。
+- **复现/验证**: `tools/h3mtxt/build/src/h3mtxt/h3mtxt.exe`; roundtrip 判据 = gzip 解压后 raw 逐字节一致 (gzip 头 mtime 差异忽略)。
+- **关联**: 知识库 "P10-C 备料" 章 / #193 (mingw PATH 前置) / P10。
