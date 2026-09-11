@@ -5,7 +5,7 @@ P8-B 阶段2 方案E — Python 先连当 host (常驻), client1 guest 装地图
 """
 import sys, os, time, uuid as uuidlib, subprocess, threading
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected

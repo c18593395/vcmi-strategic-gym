@@ -4,10 +4,11 @@ P8-B 第 2 步 — 握手 + LobbyUpdateState 完整解析
 验证: LobbyClientAccepted → 收 LobbyUpdateState → _StartInfo/_LobbyState 全字段解码
 """
 import sys
+import os
 import time
 import uuid as uuidlib
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinaryDeserializer

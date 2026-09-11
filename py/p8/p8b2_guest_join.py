@@ -12,7 +12,7 @@ import time
 import uuid as uuidlib
 import subprocess
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinaryDeserializer

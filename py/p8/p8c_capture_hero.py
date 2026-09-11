@@ -6,7 +6,7 @@ P8-B 阶段3 数据源捕获 — 跑真实局, dump 英雄/位置相关包的原
 """
 import sys, os, time, uuid as uuidlib, subprocess, threading, struct
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected

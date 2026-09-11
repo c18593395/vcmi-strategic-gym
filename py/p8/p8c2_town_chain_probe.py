@@ -11,7 +11,7 @@ P8-C 阶段3-B: 城镇决策链探针 (A Warm and Familiar Place 图)
 """
 import sys, os, time, uuid as uuidlib, subprocess, threading, re
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected, MoveHero, EndTurn, BuildStructure, RecruitCreatures

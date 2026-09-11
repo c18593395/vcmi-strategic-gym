@@ -11,7 +11,7 @@ P8-C 阶段3 决策接入探针 — 在 P8-B 阶段2 (方案F) 基础上把"盲�
 """
 import sys, os, time, uuid as uuidlib, subprocess, threading, re
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected, MoveHero, EndTurn

@@ -5,7 +5,7 @@ P8-B 第一步 — Python 连真实 VCMI server, 完成 lobby 握手
 
 用法:
   1. 启动 server:  VCMI_server.exe --port=3030  (不要 --run-by-client)
-  2. 跑本脚本:     python py/p8b_lobby_probe.py
+  2. 跑本脚本:     python py/p8/p8b_lobby_probe.py
 
 预期: server 日志出现 "Connection with client 1 established"
 """
@@ -14,7 +14,7 @@ import os
 import time
 import uuid as uuidlib
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vcmi_protocol.connection import VCMITCPConnection
 from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer

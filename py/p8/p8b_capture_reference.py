@@ -6,17 +6,18 @@ P8-B 实验 2 — 假服务器: 捕获真实 VCMI client 发出的 LobbyClientCo
   3. 捕获客户端首包, 与 Python 生成的 LobbyClientConnected 逐字节对比
 """
 import sys
+import os
 import socket
 import struct
 import threading
 import time
 import subprocess
 
-sys.path.insert(0, 'D:/Bigdata/hero3_fresh/py')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 HOST = '0.0.0.0'
 PORT = 3030
-CAPTURE_FILE = 'D:/Bigdata/hero3_fresh/py/p8b_captured_firstpack.bin'
+CAPTURE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'p8b_captured_firstpack.bin')
 
 
 def recv_exact(sock, n):
