@@ -403,13 +403,22 @@
 ### 待归档新增
 
 #### #185 T13.10 Lobby/P8 前置完成但实机多人局未完成 (2026-09-11) — ✅ 已解决 (阶段1+2 实机 PASS)
-- **状态**: ✅ 已解决 — P8-B 阶段1 (lobby join, efb5b6b) + 阶段2 (完整对局 EndTurn 轮转, 407e8e5) 均实机 PASS
+- **状态**: ✅ 已解决 — P8-B 阶段1 (lobby join, efb5b6b) + 阶段2 (完整对局 EndTurn 轮转, 407e8e5 + 9cc08b9) 均实机 PASS
 - **背景**: T13 外挂 AI 协议客户端完成 `py/vcmi_protocol/`, 新增 Lobby 包解析与 P8-A 实机入口; 离线单测 `144 passed, 0 failed`。
 - **坑**: 离线解析通过 ≠ 真实 VCMI server 接受。Lobby 握手、玩家槽位、StartInfo/CMapInfo、跨客户端同步仍需实机抓包验证; 不能把 `LobbyUpdateState` 部分字段占位解析当作完成多人局。
 - **正确口径**: 完成的是 P8 前置: TCP/CPack/Query/ModelBridge/Lobby 基础包。未完成的是 P8-B/C: 实机启动 VCMI server/client, AI 与人类同局完成至少 1 局。
-- **解决**: 阶段1 假服务器捕获法对拍 BYTE-IDENTICAL 56B; 阶段2 方案F (Python host + LobbyChangeHost 让位 + guest SetMap + StartGame + EndTurn 轮转) 连续两回合 "successfully applied" + ModelAI 对手真实移动 + Turn 2 轮转零 Disaster。
-- **复现/验证**: `python py/p8be_host_start.py` (阶段2 完整对局); `python py/p8b_lobby_probe.py` (阶段1 握手)。
-- **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a` → `efb5b6b` → `407e8e5`。
+- **解决**: 阶段1 假服务器捕获法对拍 BYTE-IDENTICAL 56B; 阶段2 方案F (Python host + LobbyChangeHost 让位 + guest SetMap + StartGame + EndTurn 轮转)。阶段2 首轮虽表面 game_started=True，但 server 日志实锤 "not allowed/fishy" 拒绝（见 #200），真正 zero-fishy 全绿由 9cc08b9 达成。
+- **复现/验证**: `python py/p8be_host_start.py` (阶段2 完整对局, 跑完 grep server 日志 `not allowed|fishy` 应 = 0); `python py/p8b_lobby_probe.py` (阶段1 握手)。
+- **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a` → `efb5b6b` → `407e8e5` → `9cc08b9` / 踩坑 #200。
+
+#### #200 P8-B 阶段2 PlayerStartsTurn 字段序错 + 盲发 EndTurn 抢对方回合 → server fishy 拒绝 (2026-09-11) — ✅ 实锤修复
+- **状态**: ✅ 已修复 (commit 9cc08b9)
+- **背景**: P8-B 阶段2 首轮 `p8be_host_start.py` 表面 `RESULT: game_started=True`，但用户指出"没完成对局，运行就报错"。查 server 日志抓到实锤。
+- **坑① 字段序错**: `PlayerStartsTurn(88)` 的 Python 定义写成 `player + time_limit`，与 C++ `Query{queryID} + PlayerColor player` 字段序不符。C++ 权威结构 (PacksForClient.h): `serialize: h & queryID; h & player;`。实机字节 `88帧 = 00 00 d800 41 00` 逐字对上：isNull(00) + pid(00) + tid(88→d800) + queryID(-1→41) + player(0)。
+- **坑② 盲发抢回合**: 旧脚本在**每个** PlayerStartsTurn 都无条件发 EndTurn(player=0)，包括蓝方 (p1, ModelAI 客户端的回合)。蓝方回合被 Python 抢发 EndTurn → server 拒 "Player is not allowed to perform this action!" + "Got false in applying 7EndTurn... fishy!" + 2 条 SystemMessage。虽然 ModelAI 自己那轮正常走完、Turn 2 也轮转了，但日志里的 fishy 拒绝是真实错误信号，不算完成。
+- **正确口径**: PlayerStartsTurn 包体 = `queryID(LVarInt, 无 timer 时 -1) + player(LVarInt)`。只在 `pack.player == MY_COLOR`（自己的回合）才发 EndTurn；对方回合 SKIP，交给对方客户端（ModelAI）自主管理。EndTurn 绝不替对方回合发。
+- **修复**: `py/vcmi_protocol/packs.py` 重写 PlayerStartsTurn（queryID+player 字段序 + 覆写 deserialize）; `py/p8be_host_start.py` 解析 88 包体 player，加 `MY_COLOR=0` 门控; `tests/test_e2e.py` 断言 player/query_id。实机 grep `not allowed|fishy` = 0，Turn1→Turn2 两次 "successfully applied"，ModelAI 蓝方自主 TryMoveHero(40B)。离线 145/145 PASS。
+- **关联**: T13.10 / P8-B 阶段2 / 踩坑 #185 / `docs/序列化协议规格.md` / 提交 `9cc08b9` / 技能 `vcmi-network-protocol`。
 
 #### #186 vcmienv ERROR 日志级下 T06 终局双重失明：超时 forcing 零痕迹，9/10 判真实 game_over (2026-09-11) — ✅ 实锤（只读）
 - **状态**: ✅ 实锤（只读取证），探针已写待错窗执行
