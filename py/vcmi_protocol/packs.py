@@ -567,23 +567,28 @@ class TryMoveHero(CPackForClient):
 class PlayerStartsTurn(CPackForClient):
     """
     玩家开始回合 (Query) — typeID 88
-    客户端必须回复 QueryReply
+    C++ 结构 (PacksForClient.h): Query{queryID} + PlayerColor player
+      serialize: h & queryID; h & player;
+      queryID=-1 (INVALID) 表示无 timer query, 不应回复 QueryReply
+      (fork 无回合计时器时 server 发 -1, 实测 6B 帧 = 顶层3B + qid(1B) + player(1B) + 1B? 以实机为准)
     """
     type_id = 88
 
-    def __init__(self, time_limit: int = 0):
+    def __init__(self, player: int = 0, query_id: int = -1):
         super().__init__()
-        self.time_limit = time_limit  # seconds
+        self.player = player
+        self.query_id = query_id
 
     def serialize(self, ser):
-        super().serialize(ser)
-        ser.write_int(self.time_limit)
+        ser.write_int(self.query_id)
+        ser.write_int(self.player)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
-        base = CPackForClient.deserialize_base(deser)
-        base["time_limit"] = deser.read_int()
-        return base
+        # 覆写基类: 字段序 = queryID + player (非基类的 player 先行)
+        query_id = deser.read_int()
+        player = deser.read_int()
+        return {"query_id": query_id, "player": player}
 
 
 class PlayerEndsTurn(CPackForClient):

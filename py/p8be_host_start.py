@@ -11,6 +11,7 @@ from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected
 
 HOST='127.0.0.1'; PORT=3030; BIN=r'D:\vcmi-fork-build\bin'
+MY_COLOR = 0   # Python 占红方 (player color 0)；蓝方 = ModelAI 客户端自己管回合
 
 LOBBY_TIDS={216:'LobbyClientConnected',217:'LobbyClientDisconnected',218:'LobbyChatMessage',
             221:'LobbyLoadProgress',223:'LobbyPrepareStartGame',224:'LobbyStartGame',
@@ -70,9 +71,15 @@ class Probe:
             elif tid==224:
                 self.game_started = True
             elif tid==88:
-                self.turn_events.append('turn_start')
-                # 我们的回合 → 回 EndTurn (180): player+requestID LVarInt
-                self.send_end_turn()
+                # PlayerStartsTurn body = queryID(LVarInt) + player(LVarInt)
+                qid = d.read_int()
+                player = d.read_int()
+                self.turn_events.append(f'turn_start p{player}')
+                # 只在红方(0)回合发 EndTurn；蓝方(1)回合由 ModelAI 客户端自己管
+                if player == MY_COLOR:
+                    self.send_end_turn()
+                else:
+                    print(f'[SKIP] 非我回合 (p{player}), 不发 EndTurn')
             elif tid==116:
                 self.turn_events.append('new_turn')
 

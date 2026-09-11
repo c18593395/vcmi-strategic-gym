@@ -282,15 +282,16 @@ def test_client_packs():
         check("SystemMessage parse", result["class_name"] == "SystemMessage")
         check("SystemMessage msg", result.get("message") == "Hello world!")
 
-    # PlayerStartsTurn
-    pack = PlayerStartsTurn(time_limit=60)
+    # PlayerStartsTurn (C++: queryID + player, 非 time_limit)
+    pack = PlayerStartsTurn(player=0, query_id=-1)
     s = BinarySerializer()
     pack.serialize_full(s)
     data = s.get_bytes()
     result = parse_client_pack(data)
     if result:
         check("PlayerStartsTurn parse", result["class_name"] == "PlayerStartsTurn")
-        check("PlayerStartsTurn time_limit", result.get("time_limit") == 60)
+        check("PlayerStartsTurn player", result.get("player") == 0)
+        check("PlayerStartsTurn query_id", result.get("query_id") == -1)
 
     # BattleStart
     pack = BattleStart(bid=7)
