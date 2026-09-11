@@ -1273,3 +1273,26 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 
 ### 关联
 踩坑 #207（协议栈四层隐性缺陷）/ #208（Query 分支吞 PlayerStartsTurn）/ #201（system 级 unit 运维）/ 任务清单 T13.10 P8-C 完成回写 / `py/vcmi_protocol/` 包。
+
+---
+
+## 09-12 TOWNSTALL 平台段误判 + 训练日志健康度快照
+
+### 结论（截至 2026-09-12，日志分析实锤）
+
+**TOWNSTALL 误判根因**
+- `ep_runner_one.py` L877 `if cur_dist >= move_stall_prev:` 把路径平台段（BFS `plen` 横向移动时步数持平）误判为"停滞"，6 步累积后触发 `TOWN_BLOCKED` 禁用城镇引导
+- L887 副作用：`move_stall == 1` 时 `dyn_blocked.add((bx, by))` 把**可通行格**加入黑名单（passability mask 全 1 仍判 stall），放大误判
+- 全 log 统计：`TOWNSTALL` 3817 次 / `TOWN_BLOCKED` 460 次；局仍正常完成，仅损失 `town_visited` 约 +30/局
+- 修复方案：L877 `>=` 改 `>`，只惩罚"进度变差"，允许"进度持平"；**需 stop/restart 重启窗实施，与 checkpoint 同窗**
+- 详见踩坑 #209
+
+**训练日志健康度快照（step=641793，09-12）**
+- 服务 active，step 640489→641793 正常推进
+- T05/T06 局 r=142~255，全 err=no
+- 出现 TOWN_CAPTURE 击杀蓝英雄 3 个（1v7 优势扩大信号）
+- 大额负奖励属 T04 历史遗留（86%），非新增故障
+- 明细日志无 ZOMBIE/ENDTURN_FUSE，训练健康，无需干预
+
+### 关联
+踩坑 #209（TOWNSTALL `>=` 误判根因）/ 任务清单 L107「TOWNSTALL 引导可达性」行 / `ep_runner_one.py` L872-898。
