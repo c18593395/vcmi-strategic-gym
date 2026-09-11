@@ -263,7 +263,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #174，下一条为 #175…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #195，下一条为 #196…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -461,3 +461,25 @@
 - **坑②**: `exports.def` 要求 `GetAiName`/`GetNewAI` 但源码缺失 → 链接失败；参照 `AI/MMAI/main.cpp` 约定在 `PpoModelAI.cpp` 尾部补齐（`__GNUC__` 下需 `strcpy_s` 兼容宏）。
 - **坑③**: 插件 `logAi` 输出在 client log 中**零命中**（teal 卡死时无 from-turn 内进度可观测）；取证只能靠 stderr 直出（`AI_TRACE` 宏：`fprintf(stderr)` + `fflush`，配合客户端 stderr 管道）。
 - **关联**: #189-#191 / 知识库 "PpoModelAI teal 卡死修复" 章。
+
+#### #193 构建树 ninja 静默失败：终端 PATH 缺 mingw64\bin → cc1plus DLL_NOT_FOUND 零输出 (2026-09-11) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（gui12 修复重编期），规避法已固化
+- **背景**: 修 `client/CPlayerInterface.cpp` 后在 Trae 终端跑 `ninja`，`Building CXX object` 步 `FAILED: [code=1]` 但 **c++ 编译器零 diagnostic 输出**，稳定复现。
+- **坑**: 新开终端 PATH 无 `C:\msys64\mingw64\bin` → g++ 驱动 spawn `cc1plus.exe` 时其依赖 DLL（libgmp/libmpfr/libisl/libzstd 等）找不到 → `0xC0000135 (STATUS_DLL_NOT_FOUND)` → 驱动**不打印任何错误**直接 exit 1。表现为"编译失败但无错误信息"，极易误判成源码/编码问题。链接期另一表现：`ld.exe: cannot open output file bin\VCMI_client.exe: Permission denied` = 游戏进程未退占用 exe（先杀 VCMI_client 再编）。
+- **正确口径**: 编构建树前先 `$env:Path = 'C:\msys64\mingw64\bin;' + $env:Path`；ninja 用绝对路径 `C:\msys64\mingw64\bin\ninja.exe`（不在 PATH）。排查口诀：编译 FAILED 无输出 → 手动跑 `cc1plus.exe --version` 看 exit 是否 `-1073741515`。**另**: 任何 CMake re-run 会重新生成 build.ninja 并复活 `$<LINK_ONLY>` 转义坑（PowerShell 正则替换 9 处 → `-l` 形式），改 cpp 不触发、改 CMakeLists 必触发。
+- **关联**: #192 / `D:\vcmi-fork-build\build.ninja`。
+
+#### #194 VCMI fork settings 键路径错：combatAlliedAI 读 server 段 → 空 dll 名 → runNetwork 线程死亡全局卡死 (2026-09-11, gui11 实测) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（client 日志铁证），修复已落未 commit
+- **背景**: 用户开 quickCombat 攻击野怪守卫 → 战斗开始瞬间全局冻结（AI 无新回合、client 进程存活、无 crash dump）。
+- **坑**: `client/CPlayerInterface.cpp:1874` 写 `settings["server"]["combatAlliedAI"]`，但 schema（`config/schemas/settings.json`）定义在 **`ai` 段**（默认 "BattleAI"，全库其余 6 处引用均为 `settings["ai"][...]`）→ 恒返回空串。用户 `adventure.quickCombat=true` 时 `battleStart` → `prepareAutoFightingAI` → `getNewBattleAI("")` → 尝试加载 `.\AI\.dll`（**空库名**）→ throw → 异常沿包 apply 链传播到 **runNetwork 收包线程 → 线程终止** → client 不再收发任何包 → 全局卡死（runServer 线程还活着等 query 回复，永不超时）。
+- **正确口径**: 键路径改 `settings["ai"]["combatAlliedAI"]`。取证口诀：**战斗开始后冻结，先查 client 日志 `Cannot open dynamic library` / `thread terminated by exception`**（`VCMI_Client_log.txt`，比 stderr 关键行更直接）；`[runServer]` 标签说明单进程模式（server 为内嵌线程，无独立 VCMI_server.exe 进程可查）。
+- **关联**: #193 / `vcmi/config/schemas/settings.json` ai 段 / gui13 实测战斗 7s 闭环 + 多轮推进正常。
+
+#### #195 transient unit 第三次复现：v5 停止后 `systemctl start` 报 "Unit not found"，重启必须 `py/restart_train_v5.sh` systemd-run 重建 (2026-09-11) — ⚠️ 三次复现 + 口径固化
+- **状态**: ⚠️ 三次复现（09-06 首踩 / 09-08 二次 / 09-11 本条），规避口径已固化
+- **背景**: 09-11 C 方案部署停训窗，优雅停 `systemctl --user stop homm3-train-v5` 后直接 `systemctl --user start` 想重启 → exit 5 "Unit not found"；排查确认 WSL systemd user manager 无持久单元目录（`/home/administrator/.config/systemd/user` 与 `/etc/systemd/user` 均不存在，仅单一用户 administrator uid 1000）。
+- **坑**: v5 由 `systemd-run --user --collect --unit=homm3-train-v5` 创建，`--collect` 使 stop 后单元定义被自动清除，单元即消失；且 `is-active` 对已消失单元照样输出 `inactive`（exit 4）→ **不能作为单元存在性判据**，极易误判为"服务停了 start 一下即可"。
+- **正确口径**: 重启 v5 一律 `py/restart_train_v5.sh`（内部 systemd-run 重建；venv 必须绝对路径 `/home/administrator/vcmi-workspace/venv/bin/python` — hero3_fresh 目录下无 venv）；重启前用 `train_loop.log` 尾部 `Saved STATE_PATH` + journalctl 确认停机完成，勿靠 `is-active`。Windows 侧 keepalive（`wsl.exe sleep infinity`，09-11 实查 4 进程常驻）防 idle shutdown 需同时保住。
+- **复现/验证**: 本条执行链 — 重建后 unit `active`、主进程+ep_runner 双进程在位、`Loaded train state (model+optimizer, step=629167)` 无缝续训、`grep -c '_t06_hero_kill_capture' ep_runner_one.py` = 3 确认 C 方案代码在位。
+- **关联**: #168（transient unit 二次复现）/ #114（Windows keepalive）/ `py/restart_train_v5.sh` / `py/check_v5_state.sh`、`py/verify_v5_restart.sh`。

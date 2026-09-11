@@ -407,6 +407,7 @@ try:
     # 蓝英雄 id 消失 = 击杀/移除事件。1v3 结案战斗质量指标①数据源。
     # 双写: print → hermes_ep (逐局覆盖) + 追加 battle_quality_events.log (持久, check_duel_watch.py 读)
     bhero_ids_prev = None    # 上一步 blue 英雄 id 集合
+    _t06_hero_kill_capture = False  # C 方案 (09-11): T06 duel 蓝英雄死亡 = capture proxy (每局一次)
     BHERO_EV_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
     recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
@@ -936,6 +937,25 @@ try:
                     _bf.write(_diag + "\n")
             except Exception:
                 pass
+        # C 方案 (09-11): T06 duel 蓝英雄死亡 = capture proxy
+        # duel(1v1) 蓝英雄一死 → game_over 当步 end → 英雄不可能再走到城格,
+        # 原 TOWN_CAPTURE (owner 翻转 L1012) 结构性死信 → 蓝英雄击杀事件替代
+        if (args.mapname.startswith('T06') and '_duel' in args.mapname
+                and bhero_ids_prev is not None and not _t06_hero_kill_capture):
+            _killed = bhero_ids_prev - _bnow
+            if _killed:
+                _t06_hero_kill_capture = True
+                r += 100.0
+                if guard_done_countdown is not None:
+                    guard_done_countdown = args.guard_done_steps
+                _tc_msg = (f"[TOWN_CAPTURE] map={args.mapname} blue_hero_killed={sorted(_killed)} "
+                           f"at step {traj['steps']} +100 (C: hero-kill proxy)")
+                print(_tc_msg, flush=True)
+                try:
+                    with open(BHERO_EV_LOG, "a") as _bf2:
+                        _bf2.write(_tc_msg + "\n")
+                except Exception:
+                    pass
         if _bnow:
             if bhero_ids_prev is None:
                 bhero_ids_prev = _bnow

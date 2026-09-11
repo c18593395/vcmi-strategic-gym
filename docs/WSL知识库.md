@@ -1018,6 +1018,37 @@ Windows 端 PpoModelAI 插件（`ppomodelai/src/`, 256 维 ONNX obs, 训练侧 3
 - **现状**: 源码已 commit (`0aa2047`); **DLL 重编 + 部署已确证 (09-11)**: `ppomodelai/build/ModelAI.dll` mtime 04:39:17 晚于全部源文件 (03:15~04:20), 二进制标记 4/4 命中 (`ONNX singleton session created` / `yourTurn enter` / `dest rejected by tile check` / `GetNewAI`); 部署副本 `D:/vcmi-fork-build/bin/AI/ModelAI.dll` 同大小 4647678 B + 同时间戳; 旧版备份 `backup_0911_lib/ModelAI_v4_552350.dll`。
 - **与训练 v5 关系**: 零。训练栈走 `vcmi_gym` strategic_env + `libmlclient.so`（WSL），不链接 PpoModelAI.dll（Windows 客户端插件），本批不影响在训进程。
 
+## T06 duel 蓝英雄死亡 = capture proxy（C 方案，09-11 停训窗上线，首局 PASS）
+
+### 背景与根因
+
+09-08 上线的 capture +100 激励（仅 T06 双图）采用原始口径 = 蓝城 owner 翻转（TOWN_CAPTURE 事件）。但 duel 图（`T06_adventure_72X72_01_duel.vmap`）上蓝英雄唯一且一死即 game_over 终局 → 蓝英雄不可能再到达蓝城 (69,69) → **owner 翻转式 capture 在 duel 图结构性死信**：红方消灭蓝英雄（duel 上实际的"等效占城"事件）拿不到 +100 capture 激励。1v3 图（72X72_01，3 蓝英雄 / 3 蓝城）无此结构问题，原始口径天然可用（c2 确认）。
+
+### C 方案设计（用户拍板 09-11，A/B/C/D 四方向选 C）
+
+- **激励**: duel 图上"消灭蓝英雄" = capture proxy，+100（与原始 TOWN_CAPTURE 同额），限定 T06 `_duel` 图，每局最多一次。
+- **实现（ep_runner_one.py 两处）**:
+  - L410: `_t06_hero_kill_capture` 标志（开局置位复位，触发后置位保证"每局一次"）。
+  - L940-958: proxy 块插入点 = 空拍诊断与 `if _bnow:` BHERO_KILL 分支之间 — `_killed = bhero_ids_prev - _bnow`（蓝英雄 id 差集，**在 prev 更新前计算**），非空且 duel 限定 → +100 + `battle_quality_events.log` 落 `[TOWN_CAPTURE] ...(C: hero-kill proxy)` 记录。
+- **无双记**: 蓝英雄全灭时 `_bnow` 为空走空拍分支，击杀事件只落 TOWN_CAPTURE(proxy) 标签，不再双记 BHERO_KILL。
+- **零扰动**: 1v3 图不进 proxy 分支；监控脚本 `py/check_duel_watch.py` 零改动；OBS(3464)/动作空间零触碰（纯 ep_runner 注释层）。
+
+### 部署过程（09-11 停训窗）
+
+1. `systemctl --user stop homm3-train-v5` 优雅停（尾部 `Saved STATE_PATH step=629167`）→ 清 `__pycache__`。
+2. **重启踩坑**: v5 为 transient unit（`--collect`），stop 后单元定义被清除，`systemctl start` 报 "Unit not found"（踩坑 #195，#168 三次复现）→ 改走 `py/restart_train_v5.sh`（systemd-run 重建，venv 必须绝对路径 `/home/administrator/vcmi-workspace/venv/bin/python`）→ `active`。
+3. 在位验证: `grep -c '_t06_hero_kill_capture' ep_runner_one.py` = 3（C 方案代码在位）。
+
+### 首局验证数据（PASS）
+
+- `battle_quality_events.log` 首条: `[TOWN_CAPTURE] map=T06_adventure_72X72_01_duel.vmap blue_hero_killed=[1] at step 95 +100 (C: hero-kill proxy)`。
+- BHERO_KILL 分布（同期）: T05_52X52_01 ×4 / T06 1v3 ×3 / T05_52X52_02 ×1 / T05_36X36_01 ×1；TOWN_CAPTURE 当前仅 duel proxy 1 条（1v3 原始 owner 翻转 capture 尚未发生，正常）。
+- 训练健康: `Loaded train state (model+optimizer, step=629167)` 无缝续训 → 已跑 step 629638 avg_r=2.1；T06 1v3 局 r=156.53 steps=114、T05_mir r=157.38；`monitor_alerts.log` 不存在 = 零告警；`[ZOMBIE] hero dead (all-blocked x2)` 高频出现为红英雄全灭熔断既有行为（非新问题）。
+
+### 后续动作
+
+攒 ~40 局（C 方案上线后）聚合活跃任务 1 观察五判据（[TOWN_CAPTURE] 非零 / 守卫胜 ≥80% / avg_r 跌幅 <20% / 自发经济 ≥80% / 200 步局 ≤20%，r 基线 141.3）；达标后按错窗纪律走 72X72_02_duel 地图轴。
+
 ### 关联
 
 踩坑 #189-#192 / 知识库 "VCMI 对象坐标体系: anchor↔visitable 双坐标系 (09-10)" 章 / 任务清单 P7。
