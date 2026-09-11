@@ -483,3 +483,27 @@
 - **正确口径**: 重启 v5 一律 `py/restart_train_v5.sh`（内部 systemd-run 重建；venv 必须绝对路径 `/home/administrator/vcmi-workspace/venv/bin/python` — hero3_fresh 目录下无 venv）；重启前用 `train_loop.log` 尾部 `Saved STATE_PATH` + journalctl 确认停机完成，勿靠 `is-active`。Windows 侧 keepalive（`wsl.exe sleep infinity`，09-11 实查 4 进程常驻）防 idle shutdown 需同时保住。
 - **复现/验证**: 本条执行链 — 重建后 unit `active`、主进程+ep_runner 双进程在位、`Loaded train state (model+optimizer, step=629167)` 无缝续训、`grep -c '_t06_hero_kill_capture' ep_runner_one.py` = 3 确认 C 方案代码在位。
 - **关联**: #168（transient unit 二次复现）/ #114（Windows keepalive）/ `py/restart_train_v5.sh` / `py/check_v5_state.sh`、`py/verify_v5_restart.sh`。
+
+#### #196 policy logits 平坦 → argmax 恒定单动作：部署推理必须 softmax 采样与训练一致 (2026-09-11, mq-4 实测) — ✅ 实锤 + 已修
+- **状态**: ✅ 实锤（onnx 探针 + 实机两局验证），采样版 dll 已部署
+- **背景**: mq-4 首次实机 1v7 验证，ModelAI v5 全链路通但三个 AI 动作恒 5/6 不动；最初误判旧 dll 未替换（logAi 格式相同是巧合），Grep 源码确认新代码在跑后转向模型本身。
+- **坑**: checkpoint 导出的 `rl_model_v5_0911.onnx` policy 头 logits 高度平坦 — `py/probe_onnx_action5.py` 全输入域（零 obs / 结构化 obs / 随机噪声×5 / 0~5 量级随机×3）argmax 恒 6，top1-top2 差仅 0.1~0.3，logit_std≈0.19 → **argmax 退化为常数函数**；而训练侧采样动作多样（act=[0,17,18,16...3,3,3]）。对比实锤：训练采样多样 ≠ argmax 单峰，同一权重两种决策模式行为天差地别。
+- **正确口径**: PPO 部署推理必须按 softmax 概率采样（temperature=1.0）与训练一致，argmax 只适合评估/对拍。实现（`ModelInference.cpp` predict 尾部）：maxLogit 减去防 exp 溢出 → double probs 累加 → `static std::mt19937 rng{std::random_device{}()}` + uniform_real_distribution 轮盘减法采样；sum≤0 或输出异常兜底 return 10（END_TURN）。
+- **复现/验证**: 采样版 dll 二次实机 PASS — turn1=[5,7,5,7,5,5,7] turn2=[7,7,5,5,5,7,5] turn3=[5,5,7,7,7,5,5]，moveHero 真实执行且方向语义吻合（见 #198），day1→4 无卡死。训练 logits 拉开差距后换新 onnx，部署侧零改码。
+- **关联**: #189（单例推理）/ 知识库 "mq 模型部署线闭环" 章 / `py/probe_onnx_action5.py` / `ppomodelai/src/ModelInference.cpp`。
+
+#### #197 AI_TRACE stderr 在 Windows GUI 子系统实机不可见：实机观测一律走 VCMI_Client_log.txt 的 logAi 通道 (2026-09-11, mq-4 实测) — ✅ 实锤
+- **状态**: ✅ 实锤（三次日志捕获空 + 对照组实锤）
+- **背景**: mq-4 取证尝试用 `AI_TRACE`（`fprintf(stderr)` + fflush，`[ModelAI p%d]` 前缀）经 stderr 管道捕获 AI 决策明细，filter 三次全空。
+- **坑**: `fprintf(stderr)` 在 Windows GUI 子系统（VCMI_client.exe）运行期**实机不可见**（仅启动阶段 MUTEX 噪音偶见）——与 #192 坑③"stderr 直出取证"结论冲突，实际那是 teal 卡死期 logAi 失明的特例，**正常期 logAi 通道可靠**，#192 坑③适用范围就此修正。
+- **正确口径**: 实机监控一律读 `C:\Users\Administrator\Documents\My Games\vcmi\logs\VCMI_Client_log.txt` 中 `PpoModelAI: ...` 行（logAiLogger 通道，`PpoModelAI.cpp` 403/447/578 行 yourTurn/action/obs 输出全量可靠可见）；stderr 管道只当启动期诊断用。
+- **复现/验证**: 采样版验证全程走 VCMI_Client_log.txt，7 AI "v5 model loaded successfully" + 动作流 + moveHero 请求坐标全部取到。
+- **关联**: #192（坑③修正）/ 知识库 "PpoModelAI teal 卡死修复" 章 / 知识库 "mq 模型部署线闭环" 章。
+
+#### #198 v5 动作方向表 N-start CW（0=N..7=NW）：5=SW=(-1,+1)，AAI.cpp E-start 旧表弃用 (2026-09-11, 实机坐标验证) — ✅ 实锤
+- **状态**: ✅ 实锤（moveHero 请求坐标三方吻合）
+- **背景**: 实机动作流验证方向语义，需确认 action→(dx,dy) 映射真实口径。
+- **坑**: AAI.cpp 52-55 行留有 E-start 顺时针旧方向表遗产，易误导映射排查；文档若写"5=W"之类旧语义会与实机行为矛盾。
+- **正确口径**: v5 动作 0-7 移动为 **N-start CW**：0=N..7=NW，`DIR_DX={0,1,1,1,0,-1,-1,-1}` / `DIR_DY={-1,-1,0,1,1,1,0,-1}`。实机铁证：action=5 → moveHero 请求 (10,65)→(9,66) 即 dx=-1,dy=+1 = SW，严格吻合；P2 (105,100)→(104,101)、P6 (67,34)→(66,35) 同向验证。action=7(NW) 对不可达目标被 server 正确拒绝（非 bug）。
+- **复现/验证**: 任何实机 action 流对照该表逐一验坐标即可；PPoModelAI.cpp 本地 tile 判定同表。
+- **关联**: #191（anchor↔visitable 双坐标）/ 知识库 "mq 模型部署线闭环" 章 / `ppomodelai/src/PpoModelAI.cpp`。

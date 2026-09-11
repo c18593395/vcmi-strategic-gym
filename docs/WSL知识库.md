@@ -1052,3 +1052,43 @@ Windows 端 PpoModelAI 插件（`ppomodelai/src/`, 256 维 ONNX obs, 训练侧 3
 ### 关联
 
 踩坑 #189-#192 / 知识库 "VCMI 对象坐标体系: anchor↔visitable 双坐标系 (09-10)" 章 / 任务清单 P7。
+
+## mq 模型部署线闭环：v5 全模型 C++ 实机对战底座 (09-11, ppomodelai/ + onnx 部署链)
+
+### 部署链架构（全链路通）
+
+checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍（maxdiff 1.4e-6）→ ModelAI C++ v5 适配全量落盘 → MinGW 直编部署 → 实机 1v7 验证 PASS。四层：
+
+1. **模型层**: opset 17，双输入接口 `Net.forward(obs[1,3464], terrain[1,4,21,21]) → actor_logits[1,25] + critic[1,1]`；模型路径 `ModelInference` 按名定位输入（"terrain" 子串匹配 + 其余为 obs）与 "actor" 输出，shape 防御（obs 3464 / terrain 4×21×21 不符即 fallback）。
+2. **推理层**: `ModelInference::instance()` 进程级单例（7 AI 共享，#189）+ intra 2/inter 1 线程池 + 输入名 std::string 深拷贝防悬垂（#190）+ **softmax 采样决策**（#196，temperature=1.0 与训练一致；argmax 因 logits 平坦已证伪）。
+3. **决策层**: `PpoModelAI` AAI 模式移植 — 25 动作（0-7 移动 N-start CW + 8 INTERACT + 9 NEXT_HERO + 10 END_TURN + 11-24 高层）+ 单步决策模式（无 query 堆积，yourTurn → 本地三重门 → move 或延迟 endTurn）+ anchor↔visitable 双坐标转换（#191）。
+4. **部署层**: `py/build_modelai.ps1` MinGW 直编（-std=gnu++20，3 源文件 + exports.def）→ `D:\vcmi-fork-build\bin\AI\ModelAI.dll`；dll 被运行中游戏锁定，部署前须先关游戏。
+
+### 关键诊断案例：action 恒定的三层排查（mq-4）
+
+- **表象**: 实机三 AI 动作恒 5/6，疑似"旧 dll 未替换"（logAi 行格式相同实为巧合性遗产——新代码保留了同格式 logAi 输出）。
+- **定位链**: Grep 源码确认新逻辑在跑 → 误判排除 → **onnx 直探**（`py/probe_onnx_action5.py`：绕过 C++ 直接喂 onnx，全输入域 argmax 恒 6 + top1-top2 差 0.1~0.3 + logit_std≈0.19）→ 实锤模型 logits 平坦，与部署链无关 → 修法：predict 尾部 argmax 改 softmax 采样（用户拍板 C 方案：采样+重启训练双管齐下）。
+- **方法论**: "换 dll 无效"不等于"dll 没换上"；**onnx 探针是切断 C++ 链路嫌疑的最快实锤手段**。
+
+### 日志观测通道矩阵（实机监控口径）
+
+| 通道 | 载体 | 实机可见性 | 用途 |
+| --- | --- | --- | --- |
+| logAi（logAiLogger） | `VCMI_Client_log.txt`（`C:\Users\Administrator\Documents\My Games\vcmi\logs\`） | **全量可靠** | 实机监控唯一主通道（`PpoModelAI: yourTurn/action` 行） |
+| AI_TRACE（fprintf stderr） | stderr 管道 | **运行期不可见**（仅启动期 MUTEX 噪音） | 弃用于实机（#197，修正 #192 坑③） |
+| server 侧 | client 日志 `[runServer]` 标签 | 单进程模式内嵌线程 | moveHero 拒绝/异常取证 |
+
+### 实机验证证据（二次验证 PASS）
+
+- 7 AI 玩家 "v5 model loaded successfully"；day1→4 连续推进无卡死。
+- 动作多样化: turn1=[5,7,5,7,5,5,7] turn2=[7,7,5,5,5,7,5] turn3=[5,5,7,7,7,5,5]（argmax 版恒 5/6 对比）。
+- moveHero 真实执行且方向语义严格吻合（#198）: P1 hero1932 (10,65)→(9,66)→(8,67)、P2 hero1931 (105,100)→(104,101)、P6 hero1927 (67,34)→(66,35)，action=5=SW=(-1,+1) 三方一致；action=7 不可达被 server 正确拒绝。
+
+### 训练侧联动与后续
+
+- 训练侧采样动作本就多样（act=[0,17,18,16...3,3,3]），平坦 logits 主要是部署 argmax 模式暴露的问题；C 方案（softmax 采样部署 + 续训观察 logits 拉开）双管齐下。
+- 训练 logits 拉开差距后重新导出 onnx 替换即可，部署代码零改动；训练状态 step=629830 续训中（restart_train_v5.sh 重建，#195）。
+
+### 关联
+
+踩坑 #189-#191 / #195-#198 / `ppomodelai/src/ModelInference.{h,cpp}`、`PpoModelAI.cpp` / `py/probe_onnx_action5.py`、`py/build_modelai.ps1` / 任务清单 P7/P8 头部 mq 增量。
