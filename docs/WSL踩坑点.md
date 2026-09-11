@@ -536,3 +536,20 @@
 - **处理**: 双层修复 ① Windows 侧常驻 keepalive `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList '--exec','sleep','infinity'` (有活跃会话 → 容器不关停; Windows 重启后需重起) ② system 级 enabled unit `homm3-train-v5` (/etc/systemd/system, User=administrator, StandardOutput=append 到 train_loop.log; `wsl -u root` 免密装, 容器冷启动时自动拉训练)。旧 `py/restart_train_v5.sh` (user 级 transient, 坑 #195/#168) **已废弃**。
 - **教训**: ① 验证训练存活 = `ps -o lstart,etime -C python` (PID 存活时长) + 日志 mtime 推进 + step 行出现, **`systemctl is-active` 会骗人** — 容器冷启动后 unit 自动拉起也显示 active, 但下一会话结束就死 ② 首局需 ~6-10min 才出第一条 step 行, "没日志"≠"没在跑", 要先分清 "进程被杀循环重启" (banner 反复出现) vs "首局未完" ③ container idle shutdown 与 VM idle shutdown 是两层, journal 关停序列 + boot_id + uptime 三件套联合定位 ④ git-bash 调 powershell 时 `$_` 会被 bash 吞掉 (Where-Object 全炸), 用 `tasklist /FI` 替代。
 - **关联**: #195 (transient unit 坑, 本坑为其真解) / #168 / 知识库 09-11 训练存活机制重构章 / 任务清单 L9 运维命令 / `.wslconfig` vmIdleTimeout=2147483647 (VM 层保险, 非本坑根修)。
+
+#### #202 P8-B ChangeHost 时序：必须在 guest 连入后才发，否则静默拒绝开局永卡 (2026-09-11, 捕获脚本首跑踩) — ✅ 实锤
+- **状态**: ✅ 已修 (p8c_capture_hero.py 同步 p8be 时序)
+- **现象**: `p8c_capture_hero.py` 首跑 60s 全空捕获——server 日志尾部 client1 反复发 `11LobbySetMap`(10+) + `14LobbySetPlayer`, 最后 "Connection lost", 游戏从未开局。
+- **根因**: 脚本在 `VCMI_client.exe` 刚 Popen 就发 LobbyChangeHost(225)→cid=2；但 client1 此时还没连上，cid=2 不存在 → server 静默拒绝。client1 随后以 guest 身份加入 → 其 host 侧 SetMap/SetPlayer 被 host-only 检查全部拒掉 (SetMap 静默丢, 见 #185 解法) → mi_loop 10s 超时空转 → 永不开局。
+- **正确口径**: ChangeHost 前必须确认目标 guest 已 join = 等到**第 2 个 LobbyUpdateState(226)** (p8be 的 `client2_seen`) 才发。同坑变体: 目标 cid 必须是实际存在的 connection ID。
+- **复现**: `python py/p8c_capture_hero.py` (已修, 正常开局); 旧症状 = 捕获脚本报 "捕获结束" 但零 [DUMP] 行 + server 日志 SetMap 刷屏。
+- **关联**: #185 (SetMap host-only) / T13.10 P8-B 阶段2 方案F / `py/p8be_host_start.py` 第 114-129 行时序范本。
+
+#### #203 P8-B 阶段3 (P8-C) 数据源墙：我的英雄 OI+位置只在 StartGame 171KB 全状态, 回合窗口无独立位置包 (2026-09-11, 捕获分析) — 🟡 已分析, 待决策
+- **状态**: 🟡 分析完成, 3 条路线待用户拍板
+- **实锤**: ① turn 窗口 server 只广播 88/102/116/86/84/91/109 等, **不**单独发 GiveHero/ChangeObjPos/NewObject 位置包 (171KB 之后的 8s 内零 hero 位置包) ② `MoveHero.hid` = 引擎运行时 ObjectInstanceID, ≠ h3m 静态 heroID → P10 h3mtxt 静态 JSON 拿不到 OI, 走不通 ③ server 日志只在英雄实际移动时打 "OI xxx start (x y z)", 挂机玩家无记录。
+- **结论**: Python 外挂要发真实 MoveHero, 必须从 StartGame(224) 的 `LobbyStartGame = StartInfo + CGameState(171KB)` 解析出 `CMap.heroesOnMap` / `CPlayerState.hero` OI + 坐标。CGameState 全量 Python 解析工程量大 (map 对象数组几百个 CGObjectInstance 模板 + 版本门控字段, 见 CGameState.h L196-225)。
+- **三条路线**: **R1 最小 CGameState 解析器** — 只挖到 heroesOnMap + hero OI 为止, 每包校验断言 (width=36/day=1), 工程中等, 收益=完整 MoveHero 闭环 **R2 降级最小闭环** — 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (不依赖地图状态, 城镇 OI 可从 SetAvailableCreatures 拿), MoveHero 留 R1 **R3 C++ headless client** — 直接复用 VCMI 序列化代码 (路径A), 工程量最大但零逆向风险。
+- **复现**: `python py/p8c_capture_hero.py` (dump 171KB → %LOCALAPPDATA%/Temp/p8c_startgame.bin, 离线分析入口)。
+- **关联**: T13.10 P8-B 阶段3 / 技能 vcmi-network-protocol 路径A/B/C / #185 / `docs/序列化协议规格.md` / C++ 结构: `PacksForLobby.h LobbyStartGame` + `CGameState.h L196` + `CMap.h heroesOnMap` + `StartInfo.h L169`。
+

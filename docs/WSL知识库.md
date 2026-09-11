@@ -965,10 +965,29 @@ VCMI_client.exe --testmap Maps/Twins.h3m --donotstartserver --serverport 3030 --
 
 要点:
 - SetMap 是 host-only 操作; guest 发被静默拒绝 → 必须先 ChangeHost 让位
+- **ChangeHost 时序 (踩坑 #202)**: 必须等目标 guest 已连入 (第 2 个 UpdateState) 再发; 对不存在的 cid 发 → server 静默拒绝 + guest 侧 SetMap 全拒 → 开局永卡。`p8be_host_start.py` L114-129 是正确时序范本。
 - LobbyChangeHost(225) 手工帧: `bytes([0, 0, 0xe1, 0x01, 0x02])` (isNull+pid+tid+newHost=2)
 - EndTurn(180) 帧: `isNull(0)+pid(0)+tid(180)+player(LVarInt 0)+requestID(LVarInt)`
-- 实机 PASS: 连续两回合 EndTurn "successfully applied" + ModelAI TryMoveHero + Turn 2 轮转 + 零 Disaster
-- 剩余: 阶段3 = obs/决策接入 (MoveHero/Recruit 替换 EndTurn) → P8-C 混人回合 → P8-D 跨机器
+- **PlayerStartsTurn(88) 帧 = `00 00 d800 41 00`** (isNull+pid+tid=88+queryID(-1=0x41)+player); 只在 `player==MY_COLOR` 时发 EndTurn, 对方回合 SKIP (踩坑 #200)
+- 实机 PASS: 连续两回合 EndTurn "successfully applied" + ModelAI TryMoveHero + Turn 2 轮转 + server zero fishy/not-allowed
+
+**P8-B 阶段3 (P8-C) 数据源墙 (09-11, 捕获分析, 踩坑 #203)**:
+
+Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实锤发现:
+- 英雄 OI+位置**只在** `LobbyStartGame(224)` 的 171KB 全状态里 (`LobbyStartGame = StartInfo + CGameState`); 之后回合窗口 server 不单独广播 GiveHero/ChangeObjPos 位置包
+- `MoveHero.hid` = 引擎运行时 ObjectInstanceID, ≠ h3m 静态 heroID → P10 h3mtxt 静态 JSON 拿不到, 走不通
+- server 日志只在英雄实际移动时打 "OI xxx start (x y z)", 挂机玩家无记录
+
+三条路线 (待决策):
+| 路线 | 内容 | 工程 | 收益 |
+|---|---|---|---|
+| R1 最小 CGameState 解析器 | Python 只挖到 `CMap.heroesOnMap` + hero OI 为止, 逐字段断言校验 (width=36/day=1) | 中 | 完整 MoveHero 闭环 |
+| R2 降级最小闭环 | 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (城镇 OI 从 SetAvailableCreatures 拿, 不依赖地图状态), MoveHero 留后 | 小 | 战略动作 2/3 打通 |
+| R3 C++ headless client | 路径A 直接复用 VCMI 序列化代码 | 大 | 零逆向风险 |
+
+离线分析入口: `python py/p8c_capture_hero.py` (dump 171KB → `%LOCALAPPDATA%\Temp\p8c_startgame.bin`)。
+
+- 剩余: 阶段3 路线拍板后实施 → P8-C 混人回合 → P8-D 跨机器
 
 #### 二、服务 P10 h3m2vmap 转换器 (中高价值)
 
