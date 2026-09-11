@@ -568,7 +568,15 @@
 - **教训**: ① 新增事件标签上线, 验证第一步是查 "当前窗口是否存在该事件的触发条件" (本例 = 有英雄死亡局吗), 再谈 grep 计数 ② 0 命中三义性: 未生效 / 生效但0触发 / 窗口错 — 必须用代码在位 + 窗口样本性质区分 ③ 全 log 统计必切窗 (#170 行号法), 跨 resume 计数无效 ④ 回退线 (接战率/avg_r) 有样本先验证, 事件判据无样本则挂起, 两者不混。
 - **关联**: #122/#129 (日志通道矩阵) / #170 (多 resume 切窗行号法) / #195 (C 方案 capture proxy, 本条正交) / 知识库 T7.4 章 / 方案 `docs/方案_T74_死亡惩罚_20260910.md` §5 观察判据。
 
-#### #204 P8-C 数据源墙第四路线 = SRV-DIAG server 侧注入, 免解析 171KB (2026-09-11, MoveHero 闭环实机 PASS) — ✅ 已实施
+#### #205 外部客户端发非法 entity 字符串可炸服 — retrievePack 未捕获 IdentifierResolutionException (2026-09-11, P8-C Recruit 测试踩出) — ✅ 已修
+- **状态**: ✅ 已修 (vcmi 1c3be8d030): `CVCMIServer::onPacketReceived` 对 `retrievePack` try/catch (`IdentifierResolutionException` + `std::exception`) → 丢弃恶意包并 log, 不再 Disaster。
+- **现象**: Python 外挂发 `RecruitCreatures(187)` 带 placeholder `crid="<ref510>"` → server "Disaster happened" 全服崩溃 (dump 落盘)。
+- **根因**: `EntityIdentifierWithEnum::serialize`(!saving) → `CreatureID::decode("<ref510>")` → `resolveIdentifier` 尾部 `throw IdentifierResolutionException` → 异常穿透 `GameConnection::retrievePack` 直达顶栈。任何 wire 内 entity-string 字段 (CreatureID/HeroTypeID/SpellID/BuildingID? BuildingID 是 StaticIdentifier LVarInt 除外) 都可被外部客户端用于炸服 — **联网对战安全漏洞**。
+- **坑中坑**: `SetAvailableCreatures(112)` 的 CreatureID 字符串带跨包去重 (负数 ref 引用 171KB StartGame 里首次写入的字面量), 外挂侧单包解析无法还原 → 招兵 crid 来源 = 新增 `[SRV-DIAG] TOWNAVAIL` (build 成功后 dump `town->creatures` 各级 jsonKey)。
+- **字段序修正 (同窗)**: `BuildingID` = `StaticIdentifierWithEnum` → wire LVarInt 数字 (非 string); `HeroTypeID` = `EntityIdentifier` → wire string jsonKey; `SetAvailableCreatures(112)` = tid + `vector<pair<ui32, vector<CreatureID>>>`。
+- **关联**: #206 (SRV-DIAG 路线) / `CVCMIServer.cpp onPacketReceived` / `EntityIdentifiers.cpp resolveIdentifier L171` / 脚本 `py/p8c2_town_chain_probe.py`。
+
+#### #206 P8-C 数据源墙第四路线 = SRV-DIAG server 侧注入, 免解析 171KB (2026-09-11, MoveHero 闭环实机 PASS) — ✅ 已实施
 - **状态**: ✅ 落地并实机验证 (vcmi commit bc3e124fa2 + 主仓 7967511)
 - **方案**: 不解析 StartGame blob, 改在 `CGameHandler::start` (`!resume` 分支) `fprintf(stderr, "[SRV-DIAG] HERO OI=%d owner=%d pos=%s", ..., hero->anchorPos().toString())` 逐英雄 dump → Python 外挂 tail server 日志拿运行时 OI+owner+锚点坐标。零逆向、零包解析、跨图通用。
 - **坑中坑 (字段序)**: `TryMoveHero(109)` wire 序 = **id + result + start(int3) + end(int3) + movePoints + fowRevealed(vector) + attackedFrom**, 非直觉 id+start+end+result; 读错会把 SUCCESS(1) 当 FAILED(0) (离线 test_e2e 两侧同错自洽通过, 实机 server trace 对拍才抓出, 与 #199 同型坑)。
