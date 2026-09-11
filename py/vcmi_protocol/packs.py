@@ -36,9 +36,14 @@ class CPackForServer:
         request_id = deser.read_int()
         return {"player": player, "request_id": request_id}
 
+    # 实机帧格式 (BinaryDeserializer::loadRawPointer, 0911 P8-B 实锤):
+    # 顶层包 = 指针序列化: isNull(1B) + pid(LVarInt) + tid(LVarInt) + 包数据
+    # 旧实现 write_uint16(type_id) 是错的 — server 端 deserializer 按 isNull+pid+tid 读
     def serialize_full(self, ser: BinarySerializer):
-        """完整序列化: [typeID: uint16] + 包数据"""
-        ser.write_uint16(self.type_id)
+        """完整序列化: [isNull:1B=0] [pid:LVarInt] [tid:LVarInt] + 包数据"""
+        ser.write_bool(False)      # isNull = false
+        ser.write_int(0)           # pid = 0 (首指针)
+        ser.write_int(self.type_id)  # tid = LVarInt
         self.serialize(ser)
 
     def to_bytes(self) -> bytes:
@@ -480,8 +485,11 @@ class CPackForClient:
         player = deser.read_int()
         return {"player": player}
 
+    # 实机帧格式同 CPackForServer: isNull(1B) + pid(LVarInt) + tid(LVarInt) + 数据
     def serialize_full(self, ser: BinarySerializer):
-        ser.write_uint16(self.type_id)
+        ser.write_bool(False)      # isNull = false
+        ser.write_int(0)           # pid = 0
+        ser.write_int(self.type_id)  # tid = LVarInt
         self.serialize(ser)
 
     def to_bytes(self) -> bytes:
@@ -940,8 +948,11 @@ class CPackForLobby:
     def serialize(self, ser):
         pass
 
+    # 实机帧格式同上: isNull(1B) + pid(LVarInt) + tid(LVarInt) + 数据
     def serialize_full(self, ser: BinarySerializer):
-        ser.write_uint16(self.type_id)
+        ser.write_bool(False)      # isNull = false
+        ser.write_int(0)           # pid = 0
+        ser.write_int(self.type_id)  # tid = LVarInt
         self.serialize(ser)
 
     def to_bytes(self) -> bytes:
@@ -958,13 +969,13 @@ class LobbyClientConnected(CPackForLobby):
     type_id = 216
 
     def __init__(self, uuid: str = "", names=None, mode: int = 0,
-                 client_id: int = 0, host_client_id: int = 0, version: int = 0):
+                 client_id: int = -1, host_client_id: int = -1, version: int = 905):
         self.uuid = uuid
         self.names = names or ["Hermes AI"]
         self.mode = mode          # EStartMode: NEW_GAME=0
-        self.client_id = client_id
-        self.host_client_id = host_client_id
-        self.version = version    # ESerializationVersion::CURRENT 通常 0
+        self.client_id = client_id      # GameConnectionID::INVALID=-1 (server 回填)
+        self.host_client_id = host_client_id  # 同上
+        self.version = version    # ESerializationVersion::CURRENT = CONTROL_LOSS_TRACKING = 905
 
     def serialize(self, ser):
         ser.write_string(self.uuid)
@@ -974,7 +985,9 @@ class LobbyClientConnected(CPackForLobby):
         ser.write_int(self.mode)
         ser.write_int(self.client_id)
         ser.write_int(self.host_client_id)
-        ser.write_int(self.version)
+        # version = ESerializationVersion 枚举 — C++ save(Version) 是 raw int32 (非 LVarInt)
+        # 0911 实机对拍: 官方 client 发 89 03 00 00 = raw int32 905 (CONTROL_LOSS_TRACKING)
+        ser.write_int32_raw(self.version)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
@@ -985,7 +998,7 @@ class LobbyClientConnected(CPackForLobby):
         out["mode"] = deser.read_int()
         out["client_id"] = deser.read_int()
         out["host_client_id"] = deser.read_int()
-        out["version"] = deser.read_int()
+        out["version"] = deser.read_int32_raw()  # raw int32, 非 LVarInt
         return out
 
 
@@ -1066,42 +1079,46 @@ class _PlayerSettings:
 
 
 class _StartInfo:
+    # fork StartInfo::serialize 实际字段序 (StartInfo.h):
+    # mode, difficulty, playerInfos(map), startTime, fileURI, simturnsInfo, turnTimerInfo,
+    # extraOptionsInfo, mapname, mapGenOptions(ptr), campState(ptr), ML mlconfig
+    # 0911 实机对拍 LobbyUpdateState 字节流校准
     @staticmethod
     def read(deser):
-        si = {
-            "mode": deser.read_int(),
-            "difficulty": deser.read_uint8(),
-            "playerInfos_count_next": True,
-            "startTime": deser.read_int(),
-            "fileURI": deser.read_string(),
-            "simturnsInfo": {
-                "requiredTurns": deser.read_int(),
-                "optionalTurns": deser.read_int(),
-                "allowHumanWithAI": deser.read_bool(),
-                "ignoreAlliedContacts": deser.read_bool(),
-            },
-            "turnTimerInfo": {
-                "minTurnTime": deser.read_int(),
-                "maxTurnTime": deser.read_int(),
-                "startWithMaxTurnTime": deser.read_bool(),
-            },
-            "extraOptionsInfo": {},
-            "mapname": deser.read_string(),
-            "hasMapGenOptions": deser.read_pointer_present(),
-            "hasCampState": deser.read_pointer_present(),
-        }
-        if si["hasMapGenOptions"]:
-            deser.read_int()
-            deser.read_uint16()
-        if si["hasCampState"]:
-            deser.read_int()
-            deser.read_uint16()
+        si = {}
+        si["mode"] = deser.read_int()
+        si["difficulty"] = deser.read_uint8()
         player_count = deser.read_int()
         player_infos = {}
         for _ in range(player_count):
             color = deser.read_int()
             player_infos[color] = _PlayerSettings.read(deser)
         si["playerInfos"] = player_infos
+        si["startTime"] = deser.read_int()
+        si["fileURI"] = deser.read_string()
+        si["simturnsInfo"] = {
+            "requiredTurns": deser.read_int(),
+            "optionalTurns": deser.read_int(),
+            "allowHumanWithAI": deser.read_bool(),
+            "ignoreAlliedContacts": deser.read_bool(),
+        }
+        si["turnTimerInfo"] = {
+            "minTurnTime": deser.read_int(),
+            "maxTurnTime": deser.read_int(),
+            "startWithMaxTurnTime": deser.read_bool(),
+        }
+        si["extraOptionsInfo"] = {}  # TODO: 实机抓包校准
+        si["mapname"] = deser.read_string()
+        has_mgo = deser.read_bool()
+        si["hasMapGenOptions"] = has_mgo
+        if has_mgo:
+            deser.read_int()
+            deser.read_uint16()
+        has_camp = deser.read_bool()
+        si["hasCampState"] = has_camp
+        if has_camp:
+            deser.read_int()
+            deser.read_uint16()
         return si
 
 
@@ -1125,7 +1142,7 @@ class _LobbyState:
             "mi": mi,
             "playerNames": player_names,
             "hostClientId": deser.read_int(),
-            "campaignMap": deser.read_string(),
+            "campaignMap": deser.read_int(),   # CampaignScenarioID enum → LVarInt (非 string)
             "campaignBonus": deser.read_int(),
         }
 

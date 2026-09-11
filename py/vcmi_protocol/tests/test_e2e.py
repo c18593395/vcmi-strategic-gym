@@ -145,9 +145,9 @@ def test_server_packs():
         pack.serialize_full(s)
         data = s.get_bytes()
 
-        # Parse back
-        d = BinaryDeserializer(data)
-        type_id = d.read_uint16()
+        # Parse back — 实机指针帧: isNull(1B) + pid(LVarInt) + tid(LVarInt) + data
+        result = parse_server_pack(data)
+        type_id = result["type_id"] if result else -1
 
         expected_tid = pack.type_id
         check(f"{name} typeID", type_id == expected_tid, f"got {type_id}, expected {expected_tid}")
@@ -155,6 +155,10 @@ def test_server_packs():
         # Check deserializer can read at least the base
         if pack.__class__ in [EndTurn, BuildStructure]:
             try:
+                d = BinaryDeserializer(data)
+                d.read_bool()   # isNull
+                d.read_int()    # pid
+                d.read_int()    # tid
                 player = d.read_int()
                 req_id = d.read_int()
                 check(f"{name} base", player == pack.player and req_id == pack.request_id,
@@ -164,6 +168,8 @@ def test_server_packs():
 
         # Verify no remaining data for simple packs
         if pack.__class__ == EndTurn:
+            d = BinaryDeserializer(data)
+            d.read_bool(); d.read_int(); d.read_int(); d.read_int(); d.read_int()
             check(f"{name} no extra", d.get_remaining() == 0, f"remaining={d.get_remaining()}")
 
 
@@ -174,7 +180,9 @@ def test_movehero_detailed():
     s = BinarySerializer()
     pack.serialize_full(s)
     d = BinaryDeserializer(s.get_bytes())
-    d.read_uint16()  # typeID
+    d.read_bool()    # isNull
+    d.read_int()     # pid
+    d.read_int()     # tid
     d.read_int()     # player
     d.read_int()     # request_id
     path_len = d.read_int()
@@ -186,7 +194,9 @@ def test_movehero_detailed():
     s = BinarySerializer()
     pack.serialize_full(s)
     d = BinaryDeserializer(s.get_bytes())
-    d.read_uint16()
+    d.read_bool()
+    d.read_int()
+    d.read_int()
     d.read_int()
     d.read_int()
     path_len = d.read_int()
@@ -344,9 +354,11 @@ def test_client_packs():
         check("TryMoveHero parse", result["class_name"] == "TryMoveHero")
         check("TryMoveHero reason", result.get("reason") == "Blocked by enemy")
 
-    # Unknown pack type
+    # Unknown pack type — 实机指针帧: isNull + pid + tid(9999)
     s = BinarySerializer()
-    s.write_uint16(9999)
+    s.write_bool(False)
+    s.write_int(0)
+    s.write_int(9999)
     s.write_int(0)
     data = s.get_bytes()
     result = parse_client_pack(data)

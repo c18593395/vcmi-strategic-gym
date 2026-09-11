@@ -27,11 +27,18 @@ from .packs import (
 def parse_client_pack(data: bytes) -> Optional[dict]:
     """
     解析服务器→客户端包
+    实机帧格式 (BinaryDeserializer::loadRawPointer):
+      isNull(1B) + pid(LVarInt) + tid(LVarInt) + 包数据
+    旧实现裸读 uint16 tid 是错的 — 会在指针头字节上错位
     返回 {type_id, class_name, data} 或 None
     """
     deser = BinaryDeserializer(data)
     try:
-        type_id = deser.read_uint16()
+        is_null = deser.read_bool()
+        if is_null:
+            return None
+        deser.read_int()  # pid — 跳过 (指针去重 ID)
+        type_id = deser.read_int()  # tid = LVarInt
     except (IndexError, struct.error):
         return None
 
@@ -53,10 +60,15 @@ def parse_client_pack(data: bytes) -> Optional[dict]:
 def parse_server_pack(data: bytes) -> Optional[dict]:
     """
     解析客户端→服务器包 (测试/调试用)
+    实机帧格式: isNull(1B) + pid(LVarInt) + tid(LVarInt) + 包数据
     """
     deser = BinaryDeserializer(data)
     try:
-        type_id = deser.read_uint16()
+        is_null = deser.read_bool()
+        if is_null:
+            return None
+        deser.read_int()  # pid — 跳过
+        type_id = deser.read_int()  # tid = LVarInt
     except (IndexError, struct.error):
         return None
 
