@@ -191,7 +191,7 @@ def run_episode(mapname, blue_model=None):
                 # 09-02+: [START_HOME]/[RECRUITED] (招兵四拍判据链 1/4 与 4/4 拍, ep 日志逐局覆盖防丢失)
                 # 09-10+: [EP_TIME] (局耗时打点 — 间歇性慢速 4-8s/步局 定量画像, 历史样本已丢失从此积累)
                 highlights = [l.rstrip("\n") for l in lines
-                              if any(k in l for k in ("[ZOMBIE]", "[ENDTURN_FUSE]", "[ERROR]", "[GUARD]",
+                              if any(k in l for k in ("[ZOMBIE]", "[HERO_DEATH]", "[ENDTURN_FUSE]", "[ERROR]", "[GUARD]",
                                                       "[MINE]", "[TOWN",
                                                       "[START_HOME]", "[RECRUITED]",
                                                       "[EP_TIME]",

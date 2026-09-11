@@ -122,6 +122,10 @@ parser.add_argument("--guard_done_steps", type=int, default=0,
                     help="守卫击杀自动终局 (2026-08-29): +100 守卫胜利后 N 步内未获取新目标 → 提前结束 episode (0=关闭)。治杀守卫后英雄存活长期振荡烧分, final r 跌破 80 晋级线")
 parser.add_argument("--objective_reward", type=float, default=0.0,
                     help="T04 目标引导 (2026-08-29): 首占矿/首进城镇各 +N 一次性事件奖励 (0=关闭)。T04 无守卫缺目标驱动源, 复用守卫 +100 同款模式")
+# T7.4 死亡惩罚 (09-11): 英雄死亡确认帧追加 death_penalty (默认 -50 试探档, 上限 -100 对称守卫, 0=关闭)。
+# 治"拿完奖励就送死"稳定剧本 (死亡局 r=+50~+93 vs 超时局 r=-18~-107, 死比活着结算更赚)。
+parser.add_argument("--death_penalty", type=float, default=-50.0,
+                    help="T7.4 死亡惩罚 (09-11): 英雄死亡 (zombie_streak>=2) 确认帧追加此惩罚, -50 试探 / -100 对称守卫 / 0=关闭")
 args = parser.parse_args()
 # 0909 T06 双死锁修复 (用户拍板): ① move_to_force →200 全程 — 蓝城引导天然在守卫胜后
 # (step 38-58+), 60 步强制窗外模型不采 24, 引导激活了也驱动不了模型; ② guard_done →0 —
@@ -407,7 +411,7 @@ try:
     # 蓝英雄 id 消失 = 击杀/移除事件。1v3 结案战斗质量指标①数据源。
     # 双写: print → hermes_ep (逐局覆盖) + 追加 battle_quality_events.log (持久, check_duel_watch.py 读)
     bhero_ids_prev = None    # 上一步 blue 英雄 id 集合
-    _t06_hero_kill_capture = False  # C 方案 (09-11): T06 duel 蓝英雄死亡 = capture proxy (每局一次)
+    _t06_hero_kill_capture = False  # C 方案 (09-11): 蓝英雄死亡 = capture proxy (全图, 每局一次)
     BHERO_EV_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
     recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
@@ -937,11 +941,11 @@ try:
                     _bf.write(_diag + "\n")
             except Exception:
                 pass
-        # C 方案 (09-11): T06 duel 蓝英雄死亡 = capture proxy
+        # C 方案 (09-11, 同日扩展全图): 蓝英雄死亡 = capture proxy (任意图)
         # duel(1v1) 蓝英雄一死 → game_over 当步 end → 英雄不可能再走到城格,
         # 原 TOWN_CAPTURE (owner 翻转 L1012) 结构性死信 → 蓝英雄击杀事件替代
-        if (args.mapname.startswith('T06') and '_duel' in args.mapname
-                and bhero_ids_prev is not None and not _t06_hero_kill_capture):
+        # 09-11 扩展 (用户拍板): 杀蓝英雄=capture proxy 全图生效, T06 duel 限定解除
+        if (bhero_ids_prev is not None and not _t06_hero_kill_capture):
             _killed = bhero_ids_prev - _bnow
             if _killed:
                 _t06_hero_kill_capture = True
@@ -1206,8 +1210,16 @@ try:
         # GAE 穿过死亡点 bootstrap, -700 冲击污染整条轨迹价值学习 (vloss 不降主因之一)
         zombie_streak = zombie_streak + 1 if zombie else 0
         if zombie_streak >= 2:
+            # T7.4 死亡惩罚 (09-11): 死亡确认帧追加 death_penalty (默认 -50, 上限 -100 对称守卫,
+            # argparse 可调含 0=关闭)。惩罚落在死亡帧, GAE 经 done=True 截断 bootstrap, 不污染后续。
+            # 全局生效 (不按图分支) — 死亡惩罚是完整激励轴, T04 无死亡局零扰动, 无需分支。
+            # 与 C 方案 (09-11) 蓝英雄死亡=capture proxy 正交: 蓝英雄死亡不影响红方存活, 互不干扰。
+            # 同帧双罚复核 (方案_T74 §6): capture proxy +100 (蓝英雄死) 与 death_penalty -50 (红英雄死)
+            # 落在不同帧/不同事件, 不存在同帧叠加; 红英雄全灭后蓝英雄已无 target, 不会再触发 capture。
+            r += args.death_penalty
+            traj["rewards"][-1] += args.death_penalty
             traj["done"][-1] = True
-            print(f"[ZOMBIE] hero dead (all-blocked x{zombie_streak}), end ep at step {traj['steps']}", flush=True)
+            print(f"[HERO_DEATH] penalty {args.death_penalty} [ZOMBIE] hero dead (all-blocked x{zombie_streak}), end ep at step {traj['steps']}", flush=True)
             break
         # 2026-08-28 BND-20260828-02: END_TURN 连喷 ≥30 独立兜底 (zombie 双保险)。
         # endturn_streak L425 对旁路直接赋值的 a=10 也会计数, 但 L215 的 logits mask 用不到
