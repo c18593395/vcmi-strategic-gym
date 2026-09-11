@@ -952,7 +952,7 @@ fork 1.8 无 `--loadserver/--loadplayer` 参数 (官方 develop 才有)。已验
 VCMI_server.exe --port=3030
 
 # 2. Python 先连当 host → 发 LobbyClientConnected(216)
-python py/p8be_host_start.py   # 自动完成后续全流程
+python py/p8/p8be_host_start.py   # 自动完成后续全流程
 
 # 3. 真实 client1 连入当 guest (脚本内自动启动):
 VCMI_client.exe --testmap Maps/Twins.h3m --donotstartserver --serverport 3030 --headless
@@ -985,7 +985,7 @@ Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实�
 | 阶段5 降级最小闭环 | 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (城镇 OI 从 SetAvailableCreatures 拿, 不依赖地图状态), MoveHero 留后 | 小 | 战略动作 2/3 打通 |
 | 阶段6 C++ headless client | 路径A 直接复用 VCMI 序列化代码 | 大 | 零逆向风险 |
 
-离线分析入口: `python py/p8c_capture_hero.py` (dump 171KB → `%LOCALAPPDATA%\Temp\p8c_startgame.bin`)。
+离线分析入口: `python py/p8/p8c_capture_hero.py` (dump 171KB → `%LOCALAPPDATA%\Temp\p8c_startgame.bin`)。
 
 **P8-C 首步 MoveHero 闭环 PASS (0911 晚, 踩坑 #206, 路线拍板 = SRV-DIAG 破数据源墙)**:
 
@@ -994,7 +994,7 @@ Python 外挂要发真实 MoveHero 需要 `hid`(英雄 OI) + 起始坐标。实�
 - pos 口径 = `anchorPos()` (MoveHero path 用锚点坐标, 每步须与当前位置 8 邻域相邻; heroes 1x1 anchor==visitable)
 - **踩坑 #206: TryMoveHero(109) 字段序 = id + result + start(int3) + end(int3) + movePoints + fowRevealed(vector) + attackedFrom**, 不是直觉的 id+start+end+result — 字段序读错会把 SUCCESS 解析成 FAILED (离线 test_e2e 两侧同错自洽通过, 实机对拍才抓出, 与 #199 同型)
 - 实机验证: red (1,8,0)→(2,7,0) 实移 (后续同格 = day1 MP 耗尽非拒绝) + blue ModelAI (16,1,1)→(15,0,1) 自主移动 + 三回合轮转 + `PackageApplied(MoveHero)=True` + zero fishy/not-allowed
-- 脚本: `py/p8c_movehero_probe.py` (方案F流程 + 日志 OI 解析 + 决策-移动-结束回合全链)
+- 脚本: `py/p8/p8c_movehero_probe.py` (方案F流程 + 日志 OI 解析 + 决策-移动-结束回合全链)
 
 - 剩余: 阶段3 扩展 RecruitCreatures(187)/QueryReply(197)/BuildStructure(185) (包栈已在, 缺游戏状态感知: 可招兵信息从 SetAvailableCreatures(100) 广播拿) → P8-C 混人回合 → P8-D 跨机器
 
@@ -1222,3 +1222,54 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 
 ### 关联
 方案 "docs/方案_T74_死亡惩罚_20260910.md"（设计稿，实装=本次）/ 踩坑 #195（C 方案 capture proxy，正交关系）/ #201（system 级 unit 运维）/ #204（T7.4 上线验证方法论）/ 任务清单「活跃任务 3」→ 转观察期 / 引擎侧 standardDefeat 判负根修 = 独立 C++ 课题（T7.4 落地后紧接立项，落地时复核 done 双路同帧双罚）。
+
+## 09-12 T13.10 P8-C 协议栈+双探针闭环（离线 Query/MoveHero + 在线 Query/MoveHero 全 PASS）
+
+### 阶段背景
+- 主线（T7 城镇经济 + T13.10 多人对战底座）在跑，P8-C 阶段补齐 **MoveHero 实战闭环 + QueryReply 实战闭环**。全部离线+实机验证，不干扰训练。
+- P8-B 方案 F 已交付：Python 先连当 host → 真实 guest client → Python 发 LobbyChangeHost 让位 → guest 发 SetMap → StartGame（离线 lobby 全通、实机 vcmiserver 握手通过）。
+
+### 四探针结果矩阵
+| 探针 | 载体 | 结果 | 关键指标 |
+|---|---|---|---|
+| **离线 Query** (`py/p8/p8c_query_probe.py`) | 127.0.0.1:0 mock server | 6/6 PASS | 覆盖 HeroLevelUp / BlockingDialog / GarrisonDialog / qid=-1 skip |
+| **离线 MoveHero** (`py/p8/p8c_movehero_offline_probe.py`) | 127.0.0.1:0 mock server | 6/6 PASS | 单/多点路径 + fow 条目数 + 拒绝包 + EndTurn + request_id 回显 |
+| **在线 Query** (`py/p8/p8c_query_probe_real.py`) | 实机 vcmiserver 3030 | PASS (qid=-1 only) | turns_act=14 turn_ends(102)=27 |
+| **在线 MoveHero** (`py/p8c_movehero_probe_real.py`) | 实机 vcmiserver 3030 | PASS | turns_act=4 move_accepted=9 move_failed=0 try_moves_total=12 bad_keywords=0 |
+
+**实机首解证据**：`oid=350 result=1 start=(1,8,0) end=(2,7,0) mp=1760 fow=14` — TryMoveHero 全字段实机首次完整解出。
+
+### 协议栈四层隐性缺陷（#207 记录）
+1. **QueryManager 层**：用 `type_id` 代替真实 `query_id`（首字段）派回复 → 错包。修复：`protocol.py` 在 `handle_query` 前从包首字段提取真实 qid。
+2. **三个 Query 派生类字段序错位**（HeroLevelUp / BlockingDialog / GarrisonDialog）：packs.py 原字段序与 VCMI `PacksForClient.h` 不匹配。修复：逐个按 wire 顺序覆写 `serialize/deserialize`。
+3. **parse_client_pack 扁平 vs 嵌套不一致**：单测手写 dict 掩盖了 wire 层 bug；生产返回 `{type_id, class_name, data:{...}, raw}` 嵌套结构，测试却直接读顶层字段 → 假绿。修复：测试用例改为读 `.data`，且新增 7 项 TryMoveHero wire 断言。
+4. **TryMoveHero 字段序**：从"占位 2 字段（source/destination/reason）"改为真 wire 字段序：`oid + result(0..5) + start(int3) + end(int3) + movePoints + fowRevealed(vector<int3>) + attackedFrom(int3)`。
+
+### Query 分支控制流教训（#208 记录）
+- **现象**：只收到 1 条 `PlayerStartsTurn qid=-1 (INVALID, 跳过回复)` 后 server 断开。
+- **根因**：`if tid in QueryManager.QUERY_TYPES: ... continue` 分支吞掉 tid=88，后续 `elif tid == 88: act_turn()` 兜底永不触发 → EndTurn 永不下发 → server 等回合结束超时踢连接。
+- **修复**：在 Query 分支内对 tid=88 做特殊处理，无论 qid 是否 -1 都触发 `act_turn`。
+- **教训**：①Query 分支不能只写"回复/跳过"两义；②实机是终极仲裁（离线全绿不代表实机跑通）；③qid=-1 语义 ≠ 整包可忽略（"非实际 query"≠"不需要动作响应"）。
+
+### 关键 wire 契约（PacksForClient.h 权威）
+- **顶层包帧**：`isNull(1B) + pid(LVarInt) + tid(LVarInt) + 数据`
+- **TCP 帧**：`uint32 length (little-endian) + payload`
+- **Query 派生类首字段恒为 queryID**：`struct DLL_LINKAGE Query : public CPackForClient { QueryID queryID; }` — 所有 Query 派生类首字段都是 queryID
+- **QueryID == -1**：NetPacksBase.h L47-50 明确"非实际 query, 不应回复"
+- **TryMoveHero result 枚举**：0=FAILED 1=SUCCESS 2=TELEPORT 3=BLOCKING_VISIT 4=EMBARK 5=DISEMBARK
+
+### 关键产物
+- `py/vcmi_protocol/packs.py` — TryMoveHero 真字段序 + 三 Query 派生类序列化覆写
+- `py/vcmi_protocol/protocol.py` — parse_client_pack/parse_server_pack 嵌套返回 + QueryManager 真 qid 提取 + qid=-1 skip
+- `py/vcmi_protocol/tests/test_e2e.py` — TryMoveHero 7 项 wire 断言（e2e 167/167 通过）
+- `py/p8c_movehero_offline_probe.py` — 新建，6/6 PASS
+- `py/p8c_movehero_probe_real.py` — 新建，实机 PASS
+- `py/p8/p8c_query_probe_real.py` — Query 分支特判 tid=88
+
+### 训练冲突纪律
+- **离线探针**（127.0.0.1:0 系统端口 + 纯 mock）：零冲突
+- **在线探针**（taskkill + 3030 端口）：必须停训练再跑
+- 本轮训练状态：`homm3-train-v5` systemd 单元当前未启（本轮探针执行时零冲突）
+
+### 关联
+踩坑 #207（协议栈四层隐性缺陷）/ #208（Query 分支吞 PlayerStartsTurn）/ #201（system 级 unit 运维）/ 任务清单 T13.10 P8-C 完成回写 / `py/vcmi_protocol/` 包。

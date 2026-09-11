@@ -47,11 +47,9 @@ def parse_client_pack(data: bytes) -> Optional[dict]:
         return {"type_id": type_id, "class_name": "UNKNOWN", "data": {}, "raw": data}
 
     try:
-        result = pack_class.deserialize(deser)
-        result["type_id"] = type_id
-        result["class_name"] = pack_class.__name__
-        result["raw"] = data
-        return result
+        data_dict = pack_class.deserialize(deser)
+        return {"type_id": type_id, "class_name": pack_class.__name__,
+                "data": data_dict, "raw": data}
     except Exception as e:
         return {"type_id": type_id, "class_name": pack_class.__name__,
                 "data": {"error": str(e)}, "raw": data}
@@ -77,10 +75,9 @@ def parse_server_pack(data: bytes) -> Optional[dict]:
         return {"type_id": type_id, "class_name": "UNKNOWN", "data": {}}
 
     try:
-        result = pack_class.deserialize(deser)
-        result["type_id"] = type_id
-        result["class_name"] = pack_class.__name__
-        return result
+        data_dict = pack_class.deserialize(deser)
+        return {"type_id": type_id, "class_name": pack_class.__name__,
+                "data": data_dict}
     except Exception as e:
         return {"type_id": type_id, "class_name": pack_class.__name__,
                 "data": {"error": str(e)}}
@@ -139,27 +136,34 @@ class QueryManager:
         """
         处理 Query, 返回 QueryReply 包
         send_fn: 发送函数 (pack) -> bool
+
+        官方语义 (NetPacksBase.h L47-50):
+          Query{queryID} 是所有 Query 派生包的首字段
+          queryID == -1 表示 "非实际 query, 不应回复"
+          典型: PlayerStartsTurn 无 turn timer 时 qid=-1
         """
         type_id = query_data.get("type_id", 0)
         query_name = query_data.get("class_name", "Unknown")
+        data = query_data.get("data", {}) or {}
 
-        # 从 Query 包中提取 qid
-        # 大部分 Query 包的 qid 在 base 中或通过特定字段
-        # PlayerStartsTurn: 无 qid 字段, 用 type_id 代替
-        # 但实际 VCMI 中 qid 是 QueryID, 在 QueryReply 中需要正确引用
+        # 从包数据中提取真实 QueryID — 所有 Query 派生类首字段都是 query_id
+        qid = data.get("query_id", -1)
 
-        # 从 raw data 提取 QueryID
-        # Query 包结构: [typeID: uint16] [base data] [specific fields]
-        # 对于需要回复的 Query, VCMI 会分配 QueryID
-
-        # 简化: 用 type_id 作为 qid (实际中 QueryID 由服务器分配)
-        qid = type_id
+        # qid == -1: VCMI 官方语义 = 无需回复 (INVALID)
+        if qid == -1:
+            print(f"[QUERY] {query_name}: qid=-1 (INVALID, 跳过回复)")
+            self.query_history.append({
+                "type_id": type_id, "name": query_name,
+                "qid": -1, "reply": None, "skipped": True,
+                "time": time.time(),
+            })
+            return None
 
         # 检查是否有自定义处理器
         if type_id in self.query_handlers:
-            reply_value = self.query_handlers[type_id](query_data)
+            reply_value = self.query_handlers[type_id](data)
         else:
-            reply_value = self._default_handler(qid, query_data)
+            reply_value = self._default_handler(qid, data)
 
         # 构建 QueryReply
         reply = QueryReply(
@@ -176,6 +180,7 @@ class QueryManager:
         self.query_history.append({
             "type_id": type_id,
             "name": query_name,
+            "qid": qid,
             "reply": reply_value,
             "time": time.time(),
         })

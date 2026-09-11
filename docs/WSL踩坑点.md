@@ -408,7 +408,7 @@
 - **坑**: 离线解析通过 ≠ 真实 VCMI server 接受。Lobby 握手、玩家槽位、StartInfo/CMapInfo、跨客户端同步仍需实机抓包验证; 不能把 `LobbyUpdateState` 部分字段占位解析当作完成多人局。
 - **正确口径**: 完成的是 P8 前置: TCP/CPack/Query/ModelBridge/Lobby 基础包。未完成的是 P8-B/C: 实机启动 VCMI server/client, AI 与人类同局完成至少 1 局。
 - **解决**: 阶段1 假服务器捕获法对拍 BYTE-IDENTICAL 56B; 阶段2 方案F (Python host + LobbyChangeHost 让位 + guest SetMap + StartGame + EndTurn 轮转)。阶段2 首轮虽表面 game_started=True，但 server 日志实锤 "not allowed/fishy" 拒绝（见 #200），真正 zero-fishy 全绿由 9cc08b9 达成。
-- **复现/验证**: `python py/p8be_host_start.py` (阶段2 完整对局, 跑完 grep server 日志 `not allowed|fishy` 应 = 0); `python py/p8b_lobby_probe.py` (阶段1 握手)。
+- **复现/验证**: `python py/p8/p8be_host_start.py` (阶段2 完整对局, 跑完 grep server 日志 `not allowed|fishy` 应 = 0); `python py/p8/p8b_lobby_probe.py` (阶段1 握手)。
 - **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a` → `efb5b6b` → `407e8e5` → `9cc08b9` / 踩坑 #200。
 
 #### #200 P8-B 阶段2 PlayerStartsTurn 字段序错 + 盲发 EndTurn 抢对方回合 → server fishy 拒绝 (2026-09-11) — ✅ 实锤修复
@@ -417,7 +417,7 @@
 - **坑① 字段序错**: `PlayerStartsTurn(88)` 的 Python 定义写成 `player + time_limit`，与 C++ `Query{queryID} + PlayerColor player` 字段序不符。C++ 权威结构 (PacksForClient.h): `serialize: h & queryID; h & player;`。实机字节 `88帧 = 00 00 d800 41 00` 逐字对上：isNull(00) + pid(00) + tid(88→d800) + queryID(-1→41) + player(0)。
 - **坑② 盲发抢回合**: 旧脚本在**每个** PlayerStartsTurn 都无条件发 EndTurn(player=0)，包括蓝方 (p1, ModelAI 客户端的回合)。蓝方回合被 Python 抢发 EndTurn → server 拒 "Player is not allowed to perform this action!" + "Got false in applying 7EndTurn... fishy!" + 2 条 SystemMessage。虽然 ModelAI 自己那轮正常走完、Turn 2 也轮转了，但日志里的 fishy 拒绝是真实错误信号，不算完成。
 - **正确口径**: PlayerStartsTurn 包体 = `queryID(LVarInt, 无 timer 时 -1) + player(LVarInt)`。只在 `pack.player == MY_COLOR`（自己的回合）才发 EndTurn；对方回合 SKIP，交给对方客户端（ModelAI）自主管理。EndTurn 绝不替对方回合发。
-- **修复**: `py/vcmi_protocol/packs.py` 重写 PlayerStartsTurn（queryID+player 字段序 + 覆写 deserialize）; `py/p8be_host_start.py` 解析 88 包体 player，加 `MY_COLOR=0` 门控; `tests/test_e2e.py` 断言 player/query_id。实机 grep `not allowed|fishy` = 0，Turn1→Turn2 两次 "successfully applied"，ModelAI 蓝方自主 TryMoveHero(40B)。离线 145/145 PASS。
+- **修复**: `py/vcmi_protocol/packs.py` 重写 PlayerStartsTurn（queryID+player 字段序 + 覆写 deserialize）; `py/p8/p8be_host_start.py` 解析 88 包体 player，加 `MY_COLOR=0` 门控; `tests/test_e2e.py` 断言 player/query_id。实机 grep `not allowed|fishy` = 0，Turn1→Turn2 两次 "successfully applied"，ModelAI 蓝方自主 TryMoveHero(40B)。离线 145/145 PASS。
 - **关联**: T13.10 / P8-B 阶段2 / 踩坑 #185 / `docs/序列化协议规格.md` / 提交 `9cc08b9` / 技能 `vcmi-network-protocol`。
 
 #### #186 vcmienv ERROR 日志级下 T06 终局双重失明：超时 forcing 零痕迹，9/10 判真实 game_over (2026-09-11) — ✅ 实锤（只读）
@@ -542,15 +542,15 @@
 - **现象**: `p8c_capture_hero.py` 首跑 60s 全空捕获——server 日志尾部 client1 反复发 `11LobbySetMap`(10+) + `14LobbySetPlayer`, 最后 "Connection lost", 游戏从未开局。
 - **根因**: 脚本在 `VCMI_client.exe` 刚 Popen 就发 LobbyChangeHost(225)→cid=2；但 client1 此时还没连上，cid=2 不存在 → server 静默拒绝。client1 随后以 guest 身份加入 → 其 host 侧 SetMap/SetPlayer 被 host-only 检查全部拒掉 (SetMap 静默丢, 见 #185 解法) → mi_loop 10s 超时空转 → 永不开局。
 - **正确口径**: ChangeHost 前必须确认目标 guest 已 join = 等到**第 2 个 LobbyUpdateState(226)** (p8be 的 `client2_seen`) 才发。同坑变体: 目标 cid 必须是实际存在的 connection ID。
-- **复现**: `python py/p8c_capture_hero.py` (已修, 正常开局); 旧症状 = 捕获脚本报 "捕获结束" 但零 [DUMP] 行 + server 日志 SetMap 刷屏。
-- **关联**: #185 (SetMap host-only) / T13.10 P8-B 阶段2 方案F / `py/p8be_host_start.py` 第 114-129 行时序范本。
+- **复现**: `python py/p8/p8c_capture_hero.py` (已修, 正常开局); 旧症状 = 捕获脚本报 "捕获结束" 但零 [DUMP] 行 + server 日志 SetMap 刷屏。
+- **关联**: #185 (SetMap host-only) / T13.10 P8-B 阶段2 方案F / `py/p8/p8be_host_start.py` 第 114-129 行时序范本。
 
 #### #203 P8-B 阶段3 (P8-C) 数据源墙：我的英雄 OI+位置只在 StartGame 171KB 全状态, 回合窗口无独立位置包 (2026-09-11, 捕获分析) — 🟡 已分析, 待决策
 - **状态**: 🟡 分析完成, 3 条路线待用户拍板
 - **实锤**: ① turn 窗口 server 只广播 88/102/116/86/84/91/109 等, **不**单独发 GiveHero/ChangeObjPos/NewObject 位置包 (171KB 之后的 8s 内零 hero 位置包) ② `MoveHero.hid` = 引擎运行时 ObjectInstanceID, ≠ h3m 静态 heroID → P10 h3mtxt 静态 JSON 拿不到 OI, 走不通 ③ server 日志只在英雄实际移动时打 "OI xxx start (x y z)", 挂机玩家无记录。
 - **结论**: Python 外挂要发真实 MoveHero, 必须从 StartGame(224) 的 `LobbyStartGame = StartInfo + CGameState(171KB)` 解析出 `CMap.heroesOnMap` / `CPlayerState.hero` OI + 坐标。CGameState 全量 Python 解析工程量大 (map 对象数组几百个 CGObjectInstance 模板 + 版本门控字段, 见 CGameState.h L196-225)。
 - **三条路线 (改编号为阶段4/5/6)**: **阶段4 最小 CGameState 解析器** — 只挖到 heroesOnMap + hero OI 为止, 每包校验断言 (width=36/day=1), 工程中等, 收益=完整 MoveHero 闭环 **阶段5 降级最小闭环** — 阶段3 先做 QueryReply(197)+RecruitCreatures(187) 真实决策 (不依赖地图状态, 城镇 OI 可从 SetAvailableCreatures 拿), MoveHero 留阶段4 **阶段6 C++ headless client** — 直接复用 VCMI 序列化代码 (路径A), 工程量最大但零逆向风险。
-- **复现**: `python py/p8c_capture_hero.py` (dump 171KB → %LOCALAPPDATA%/Temp/p8c_startgame.bin, 离线分析入口)。
+- **复现**: `python py/p8/p8c_capture_hero.py` (dump 171KB → %LOCALAPPDATA%/Temp/p8c_startgame.bin, 离线分析入口)。
 - **关联**: T13.10 P8-B 阶段3 / 技能 vcmi-network-protocol 路径A/B/C / #185 / `docs/序列化协议规格.md` / C++ 结构: `PacksForLobby.h LobbyStartGame` + `CGameState.h L196` + `CMap.h heroesOnMap` + `StartInfo.h L169`。
 
 #### #204 新惩罚/事件标签上线验证陷阱：0 次触发 ≠ 未生效 + 全 log 计数跨重启污染 (09-11, T7.4 死亡惩罚首窗) — ⚠️ 方法论坑
@@ -574,7 +574,7 @@
 - **根因**: `EntityIdentifierWithEnum::serialize`(!saving) → `CreatureID::decode("<ref510>")` → `resolveIdentifier` 尾部 `throw IdentifierResolutionException` → 异常穿透 `GameConnection::retrievePack` 直达顶栈。任何 wire 内 entity-string 字段 (CreatureID/HeroTypeID/SpellID/BuildingID? BuildingID 是 StaticIdentifier LVarInt 除外) 都可被外部客户端用于炸服 — **联网对战安全漏洞**。
 - **坑中坑**: `SetAvailableCreatures(112)` 的 CreatureID 字符串带跨包去重 (负数 ref 引用 171KB StartGame 里首次写入的字面量), 外挂侧单包解析无法还原 → 招兵 crid 来源 = 新增 `[SRV-DIAG] TOWNAVAIL` (build 成功后 dump `town->creatures` 各级 jsonKey)。
 - **字段序修正 (同窗)**: `BuildingID` = `StaticIdentifierWithEnum` → wire LVarInt 数字 (非 string); `HeroTypeID` = `EntityIdentifier` → wire string jsonKey; `SetAvailableCreatures(112)` = tid + `vector<pair<ui32, vector<CreatureID>>>`。
-- **关联**: #206 (SRV-DIAG 路线) / `CVCMIServer.cpp onPacketReceived` / `EntityIdentifiers.cpp resolveIdentifier L171` / 脚本 `py/p8c2_town_chain_probe.py`。
+- **关联**: #206 (SRV-DIAG 路线) / `CVCMIServer.cpp onPacketReceived` / `EntityIdentifiers.cpp resolveIdentifier L171` / 脚本 `py/p8/p8c2_town_chain_probe.py`。
 
 #### #206 P8-C 数据源墙第四路线 = SRV-DIAG server 侧注入, 免解析 171KB (2026-09-11, MoveHero 闭环实机 PASS) — ✅ 已实施
 - **状态**: ✅ 落地并实机验证 (vcmi commit bc3e124fa2 + 主仓 7967511)
@@ -582,6 +582,34 @@
 - **坑中坑 (字段序)**: `TryMoveHero(109)` wire 序 = **id + result + start(int3) + end(int3) + movePoints + fowRevealed(vector) + attackedFrom**, 非直觉 id+start+end+result; 读错会把 SUCCESS(1) 当 FAILED(0) (离线 test_e2e 两侧同错自洽通过, 实机 server trace 对拍才抓出, 与 #199 同型坑)。
 - **MoveHero 语义**: path = 锚点坐标序列, 每步须与英雄当前位置 8 邻域相邻 (`areNeighbours` 检查), layer=0(LAND), transit=false; day1 MP 耗尽后同格移动也回 SUCCESS(=原地 no-op), 不是拒绝。
 - **实锤**: red OI=350 (1,8,0)→(2,7,0) 实移 + blue ModelAI OI=732 (16,1,1)→(15,0,1) + 3 回合轮转 + PackageApplied=True + zero fishy。
-- **脚本**: `py/p8c_movehero_probe.py`。
+- **脚本**: `py/p8/p8c_movehero_probe.py`。
 - **关联**: #203 (数据源墙分析, 本条=第四路线闭环) / #202 (ChangeHost 时序) / #200 (PlayerStartsTurn 字段序) / `CGameHandler.cpp CGameHandler::start`。
+
+#### #207 Query 协议栈四层隐性缺陷 — 离线单测通过实机不可用 (2026-09-12, P8-C QueryReply 探针首跑抓出) — ✅ 已修 (全协议栈返正)
+- **背景**: `test_e2e.py` 162 项 PASS, 但首跑 `p8c_query_probe.py` 6/6 全 FAIL, 且失败现象一致 (`[QUERY] X: qid=-1 (INVALID, 跳过回复)`, 但 mock server 明明下发 qid=7/12/15/42)。逐层排查后暴露 4 处协议栈隐性缺陷, 均在 `test_e2e` 覆盖盲区。
+- **层 1 — QueryManager 用 type_id 代替 query_id**: `handle_query` 原实现 `qid = query_data.get("type_id")`, 把包类型号 (154/156/157/88) 当 qid 回复; VCMI 官方 `Query{queryID}` 是**所有 Query 派生包的首字段**, 与 type_id 无关。→ 改为 `qid = data.get("query_id", -1)`。
+- **层 2 — 三个 Query 派生类字段序错位**: `HeroLevelUp(154)` / `BlockingDialog(156)` / `GarrisonDialog(157)` 原走基类默认序列化 (player 首字段), 但 `PacksForClient.h` 明确它们首字段是 `queryID` (`HeroLevelUp` L1308: queryID+player+heroId+primskill+skills; `BlockingDialog` L1349: queryID+text+components+player+flags+soundID; `GarrisonDialog` L1392: queryID+objid+hid+removableUnits+customTitle 版本门控)。→ 三处全部覆写 `serialize/deserialize`, 首字段改回 queryID, 与 `PlayerStartsTurn(88)` (#200 已修) 一致。
+- **层 3 — parse_client_pack 扁平 vs 嵌套不一致**: 原 `parse_client_pack/parse_server_pack` 返回**扁平 dict** (`{type_id, class_name, 字段全平铺}`), 但 `QueryManager.handle_query` 和 `VCMIProtocolClient._handle_packet` 都在读 `result.get("data", {})`。→ 单测 `test_query_manager` 手写了带 `data` 键的 dict 所以 PASS, **实际 wire 层不可用**。已统一改为返回 `{type_id, class_name, data: {字段...}, raw}` 嵌套结构; `test_e2e.py::test_client_packs` 同步把 15+ 处 `result.get(field)` 改为 `result["data"].get(field)`。
+- **层 4 — TryMoveHero 字段序错位**: 原占位 `source/destination/reason`, 实机 wire 是 `oid + result + start(int3) + end(int3) + movePoints + fowRevealed(vector<int3>) + attackedFrom(int3)` (PacksForClient.h; 与 #206 记录的字段序一致)。→ 覆写 serialize/deserialize, test_e2e 断言从 2 → 7 (oid/result/start/end/move_points/fow_len)。
+- **qid=-1 语义补全**: `handle_query` 增加 `qid==-1 → skip 回复 + history 记 skipped=True` (VCMI 官方 `NetPacksBase.h L47-50` 明确"非实际 query, 不应回复"; PlayerStartsTurn 无回合计时器时即为 -1)。
+- **回归**: e2e **167/167 PASS** (断言数从 162 → 167, TryMoveHero 覆盖加深) / `p8c_query_probe.py` 离线 **6/6 PASS** / `p8c_query_probe_real.py` 实机 **PASS(qid=-1 only, 14 回合 27 次 PlayerEndsTurn, zero fishy)** / `p8c_movehero_probe_real.py` 实机 **PASS (turns_act=4 move_accepted=9 move_failed=0)**。
+- **教训**: ①单测手写 dict 会掩盖 wire 结构不一致 (与 #178/#204 同型"两侧同错自洽"坑); ②字段序 bug 必须实机对拍才抓出, 离线 mock 双方自洽通过无诊断力; ③`Query` 派生类首字段全为 queryID, 覆写基类序列化不是可选项。
+- **关联**: #200 (PlayerStartsTurn 字段序) / #206 (TryMoveHero 字段序, 本条重述 packs.py 落地) / #178 (ASSERT namespace) / #204 (0 命中三义性) / 脚本 `py/p8/p8c_query_probe.py` + `py/p8c_movehero_offline_probe.py` / `py/p8/p8c_query_probe_real.py` + `py/p8c_movehero_probe_real.py`。
+
+#### #208 Query 分支 `continue` 吞 PlayerStartsTurn — server 等回合结束超时踢连接 (2026-09-12, `p8c_query_probe_real.py` 首跑实机 FAIL 抓出) — ✅ 已修 (分支内补特判)
+- **背景**: 协议栈四层修复 (#207) 后, `p8c_query_probe_real.py` 实机首跑仍 FAIL — 只收到 1 条 `PlayerStartsTurn qid=-1 (INVALID, 跳过回复)` 后 `[RECV] 断开`。查代码发现 recv_loop 里 `if tid in QueryManager.QUERY_TYPES: ... continue` 分支把 `PlayerStartsTurn(88)` 吞掉, 后面的 `elif tid == 88: act_turn()` 兜底永不触发, EndTurn 永不下发, server 等我方回合结束超时踢连接。
+- **修复**: 在 Query 分支里对 `tid == 88` 做特殊处理 — 无论 qid 是否 -1, 只要 player == MY_COLOR 且 not end_turn_sent, 立即 `turn_count++` + `act_turn()` + `end_turn_sent=True`。这与 #200 记录的 "PlayerStartsTurn 是 Query 派生" 语义一致, 但业务逻辑与 Query 回复正交。
+- **实机复验**: turns_act=14 turn_ends(102)=27 query_received=28 (全部 qid=-1) query_reply_sent=0 bad_keywords=0 → **VERDICT: PASS(qid=-1 only)** — 无计时器场景下的官方预期行为 (NetPacksBase.h L47-50)。
+- **教训**: ①Query 分支不能只写"回复/跳过"两义 — 业务事件 (回合切换) 也要消费; ②实机是协议栈的终极仲裁 — 离线 6/6 PASS 的 probe 不能覆盖"分支优先级"这类控制流 bug; ③`qid=-1` 语义 = "非实际 query, 不应回复", 不等于 "整包可忽略" — 包本身可能携带业务事件。
+- **关联**: #200 (PlayerStartsTurn 是 Query 派生) / #207 (Query 协议栈四层修复) / `py/p8/p8c_query_probe_real.py` L141-151 (修复位置)。
+
+#### #209 TOWNSTALL 卡住检测 `>=` 把路径平台段（BFS plen 持平）误判停滞 → 提前 TOWN_BLOCKED 禁用城镇引导 (2026-09-12, 日志分析实锤) — ⚠️ 根因已定位, 修复待重启窗
+- **状态**: ⚠️ 根因实锤（代码 + 日志双向对照），修复未实施（需 stop/restart `homm3-train-v5` 重启窗，按运维纪律待自然 checkpoint 后一并修）
+- **背景**: 日志分析发现 `[TOWNSTALL]` 假阻塞实例 — passability mask 8 邻全 1 仍判 stall（典型 L73327：`hero=(8,7) tgt=(2,1) plen=6 block=(7,6) pas=[1,1,1,1,1,1,1,1]`）；全 log 统计 TOWNSTALL 3817 次 / TOWN_BLOCKED 460 次。排查 `ep_runner_one.py` L872-898 卡住检测核心后定位根因。
+- **坑① `>=` 把"进度持平"也计停滞（主根因）**: L877 `if cur_dist >= move_stall_prev: move_stall += 1`。BFS plen 在横向移动/绕岩路径的平台段**不变**（绕岩前段曼哈顿不降反升已注明 L868，但 plen 横向移动时仍会持平），`>=` 把这种合法持平也累积进 `move_stall`，攒满 6 步即 L892 `move_stall >= 6` 触发 TOWN_BLOCKED → L893-894 `town_blocked=True` 本局禁用城优先引导。8 邻全通（pas 全 1）却判 stall 即此症状：英雄在绕岩/横移平台段被误杀。
+- **坑② `dyn_blocked.add` 副作用把可通行格入黑名单**: L881-887 在 `move_stall==1` 时取 BFS 首步格 `(_bx,_by)` 加入 `dyn_blocked`（设计意图=敌方英雄等动态障碍），但平台段首步格实际是**可通行格**（pas 全 1 实证）→ 后续 BFS 重规划绕行该格，进一步拉偏路径，放大误判。
+- **影响面**: 局仍正常完成（招兵/打守卫/拿分不中断），仅损失 town_visited 约 +30/局 的奖励；TOWN_BLOCKED 460 次为误判占比大头。
+- **正确口径 / 修复方案**: L877 `>=` 改 `>` — 只惩罚"进度变差"（plen 增加），允许"进度持平"（平台段不再累积 `move_stall`）；代价是真卡死（原地打转）累积变慢（6 步 → 8~10 步触发），可接受。修复需 stop/restart 训练（`systemctl --user stop homm3-train-v5` 优雅停 → `py/restart_train_v5.sh` 重建，见 #195/#201），待自然 checkpoint 重启窗实施，不与其他变更同窗。
+- **复现/验证**: `grep -n "TOWNSTALL\|TOWN_BLOCKED" /mnt/d/Bigdata/hero3_fresh/train_loop.log`（3817/460 量级）；修复后同 grep 预期 TOWN_BLOCKED 频次显著下降，且 pas 全 1 的 TOWNSTALL 实例不再出现。
+- **关联**: #204 (0 命中三义性 / 全 log 切窗法) / #195/#201 (重启窗口径: systemd transient unit + keepalive) / 任务清单"活跃任务 6 长期观察集 TOWNSTALL 引导可达性"行 / `ep_runner_one.py` L872-898。
 

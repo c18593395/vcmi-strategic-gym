@@ -261,6 +261,9 @@ def test_battle_action():
 
 def test_client_packs():
     """C: 客户端包解析 (T13.5)"""
+    # 结构: {type_id, class_name, data: {...fields...}, raw}
+    # data 子键是包字段 (PlayerStartsTurn 里的 player, HeroLevelUp 里的 hero_id 等)
+
     # NewTurn
     pack = NewTurn(turn=5)
     s = BinarySerializer()
@@ -270,7 +273,7 @@ def test_client_packs():
     check("NewTurn parse", result is not None)
     if result:
         check("NewTurn class", result["class_name"] == "NewTurn")
-        check("NewTurn turn", result.get("turn") == 5)
+        check("NewTurn turn", result["data"].get("turn") == 5)
 
     # SystemMessage
     pack = SystemMessage(message="Hello world!")
@@ -280,7 +283,7 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("SystemMessage parse", result["class_name"] == "SystemMessage")
-        check("SystemMessage msg", result.get("message") == "Hello world!")
+        check("SystemMessage msg", result["data"].get("message") == "Hello world!")
 
     # PlayerStartsTurn (C++: queryID + player, 非 time_limit)
     pack = PlayerStartsTurn(player=0, query_id=-1)
@@ -290,8 +293,8 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("PlayerStartsTurn parse", result["class_name"] == "PlayerStartsTurn")
-        check("PlayerStartsTurn player", result.get("player") == 0)
-        check("PlayerStartsTurn query_id", result.get("query_id") == -1)
+        check("PlayerStartsTurn player", result["data"].get("player") == 0)
+        check("PlayerStartsTurn query_id", result["data"].get("query_id") == -1)
 
     # BattleStart
     pack = BattleStart(bid=7)
@@ -301,7 +304,7 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("BattleStart parse", result["class_name"] == "BattleStart")
-        check("BattleStart bid", result.get("bid") == 7)
+        check("BattleStart bid", result["data"].get("bid") == 7)
 
     # BattleResult
     pack = BattleResult(bid=7, winner=0)
@@ -311,18 +314,44 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("BattleResult parse", result["class_name"] == "BattleResult")
-        check("BattleResult winner", result.get("winner") == 0)
+        check("BattleResult winner", result["data"].get("winner") == 0)
 
-    # HeroLevelUp
-    pack = HeroLevelUp(hid=3, level_ups=[5, 8])
+    # HeroLevelUp (官方: queryID + player + heroId + primskill + skills)
+    pack = HeroLevelUp(player=0, hero_id=3, primskill=0, skills=[5, 8], query_id=7)
     s = BinarySerializer()
     pack.serialize_full(s)
     data = s.get_bytes()
     result = parse_client_pack(data)
     if result:
         check("HeroLevelUp parse", result["class_name"] == "HeroLevelUp")
-        check("HeroLevelUp hid", result.get("hid") == 3)
-        check("HeroLevelUp ups", result.get("level_ups") == [5, 8])
+        check("HeroLevelUp query_id", result["data"].get("query_id") == 7)
+        check("HeroLevelUp player", result["data"].get("player") == 0)
+        check("HeroLevelUp hero_id", result["data"].get("hero_id") == 3)
+        check("HeroLevelUp skills", result["data"].get("skills") == [5, 8])
+
+    # BlockingDialog (官方: queryID + text + components + player + flags + soundID)
+    pack = BlockingDialog(text="Continue?", components=[], player=0, flags=5, sound_id=3, query_id=12)
+    s = BinarySerializer()
+    pack.serialize_full(s)
+    data = s.get_bytes()
+    result = parse_client_pack(data)
+    if result:
+        check("BlockingDialog parse", result["class_name"] == "BlockingDialog")
+        check("BlockingDialog query_id", result["data"].get("query_id") == 12)
+        check("BlockingDialog text", result["data"].get("text") == "Continue?")
+        check("BlockingDialog flags", result["data"].get("flags") == 5)
+
+    # GarrisonDialog (官方: queryID + objid + hid + removableUnits)
+    pack = GarrisonDialog(objid=42, hid=7, removable_units=True, query_id=15)
+    s = BinarySerializer()
+    pack.serialize_full(s)
+    data = s.get_bytes()
+    result = parse_client_pack(data)
+    if result:
+        check("GarrisonDialog parse", result["class_name"] == "GarrisonDialog")
+        check("GarrisonDialog query_id", result["data"].get("query_id") == 15)
+        check("GarrisonDialog objid", result["data"].get("objid") == 42)
+        check("GarrisonDialog hid", result["data"].get("hid") == 7)
 
     # ChangeObjPos
     pack = ChangeObjPos(obj_id=10, old_pos=int3(1, 2, 0), new_pos=int3(5, 6, 0))
@@ -332,7 +361,7 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("ChangeObjPos parse", result["class_name"] == "ChangeObjPos")
-        check("ChangeObjPos obj_id", result.get("obj_id") == 10)
+        check("ChangeObjPos obj_id", result["data"].get("obj_id") == 10)
 
     # PackageApplied
     pack = PackageApplied(request_id=3, is_successful=True)
@@ -342,18 +371,27 @@ def test_client_packs():
     result = parse_client_pack(data)
     if result:
         check("PackageApplied parse", result["class_name"] == "PackageApplied")
-        check("PackageApplied req", result.get("request_id") == 3)
-        check("PackageApplied success", result.get("is_successful") == True)
+        check("PackageApplied req", result["data"].get("request_id") == 3)
+        check("PackageApplied success", result["data"].get("is_successful") == True)
 
-    # TryMoveHero
-    pack = TryMoveHero(source=10, destination=11, reason="Blocked by enemy")
+    # TryMoveHero — wire: oid + result + start(int3) + end(int3) + movePoints + fowRevealed(vector<int3>) + attackedFrom(int3)
+    pack = TryMoveHero(oid=5, result=1,
+                       start=(3, 4, 0), end=(5, 6, 0),
+                       move_points=20,
+                       fow_revealed=[(4, 5, 0)],
+                       attacked_from=(0, 0, 0))
     s = BinarySerializer()
     pack.serialize_full(s)
     data = s.get_bytes()
     result = parse_client_pack(data)
     if result:
         check("TryMoveHero parse", result["class_name"] == "TryMoveHero")
-        check("TryMoveHero reason", result.get("reason") == "Blocked by enemy")
+        check("TryMoveHero oid", result["data"].get("oid") == 5)
+        check("TryMoveHero result", result["data"].get("result") == 1)
+        check("TryMoveHero start", tuple(result["data"].get("start") or ()) == (3, 4, 0))
+        check("TryMoveHero end", tuple(result["data"].get("end") or ()) == (5, 6, 0))
+        check("TryMoveHero move_points", result["data"].get("move_points") == 20)
+        check("TryMoveHero fow_len", len(result["data"].get("fow_revealed") or []) == 1)
 
     # Unknown pack type — 实机指针帧: isNull + pid + tid(9999)
     s = BinarySerializer()
@@ -373,23 +411,43 @@ def test_query_manager():
 
     mgr = QueryManager(player=1, auto_reply=True)
 
-    # PlayerStartsTurn
-    result = {"type_id": 88, "class_name": "PlayerStartsTurn", "data": {}}
+    # PlayerStartsTurn qid=1 (真实 Query, 需回复)
+    result = {"type_id": 88, "class_name": "PlayerStartsTurn",
+              "data": {"query_id": 1, "player": 0}}
     reply = mgr.handle_query(result, sent_fn)
     check("Query auto-reply PlayerStartsTurn", reply is not None)
     check("Query reply type", isinstance(reply, QueryReply))
     check("Query reply value", reply.reply == 0)
+    check("Query qid=1", reply.qid == 1)
     check("Query sent", len(sent) == 1)
 
-    # Custom handler
-    mgr.register_handler(154, lambda data: 3)  # HeroLevelUp → choose skill 3
-    result = {"type_id": 154, "class_name": "HeroLevelUp", "data": {"hid": 1}}
+    # PlayerStartsTurn qid=-1 (INVALID, 官方语义: 无需回复)
+    result = {"type_id": 88, "class_name": "PlayerStartsTurn",
+              "data": {"query_id": -1, "player": 0}}
     reply = mgr.handle_query(result, sent_fn)
-    check("Query custom handler", reply.reply == 3)
+    check("Query qid=-1 skipped", reply is None)
+    check("Query qid=-1 not sent", len(sent) == 1)  # 未新增发送
+    check("Query qid=-1 in history", mgr.query_history[-1].get("skipped") == True)
+
+    # HeroLevelUp qid=7 用自定义 handler 选 skill 3
+    mgr.register_handler(154, lambda data: 3)
+    result = {"type_id": 154, "class_name": "HeroLevelUp",
+              "data": {"query_id": 7, "player": 0, "hero_id": 3,
+                       "primskill": 0, "skills": [5, 8]}}
+    reply = mgr.handle_query(result, sent_fn)
+    check("Query custom handler HeroLevelUp", reply is not None)
+    check("Query HeroLevelUp qid", reply.qid == 7)
+    check("Query HeroLevelUp reply", reply.reply == 3)
+
+    # GarrisonDialog qid=15 默认 handler (reply=0)
+    result = {"type_id": 157, "class_name": "GarrisonDialog",
+              "data": {"query_id": 15, "objid": 42, "hid": 7, "removable_units": True}}
+    reply = mgr.handle_query(result, sent_fn)
+    check("Query GarrisonDialog qid=15", reply is not None and reply.qid == 15)
 
     # Stats
     stats = mgr.get_stats()
-    check("Query stats total", stats["total_queries"] == 2)
+    check("Query stats total", stats["total_queries"] == 4)  # 含 qid=-1 记录
     check("Query stats handlers", 154 in stats["handlers"])
 
 

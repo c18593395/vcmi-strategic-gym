@@ -541,28 +541,67 @@ class PackageApplied(CPackForClient):
 
 
 class TryMoveHero(CPackForClient):
-    """尝试移动英雄 — typeID 109"""
+    """
+    尝试移动英雄 — typeID 109
+    wire 字段序 (PacksForClient.h, 0911 P8-B 实锤):
+      oid + result (0=FAILED 1=SUCCESS 2=TELEPORT 3=BLOCKING_VISIT 4=EMBARK 5=DISEMBARK)
+      + start(int3) + end(int3) + movePoints + fowRevealed(vector<int3>) + attackedFrom(int3)
+    注意: 本类字段序与基类不同 (基类是 player 首字段), 故覆写 serialize/deserialize
+    """
     type_id = 109
 
-    def __init__(self, source: int = 0, destination: int = 0, reason: str = ""):
+    def __init__(self, oid: int = 0, result: int = 1,
+                 start: int3 = None, end: int3 = None,
+                 move_points: int = 0,
+                 fow_revealed=None, attacked_from: int3 = None):
         super().__init__()
-        self.source = source
-        self.destination = destination
-        self.reason = reason
+        self.oid = oid
+        self.result = result
+        self.start = start if start is not None else int3()
+        self.end = end if end is not None else int3()
+        self.move_points = move_points
+        self.fow_revealed = fow_revealed or []   # list of int3 or (x,y,z)
+        self.attacked_from = attacked_from if attacked_from is not None else int3()
 
     def serialize(self, ser):
-        super().serialize(ser)
-        ser.write_int(self.source)
-        ser.write_int(self.destination)
-        ser.write_string(self.reason)
+        ser.write_int(self.oid)
+        ser.write_int(self.result)
+        if isinstance(self.start, int3):
+            self.start.serialize(ser)
+        else:
+            ser.write_int(self.start[0]); ser.write_int(self.start[1]); ser.write_int(self.start[2])
+        if isinstance(self.end, int3):
+            self.end.serialize(ser)
+        else:
+            ser.write_int(self.end[0]); ser.write_int(self.end[1]); ser.write_int(self.end[2])
+        ser.write_int(self.move_points)
+        ser.write_int(len(self.fow_revealed))
+        for p in self.fow_revealed:
+            if isinstance(p, int3):
+                p.serialize(ser)
+            else:
+                ser.write_int(p[0]); ser.write_int(p[1]); ser.write_int(p[2])
+        if isinstance(self.attacked_from, int3):
+            self.attacked_from.serialize(ser)
+        else:
+            ser.write_int(self.attacked_from[0]); ser.write_int(self.attacked_from[1]); ser.write_int(self.attacked_from[2])
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
-        base = CPackForClient.deserialize_base(deser)
-        base["source"] = deser.read_int()
-        base["destination"] = deser.read_int()
-        base["reason"] = deser.read_string()
-        return base
+        oid = deser.read_int()
+        result = deser.read_int()
+        start = int3.deserialize(deser)
+        end = int3.deserialize(deser)
+        move_points = deser.read_int()
+        n = deser.read_int()
+        fow = [int3.deserialize(deser) for _ in range(max(n, 0))]
+        attacked_from = int3.deserialize(deser)
+        return {"oid": oid, "result": result,
+                "start": (start.x, start.y, start.z),
+                "end": (end.x, end.y, end.z),
+                "move_points": move_points,
+                "fow_revealed": [(p.x, p.y, p.z) for p in fow],
+                "attacked_from": (attacked_from.x, attacked_from.y, attacked_from.z)}
 
 
 class PlayerStartsTurn(CPackForClient):
@@ -826,79 +865,131 @@ class BattleLogMessage(CPackForClient):
 # ============================================================
 
 class HeroLevelUp(CPackForClient):
-    """英雄升级 (Query) — typeID 154"""
+    """
+    英雄升级 (Query) — typeID 154
+    官方 C++ (PacksForClient.h L1308):
+      Query{queryID} + PlayerColor player + ObjectInstanceID heroId
+      + PrimarySkill primskill + vector<SecondarySkill> skills
+      serialize: h & queryID; h & player; h & heroId; h & primskill; h & skills;
+    """
     type_id = 154
 
-    def __init__(self, hid: int = 0, level_ups: list = None):
+    def __init__(self, player: int = 0, hero_id: int = 0,
+                 primskill: int = 0, skills: list = None, query_id: int = 1):
         super().__init__()
-        self.hid = hid
-        self.level_ups = level_ups or []  # list of skill/spell IDs
+        self.player = player
+        self.hero_id = hero_id
+        self.primskill = primskill
+        self.skills = skills or []
+        self.query_id = query_id
 
     def serialize(self, ser):
-        super().serialize(ser)
-        ser.write_int(self.hid)
-        ser.write_int(len(self.level_ups))
-        for l in self.level_ups:
-            ser.write_int(l)
+        ser.write_int(self.query_id)
+        ser.write_int(self.player)
+        ser.write_int(self.hero_id)
+        ser.write_int(self.primskill)
+        ser.write_int(len(self.skills))
+        for s in self.skills:
+            ser.write_int(s)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
-        base = CPackForClient.deserialize_base(deser)
-        base["hid"] = deser.read_int()
+        query_id = deser.read_int()
+        player = deser.read_int()
+        hero_id = deser.read_int()
+        primskill = deser.read_int()
         count = deser.read_int()
-        ups = []
+        skills = []
         for _ in range(count):
-            ups.append(deser.read_int())
-        base["level_ups"] = ups
-        return base
+            skills.append(deser.read_int())
+        return {"query_id": query_id, "player": player, "hero_id": hero_id,
+                "primskill": primskill, "skills": skills}
 
 
 class BlockingDialog(CPackForClient):
-    """阻塞对话框 (Query) — typeID 156"""
+    """
+    阻塞对话框 (Query) — typeID 156
+    官方 C++ (PacksForClient.h L1349):
+      Query{queryID} + MetaString text + vector<Component> components
+      + PlayerColor player + ui8 flags + ui16 soundID
+      serialize: h & queryID; h & text; h & components; h & player; h & flags; h & soundID;
+      reply 语义: 0=cancel, 1/2/...=组件索引+1 (OK 确认)
+    """
     type_id = 156
 
-    def __init__(self, message: str = ""):
+    def __init__(self, text: str = "", components: list = None,
+                 player: int = 0, flags: int = 0, sound_id: int = 0,
+                 query_id: int = 1):
         super().__init__()
-        self.message = message
+        self.player = player
+        self.text = text
+        self.components = components or []
+        self.flags = flags
+        self.sound_id = sound_id
+        self.query_id = query_id
 
     def serialize(self, ser):
-        super().serialize(ser)
-        ser.write_string(self.message)
+        ser.write_int(self.query_id)
+        ser.write_string(self.text)
+        # components — 简化: 空 vector
+        ser.write_int(len(self.components))
+        ser.write_int(self.player)
+        ser.write_int(self.flags)
+        ser.write_int(self.sound_id)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
-        base = CPackForClient.deserialize_base(deser)
-        base["message"] = deser.read_string()
-        return base
+        query_id = deser.read_int()
+        text = deser.read_string()
+        comp_count = deser.read_int()
+        # 跳过 components (简化: 每组件是 Component struct, 结构复杂 — 记录长度即可)
+        # 完整结构: Component{enum + payload}, 这里保留 count 不深入
+        components_count = comp_count
+        player = deser.read_int()
+        flags = deser.read_int()
+        sound_id = deser.read_int()
+        return {"query_id": query_id, "text": text,
+                "components_count": components_count,
+                "player": player, "flags": flags, "sound_id": sound_id}
 
 
 class GarrisonDialog(CPackForClient):
-    """城防对话框 (Query) — typeID 157"""
+    """
+    城防对话框 (Query) — typeID 157
+    官方 C++ (PacksForClient.h L1392):
+      Query{queryID} + ObjectInstanceID objid + ObjectInstanceID hid
+      + bool removableUnits + MetaString customTitle (版本门控)
+      serialize: h & queryID; h & objid; h & hid; h & removableUnits; [h & customTitle]
+    """
     type_id = 157
 
-    def __init__(self, tid: int = 0, stacks: list = None):
+    def __init__(self, objid: int = 0, hid: int = 0,
+                 removable_units: bool = False, custom_title: str = "",
+                 query_id: int = 1):
         super().__init__()
-        self.tid = tid
-        self.stacks = stacks or []
+        self.objid = objid
+        self.hid = hid
+        self.removable_units = removable_units
+        self.custom_title = custom_title
+        self.query_id = query_id
 
     def serialize(self, ser):
-        super().serialize(ser)
-        ser.write_int(self.tid)
-        ser.write_int(len(self.stacks))
-        for s in self.stacks:
-            ser.write_string(s[0])
-            ser.write_int(s[1])
+        ser.write_int(self.query_id)
+        ser.write_int(self.objid)
+        ser.write_int(self.hid)
+        ser.write_bool(self.removable_units)
+        # custom_title 有版本门控, 简化: 只在非空时写
+        if self.custom_title:
+            ser.write_string(self.custom_title)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
-        base = CPackForClient.deserialize_base(deser)
-        base["tid"] = deser.read_int()
-        count = deser.read_int()
-        stacks = []
-        for _ in range(count):
-            stacks.append((deser.read_string(), deser.read_int()))
-        base["stacks"] = stacks
-        return base
+        query_id = deser.read_int()
+        objid = deser.read_int()
+        hid = deser.read_int()
+        removable_units = deser.read_bool()
+        return {"query_id": query_id, "objid": objid, "hid": hid,
+                "removable_units": removable_units}
 
 
 # ============================================================

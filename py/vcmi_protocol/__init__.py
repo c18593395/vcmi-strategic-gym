@@ -9,6 +9,17 @@ from .packs import (
 )
 from .connection import VCMITCPConnection
 from .protocol import VCMIProtocolClient, QueryManager
+from .auth import (
+    SharedKeyManager, AuthToken, TokenIssuer, TokenVerifier,
+)
+from .remote_connection import (
+    RemoteVCMITCPConnection, RemoteConnConfig,
+    RemoteConnectionError, AuthFailedError,
+)
+from .deployment import (
+    DeploymentConfig, NodeConfig, DeploymentManager,
+    ProcessManager, StatusFileWriter, KeyDistributor,
+)
 
 __all__ = [
     'BinarySerializer', 'BinaryDeserializer',
@@ -19,4 +30,10 @@ __all__ = [
     'CPackForClient', 'NewTurn', 'PackageApplied', 'TryMoveHero',
     'PlayerStartsTurn', 'BattleStart', 'BattleResult',
     'VCMITCPConnection', 'VCMIProtocolClient', 'QueryManager',
+    # P8-D 跨机器
+    'SharedKeyManager', 'AuthToken', 'TokenIssuer', 'TokenVerifier',
+    'RemoteVCMITCPConnection', 'RemoteConnConfig',
+    'RemoteConnectionError', 'AuthFailedError',
+    'DeploymentConfig', 'NodeConfig', 'DeploymentManager',
+    'ProcessManager', 'StatusFileWriter', 'KeyDistributor',
 ]
