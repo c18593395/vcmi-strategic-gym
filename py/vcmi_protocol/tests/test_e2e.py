@@ -131,13 +131,13 @@ def test_server_packs():
         ("QueryReply", QueryReply(qid=7, reply=0, player=1, request_id=3)),
         ("QueryReply(None)", QueryReply(qid=8, reply=None, player=1, request_id=4)),
         ("RecruitCreatures", RecruitCreatures(tid=10, dst=42, crid="core:footman", amount=5, level=1, player=1, request_id=5)),
-        ("BuildStructure", BuildStructure(tid=10, bid="core:tavern", player=1, request_id=6)),
+        ("BuildStructure", BuildStructure(tid=10, bid=9, player=1, request_id=6)),  # bid=TAVERN? 9=VILLAGE_HALL after TAVERN=8; StaticIdentifier LVarInt
         ("DismissHero", DismissHero(tid=10, hid=5, player=1, request_id=7)),
         ("UpgradeCreature", UpgradeCreature(tid=10, src="core:footman", dst="core:swordsman", amount=3, player=1, request_id=8)),
         ("SetFormation", SetFormation(tid=10, formation=1, player=1, request_id=9)),
         ("CastAdvSpell", CastAdvSpell(target=15, spell="core:Fireball", hero_id=42, player=1, request_id=10)),
         ("GamePause", GamePause(paused=True, player=1, request_id=11)),
-        ("HireHero", HireHero(tid=10, cost=300, bid="core:tavern", player=1, request_id=12)),
+        ("HireHero", HireHero(hid=5, tid=10, nhid=-1, player=1, request_id=12)),
     ]
 
     for name, pack in packs:
@@ -483,7 +483,7 @@ def test_packet_size():
         ("MoveHero(10pt)", MoveHero(path=[(i,0,0) for i in range(10)], hid=42, layer=0, player=1, request_id=0)),
         ("QueryReply(0)", QueryReply(qid=7, reply=0, player=1, request_id=0)),
         ("RecruitCreatures", RecruitCreatures(tid=10, dst=42, crid="core:footman", amount=5, level=1, player=1, request_id=0)),
-        ("BuildStructure", BuildStructure(tid=10, bid="core:tavern", player=1, request_id=0)),
+        ("BuildStructure", BuildStructure(tid=10, bid=9, player=1, request_id=0)),
         ("MakeAction(move)", MakeAction(
             action=BattleAction(side=0, stack_number=3, action_type=1, spell="", target=[(0,5,8)]),
             bid=42, player=1, request_id=0)),

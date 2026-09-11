@@ -211,7 +211,7 @@ class BuildStructure(CPackForServer):
     """
     type_id = 185
 
-    def __init__(self, tid: int, bid: str,
+    def __init__(self, tid: int, bid,
                  player: int = PlayerColor.BLUE, request_id: int = 0):
         super().__init__(player, request_id)
         self.tid = tid
@@ -220,13 +220,13 @@ class BuildStructure(CPackForServer):
     def serialize(self, ser):
         super().serialize(ser)
         ser.write_int(self.tid)       # ObjectInstanceID
-        ser.write_string(self.bid)    # BuildingID → string
+        ser.write_int(self.bid)       # BuildingID = StaticIdentifierWithEnum → LVarInt num (实机修正 #204b, 原 string 错)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
         base = CPackForServer.deserialize_base(deser)
         tid = deser.read_int()
-        bid = deser.read_string()
+        bid = deser.read_int()
         base["tid"] = tid
         base["bid"] = bid
         return base
@@ -239,28 +239,29 @@ class HireHero(CPackForServer):
     """
     type_id = 195
 
-    def __init__(self, tid: int, cost: int = -1, bid: str = "",
+    def __init__(self, hid: int, tid: int, nhid: int = -1,
                  player: int = PlayerColor.BLUE, request_id: int = 0):
         super().__init__(player, request_id)
-        self.tid = tid
-        self.cost = cost
-        self.bid = bid
+        self.hid = hid      # HeroTypeID (available hero serial)
+        self.tid = tid      # town (tavern) OI
+        self.nhid = nhid    # next hero HeroTypeID
 
     def serialize(self, ser):
         super().serialize(ser)
+        def _hid_str(v):
+            if v is None or v == -1 or v == "":
+                return ""
+            return v if isinstance(v, str) else str(v)
+        ser.write_string(_hid_str(self.hid))   # HeroTypeID = EntityIdentifier → string (jsonKey), 空串=-1
+        ser.write_string(_hid_str(self.nhid))
         ser.write_int(self.tid)
-        ser.write_int(self.cost)
-        ser.write_string(self.bid)
 
     @staticmethod
     def deserialize(deser: BinaryDeserializer) -> dict:
         base = CPackForServer.deserialize_base(deser)
-        tid = deser.read_int()
-        cost = deser.read_int()
-        bid = deser.read_string()
-        base["tid"] = tid
-        base["cost"] = cost
-        base["bid"] = bid
+        base["hid"] = deser.read_string()
+        base["nhid"] = deser.read_string()
+        base["tid"] = deser.read_int()
         return base
 
 
