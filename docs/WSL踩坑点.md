@@ -402,13 +402,14 @@
 
 ### 待归档新增
 
-#### #185 T13.10 Lobby/P8 前置完成但实机多人局未完成 (2026-09-11) — ⚠️ 待查
-- **状态**: ⚠️ 待查
+#### #185 T13.10 Lobby/P8 前置完成但实机多人局未完成 (2026-09-11) — ✅ 已解决 (阶段1+2 实机 PASS)
+- **状态**: ✅ 已解决 — P8-B 阶段1 (lobby join, efb5b6b) + 阶段2 (完整对局 EndTurn 轮转, 407e8e5) 均实机 PASS
 - **背景**: T13 外挂 AI 协议客户端完成 `py/vcmi_protocol/`, 新增 Lobby 包解析与 P8-A 实机入口; 离线单测 `144 passed, 0 failed`。
 - **坑**: 离线解析通过 ≠ 真实 VCMI server 接受。Lobby 握手、玩家槽位、StartInfo/CMapInfo、跨客户端同步仍需实机抓包验证; 不能把 `LobbyUpdateState` 部分字段占位解析当作完成多人局。
 - **正确口径**: 完成的是 P8 前置: TCP/CPack/Query/ModelBridge/Lobby 基础包。未完成的是 P8-B/C: 实机启动 VCMI server/client, AI 与人类同局完成至少 1 局。
-- **复现/验证**: `python py/vcmi_protocol/tests/test_e2e.py` 离线全绿; 实机入口 `python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m`。
-- **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a`。
+- **解决**: 阶段1 假服务器捕获法对拍 BYTE-IDENTICAL 56B; 阶段2 方案F (Python host + LobbyChangeHost 让位 + guest SetMap + StartGame + EndTurn 轮转) 连续两回合 "successfully applied" + ModelAI 对手真实移动 + Turn 2 轮转零 Disaster。
+- **复现/验证**: `python py/p8be_host_start.py` (阶段2 完整对局); `python py/p8b_lobby_probe.py` (阶段1 握手)。
+- **关联**: T13.10 / P8 / `docs/序列化协议规格.md` / 提交 `bdce29a` → `efb5b6b` → `407e8e5`。
 
 #### #186 vcmienv ERROR 日志级下 T06 终局双重失明：超时 forcing 零痕迹，9/10 判真实 game_over (2026-09-11) — ✅ 实锤（只读）
 - **状态**: ✅ 实锤（只读取证），探针已写待错窗执行

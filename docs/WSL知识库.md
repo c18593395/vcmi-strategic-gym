@@ -910,7 +910,7 @@ vcmi-native 与 workspace 共享 .git 但 **HEAD 不同** (native=e4afa2a87 旧�
 | 217 | `LobbyClientDisconnected` | 客户端断开 | 可解析, 待实机校验 |
 | 218 | `LobbyChatMessage` | 大厅聊天 | 可解析, 待实机校验 |
 | 226 | `LobbyUpdateState` | 大厅状态更新 | 可解析主路径, `CMapInfo` 字段暂占位 |
-| 229 | `LobbySetMap` | 设置地图 | 仅最简实现, 待实机校验 |
+| 229 | `LobbySetMap` | 设置地图 | 实机 PASS (方案F, 1486B 完整 CMapInfo 由 guest client1 发送, server 接受) |
 | 265 | `LobbyQueryState` | 查询大厅状态 | 无字段, 可发送 |
 | 266 | `LobbyModsCheck` | 大厅兼容检查响应 | 可解析, 待实机校验 |
 
@@ -943,24 +943,32 @@ python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
 | vcmi PR #4253 | github.com/vcmi/vcmi/pull/4253 | `settings["server"]["localPort"]=0` 随机端口绑定 | 并行多实例 VCMI 不抢端口; P8 并行验证/未来多人训练用 |
 | 官方 Networking.md | vcmi/vcmi develop docs | 4 字节长度+payload 与 global lobby JSON 协议权威文档 | 与我们逆向的序列化规格互证, 可作 `docs/序列化协议规格.md` 官方佐证链接 |
 
-**P8-B/C CLI 方案 (09-11, 绕开 lobby UI 点击)**:
+**P8-B 实机验证方案 (09-11, 方案F 已验证 PASS, commit 407e8e5)**:
+
+fork 1.8 无 `--loadserver/--loadplayer` 参数 (官方 develop 才有)。已验证开法:
 
 ```bash
-# 1. 启动 server: 客户端 1 直开多人局 (red+blue 双人类槽, AI 填其余)
-VCMI_client.exe --loadserver --loadnumplayers 2   --loadhumanplayerindices 0 --loadhumanplayerindices 1 --loadplayer 0   --testmap Maps/Twins.h3m
+# 1. 独立启动 server
+VCMI_server.exe --port=3030
 
-# 2. 第二客户端 (可远程): 控蓝方
-vcmiclient --loadplayer 1 --loadserverip 127.0.0.1 --loadserverport 3030
+# 2. Python 先连当 host → 发 LobbyClientConnected(216)
+python py/p8be_host_start.py   # 自动完成后续全流程
 
-# 3. 外挂 AI 客户端 (py/vcmi_protocol): 连同 server, 接任意 AI 槽
-python py/vcmi_protocol/tests/test_e2e.py --p8-1v7 --map Maps/Twins.h3m
+# 3. 真实 client1 连入当 guest (脚本内自动启动):
+VCMI_client.exe --testmap Maps/Twins.h3m --donotstartserver --serverport 3030 --headless
+# (环境变量 VCMI_TESTMAP_ONLYAI=1)
+
+# 4. Python(host) 发 LobbyChangeHost(225) 让 host 给 client1
+# 5. client1 成为 host → 发 LobbySetMap(229) → LobbyStartGame(224)
+# 6. GAMEPLAY: Python 发 EndTurn(180) → server "successfully applied" → ModelAI 对手移动 → Turn 2
 ```
 
 要点:
-- `--loadnumplayers 2` + 两次 `--loadhumanplayerindices` = 声明双人类槽; `--loadplayer 0` = 本客户端控红方
-- 第二客户端 `--donotstartserver` 变体 = 只连接不自起 server
-- 全链 = server (客户端1 内嵌) + 人类客户端 (1/2) + 外挂 AI 客户端 (py) → P8-B (AI 加入/退出) / P8-C (人+AI 混合局) 全自动, 不碰 lobby SelectionTab 崩溃路径
-- 实机时需核对 fork 1.8 是否已含 `--load*` 参数 (官方 develop 有; fork 未验)
+- SetMap 是 host-only 操作; guest 发被静默拒绝 → 必须先 ChangeHost 让位
+- LobbyChangeHost(225) 手工帧: `bytes([0, 0, 0xe1, 0x01, 0x02])` (isNull+pid+tid+newHost=2)
+- EndTurn(180) 帧: `isNull(0)+pid(0)+tid(180)+player(LVarInt 0)+requestID(LVarInt)`
+- 实机 PASS: 连续两回合 EndTurn "successfully applied" + ModelAI TryMoveHero + Turn 2 轮转 + 零 Disaster
+- 剩余: 阶段3 = obs/决策接入 (MoveHero/Recruit 替换 EndTurn) → P8-C 混人回合 → P8-D 跨机器
 
 #### 二、服务 P10 h3m2vmap 转换器 (中高价值)
 
