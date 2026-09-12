@@ -631,12 +631,11 @@
 - **复现/验证**: `python py/p8d_deploy_probe.py --local` 13/13 PASS；`python py/p8d_deploy_probe.py --remote <host> --port 3030` 双机模式。
 - **关联**: P8-D / `py/vcmi_protocol/remote_connection.py` / `py/vcmi_protocol/deployment.py` / `py/p8d_deploy_probe.py`。
 
-#### #212 gen_t06_duel.py 直接写 JSON 不走引擎 loader/saver → 缺 terrain_0.json + 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称 (2026-09-12, 生成 + check 检查抓出) — ⚠️ 已知缺陷, 待 h3mtxt/h3m2vmap 管线重写
-- **状态**: ⚠️ 生成地图可跑（训练首局未验）, 但缺 terrain_0.json（引擎不崩但寻路精度退化）+ 蓝方贴镇距离不对称（蓝方 6 vs 红方 3）, 建议用 h3mtxt→h3m 管线重写后 h3m2vmap 转 vmap
+#### #212 gen_t06_duel.py 直接写 JSON 不走引擎 loader/saver → 缺 terrain_0.json + 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称 (2026-09-12, 生成 + check 检查抓出) — ✅ 已证伪（2026-09-13 引擎源码定判）
+- **状态**: ✅ 两项缺陷均无害, 地图可正常入池训练。①缺 terrain_0.json 是误报（引擎 `MapFormatJson.cpp` L248-255 `getTerrainFilename(0)` 返回 `surface_terrain.json` 而非 `terrain_0.json`, 引擎从未读 `terrain_0.json`）; ②蓝方贴镇 6 格 vs 红方 3 格不对称描述有误（实际双方均 dist=6, 完全对称; `check_t06_maps.py` L134 阈值 5 偏严触发 WARN 是阈值问题非地图问题）
 - **背景**: 09-12 用户要求"先生成 T06 duel 地图备用"。手写 `py/gen_t06_duel.py` 直接构造 VCMII JSON (header.json + surface_terrain.json + objects.json), 生成 3 张 72X72_02/108X108_01/108X108_02 duel 并 `cp` 进 `v13/maps/` + 副本, `check_t06_maps.py` 7 维全绿即宣布可用。
-- **坑① 缺 terrain_0.json (VCMII 双 terrain 格式)**: VCMII 标准 vmap 内 `header.json` 含 `mapLevels.surface` 段, 但**地形数据实际在 `terrain_0.json` 与 `surface_terrain.json` 双份**（引擎侧 CMapLoaderJson 先读 header 里的 terrain 引用, 再读 terrain_0.json 填充 CMap）。gen_t06_duel.py 只写 `surface_terrain.json`（全 grass `gr24_`）不写 `terrain_0.json` → 引擎加载时 terrain 数据缺失 → 寻路退化为纯 passability 无地形权重（NK2 仍能跑但精度退化）。`check_t06_maps.py` 只查 `surface_terrain.json` 长度, 未查 `terrain_0.json` 存在 → **check 全绿 ≠ 地图可用**。
-- **坑② 蓝方贴镇距离不对称**: 72X72_02_duel blue hero (66,66) → blue town (69,69) 曼哈顿距离 = 6; 但 red hero (5,5) → red town (2,2) 距离也是 6 — 双方对称, 但 6 格对红方意味着**开局取兵要绕 6 格**（正常 duel 设计红蓝英雄贴各自镇 1-2 格）。108X108 两图同样问题: blue hero (102,102) → blue town (105,105) = 6, red hero (5,5) → red town (2,2) = 6。不对称 = 双方开局步数对等, 但**偏离 duel 设计惯例**（红蓝各贴镇 1-2 格, 双方开局取兵成本相同且低）。
-- **正确口径**: T06 duel 地图应走 P10-B h3m2vmap 管线（`h3m→JSON→Python 改写→h3m→h3m2vmap --check-h3m`, 见 P10 C 步 09-11 工具链）, 由引擎自身生成 terrain_0.json + 保证坐标对称; gen_t06_duel.py 手写 JSON 仅作备用（缺 terrain_0.json + 坐标不对称 2 缺陷已知）。入池前需补 terrain_0.json 或用 h3mtxt 管线重写。
-- **复现/验证**: `check_t06_maps.py` 全绿但 `unzip -l <vmap> | grep terrain_0` = 0 命中（缺）; 入池首局观察 NK2 寻路是否正常（缺 terrain_0.json 时寻路精度退化, 可能出现异常长路径）。
-- **关联**: P10-B h3m2vmap 设计稿 §8 / #199 (h3mtxt 三坑) / P10 C 步 (09-11 h3mtxt roundtrip 验证) / `gen_t06_duel.py` L73-121 (只写 surface_terrain.json 不写 terrain_0.json) / `check_t06_maps.py` L58-61 (只查 surface_terrain.json 长度)。
+- **定判过程 (09-13)**: ①WSL 侧 `grep surface_terrain` 在 `vcmi-native/lib/mapping/MapFormatJson.cpp` L251 命中: `if(i==0) return "surface_terrain.json"` → **引擎读 surface_terrain.json, 不存在 terrain_0.json 这个文件名**, 1v3 源图也全缺 terrain_0.json → 缺 terrain_0.json 不影响引擎加载/寻路。②`check_duel_coords2.sh` 提取 objects.json 顶层 x/y: 三张 duel 图 red hero→town 与 blue hero→town 曼哈顿距离均为 6（72X72: (5,5)→(2,2)=6, (66,66)→(69,69)=6; 108X108: (5,5)→(2,2)=6, (102,102)→(105,105)=6）→ **双方完全对称**, "不对称"描述有误, 6 格本身是 T06 课程图设计值（非 duel 1-2 格惯例, 但 T06 本身就是大地图探索阶段, 6 格合理）。
+- **正确口径**: T06 duel 地图 `gen_t06_duel.py` 生成产物可直接入池, 无需补 terrain_0.json 或调坐标。若后续要更紧凑的 duel 布局（贴镇 1-2 格）, 可走 P10-B h3m2vmap 管线重写。
+- **复现/验证**: `unzip -l <vmap>` 只有 3 文件（header.json + surface_terrain.json + objects.json）正常; 引擎 `MapFormatJson.cpp` L248-255 `getTerrainFilename(0)="surface_terrain.json"` 是引擎 terrain 文件名映射, 不依赖 terrain_0.json。
+- **关联**: P10-B h3m2vmap 设计稿 §8 / `MapFormatJson.cpp` L248-255 / `check_t06_maps.py` L134 阈值 5 → 建议 T06 图阈值放宽至 7 / `check_duel_coords2.sh`（坐标对称性验证脚本）。
 

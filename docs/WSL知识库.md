@@ -63,7 +63,7 @@
 
 **工具**: `py/gen_t06_duel.py`（生成 72X72_02/108X108_01/108X108_02 duel）+ `py/check_t06_maps.py`（7 维可用性检查）。
 
-**gen_t06_duel.py 缺陷（踩坑 #212）**: 直接写 JSON 不走引擎 loader/saver → 缺 `terrain_0.json`（VCMII 双 terrain 格式, 引擎实际读 terrain_0.json 填充 CMap）+ 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称。`check_t06_maps.py` 7 维全绿 ≠ 地图可用（check 只查 surface_terrain.json 长度不查 terrain_0.json 存在）。入池前需补 terrain_0.json 或用 h3mtxt→h3m 管线重写后 h3m2vmap 转 vmap。
+**gen_t06_duel.py 缺陷（踩坑 #212, 09-13 已证伪）**: ①缺 `terrain_0.json` 是误报——引擎 `MapFormatJson.cpp` L248-255 `getTerrainFilename(0)` 返回 `surface_terrain.json`, 不存在 terrain_0.json 这个文件名, 引擎从未读它; ②"蓝方贴镇 6 格 vs 红方 3 格不对称"描述有误——实际双方均 dist=6 完全对称, `check_t06_maps.py` L134 阈值 5 偏严触发 WARN。地图可直接入池训练, 无需补 terrain_0.json 或调坐标。
 
 **check_t06_maps.py 7 维**: ① 文件落地三处（Maps/training/ + v13/maps/ + vcmi-native/rel/bin/data/Maps/） ② zip 完整性 + 3 文件（header/surface_terrain/objects） ③ hero/town 数 = 2 ④ identifier 白名单 ⑤ 尺寸对齐（header 与 terrain 长度一致） ⑥ 对角 duel 坐标（red 左上 / blue 对角） ⑦ 对象类型统计（44 objects: hero 2 / town 2 / mine 5 / resource 15 / monster 20）。
 
