@@ -1352,3 +1352,51 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 
 ### 关联
 踩坑 #209（TOWNSTALL `>=` 误判根因）/ 任务清单 L107「TOWNSTALL 引导可达性」行 / `ep_runner_one.py` L872-898。
+
+### T06 duel C 方案 hero-kill proxy +100 全误报修复 (09-13, #213)
+
+**背景**: C 方案 (09-11 上线, 同日扩展全图) 定义"蓝英雄死亡 = capture proxy +100"，duel(1v1) 蓝英雄一死 → game_over → 原 TOWN_CAPTURE(owner 翻转) 结构性死信 → 蓝英雄击杀事件替代。09-12 日志分析时发现 duel 的 49 条 `[TOWN_CAPTURE] blue_hero_killed=[1]` 全部可疑（同期 `BHERO_KILL` = 0），启动单独核查。
+
+**核查结论 — 49/49 全部误报，无真击杀**:
+
+三重证据链：
+
+1. **`BHERO_KILL = 0`** — obs 正常状态下蓝英雄从未消失（集合差恒为 0），英雄一直活着
+2. **`HEROSEG_EMPTY = 0`** — 全空拍诊断未触发，因为战斗瞬态期间 `_bnow` **非全空**（有部分英雄但少了 id=1），走不到 `if not _bnow` 的全空拍分支
+3. **ep 继续运行** — TOWN_CAPTURE step 95 后 ep 正常到 step 96 才 end（`err=no`）；若真击杀 duel 应当步 game_over，不该多跑 1 步
+
+**根因 — 两条路径不对称 (ep_runner_one.py L948 vs L963)**:
+
+C 方案 L948 无 `_bnow` 非空守卫：
+```python
+if (bhero_ids_prev is not None and not _t06_hero_kill_capture):
+    _killed = bhero_ids_prev - _bnow  # obs 部分少报 → 误判"消失"
+```
+
+`BHERO_KILL` L963 有守卫：
+```python
+if _bnow:  # ← 空拍时跳过，防止 prev 被清空
+```
+
+duel 战斗瞬态（蓝英雄进战斗 → C++ obs 线程清 heroes 段 id=-1 → 填充循环短暂 0 行）造成 `_bnow` 部分少读但不全空，C 方案路径**无守卫**直接误判。
+
+**修复 — 方案 B: duel 删除 C 方案**:
+
+在 L948 加 `and not args.mapname.endswith('_duel.vmap')`。duel 蓝英雄死 = game_over = ep 终止，无需 C 方案 proxy；+100 纯属污染价值学习。
+
+```python
+if (bhero_ids_prev is not None and not _t06_hero_kill_capture
+    and not args.mapname.endswith('_duel.vmap')):
+```
+
+**影响评估**:
+- 49 次 × +100 = **4900 虚假 reward 已注入 PPO 价值网络**
+- 集中在 duel 早期 step（28-99 占 33/49 = 67%），让 agent 学到"进战斗 = +100"的错误价值关联
+- 当前 duel 局 r 基线被抬高约 +100/局（49 局 × 100 / 总 ep 数）
+
+**教训**:
+- 两条相似代码路径（C 方案 + BHERO_KILL）的守卫条件必须对齐 — 一处有 `if _bnow` 另一处没有 = 隐蔽缺陷
+- 战斗瞬态的 obs 部分少报（非全空）是比全空拍更隐蔽的误报源，全空拍防护（L934 `if not _bnow`）拦不住部分少报
+- duel 中蓝英雄死 = game_over = ep 终止，游戏引擎已处理终止信号，**不需要额外 reward proxy** — proxy 只在"蓝英雄死但 ep 不终止"的 1v3/1v7 场景才有必要
+
+**关联**: 踩坑 #213 / #210（HERO_DEATH 与 C 方案 proxy 正交）/ 任务清单 T13.10 专区 / `ep_runner_one.py` L944-962。

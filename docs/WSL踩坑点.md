@@ -639,3 +639,14 @@
 - **复现/验证**: `unzip -l <vmap>` 只有 3 文件（header.json + surface_terrain.json + objects.json）正常; 引擎 `MapFormatJson.cpp` L248-255 `getTerrainFilename(0)="surface_terrain.json"` 是引擎 terrain 文件名映射, 不依赖 terrain_0.json。
 - **关联**: P10-B h3m2vmap 设计稿 §8 / `MapFormatJson.cpp` L248-255 / `check_t06_maps.py` L134 阈值 5 → 建议 T06 图阈值放宽至 7 / `check_duel_coords2.sh`（坐标对称性验证脚本）。
 
+#### #213 T06 duel C 方案 hero-kill proxy +100 全误报：obs 战斗瞬态部分少报 vs BHERO_KILL 守卫不对称 (2026-09-13, 日志分析实锤) — ✅ 已修
+- **状态**: ✅ 已修 (ep_runner_one.py L948 加 `and not args.mapname.endswith('_duel.vmap')`, duel 跳过 C 方案)
+- **背景**: 09-12 日志分析发现 duel 的 49 条 `[TOWN_CAPTURE] blue_hero_killed=[1]` 同期 `BHERO_KILL` = 0，启动单独核查 duel 中 +100 是"真触发"还是"误报"。
+- **坑 — 两条路径守卫不对称 (ep_runner_one.py L948 vs L963)**: C 方案 L948 计算 `bhero_ids_prev - _bnow` 时**无 `_bnow` 非空守卫**，战斗瞬态 obs 部分少读（_bnow 非全空但少了 id=1）→ 集合差误判为"击杀" → +100。而 L963 的 `BHERO_KILL` 有 `if _bnow:` 守卫，全空拍时跳过。两条相似路径守卫不对齐 = 隐蔽缺陷。
+- **根因 — 三重证据链确认 49/49 全部误报**: ①`BHERO_KILL=0` → obs 正常状态蓝英雄从未消失（集合差恒 0）; ②`HEROSEG_EMPTY=0` → 全空拍诊断未触发（战斗瞬态 _bnow 非全空，有部分英雄但少了 id=1）; ③ep 继续运行 → TOWN_CAPTURE step 95 后 ep 正常到 step 96 才 end（err=no），若真击杀 duel 应当步 game_over 不该多跑 1 步。
+- **影响评估**: 49 次 × +100 = 4900 虚假 reward 注入 PPO 价值网络; 集中在 duel 早期 step（28-99 占 67%），让 agent 学到"进战斗=+100"的错误价值关联; duel 局 r 基线被抬高约 +100/局。
+- **修复 — 方案 B duel 删除 C 方案**: L948 加 `and not args.mapname.endswith('_duel.vmap')`。duel 蓝英雄死=game_over=ep 终止，游戏引擎已处理终止信号，不需额外 reward proxy; proxy 只在"蓝英雄死但 ep 不终止"的 1v3/1v7 场景才有必要。
+- **教训**: ①两条相似代码路径的守卫条件必须对齐 — 一处有 `if _bnow` 另一处没有 = 隐蔽缺陷; ②战斗瞬态的 obs **部分少报**（非全空）是比全空拍更隐蔽的误报源，全空拍防护（L934 `if not _bnow`）拦不住部分少报; ③duel 中蓝英雄死 = game_over = ep 终止，游戏引擎已处理，**不需要额外 reward proxy** — proxy 只在"蓝英雄死但 ep 不终止"的 1v3/1v7 场景才有必要; ④日志分析发现"同类事件频率异常"（TOWN_CAPTURE=49 但 BHERO_KILL=0）时应立即启动核查，不可放过。
+- **复现/验证**: `grep -c 'TOWN_CAPTURE.*duel' train_loop.log` = 49 (修复前); `grep -c 'BHERO_KILL' train_loop.log` = 0 (全图); duel 局 TOWN_CAPTURE 全部 blue_hero_killed=[1] + step 28-193 + ep 正常结束 → 49/49 误报。修复后 duel 局不再触发 C 方案 TOWN_CAPTURE。
+- **关联**: #210（HERO_DEATH 与 C 方案 proxy 正交）/ #204（0 命中三义性）/ 知识库「T06 duel C 方案 hero-kill proxy +100 全误报修复」章 / `ep_runner_one.py` L944-962 / #212（同窗 T06 duel 地图证伪）。
+

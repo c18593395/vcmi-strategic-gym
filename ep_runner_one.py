@@ -945,7 +945,10 @@ try:
         # duel(1v1) 蓝英雄一死 → game_over 当步 end → 英雄不可能再走到城格,
         # 原 TOWN_CAPTURE (owner 翻转 L1012) 结构性死信 → 蓝英雄击杀事件替代
         # 09-11 扩展 (用户拍板): 杀蓝英雄=capture proxy 全图生效, T06 duel 限定解除
-        if (bhero_ids_prev is not None and not _t06_hero_kill_capture):
+        # 09-13 修复 (#209): duel 排除 — 49/49 全部误报 (obs 战斗瞬态少读, BHERO_KILL=0)
+        #   duel 蓝英雄死 = game_over = ep 终止，无需 C 方案 proxy；+100 污染价值学习
+        if (bhero_ids_prev is not None and not _t06_hero_kill_capture
+            and not args.mapname.endswith('_duel.vmap')):
             _killed = bhero_ids_prev - _bnow
             if _killed:
                 _t06_hero_kill_capture = True
