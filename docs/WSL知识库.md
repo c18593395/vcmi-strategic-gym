@@ -55,9 +55,27 @@
 
 ---
 
-## 待整理（收到“保存知识库”时追加于此）
+## 待整理（收到"保存知识库"时追加于此）
 
-> 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带“截至日期”与“结论”。
+> 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
+
+### T06 duel 地图生成 + check 工具 + 入池流程 (09-12)
+
+**工具**: `py/gen_t06_duel.py`（生成 72X72_02/108X108_01/108X108_02 duel）+ `py/check_t06_maps.py`（7 维可用性检查）。
+
+**gen_t06_duel.py 缺陷（踩坑 #212）**: 直接写 JSON 不走引擎 loader/saver → 缺 `terrain_0.json`（VCMII 双 terrain 格式, 引擎实际读 terrain_0.json 填充 CMap）+ 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称。`check_t06_maps.py` 7 维全绿 ≠ 地图可用（check 只查 surface_terrain.json 长度不查 terrain_0.json 存在）。入池前需补 terrain_0.json 或用 h3mtxt→h3m 管线重写后 h3m2vmap 转 vmap。
+
+**check_t06_maps.py 7 维**: ① 文件落地三处（Maps/training/ + v13/maps/ + vcmi-native/rel/bin/data/Maps/） ② zip 完整性 + 3 文件（header/surface_terrain/objects） ③ hero/town 数 = 2 ④ identifier 白名单 ⑤ 尺寸对齐（header 与 terrain 长度一致） ⑥ 对角 duel 坐标（red 左上 / blue 对角） ⑦ 对象类型统计（44 objects: hero 2 / town 2 / mine 5 / resource 15 / monster 20）。
+
+**入池流程**: ① `gen_t06_duel.py` 生成 → ② `check_t06_maps.py` 验证（全绿 = 结构正确，但需另验 terrain_0.json） → ③ cp 进 `v13/maps/`（训练主进程实际加载路径） → ④ cp 进 `vcmi-native/rel/bin/data/Maps/`（运行时副本） → ⑤ 改 `train_wsl2_ppo_v2.py` MAPS 列表 1 行 → ⑥ 停训 + 错窗重启。
+
+**T7.4 HERO_DEATH 判据 1 样本池切 T06 duel 根因（踩坑 #210）**: C 方案 proxy（`blue_hero_killed`）与 zombie 全堵（`passable.any()=False`）**完全正交**。T05 守卫战 autofight 必胜 → red 几乎不战死 → 无全堵机会；T06 duel 蓝英雄一死 → game_over 当步 end → 同样无机会。VCMI 引擎 standardDefeat 未落地前 `game_over==2` 判负不生效。判据 1 样本池需切 T06 duel（blue 英雄存活 → red 进攻 → 有反杀全堵机会）。
+
+### L877 TOWNSTALL 修复实施 + 重启验证 (09-12, 踩坑 #209 闭环)
+
+**修复**: `ep_runner_one.py` L877 `cur_dist >= move_stall_prev` → `cur_dist > move_stall_prev`（TOWNSTALL 平台段误判根因: `>=` 把 BFS plen 持平的横移/绕岩段也计停滞）。
+
+**重启验证**: 停 `homm3-train-v5` → 重启 resume step=659248 → 重启窗口（L76382→L78132, 66 局）TOWN_BLOCKED=0（修复前全 log 460）+ TOWNSTALL=41 全为 `move_stall==1` 瞬态诊断（pas 全 1 未升级）→ **修复生效**。
 
 ### P8-D 跨机器部署脚手架 + 实机验证 (09-12, 设计+骨架+本机 13/13 PASS)
 

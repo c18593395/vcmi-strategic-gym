@@ -59,6 +59,9 @@ MAPS = [
     # 回退线: avg_r 跌幅>30% (vs duel 基线 75.5) 或挂死局>40% → 移除回 7 图
     "T06_adventure_72X72_01_duel.vmap",
     "T06_adventure_72X72_01.vmap",
+    # 09-12 capture 观察窗五判据全达标 (66 局 avg_r 180.2 / TOWN_BLOCKED 0 / TOWN_CAPTURE 24)
+    # 错窗切地图轴: 加 72X72_02_duel (MAPS 9→10, 一次一轴)
+    "T06_adventure_72X72_02_duel.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [

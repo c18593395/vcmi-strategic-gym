@@ -603,8 +603,8 @@
 - **教训**: ①Query 分支不能只写"回复/跳过"两义 — 业务事件 (回合切换) 也要消费; ②实机是协议栈的终极仲裁 — 离线 6/6 PASS 的 probe 不能覆盖"分支优先级"这类控制流 bug; ③`qid=-1` 语义 = "非实际 query, 不应回复", 不等于 "整包可忽略" — 包本身可能携带业务事件。
 - **关联**: #200 (PlayerStartsTurn 是 Query 派生) / #207 (Query 协议栈四层修复) / `py/p8/p8c_query_probe_real.py` L141-151 (修复位置)。
 
-#### #209 TOWNSTALL 卡住检测 `>=` 把路径平台段（BFS plen 持平）误判停滞 → 提前 TOWN_BLOCKED 禁用城镇引导 (2026-09-12, 日志分析实锤) — ⚠️ 根因已定位, 修复待重启窗
-- **状态**: ⚠️ 根因实锤（代码 + 日志双向对照），修复未实施（需 stop/restart `homm3-train-v5` 重启窗，按运维纪律待自然 checkpoint 后一并修）
+#### #209 TOWNSTALL 卡住检测 `>=` 把路径平台段（BFS plen 持平）误判停滞 → 提前 TOWN_BLOCKED 禁用城镇引导 (2026-09-12, 日志分析实锤) — ✅ 已修 (09-12 实施, 重启窗验证)
+- **状态**: ✅ 已修 (09-12 L877 `>=` 改 `>` 实施 + 重启 `homm3-train-v5` 验证; 重启窗口 TOWN_BLOCKED=0 全绿)
 - **背景**: 日志分析发现 `[TOWNSTALL]` 假阻塞实例 — passability mask 8 邻全 1 仍判 stall（典型 L73327：`hero=(8,7) tgt=(2,1) plen=6 block=(7,6) pas=[1,1,1,1,1,1,1,1]`）；全 log 统计 TOWNSTALL 3817 次 / TOWN_BLOCKED 460 次。排查 `ep_runner_one.py` L872-898 卡住检测核心后定位根因。
 - **坑① `>=` 把"进度持平"也计停滞（主根因）**: L877 `if cur_dist >= move_stall_prev: move_stall += 1`。BFS plen 在横向移动/绕岩路径的平台段**不变**（绕岩前段曼哈顿不降反升已注明 L868，但 plen 横向移动时仍会持平），`>=` 把这种合法持平也累积进 `move_stall`，攒满 6 步即 L892 `move_stall >= 6` 触发 TOWN_BLOCKED → L893-894 `town_blocked=True` 本局禁用城优先引导。8 邻全通（pas 全 1）却判 stall 即此症状：英雄在绕岩/横移平台段被误杀。
 - **坑② `dyn_blocked.add` 副作用把可通行格入黑名单**: L881-887 在 `move_stall==1` 时取 BFS 首步格 `(_bx,_by)` 加入 `dyn_blocked`（设计意图=敌方英雄等动态障碍），但平台段首步格实际是**可通行格**（pas 全 1 实证）→ 后续 BFS 重规划绕行该格，进一步拉偏路径，放大误判。
@@ -630,4 +630,13 @@
 - **正确口径**: 跨机器脚手架本机验证 = 启动真实 VCMI_server + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 部署命令构造；双机验证需另一台机器预交换 HSK + 部署 VCMI。
 - **复现/验证**: `python py/p8d_deploy_probe.py --local` 13/13 PASS；`python py/p8d_deploy_probe.py --remote <host> --port 3030` 双机模式。
 - **关联**: P8-D / `py/vcmi_protocol/remote_connection.py` / `py/vcmi_protocol/deployment.py` / `py/p8d_deploy_probe.py`。
+
+#### #212 gen_t06_duel.py 直接写 JSON 不走引擎 loader/saver → 缺 terrain_0.json + 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称 (2026-09-12, 生成 + check 检查抓出) — ⚠️ 已知缺陷, 待 h3mtxt/h3m2vmap 管线重写
+- **状态**: ⚠️ 生成地图可跑（训练首局未验）, 但缺 terrain_0.json（引擎不崩但寻路精度退化）+ 蓝方贴镇距离不对称（蓝方 6 vs 红方 3）, 建议用 h3mtxt→h3m 管线重写后 h3m2vmap 转 vmap
+- **背景**: 09-12 用户要求"先生成 T06 duel 地图备用"。手写 `py/gen_t06_duel.py` 直接构造 VCMII JSON (header.json + surface_terrain.json + objects.json), 生成 3 张 72X72_02/108X108_01/108X108_02 duel 并 `cp` 进 `v13/maps/` + 副本, `check_t06_maps.py` 7 维全绿即宣布可用。
+- **坑① 缺 terrain_0.json (VCMII 双 terrain 格式)**: VCMII 标准 vmap 内 `header.json` 含 `mapLevels.surface` 段, 但**地形数据实际在 `terrain_0.json` 与 `surface_terrain.json` 双份**（引擎侧 CMapLoaderJson 先读 header 里的 terrain 引用, 再读 terrain_0.json 填充 CMap）。gen_t06_duel.py 只写 `surface_terrain.json`（全 grass `gr24_`）不写 `terrain_0.json` → 引擎加载时 terrain 数据缺失 → 寻路退化为纯 passability 无地形权重（NK2 仍能跑但精度退化）。`check_t06_maps.py` 只查 `surface_terrain.json` 长度, 未查 `terrain_0.json` 存在 → **check 全绿 ≠ 地图可用**。
+- **坑② 蓝方贴镇距离不对称**: 72X72_02_duel blue hero (66,66) → blue town (69,69) 曼哈顿距离 = 6; 但 red hero (5,5) → red town (2,2) 距离也是 6 — 双方对称, 但 6 格对红方意味着**开局取兵要绕 6 格**（正常 duel 设计红蓝英雄贴各自镇 1-2 格）。108X108 两图同样问题: blue hero (102,102) → blue town (105,105) = 6, red hero (5,5) → red town (2,2) = 6。不对称 = 双方开局步数对等, 但**偏离 duel 设计惯例**（红蓝各贴镇 1-2 格, 双方开局取兵成本相同且低）。
+- **正确口径**: T06 duel 地图应走 P10-B h3m2vmap 管线（`h3m→JSON→Python 改写→h3m→h3m2vmap --check-h3m`, 见 P10 C 步 09-11 工具链）, 由引擎自身生成 terrain_0.json + 保证坐标对称; gen_t06_duel.py 手写 JSON 仅作备用（缺 terrain_0.json + 坐标不对称 2 缺陷已知）。入池前需补 terrain_0.json 或用 h3mtxt 管线重写。
+- **复现/验证**: `check_t06_maps.py` 全绿但 `unzip -l <vmap> | grep terrain_0` = 0 命中（缺）; 入池首局观察 NK2 寻路是否正常（缺 terrain_0.json 时寻路精度退化, 可能出现异常长路径）。
+- **关联**: P10-B h3m2vmap 设计稿 §8 / #199 (h3mtxt 三坑) / P10 C 步 (09-11 h3mtxt roundtrip 验证) / `gen_t06_duel.py` L73-121 (只写 surface_terrain.json 不写 terrain_0.json) / `check_t06_maps.py` L58-61 (只查 surface_terrain.json 长度)。
 

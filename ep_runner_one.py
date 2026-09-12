@@ -874,7 +874,7 @@ try:
                     cur_dist = _plen_now if _plen_now >= 0 else abs(tx - hx) + abs(ty - hy)
                 else:
                     cur_dist = abs(tx - hx) + abs(ty - hy)
-                if cur_dist >= move_stall_prev:
+                if cur_dist > move_stall_prev:
                     move_stall += 1
                     # 2026-09-01 改法三: 停滞 = BFS 首步格被引擎拒绝 (实探: 敌方英雄等动态障碍) —
                     # 把该格记入本局黑名单, 后续 BFS 重规划绕行; 诊断埋点打印阻挡格
