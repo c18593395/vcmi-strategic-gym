@@ -217,6 +217,11 @@ def run_episode(mapname, blue_model=None):
                 obs_nz = np.count_nonzero(d["obs"][0])
                 acts = d.get("act", [])
                 print(f"  ep_steps={d.get('steps',0)} r={d.get('total_rew',0):.2f} act={acts} obs_nz={obs_nz} map={mapname}", flush=True)
+                # 2026-09-13 方案 A: 全零 obs 局 (引擎 reset 冷启动竞态, obs_nz=0) 不进 buffer —
+                # 02_duel 4 局 steps=1 secs=603 实证: 首拍 obs 全零 + 无效动作 = 脏样本污染 PPO 价值网
+                if obs_nz == 0:
+                    print(f"  [FILTER] obs_nz=0 脏样本丢弃 (引擎 reset 竞态), 不进 buffer map={mapname}", flush=True)
+                    return None
             return d
     except: pass
     return None

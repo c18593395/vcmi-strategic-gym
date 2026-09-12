@@ -650,3 +650,13 @@
 - **复现/验证**: `grep -c 'TOWN_CAPTURE.*duel' train_loop.log` = 49 (修复前); `grep -c 'BHERO_KILL' train_loop.log` = 0 (全图); duel 局 TOWN_CAPTURE 全部 blue_hero_killed=[1] + step 28-193 + ep 正常结束 → 49/49 误报。修复后 duel 局不再触发 C 方案 TOWN_CAPTURE。
 - **关联**: #210（HERO_DEATH 与 C 方案 proxy 正交）/ #204（0 命中三义性）/ 知识库「T06 duel C 方案 hero-kill proxy +100 全误报修复」章 / `ep_runner_one.py` L944-962 / #212（同窗 T06 duel 地图证伪）。
 
+#### #214 72X72_02_duel 引擎 reset 冷启动竞态 → 首拍 obs 全空 `steps=1 secs=603 obs_nz=0` → 方案 A 脏样本过滤 (2026-09-13, 日志分析实锤) — ✅ 已修
+- **状态**: ✅ 已修 (train_wsl2_ppo_v2.py L220-225 加 `obs_nz==0 → return None` 过滤, 脏样本不进 PPO buffer; checkpoint step=675915 续训)
+- **背景**: 09-13 日志分析发现 `72X72_02_duel` 4 局 `steps=1 secs=603 obs_nz=0`（`no_own_town` + `hero=(0,0) towns=[NONE]`），同图其余 103 局正常（obs_nz=301）。`01_duel`/`108X108 duel` 0 局命中，异常仅 02_duel。
+- **定判过程**: ①地图文件正常（objects.json 蓝方 hero_1(66,66)/红方 hero_0(5,5)/town_0/1 全在）→ 非地图缺陷; ②`secs=603`（≈600 秒）= 首拍 `env.reset()` 阻塞 600 秒后正常返回全零 obs（引擎冷启动竞态，obs 段填充线程未就绪）; ③全零 obs → `_own=None`（8 城段全 0）→ `start_home=False` 打印 `abort(no_own_town)`（[ep_runner_one.py L596](file:///d:/Bigdata/hero3_fresh/ep_runner_one.py#L596)）→ 软放弃不终止 → 但 `act=16` 无效动作 + 引擎 `done=True` → 单步即终局 `steps=1`; ④01_duel/108X108 不命中 = load 顺序/共享内存缓存状态差异（非确定性竞态，偶发 4/103≈4%）。
+- **影响评估**: 4 局全零 obs + 无效动作 = 脏样本，进 buffer 会污染 PPO 价值网（"无效动作→12.5 reward" 的错误价值关联）。占比小（4/103）且 PPO 有 clip+GAE 截断，影响可控，但判据统计需剔除。
+- **修复 — 方案 A 脏样本过滤 (最稳，1 行，零引擎改动)**: [train_wsl2_ppo_v2.py L220-225](file:///d:/Bigdata/hero3_fresh/train_wsl2_ppo_v2.py#L220-L225) `obs_nz==0 → print([FILTER]) → return None`，调用方 L377 `if traj is None: continue` 已处理 None → 全零 obs 局不进 buffer。停训窗：`wsl -u root systemctl stop homm3-train-v5` → 清 `py/__pycache__` + `py/vcmi_protocol/__pycache__` + `scripts/__pycache__` → `systemctl start` resume step=675915。
+- **教训**: ①`obs_nz=0` 是引擎冷启动竞态的信号（`secs≈600` 首拍阻塞 + obs 全零 + `no_own_town`），非地图缺陷 — 排查顺序先查地图文件（objects/header），再查 reset 时序; ②duel 图引擎 reset 竞态偶发命中，但**全零 obs 局对 PPO 价值网是纯噪声**（无学习价值），训练端一行过滤即可消除污染，零引擎改动（错窗纪律友好）; ③方案 B（引擎 reset 重试 1-2 次）留作后续 — 需改 ep_runner + 清缓存 + 单独开引擎轴，且不改引擎 C++ 根因（reset 卡死在引擎侧）。
+- **复现/验证**: `grep -c 'FILTER.*obs_nz=0' train_loop.log` = 修复后脏样本被过滤次数（应为 4 的倍数，每局 1 条）; 修复前 `grep -c 'obs_nz=0' train_loop.log` 含正常局 obs_nz=0（无，正常局 obs_nz=301）; 判据统计剔除 `steps=1 obs_nz=0` 局。
+- **关联**: #212（同窗 02_duel 地图缺陷证伪）/ #213（duel C 方案误报）/ 知识库「T7.4 死亡惩罚 09-13 方向纠正 + 02_duel 引擎 reset 竞态」章 / `train_wsl2_ppo_v2.py` L220-225 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
+

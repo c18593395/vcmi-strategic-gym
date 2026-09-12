@@ -1279,6 +1279,26 @@ checkpoint 体检 → `rl_model_v5_0911.onnx` 导出 + Python/C++ 探针对拍�
 ### 关联
 方案 "docs/方案_T74_死亡惩罚_20260910.md"（设计稿，实装=本次）/ 踩坑 #195（C 方案 capture proxy，正交关系）/ #201（system 级 unit 运维）/ #204（T7.4 上线验证方法论）/ 任务清单「活跃任务 3」→ 转观察期 / 引擎侧 standardDefeat 判负根修 = 独立 C++ 课题（T7.4 落地后紧接立项，落地时复核 done 双路同帧双罚）。
 
+## T7.4 死亡惩罚 09-13 方向纠正 + 02_duel 引擎 reset 冷启动竞态
+
+### 09-13 用户提问 + 实证定判
+- 用户问："死亡惩罚一次都没发生，是学会了生存、敌方太弱、还是根本不会遇见？"
+- **实证定判 = 根本没遇见（地形让卡死结构性不可达）**。三层叠加：
+  1. **ZOMBIE 触发条件 = 红英雄 8 方向全堵 ×2**（`passable.any()=False` 保险终止，非"被敌方击杀"）。duel 图全草地开阔 → 103 局 duel ZOMBIE=0 → 死亡惩罚触发条件永远不满足。
+  2. **duel 图红方 BFS 绕路取兵/攻城**，几乎不会走到会卡死的位置。
+  3. **历史 441 局 ZOMBIE 全部来自 T03/T04 小图**（20X20-36X36 地形复杂、死路多），T05/T06 大图 0 局。
+- **T7.4 判据 1 "sample 池切 duel" 方向错误** — duel 图产不出死亡事件。需"高障碍图"（死路/障碍墙密集，T03/T04 级别）或引擎 standardDefeat 判负落地。T7.4 的 -50 试探档对 duel 图结构性无效。
+- **机制澄清（读代码确认）**：T7.4 死亡惩罚的触发条件 = 红英雄卡死（zombie_streak>=2），不是"蓝英雄被击杀"。C 方案（蓝英雄消失 = capture proxy +100，[L948](file:///d:/Bigdata/hero3_fresh/ep_runner_one.py#L948)）与 T7.4 是两条独立轴。duel 图蓝英雄是"伪英雄"（静态，不交战），蓝英雄 obs 不会真的消失 → capture proxy 在 duel 中也结构性不触发（#213 已修 duel 跳过 C 方案）。
+
+### 02_duel 引擎 reset 冷启动竞态（#214）
+- **现象**：`72X72_02_duel` 4 局 `steps=1 secs=603 obs_nz=0`（`no_own_town` + `hero=(0,0) towns=[NONE]`），同图其余 103 局正常（obs_nz=301）。`01_duel`/`108X108 duel` 0 局命中，异常仅 02_duel。
+- **定判**：①地图文件正常（objects.json 蓝方 hero_1(66,66)/红方 hero_0(5,5)/town_0/1 全在）→ 非地图缺陷；②`secs=603`（≈600 秒）= 首拍 `env.reset()` 阻塞 600 秒后正常返回全零 obs（引擎冷启动竞态，obs 段填充线程未就绪）；③全零 obs → `_own=None`（8 城段全 0）→ `start_home=False` 打印 `abort(no_own_town)`（[L596](file:///d:/Bigdata/hero3_fresh/ep_runner_one.py#L596)）→ 软放弃不终止 → 但 `act=16` 无效动作 + 引擎 `done=True` → 单步即终局 `steps=1`。
+- **修复 — 方案 A 脏样本过滤（最稳，1 行，零引擎改动）**：[train_wsl2_ppo_v2.py L220-225](file:///d:/Bigdata/hero3_fresh/train_wsl2_ppo_v2.py#L220-L225) `obs_nz==0 → return None`，调用方 L377 `if traj is None: continue` → 全零 obs 局不进 PPO buffer。停训窗 `systemctl stop` → 清 `__pycache__` → `systemctl start` resume step=675915。
+- **教训**：①`obs_nz=0` 是引擎冷启动竞态的信号（`secs≈600` 首拍阻塞 + obs 全零 + `no_own_town`），非地图缺陷 — 排查顺序先查地图文件，再查 reset 时序；②全零 obs 局对 PPO 价值网是纯噪声（无学习价值），训练端一行过滤即可消除污染；③方案 B（引擎 reset 重试 1-2 次）留作后续 — 需改 ep_runner + 清缓存 + 单独开引擎轴。
+
+### 关联
+踩坑 #214（02_duel 引擎 reset 竞态 + 方案 A 过滤）/ #213（duel C 方案误报）/ #212（02_duel 地图缺陷证伪）/ #210（HERO_DEATH 与 C 方案 proxy 正交）/ 任务清单「活跃任务 3」T7.4 方向纠正段 / `train_wsl2_ppo_v2.py` L220-225 过滤 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
+
 ## 09-12 T13.10 P8-C 协议栈+双探针闭环（离线 Query/MoveHero + 在线 Query/MoveHero 全 PASS）
 
 ### 阶段背景
