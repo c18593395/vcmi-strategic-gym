@@ -1494,3 +1494,45 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 - 需观察：obs 初始化 / NK2 寻路 / 引擎 reset 是否因引导缺失导致异常
 
 **关联**: 踩坑 #214（02_duel 引擎 reset 竞态 + 方案 A）/ #215（King L69 语法截断）/ 知识库 09-13 地图轴章 / 任务清单 活跃任务 3（T7.4 判据 1 样本源落实）/ `ep_runner_one.py` L127/L1214-1226 / `train_wsl2_ppo_v2.py` L48-73 MAPS / `strategic_env.py` L150-154 引导分支。
+
+### 09-13 地图轴二次扩展: T04 移除 + T06 三张大图入池 (MAPS=9→10)
+
+**背景**: 用户判断 T7.4 死亡惩罚"英雄打不死就永远不触发"，决定砍掉 T04 死路密集图的 T7.4 样本源定位，改走大图轴扩展（1v7 多敌轴 + 108X108 最大图）。
+
+**变更**（`train_wsl2_ppo_v2.py` L48-73 MAPS 段）:
+- 移除: `T04_adventure_36X36_01` / `T04_adventure_30X30_01`（2 张）
+- 加入: `T06_adventure_72X72_02` / `T06_adventure_108X108_02_duel` / `T06_adventure_108X108_02`（3 张）
+- MAPS: 9 → 10
+
+**新增图 identifier 检查（zip 解析）**:
+- `hero_subtypes=['core:alchemist']` — 合法
+- `town_subtypes=['core:conflux','core:dungeon']` — 合法（SoD 城）
+- `108X108_02_duel`: 2 hero + 2 town（1v1 duel 结构）
+- `72X72_02` / `108X108_02`: 4 hero + 4 town（header 只注册 1 blue hero，objects 4 个，同 01 口径）
+- 三图均无 identifier 风险
+
+**T04 移除对 T7.4 判据 1 的影响**:
+- T7.4 -50 全局生效（不按图分支），但 T7.4 判据 1（"死亡局 r 转负"）的样本源失去 T04 死路密集图
+- T06 全开阔大图 ZOMBIE 结构性不可达（09-12 定判），King of Pain 在修（dragon identifier）
+- 判据 1 挂起 → 若 T06/108X108 局也 0 次 ZOMBIE，则 T7.4 需引擎 `standardDefeat` 判负落地才有样本
+
+**King of Pain 死因补充（09-13 二次排查）**:
+- 除 #221 reset 竞态外，引擎日志新增错误：
+  ```
+  [%p/runServer][global] ERROR Failed to find object of type monster::core:dragon
+  [%p/runServer][global] ERROR Failed to launch game: Failed to resolve identifier monster::core:dragon
+  ```
+- `monster::core:dragon` 不在当前 `libvcmi.so` 注册表 → `NEW_GAME` 失败 → 引擎挂起/反复重启
+- King of Pain（H3M SoD 官方图）引用了 SoD 龙单位，当前部署的 libvcmi.so 缺少该 identifier
+- 处置：King 正在单独修改（用户确认），暂不干预训练
+
+**当前 MAPS 10 张**:
+| 课程 | 图 |
+|------|-----|
+| T05 | 36X36_01 / 52X52_01 / 52X52_02 |
+| T06_01 | 72X72_01_duel / 72X72_01 |
+| T06_02 | 72X72_02_duel / 72X72_02 |
+| 108X108_02 | duel / 原版 |
+| King | King_of_Pain_h3m（修复中） |
+
+**关联**: 踩坑 #221（King reset 竞态）+ dragon identifier 缺失 / 任务清单 09-13 地图轴二次扩展 / `train_wsl2_ppo_v2.py` L48-73 MAPS / `py/_check_108_ids.py`（108X108 identifier 检查工具）。

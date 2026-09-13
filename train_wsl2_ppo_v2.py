@@ -67,9 +67,10 @@ MAPS = [
     # 地形 gr57_ 系列 (gr24_ 变体), 无 rc/wa 前缀 → passable_grid 全通 (单层无桥无船一致)
     # 文件名加 _h3m 后缀 (strategic_env.py 强制要求 mapname 含 s1/mini/adventure/h3m)
     "King_of_Pain_h3m.vmap",
-    # 09-13 T04 回池 (T7.4 判据 1 ZOMBIE 样本源): 死路/障碍墙密集, 红英雄卡死概率高
-    "T04_adventure_36X36_01.vmap",
-    "T04_adventure_30X30_01.vmap",
+    # 09-13 地图轴扩展: T04 2 张移除, 加 T06 3 张 (72X72_02 / 108X108_02_duel / 108X108_02)
+    "T06_adventure_72X72_02.vmap",
+    "T06_adventure_108X108_02_duel.vmap",
+    "T06_adventure_108X108_02.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [

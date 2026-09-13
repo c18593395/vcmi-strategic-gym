@@ -739,5 +739,51 @@
 - **共性**: H3M 72x72 大图（King）与 T06 duel 图（02_duel）reset 耗时 ~600s 共性 = 地图对象数量多（King 173 对象 / 02_duel 数百对象），引擎 obs 段填充耗时。T05/T06 小图（36X36/52X52）reset <5s 无此问题。
 - **影响**: King 在 9 图池里占 1/9 抽样频率，且每次抽中都是脏样本 = **暂时无有效训练贡献**。若持续 1 步 abort（需观察后续局），可能是 `vcmi_full_to_slim.py` 转换质量或引擎 reset 初始化时序问题，需排查 VMAP 文件结构。
 - **处置**: 暂不移出 MAPS（样本量不足下结论）。方案 A 过滤保护了 PPO buffer 不污染。持续观察：若 5 局+ 全部 1 步 abort → 排查 VMAP 或移出 MAPS。
-- **关联**: #214（02_duel 引擎 reset 竞态 + 方案 A）/ #215（King L69 语法截断）/ #216-#220（H3M 转换工具链）/ `train_wsl2_ppo_v2.py` L220-225 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
+- **⚠️ 根因修正 (2026-09-13)**: 本条假设"reset 竞态"为初判。经逐层排查（#222/#223）证实真实根因 = **King VMAP `header.players = []` 空数组**（#222），T06 _02 系列 4 张同病（#223），引擎不创建玩家槽位 → obs 城段 owner 全为 0 → `no_own_town` 是**必然触发**而非竞态偶发。方案 A 过滤仍生效但方向错——脏样本源是地图本身，不是引擎时序。
+- **⚠️ 后续死因: dragon identifier 缺失 (2026-09-13)**: King 修复 `header.players` 后训练日志仍报错 `[%p/runServer][global] ERROR Failed to find object of type monster::core:dragon` → `NEW_GAME` 失败 → 引擎挂起/反复重启。根因 = King of Pain H3M 官方图引用 SoD 龙单位（`monster::core:dragon`），当前 `libvcmi.so` 注册表无此 identifier。处置：用户确认 King 在修改中，暂不干预训练。
+- **T04 状态更新 (2026-09-13)**: T04 2 张（`T04_adventure_36X36_01` + `T04_adventure_30X30_01`）已从 MAPS 移除（用户拍板走大图轴），T7.4 判据 1 样本源转 T06 大图池。
+- **关联**: #214（02_duel 引擎 reset 竞态 + 方案 A）/ #215（King L69 语法截断）/ #216-#220（H3M 转换工具链）/ #222（King 真实根因：header.players=[]，本条竞态假设已被 #222 修正）/ #223（T06 _02 系列批量修补）/ `train_wsl2_ppo_v2.py` L220-225 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
+
+#### #222 King_of_Pain_h3m.vmap `header.players=[]` 真实根因 + 单图 patch 修补 (2026-09-13) — ✅ 已修复
+- **状态**: ✅ `py/patch_king_players.py` v2 已执行，King VMAP header.players 注入 blue/red（对齐 T01 格式），town_1 + hero_0 owner → blue，训练方 = player 0 = blue 逻辑一致；备份 `King_of_Pain_h3m.vmap.bak_players_patch`
+- **背景**: 训练日志 King 3 局全部 `steps=1, secs=603, obs_nz=0, no_own_town abort`。初判竞态（#221），后逐层排查发现 3 种可能（引擎 reset 竞态 / 地图初始化异常 / 地图 players 段缺失）；用 `py/_check_king.py` + `py/_deep_king.py` 对比 L1/T01/T06 三份有效训练图，坐实是地图初始化异常。
+- **根因**: King VMAP 解包后 `header.players = []`（空数组），而 L1/T01/T06 有效图为 `{blue:{...}, red:{...}}` dict-of-players 格式。VCMI 引擎按 `header.players` 创建玩家槽位（player 0..N-1），空数组 → 无玩家索引 → obs 8 城段 owner 字段全 0 → `ep_runner_one.py` L584-596 `no_own_town` 判定必然 abort。
+- **对象分布（King 原状）**: 5 town + 1 hero，town_0=orange, town_1=red, town_2=blue, town_3/4=None, hero_0=red。是**多玩家 H3M 图**（原 5 色），非 1v1 训练图。
+- **修补策略**: 与 T01 对齐 header.players 加 blue/red 双槽；town_1 + hero_0 owner 改 blue（让蓝方 = player 0 至少 1 城 1 将）；Red 空槽保留 1v1 语义（AI 只跑 player 0，Red 是否空不影响训练）。修补后 Blue 有 2 town（town_1+town_2）+ 1 hero，Neutral 有 3 town。
+- **踩坑**: 
+  - King 是 **5 玩家 H3M 图**（不是 1v1），h3m2vmap 转换后 `header.players=[]` = 工具链缺陷（其他 158 张 H3M 同病，只是未入池未暴露）；
+  - `objects.json` 是 **dict-of-dicts**（`name → obj`），非 list，遍历用 `for k, v in objs.items()`；
+  - `owner` 字段位置在 `obj.options.owner`（不是 `obj.owner`），值是颜色字符串（"blue"/"red"/"orange"/"teal"/"green"/"yellow"）不是玩家索引；
+  - obs 城段 `obs[336:480]` 8 城 × 18 字段，owner 位置在 `_tb2+1`，coords 在 `_tb2+2/+3`；`no_own_town` 判定 = `owner=0 且 coords 有值 → 己方城`；
+  - `header.mods: []` → `{}` 也对齐 T01（list → dict）。
+- **修复**: `py/patch_king_players.py` v2 脚本（zipfile 重写包，header.json + objects.json 同步改，TMP 原子替换）。运行结果：`players BEFORE=[] → AFTER={blue,red}`；`town_1 owner red→blue`；`hero_0 owner red→blue`；文件 +68 bytes（10713→10781）；备份保留原状。
+- **教训**: 
+  - `obs_nz=0 + no_own_town` 二义性诊断：#214 定义为"引擎 reset 竞态"，但**同症状可能有多种根因**（本次 #222 = 地图 header.players 空）。排查路径 = 优先解包 VMAP 看 `header.players` 而非先假想时序。
+  - H3M→VMAP 转换工具链（h3m2vmap 系列）未处理 `header.players` 字段是**已知缺陷 #4**：L1/T01 是人工制作的 VMAP（有 players），H3M 转换产物全部 `players=[]`。批量入池前需批量修补或改工具链。
+- **验证**: 修补后训练应显示 King 首局 `steps>>1, obs_nz>0, no_own_town 不再触发`。训练当前 inactive，patched VMAP 已就位，等下一次启动可回归验证。若仍 1 步 abort 则说明还有第二重缺陷（如 mods 缺 core 依赖等），再逐层排查。
+- **关联**: #221（竞态假设被本条修正）/ #214（方案 A 过滤）/ #215-#220（King L69 + h3m2vmap 工具链）/ `py/patch_king_players.py` / `maps/training/King_of_Pain_h3m.vmap` / `maps/training/King_of_Pain_h3m.vmap.bak_players_patch`。
+- **后续**: (a) 启动训练验证 King 是否 `obs_nz>0`；(b) 批量排查 `maps/training/*.vmap` 的 `header.players` 是否有其他图也是空数组；(c) 长期：改 h3m2vmap 工具链在导出时注入默认 `header.players`。
+
+#### #223 T06 _02 系列 4 张 VMAP 批量 `header.players=[]` 修补 (2026-09-13) — ✅ 已修复
+- **状态**: ✅ `py/patch_t06_02_players.py` 已执行，4/4 全部成功；备份 `.vmap.bak_players_patch` 保留；`py/_scan_players.py` 回归 60 张 VMAP 全部 `players OK`，`players=[]` 空数组 0 张
+- **背景**: #222 修补 King 后，用 `py/_scan_players.py` 批量扫描 60 张 VMAP，发现 4 张 `T06_adventure_*_02(_duel).vmap` 也有 `header.players=[]` 空数组（`_01` 系列正常）。**其中 `T06_adventure_72X72_02_duel.vmap` 就在训练 MAPS 名单 L64**（09-12 错窗切地图轴新增），若不修补下次训练启动会同样 1 步 abort。
+- **根因**: T06 `_02` 系列是 `fix_t06_maps.py` 生成的镜像变体，与 `_01` 走同一生成管线但生成脚本未注入 `header.players`。同 #222，h3m2vmap / T06 生成脚本共同缺陷 = 未处理 `header.players` 字段。
+- **修补差异（vs King）**: 
+  - King 是 5 玩家 H3M 图，对象 owner 也错（hero_0=red），需同时改 objects.json
+  - T06 _02 是标准 1v1/1v3 生成图，town/hero owner 已正确（town_0/hero_0=red @ 左上，town_1/hero_1=blue @ 右下），**只改 header.json 不动 objects.json**
+  - mods: `[]` → `{}` 与 King 一致
+- **修补结果**:
+  | 文件 | 对象 | 尺寸 |
+  |------|------|------|
+  | T06_72X72_02_duel.vmap | 2 town + 2 hero | 1723→1804 |
+  | T06_72X72_02.vmap | 4 town + 4 hero | 1787→1868 |
+  | T06_108X108_02_duel.vmap | 2 town + 2 hero | 1895→1976 |
+  | T06_108X108_02.vmap | 4 town + 4 hero | 1959→2038 |
+- **教训**: 
+  - `header.players=[]` 是**系统性缺陷**（King H3M + T06 _02 生成脚本共 5 张受影响），不是孤立个案；
+  - 未来新增 VMAP 入 MAPS 前**必扫** `header.players`（写 `py/_scan_players.py` 常态化到入池流程）；
+  - L1 老 VMAP 是 `players=[{...}, {...}]` list 格式（8 张，非空数组），引擎也能识别，属"兼容但不标准"，本轮未动（不在 MAPS）。
+- **回归验证**: 扫描结果 52 张 `players OK` + 8 张 L1 老格式 = 60 张全部可识别，`players=[]` 归零。
+- **关联**: #222（King 单图 patch，本条为其批量扩展）/ #214（方案 A 过滤仍生效作兜底）/ `py/patch_t06_02_players.py` / `py/_scan_players.py` / `train_wsl2_ppo_v2.py` L64（`T06_adventure_72X72_02_duel.vmap`）。
+- **训练 MAPS 名单现状 (2026-09-13 更新)**: 10 图全部 `players OK`（T05×3 + T06 72X72_01_duel + 72X72_01 + 72X72_02 + 108X108_02_duel + 108X108_02 + King_h3m），无脏图。T04 2 张（36X36_01 + 30X30_01）已移除，T06 72X72_02 + 108X108_02 + 108X108_02_duel 3 张新入池。
 
