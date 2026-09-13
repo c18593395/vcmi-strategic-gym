@@ -1458,3 +1458,39 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 **观察项**: ①King of Pain 首局（obs 初始化 / NK2 寻路 / 引擎 reset；不带 T 前缀不走 T04/T05/T06 引导分支，潜在引导缺失）；②T04 是否产 ZOMBIE 事件 → T7.4 判据 1 首验；③9 图全部正常加载无报错。
 
 **关联**: 踩坑 #215（King L69 语法截断）/ #214（02_duel 引擎 reset 竞态 + 方案 A 脏样本过滤）/ #213（duel C 方案误报）/ 任务清单 09-13 地图轴增量 / 活跃任务 3（T7.4 判据 1 样本源落实 T04 回池）/ `train_wsl2_ppo_v2.py` L48-73 MAPS 段 / `strategic_env.py` L150-154 T04/T05/T06 引导分支 / `py/vcmi_full_to_slim.py` H3M 转换工具。
+
+### 09-13 训练日志分析: King of Pain 首局脏样本 + T04 负 r 首现 + T7.4 死亡惩罚已启用确认
+
+**背景**: 地图轴变更后（MAPS=9）step=680112 训练日志分析，发现 3 个关键事实。
+
+**1. King of Pain 首局全部脏样本（无有效训练数据）**:
+- 日志中 3 局 King of Pain，全部 `steps=1, secs=603, r=12.5, obs_nz=0`
+- 根因：引擎 reset 603s（全地图最大）后 obs 仍为空（冷启动竞态）→ `no_own_town` abort → 单步终局
+- 方案 A（#214）全捕获：3 条 `[FILTER] obs_nz=0 脏样本丢弃`，0 条进入 PPO buffer
+- 结论：King of Pain 在 9 图池里**暂无有效训练贡献**，需持续观察后续局是否仍 1 步 abort（若是 = VMAP 初始化异常，需排查 `vcmi_full_to_slim.py` 转换质量）
+- 同 02_duel 引擎 reset 竞态（#214），H3M 72x72 大图与 duel 图共性：reset 耗时 ~600s，obs 段填充线程未就绪
+
+**2. T04 首现负 r 局（T7.4 判据 1 首验数据）**:
+- T04_30X30_01 4 局负 r：-32.0 / -69.7 / -38.7（200 步超时，死路密集 → 拿不到足够奖励）
+- T04_36X36_01 2 局负 r：-32.0 / -69.7（同上）
+- 同时 T04 也有正 r 局（160.9 GUARD 胜 / 151.9 169 步正常结束 / 146.3 55 步 GUARD 胜）
+- 判据 1（死亡局 r 转负）**部分达成**：T04 确实能产出负 r，但 ZOMBIE 触发（`[HERO_DEATH]` 标签）尚未在 T04 回池后首次出现（`grep -c 'HERO_DEATH' train_loop.log` = 0）
+
+**3. T7.4 死亡惩罚已启用确认（用户问"死亡惩罚，要启用吗？"）**:
+- **不需要启用，-50 已在线生效**
+- 代码路径：`ep_runner_one.py` L127 `--death_penalty` argparse `default=-50.0`；`train_wsl2_ppo_v2.py` L139-141 未显式传，依赖默认值
+- 触发条件：红英雄 8 方向全堵 ×2（`passable.any()=False` 连续 2 步）→ L1214-1226 `r += death_penalty` + `done=True`
+- 当前状态：`[HERO_DEATH]` 0 命中（T04 回池后样本未攒够），判据 1 挂起
+- 历史 441 条 ZOMBIE 全来自 T03/T04 小图（09-04 前），T05/T06 大图结构性不可达
+- T04 回池后 2 张死路图占 MAPS 2/9，按 `random.choice` 频率攒 ~100 局 T04 需时间
+
+**4. MIR 残留确认**:
+- `_mir` 在日志中 1539 次命中 = 旧进程（08:50 前）残留日志，新进程 MAPS=9 无 MIR 条目
+- `_mir.vmap` grep 6 处全在 L37-42 注释区（T04 旧池存档），无有效代码命中
+- 新进程不再产 MIR episode，日志追加模式保留旧行
+
+**5. King of Pain 潜在引导缺失**:
+- King 不带 T 前缀（非 T04/T05/T06 课程图），`strategic_env.py` L150-154 引导分支不命中
+- 需观察：obs 初始化 / NK2 寻路 / 引擎 reset 是否因引导缺失导致异常
+
+**关联**: 踩坑 #214（02_duel 引擎 reset 竞态 + 方案 A）/ #215（King L69 语法截断）/ 知识库 09-13 地图轴章 / 任务清单 活跃任务 3（T7.4 判据 1 样本源落实）/ `ep_runner_one.py` L127/L1214-1226 / `train_wsl2_ppo_v2.py` L48-73 MAPS / `strategic_env.py` L150-154 引导分支。

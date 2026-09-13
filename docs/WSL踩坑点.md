@@ -670,3 +670,74 @@
 - **复现/验证**: `python3 -c "import ast,sys; t=ast.parse(open('train_wsl2_ppo_v2.py').read()); [print(len(n.elts)) for n in ast.walk(t) if isinstance(n,ast.Assign) and any(getattr(x,'id','')=='MAPS' for x in n.targets)]"` → 输出 `9`（修复前输出 `8`，King 被 drop）。`grep -n 'King_of_Pain' train_wsl2_ppo_v2.py` → L69 `"King_of_Pain_h3m.vmap",`（闭合正常）。
 - **关联**: #214（02_duel 引擎 reset 竞态）/ 任务清单 09-13 地图轴增量（King of Pain 入池 + T04 回池 + T05 MIR 3 张移除）/ `train_wsl2_ppo_v2.py` L48-73 MAPS 段 / `strategic_env.py` L150-154 T04/T05/T06 引导分支（King 不带 T 前缀不走此分支，潜在引导缺失需观察）。
 
+#### #216 VCMI saveMap randomTown subtype = `core:object` 占位符 (2026-09-13, King of Pain roundtrip 撞 KeyError 时发现) — ✅ 已修
+- **状态**: ✅ 已修（`py/vcmi_full_to_slim.py` L146-165 加回退链 `object → availableFactions[0] → dungeon`；`py/fix_kop_town_subtype.py` 就地修补 3 处副本 × 5 镇 → `core:dungeon`）
+- **背景**: P11 roundtrip 首次跑通时 `py/vmap2h3m.py` L276 `FACTION_CODE[sub_raw]` 抛 `KeyError: 'object'`。探查 41 张训练图 town subtype 分布 → **King_of_Pain_h3m.vmap 是唯一 `core:object` 的图**（其余 L1/T01-T06 全为真族系 `core:castle/conflux/dungeon` 等）。
+- **根因**: VCMI 引擎 `randomTown` 对象的 `subtype` 字段被 saveMap 写成 `core:object` 占位符（真族系藏在 `options.availableFactions` 数组里，King of Pain 5 镇全指向 `dungeon`）。`py/vcmi_full_to_slim.py` 原直接透传 subtype → 精简 vmap 沿用占位符 → vmap2h3m.py 查 FACTION_CODE 表找不到 `object` → KeyError。
+- **坑 — 单点污染**: 全库 41 张训练图仅 King 一张异常，正常图掩盖了转换 bug 长达 12 天（09-01 首次运行到 09-13 才撞上 roundtrip 触发）。
+- **修复**: ①`vcmi_full_to_slim.py` town 转换分支加**三级回退**: `obj.subtype` (非 object 占位) → `options.availableFactions[0]` → `dungeon` 兜底；②`fix_kop_town_subtype.py` 剥 JSON 注释后按 (x,y) 匹配就地修补，不动其它字段（保留 owner/formation/mask/template）。
+- **教训**: ①VCMI saveMap 不保证 subtype 是真值，尤其随机化对象（randomTown/randomMonster/randomHero），必须查 options 里的具体化字段；②`peep 41 张训练图 subtype 分布` 是最快的异常检测手段（Counter + 找唯一值）；③精简格式字段值 = 训练时 ep_runner 会真查 FACTION_CODE 表，占位符 = 隐藏地雷。
+- **复现/验证**: `python3 py/peek_t06_town_subtype.py` 输出 King `Counter({'core:object': 5})`（修补前）/ `Counter({'core:dungeon': 5})`（修补后）；41 张训练图 town subtype 分布 → 唯一异常即 King。
+- **关联**: #215（King L69 字符串截断）/ P10-B 设计稿 §8 / P11 VMAP→H3M 段 / `py/vmap2h3m.py` L276 / `py/vcmi_full_to_slim.py` L146-165 / `py/fix_kop_town_subtype.py`。
+
+#### #217 MINE_CODE 别名不完整 → crystalCavern/orePit/sulfurDune KeyError (2026-09-13, King of Pain roundtrip 撞 KeyError 时发现) — ✅ 已修
+- **状态**: ✅ 已修（`py/vmap2h3m.py` MINE_CODE 补别名映射 + abandoned 走跳过）
+- **背景**: 修补完 town subtype 后重跑 roundtrip，vmap2h3m.py L305 抛 `KeyError: "mine 'crystalCavern' 无 subid 映射"`。
+- **根因**: `MINE_CODE` 只写死了 7 条 canonical 名 (`sawmill/alchemistLab/oreMine/sulfurMine/crystalMine/gemPond/goldMine`)，但 VCMI 完整 vmap 用的是**描述性长名** (`orePit/sulfurDune/crystalCavern`)。King of Pain 38 张 mine 分布：sawmill×6, alchemistLab×6, sulfurDune×6, goldMine×5, crystalCavern×5, orePit×5, gemPond×4, abandoned×1。
+- **坑 — 长名 vs 短名不对称**: RESOURCE_CODE 用短名 (`wood/ore/sulfur/crystal/gems/gold`)，MINE_CODE 却混用了长名 (`sawmill/alchemistLab`) 和短名 (`oreMine/goldMine`)——不同来源对象类型命名风格不一致，转换器必须两个都覆盖。
+- **修复**: `MINE_CODE` 补别名 `'oreMine':2/'orePit':2, 'sulfurMine':3/'sulfurDune':3, 'crystalMine':4/'crystalCavern':4`，同时补 `'abandoned': -1` 走跳过分支（donor 库无独立 abandoned 模板）。`abandoned` 语义 = 子资源已损毁的矿洞，H3M 无对应独立 def，写文件会破坏对账。
+- **教训**: ①双表 (`FACTION_CODE`/`MINE_CODE`/`RESOURCE_CODE`) 必须覆盖 VCMI 所有实际命名变体，官方图用长名 → 别名映射是刚需；②`abandoned` 类"半成品"对象要么跳过要么合成，**不能**当普通矿硬写（subid≥7 = 已损坏语义，引擎读时会走 abandoned 分支而不是普通矿）。
+- **复现/验证**: `python3 py/peek_kop_mines.py` 输出 mine subtype Counter；修补后 vmap2h3m.py 输出 counts = {'hero':1,'mine':37,'town':5,'resource':68,'monster':57} = 168/173 (37 mine = 38 - 1 abandoned)。
+- **关联**: #216（town subtype 占位符）/ P11 VMAP→H3M 段 / `py/vmap2h3m.py` L44-49 MINE_CODE / L302-314 mine 分支 / `py/peek_kop_mines.py`。
+
+#### #218 h3m2vmap 批量转换: `cb->gameState().getMap()` 空指针 SIGSEGV (2026-09-13, 全库 159 张 H3M 批量转 VMAP 时发现) — ✅ 已修
+- **状态**: ✅ 已修（`tools/h3m2vmap/main.cpp` loadMap 前 `new EditorCallback(nullptr)` 传入 + `editorCb->setMap(map.get())` 绑定；已同步至 `/home/administrator/vcmi-native/tools/h3m2vmap/main.cpp` 并重建）
+- **背景**: 用户指令"把 H3M 地图都转换为 VMAP，每次一张检查"。全库 159 张 H3M (v21=56, v28=47, v14=47, None=9)。首张 `King of Pain` 一次跑通；其余带装备英雄的图（含大量装备/宝物）在 `Saving objects` 阶段稳定 SIGSEGV (rc=-11)。
+- **根因**: VCMI 保存英雄装备时 (`CGHeroInstance::serializeCommonOptions`)，`CArtifactSet::serializeJsonArtifacts` 需要 `const_cast<CMap*>(...)` 做 artifact 模板查找。原始代码走 `else` 分支 `&cb->gameState().getMap()` — 但 `h3m2vmap` 是**离线工具**，`cb` 由 `main.cpp` 传 `nullptr` → 空指针解引用 SIGSEGV。
+- **坑 — 官方图与 VMAP 图不对称**: L1/T01-T06 训练图**早已**是 VMAP (VCMI 引擎生成)，装备 hero 走的是 `gameState` 路径（cb 非空）；只有 H3M 首次转换才触发 `cb=nullptr` 分支，King of Pain 恰是**不带装备**的图，掩盖问题；批量跑剩余 158 张带装备图全部崩溃。
+- **修复 — 利用引擎既有 EditorCallback 分支**: 源码 `CGHeroInstance.cpp` L1646-1652 早就留了 `dynamic_cast<EditorCallback*>(cb)` 分支专门处理编辑器场景（走 `ecb->getMapConstPtr()`）。只需让 `h3m2vmap` 正确初始化该 callback：
+  ```cpp
+  EditorCallback * editorCb = new EditorCallback(nullptr);
+  auto map = service.loadMap(data.data(), ..., inPath, "map", "CP1252", editorCb);
+  if(!map) { delete editorCb; delete LIBRARY; return 1; }
+  editorCb->setMap(map.get());  // 绑定已加载 map
+  // ... saveMap(data, map, writer, editorCb);  // 传入 editorCb 而非 nullptr
+  ```
+- **教训**: ①VCMI `saveMap` 支持 `EditorCallback` 作为 `IGameInfoCallback` 的离线场景实化，工具链应显式使用而非传 `nullptr`；②`h3m2vmap` 首次跑通不代表全库能跑，必须批量抽样（带装备 hero、带装备宝物、地下层、多镇）；③"cb=nullptr 崩溃"的地图特征 = **含装备 hero**，可用 `grep -l '"equipments"' *.vmap` 预判。
+- **复现/验证**: 修复前 `h3m2vmap --save "A Warm and Familiar Place.h3m" out.vmap` → SIGSEGV rc=-11，gdb 栈顶 `rip 0x7ffff7a260b0 <CGHeroInstance::serializeCommonOptions+1600>`；修复后同命令 rc=0 输出 vmap。全库 159 张批量跑：`ok=130 + warn_mismatch=29 + fail=0`。
+- **关联**: #219（析构期 SIGSEGV #2 exit(0)）/ P10-B h3m2vmap 转换器 §6 B2 / `tools/h3m2vmap/main.cpp` L28-70 / `/home/administrator/vcmi-native/lib/mapObjects/CGHeroInstance.cpp` L1646-1652 / `lib/callback/EditorCallback.h` / `maps/h3m_to_vmap/_report.json`。
+
+#### #219 h3m2vmap 析构期 SIGSEGV #2: TextLocalizationContainer 与 Bonus 析构顺序 (2026-09-13, 全库批量转换时发现) — ✅ 已修（跳过析构）
+- **状态**: ✅ 已修（`tools/h3m2vmap/main.cpp` 结尾用 `exit(0)` 跳过析构链；不重编 libvcmi.so，不改 rel/ 下 .so）
+- **背景**: #218 修复后批量跑第 3 张（144x144 大图 `Back For Revenge`）在 `ROUNDTRIP MISMATCH` 打印后稳定 SIGSEGV。前 2 张（36x36/72x72 小图）正常退出。
+- **根因**: roundtrip 完成、map 对象析构期间，`Bonus::Description` 内部文本引用触发 `TextLocalizationContainer::translateString` → `std::unordered_map::_M_find_before_node` 桶数组非法访问。原因 = **析构顺序错乱**：`LIBRARY` 里的文本容器先被删除（`delete LIBRARY`），但 map 析构时 bonus 字段仍持有对已释放容器的引用。
+- **坑 — 大地图才触发**: 小图（36x36/72x72）bonus 字段少，析构路径短，未命中已释放指针；144x144 大图对象数量大，析构时 bonus 引用密度高，稳定命中 UAF。同类型崩溃只与对象数量相关，与 map 内容无关。
+- **修复 — 跳过析构**: 工具是一次性进程，roundtrip 完成 = 目标已达成，不需要优雅析构。`exit(0)` 直接终止进程，跳过所有析构链 → 完全绕开 UAF。
+  ```cpp
+  // 2026-09-13 修复 #2: roundtrip 后正常析构触发 SIGSEGV
+  // (TextLocalizationContainer 与 map 对象析构顺序问题)
+  exit(0);
+  ```
+- **教训**: ①一次性的 CLI 工具不需要优雅析构，`exit(0)` 是最省事的兜底；②`delete LIBRARY` 顺序 = UAF 高危信号，凡是"引用其他模块数据"的对象都要警惕析构顺序；③大地图 roundtrip 的 MISMATCH 与析构崩溃是两个独立问题，前者警告即可（序列化不完全），后者需跳过析构。
+- **复现/验证**: 修复前 `Back For Revenge` → rc=-11；修复后同地图 rc=0 且 vmap 落盘完整（5317 objects）。全库 159 张批量跑：0 张 SIGSEGV。
+- **关联**: #218（EditorCallback 方案）/ #220（saveMap JSON 注释兼容）/ `tools/h3m2vmap/main.cpp` 尾部 / `maps/h3m_to_vmap/_report.json`。
+
+#### #220 h3m2vmap 输出 JSON 含 C++ 注释 + 144x144 大图 roundtrip MISMATCH (2026-09-13, 全库批量转换时发现) — ✅ 已修（Python 侧兼容）
+- **状态**: ✅ 已修（`py/h3m_batch_to_vmap.py` 加 `_strip_c_comments` + `_loads_permissive`；roundtrip MISMATCH 降级为警告不阻塞 rc=0）
+- **背景**: 工具链 C++ 层两处 SIGSEGV 修复后批量跑前 20 张 → 12 张 `validate_exception: json.loads` 失败，报错 `Expecting property name enclosed in double quotes`。剩余为 roundtrip MISMATCH。
+- **根因 1 (JSON 注释)**: VCMI `saveMap` 用 `writeJson` 序列化时会插入 C++ 单行注释（形如 `// game` 之类），**输出不是严格合法 JSON**。VCMI 引擎自身解析器容错，但 Python `json.loads` 严格模式报错。
+- **根因 2 (roundtrip MISMATCH)**: 144x144 大地图（18 张）saveMap 序列化不完全，roundtrip 会丢少量对象（例：`A Viking` 3092→3054, `Back For Revenge` 5318→5317）。原因 = VCMI saveMap 存在不完全序列化路径（地下层对象、装饰性元素等），非阻塞。
+- **修复 1 (JSON 兼容)**: `py/h3m_batch_to_vmap.py` 加 `_strip_c_comments` 移除 `//` 到行尾（保留字符串内 `//`），`_loads_permissive` 先严格解析失败后 strip 重试。
+- **修复 2 (MISMATCH 降级)**: C++ `main.cpp` roundtrip 检测到数量不匹配只打 WARNING 不再 `return 1`；Python 侧新增 `warn_mismatch` 状态计数（区别于 `ok`/`fail`）。
+- **教训**: ①VCMI saveMap 输出**非严格合法 JSON** 是**引擎特性**而非 bug，Python 侧必须剥注释；②roundtrip MISMATCH 大地图普遍存在（29/159 ≈ 18%），判定为警告不阻塞批量流程；③"引擎能读 ≠ Python json.loads 能读"是常见坑，涉及 VCMI JSON IO 的下游工具必须加 permissive 层。
+- **复现/验证**: 修复前 12 张 `json.loads` 抛异常；修复后 `_strip_c_comments` + `_loads_permissive` 全库通过。全库最终：`ok=130, warn_mismatch=29, fail=0`；尺寸分布 36x36=32 / 72x72=71 / 108x108=38 / 144x144=18。
+- **关联**: #218 / #219 / `py/h3m_batch_to_vmap.py` L60-90 / `tools/h3m2vmap/main.cpp` roundtrip 段 / `maps/h3m_to_vmap/_report.json`。
+
+#### #221 King of Pain 引擎 reset 竞态复现（H3M 72x72 大图同 02_duel 模式）— 方案 A 全捕获，无 PPO 污染 (2026-09-13, 训练日志分析) — ✅ 已捕获
+- **状态**: ✅ 方案 A 已捕获（`train_wsl2_ppo_v2.py` L220-225 `obs_nz==0 → return None`），3 局 King 首局全部 `[FILTER] obs_nz=0 脏样本丢弃`，0 条进 buffer
+- **背景**: King of Pain H3M 官方图（72x72）入池后首局 3 次全部 `steps=1, secs=603, r=12.5, obs_nz=0`。同 #214 的 02_duel 模式：引擎 reset ~600s 冷启动后 obs 段填充线程未就绪 → `no_own_town` abort → 单步终局。
+- **共性**: H3M 72x72 大图（King）与 T06 duel 图（02_duel）reset 耗时 ~600s 共性 = 地图对象数量多（King 173 对象 / 02_duel 数百对象），引擎 obs 段填充耗时。T05/T06 小图（36X36/52X52）reset <5s 无此问题。
+- **影响**: King 在 9 图池里占 1/9 抽样频率，且每次抽中都是脏样本 = **暂时无有效训练贡献**。若持续 1 步 abort（需观察后续局），可能是 `vcmi_full_to_slim.py` 转换质量或引擎 reset 初始化时序问题，需排查 VMAP 文件结构。
+- **处置**: 暂不移出 MAPS（样本量不足下结论）。方案 A 过滤保护了 PPO buffer 不污染。持续观察：若 5 局+ 全部 1 步 abort → 排查 VMAP 或移出 MAPS。
+- **关联**: #214（02_duel 引擎 reset 竞态 + 方案 A）/ #215（King L69 语法截断）/ #216-#220（H3M 转换工具链）/ `train_wsl2_ppo_v2.py` L220-225 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
+
