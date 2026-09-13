@@ -660,3 +660,13 @@
 - **复现/验证**: `grep -c 'FILTER.*obs_nz=0' train_loop.log` = 修复后脏样本被过滤次数（应为 4 的倍数，每局 1 条）; 修复前 `grep -c 'obs_nz=0' train_loop.log` 含正常局 obs_nz=0（无，正常局 obs_nz=301）; 判据统计剔除 `steps=1 obs_nz=0` 局。
 - **关联**: #212（同窗 02_duel 地图缺陷证伪）/ #213（duel C 方案误报）/ 知识库「T7.4 死亡惩罚 09-13 方向纠正 + 02_duel 引擎 reset 竞态」章 / `train_wsl2_ppo_v2.py` L220-225 / `ep_runner_one.py` L590-596 `no_own_town` 软放弃段。
 
+#### #215 King of Pain L69 字符串截断导致地图被 Python 解析器 drop，MAPS 静默少 1 张 (2026-09-13, 用户"King of Pain 入池"指令核实发现) — ✅ 已修
+- **状态**: ✅ 已修 (train_wsl2_ppo_v2.py L69 `"King_of_Pain_h3` → `"King_of_Pain_h3m.vmap",` 补全闭合, py_compile OK, AST 解析 MAPS=9)
+- **背景**: 用户指令"King of Pain.h3m.vmap，把这个地图加进来训练"。核实 L69 时发现该条已写但**字符串被截断**（`"King_of_Pain_h3` 未闭合引号），Python 解析器把该条视为无效/合并到上条 → King 从未真正入 MAPS，`maps=9` 与 King 缺失同时存在但日志无报错（`random.choice(MAPS)` 抽不到 King 属正常，误判为"9 图抽样需时间"）。
+- **根因 — 字符串截断无报错**: 上一轮改 MAPS 时 L69 写入 `King_of_Pain_h3` 但**漏了后续 `m.vmap",` 部分**，引号未闭合。Python 对这种截断的处理 = 解析器把该条目 drop（不会像 `SyntaxError` 那样报错退出，因为文件其余部分合法），导致 MAPS 静默少 1 张。`py_compile` 通过（语法层面合法，只是少了元素），AST 解析确认 `MAPS len = 9` 而非预期的 10。
+- **坑 — 静默 drop 的隐蔽性**: ①`py_compile` 不报错（语法合法）；②训练正常启动、`maps=9` 与磁盘一致（9 是实际 MAPS 长度）；③日志无"King of Pain" episode（`random.choice` 抽不到 = 正常表象）；④误判为"9 图抽样需时间才抽中"，实际 King 根本不在池里。
+- **修复**: L69 SearchReplace 补全为 `"King_of_Pain_h3m.vmap",`（带 `_h3m` 后缀，`strategic_env.py` 强制要求 mapname 含 s1/mini/adventure/h3m 之一）。补全后 AST 解析 MAPS=9（T05 3 + T06 3 + King 1 + T04 2），`maps=9` 与磁盘一致。
+- **教训**: ①改 MAPS 列表后**必须 AST 解析验证条数**（`python3 -c "import ast; t=ast.parse(open('train_wsl2_ppo_v2.py').read()); [print(n.elts) for n in ast.walk(t) if isinstance(n, ast.List) and any(hasattr(e,'id') and e.id=='MAPS' for e in n.elts) if False]"` 简化为 `grep -c '\.vmap' train_wsl2_ppo_v2.py` 对比预期条数）；②字符串截断 = 引号未闭合 → Python 静默 drop，`py_compile` 拦不住，必须**逐条核对 MAPS 元素数量**；③用户说"把 X 图加进来"时，**先核实 X 是否已在 MAPS 但被截断/drop**，而非直接追加（避免重复条目或漏检截断）。
+- **复现/验证**: `python3 -c "import ast,sys; t=ast.parse(open('train_wsl2_ppo_v2.py').read()); [print(len(n.elts)) for n in ast.walk(t) if isinstance(n,ast.Assign) and any(getattr(x,'id','')=='MAPS' for x in n.targets)]"` → 输出 `9`（修复前输出 `8`，King 被 drop）。`grep -n 'King_of_Pain' train_wsl2_ppo_v2.py` → L69 `"King_of_Pain_h3m.vmap",`（闭合正常）。
+- **关联**: #214（02_duel 引擎 reset 竞态）/ 任务清单 09-13 地图轴增量（King of Pain 入池 + T04 回池 + T05 MIR 3 张移除）/ `train_wsl2_ppo_v2.py` L48-73 MAPS 段 / `strategic_env.py` L150-154 T04/T05/T06 引导分支（King 不带 T 前缀不走此分支，潜在引导缺失需观察）。
+

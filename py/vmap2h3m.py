@@ -41,8 +41,12 @@ FACTION_CODE = {'castle': 0, 'rampart': 1, 'tower': 2, 'inferno': 3,
                 'conflux': 8}
 RESOURCE_CODE = {'wood': 0, 'mercury': 1, 'ore': 2, 'sulfur': 3,
                  'crystal': 4, 'gems': 5, 'gold': 6}
-MINE_CODE = {'sawmill': 0, 'alchemistLab': 1, 'oreMine': 2, 'sulfurMine': 3,
-             'crystalMine': 4, 'gemPond': 5, 'goldMine': 6}
+MINE_CODE = {'sawmill': 0, 'alchemistLab': 1,
+             'oreMine': 2, 'orePit': 2,
+             'sulfurMine': 3, 'sulfurDune': 3,
+             'crystalMine': 4, 'crystalCavern': 4,
+             'gemPond': 5, 'goldMine': 6,
+             'abandoned': -1}  # -1 = 跳过 (donor 无独立 abandoned 模板, 走 report.missing)
 # mine subid 与资源同序 (0 sawmill .. 6 gold), 7+ = abandoned
 
 OWNER_CODE = {'red': 0, 'blue': 1, 'tan': 2, 'green': 3, 'orange': 4,
@@ -303,6 +307,9 @@ def main():
             ridx = MINE_CODE.get(sub_raw, RESOURCE_CODE.get(sub_raw))
             if ridx is None:
                 raise KeyError(f"mine '{sub_raw}' 无 subid 映射")
+            if ridx < 0:  # abandoned 无 donor 模板, 走 report.missing 静默跳过
+                report['missing'].append(f"mine '{sub_raw}' abandoned: donor 无独立模板, 跳过")
+                continue
             entry, oid, how = lib.fetch(CANDIDATE_IDS['mine'], ridx)
             rec = ('mine', {'owner': map_owner(opts.get('owner'))})
         else:

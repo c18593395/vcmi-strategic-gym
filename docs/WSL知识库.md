@@ -1420,3 +1420,41 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 - duel 中蓝英雄死 = game_over = ep 终止，游戏引擎已处理终止信号，**不需要额外 reward proxy** — proxy 只在"蓝英雄死但 ep 不终止"的 1v3/1v7 场景才有必要
 
 **关联**: 踩坑 #213 / #210（HERO_DEATH 与 C 方案 proxy 正交）/ 任务清单 T13.10 专区 / `ep_runner_one.py` L944-962。
+
+### 09-13 地图轴: King of Pain H3M 官方图入池 + T04 回池 + T05 MIR 3 张移除
+
+**背景**: 用户指令"King of Pain.h3m.vmap，把这个地图加进来训练" + "只去 T05 三个 MIR，加 T04 1-2 张"。本轮 09-13 地图轴变更三连：①去除 T05 MIR 镜像 3 张（36X36_01_mir / 52X52_01_mir / 52X52_02_mir），T05 难度上移；②T04 死路密集图 2 张（36X36_01 + 30X30_01）加回 MAPS，作为 T7.4 判据 1（ZOMBIE 死亡局 r 转负）唯一可行样本源；③King of Pain（H3M 官方 72X72 死路图）入池，提供高障碍大图维度。
+
+**King of Pain 入池技术细节**:
+- **来源**: H3M 官方图（SoD, 72X72, 3p），经 `py/vcmi_full_to_slim.py` 转 VMAP（1657→173 对象：hero_0 + town_5 + mine_38 + resource_68 + monster_61）
+- **文件**: `maps/training/King_of_Pain_h3m.vmap`（gzip 压缩，含 header.json / surface_terrain.json / objects.json）
+- **命名约束**: 文件名带 `_h3m` 后缀，因 `strategic_env.py` L150-154 强制要求 mapname 含 s1/mini/adventure/h3m 之一标识。King 不带 T 前缀（非 T04/T05/T06 课程图），**不走 T04/T05/T06 引导分支**，潜在引导缺失需首局观察（obs 初始化 / NK2 寻路 / 引擎 reset）。
+- **地形**: gr57_ 系列（gr24_ 变体），无 rc/wa 前缀 → passable_grid 全通（单层无桥无船一致），has_underground=0。
+- **MAPS 位置**: L69 `"King_of_Pain_h3m.vmap"`，MAPS[6]（修复截断后）。`random.choice(MAPS)` 抽样 9 图，King 占 1/9，需时间才抽中。
+
+**L69 语法截断 bug（踩坑 #215）**: 上一轮改 MAPS 时 L69 写入 `"King_of_Pain_h3` 但漏了后续 `m.vmap",`，引号未闭合。Python 解析器静默 drop 该条（`py_compile` 不报错，因文件其余部分合法），King 从未真正入池。本轮修复：SearchReplace 补全为 `"King_of_Pain_h3m.vmap",`，AST 解析确认 MAPS=9。
+
+**T04 回池（T7.4 判据 1 样本源）**: 09-04 T04 12 图退役存档（原版 6 + _mir 6），本轮加回 2 张死路密集图（`T04_adventure_36X36_01` + `T04_adventure_30X30_01`），作为 T7.4 判据 1（死亡局 r 转负）样本源。T7.4 09-13 方向纠正实证 duel 图产不出 ZOMBIE（全草地开阔，8 方向全堵结构性不可达），需"高障碍图"（死路/障碍墙密集，T03/T04 级别）。T04 -50 试探档在死路局可触发 ZOMBIE → 死亡局 r 转负首验。
+
+**MAPS 现状（修复后 9 条）**:
+```
+[0] T05_adventure_36X36_01.vmap
+[1] T05_adventure_52X52_01.vmap
+[2] T05_adventure_52X52_02.vmap
+[3] T06_adventure_72X72_01_duel.vmap
+[4] T06_adventure_72X72_01.vmap
+[5] T06_adventure_72X72_02_duel.vmap
+[6] King_of_Pain_h3m.vmap       ← 修复截断后入池
+[7] T04_adventure_36X36_01.vmap
+[8] T04_adventure_30X30_01.vmap
+```
+
+**runtime 完整性**: `/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps/` 本轮 `cp` 补齐 5 张缺失（T05 36X36_01 / 52X52_01 / 52X52_02 + T06_72X72_01_duel / 72X72_01），源自 `/mnt/d/Bigdata/hero3_fresh/maps/training/`。runtime 现含 10 图（含 King），训练加载不报错。
+
+**MIR 清除确认**: `_mir.vmap` 6 处 grep 命中全在 L37-42 注释区（`#` 开头 T04 旧池存档），MAPS 主列表无有效 MIR 条目。新进程（PID 14345, 08:50:42 启动）`maps=9`，不再产 MIR episode。
+
+**部署**: 优雅停 `wsl -u root systemctl stop homm3-train-v5` → 清 `__pycache__` → `systemctl start homm3-train-v5` → active（step=676490 正常推进）。
+
+**观察项**: ①King of Pain 首局（obs 初始化 / NK2 寻路 / 引擎 reset；不带 T 前缀不走 T04/T05/T06 引导分支，潜在引导缺失）；②T04 是否产 ZOMBIE 事件 → T7.4 判据 1 首验；③9 图全部正常加载无报错。
+
+**关联**: 踩坑 #215（King L69 语法截断）/ #214（02_duel 引擎 reset 竞态 + 方案 A 脏样本过滤）/ #213（duel C 方案误报）/ 任务清单 09-13 地图轴增量 / 活跃任务 3（T7.4 判据 1 样本源落实 T04 回池）/ `train_wsl2_ppo_v2.py` L48-73 MAPS 段 / `strategic_env.py` L150-154 T04/T05/T06 引导分支 / `py/vcmi_full_to_slim.py` H3M 转换工具。

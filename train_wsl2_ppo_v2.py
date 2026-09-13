@@ -46,12 +46,12 @@ OPPONENT_POOL_SIZE = 10
 # 09-05 扩图: +3 镜像变体 (gen_t05_expand.py, 守卫同步旋转难度不变) + 36X36_02 守卫减半回归 (swordsman8→4/archer10→5/peasant15→8 可赢难度) = 3→7 张
 # 09-06 再移除 36X36_02: 守卫减半后 51 局仍全部负分 (-50→-181 恶化趋势) — 非守卫兵量问题, 疑守卫位置/地形结构压制红方路线; 两次移出, 回归需重设计该图
 MAPS = [
+    # 09-13 减 T05 MIR 3 张（去 36X36_01_mir / 52X52_01_mir / 52X52_02_mir），加 T04 2 张（36X36_01 + 30X30_01）
+    # 目的：T05 难度上移 + T04 死路密集为 T7.4 判据 1（ZOMBIE 样本）提供触发条件
+    # T04 已退役存档 09-04，但 T7.4 方向纠正后确认"高障碍图"是判据 1 唯一样本源
     "T05_adventure_36X36_01.vmap",
     "T05_adventure_52X52_01.vmap",
     "T05_adventure_52X52_02.vmap",
-    "T05_adventure_36X36_01_mir.vmap",
-    "T05_adventure_52X52_01_mir.vmap",
-    "T05_adventure_52X52_02_mir.vmap",
     # 09-06 T06 前置 (方案 A, 只加大图轴不加多敌轴): 72X72 1v1 duel 变体 (fix_t06_maps.py 去 hero_2/3+town_2/3)
     # identifier 三类修复同 T05 套路 (inham→edric/iona/alchemist / resourceGold→gold / monster→三兽集), inspect 5 图全绿
     # 09-06 晚 1v3 上线 (判据 4/4 达标: 32 局 后1/3 avg 83.0 vs 前1/3 65.1 比值 1.27 上行 / 自发 100% / 200步局 0% / 守卫胜 96.9%):
@@ -62,6 +62,14 @@ MAPS = [
     # 09-12 capture 观察窗五判据全达标 (66 局 avg_r 180.2 / TOWN_BLOCKED 0 / TOWN_CAPTURE 24)
     # 错窗切地图轴: 加 72X72_02_duel (MAPS 9→10, 一次一轴)
     "T06_adventure_72X72_02_duel.vmap",
+    # 09-13 H3M 官方图适配: King of Pain (SoD, 72X72, 3p, has_underground=0, 无船无水下)
+    # py/vcmi_full_to_slim.py 转换: 1657→173 对象 (hero_0 + town_5 + mine_38 + resource_68 + monster_61)
+    # 地形 gr57_ 系列 (gr24_ 变体), 无 rc/wa 前缀 → passable_grid 全通 (单层无桥无船一致)
+    # 文件名加 _h3m 后缀 (strategic_env.py 强制要求 mapname 含 s1/mini/adventure/h3m)
+    "King_of_Pain_h3m.vmap",
+    # 09-13 T04 回池 (T7.4 判据 1 ZOMBIE 样本源): 死路/障碍墙密集, 红英雄卡死概率高
+    "T04_adventure_36X36_01.vmap",
+    "T04_adventure_30X30_01.vmap",
 ]
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
