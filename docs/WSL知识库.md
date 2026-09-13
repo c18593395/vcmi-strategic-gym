@@ -1536,3 +1536,66 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 | King | King_of_Pain_h3m（修复中） |
 
 **关联**: 踩坑 #221（King reset 竞态）+ dragon identifier 缺失 / 任务清单 09-13 地图轴二次扩展 / `train_wsl2_ppo_v2.py` L48-73 MAPS / `py/_check_108_ids.py`（108X108 identifier 检查工具）。
+
+## VMAP header.players 系统性缺陷 + 批量修补（09-13 停训窗）
+
+**背景**: King of Pain 入池后 3 局全部 `steps=1 obs_nz=0 no_own_town abort`，#221 初判为"引擎 reset 竞态"。逐层排查（`py/_check_king.py` / `_deep_king.py` / `_check_king_players.py` / `_compare_town_fields.py` / `_king_all_owners.py`）证实真实根因 = **VMAP `header.players = []` 空数组**（地图初始化异常，非引擎时序竞态）；同病扫描发现 4 张 T06 `_02(_duel)` 系列 VMAP 也有相同缺陷（其中 `T06_adventure_72X72_02_duel.vmap` 就在训练 MAPS 名单 L64）。**5 张全部 patch 完成，扫描 60 张 VMAP 全部 players OK**。
+
+### 根因链路
+
+- **VCMI 引擎玩家创建**：`header.players` 决定引擎创建多少玩家槽位（player 0..N-1）。空数组 → 无玩家索引 → obs 8 城段 `owner` 字段全为 0。
+- **obs 城段语义**：`obs[336:480]` = 8 城 × 18 字段，owner 位置 `_tb2+1`，coords `_tb2+2/+3`。
+- **`no_own_town` abort 判定**（`ep_runner_one.py` L584-596）：`owner=0 且 coords 有值 → 己方城`；无己方城则 abort。
+- **结论**：`header.players=[]` → obs 全零 → `no_own_town` 是**必然触发**（非竞态偶发）。#221 的"reset 竞态"假设已被证伪。
+
+### header.players 两种格式
+
+| 格式 | 示例 | 来源 |
+|------|------|------|
+| dict-of-players（T01 标准）| `{blue:{canPlay:'PlayerOrAI',heroes:{...}}, red:{...}}` | 手工制作 VMAP |
+| list-of-dicts（L1 老格式）| `[{canComputerPlay:true,canHumanPlay:true,mainHero:null}, ...]` | L1 系列老图（8 张）|
+| 空数组（缺陷）| `[]` | h3m2vmap 转换产物 + T06 _02 生成脚本产物 |
+
+### 对象分布结构
+
+- `objects.json` = **dict-of-dicts**（`name → obj`），非 list，遍历 `for k, v in objs.items()`。
+- `owner` 位置 = `obj.options.owner`（不是 `obj.owner`）。
+- `owner` 值 = **颜色字符串**（"blue"/"red"/"orange"/"teal"/"green"/"yellow"）不是玩家索引。
+- 训练 AI 主控方 = player 0 = blue（`vcmi_gym/envs/v13/strategic_env.py` L93 `p0 = state.players[0]`）。
+
+### 5 张图修补明细
+
+| # | 文件 | players 前 | 后 | 对象变更 | 尺寸 |
+|---|------|-----------|------|---------|------|
+| 1 | King_of_Pain_h3m | `[]` | `{blue,red}` | town_1 owner red→blue + hero_0 owner red→blue | 10713→10781 |
+| 2 | T06_adventure_72X72_02_duel | `[]` | `{blue,red}` | 无（对象已正确）| 1723→1804 |
+| 3 | T06_adventure_72X72_02 | `[]` | `{blue,red}` | 无（对象已正确）| 1787→1868 |
+| 4 | T06_adventure_108X108_02_duel | `[]` | `{blue,red}` | 无（对象已正确）| 1895→1976 |
+| 5 | T06_adventure_108X108_02 | `[]` | `{blue,red}` | 无（对象已正确）| 1959→2038 |
+
+**共同修改**：`header.mods: [] → {}`（对齐 T01 格式）。
+
+**King 特殊性**：H3M 官方 5 玩家图，原 town/hero owner 分 5 色（orange/red/blue/None/None），hero_0 原本归属 red；修补时必须同时改 `town_1 + hero_0 owner → blue` 让蓝方 = player 0 主控逻辑一致。修补后 Blue 2 town + 1 hero，Neutral 3 town。
+
+**T06 _02 系列特点**：标准 1v1/1v3 生成图，town/hero owner 已正确（town_0/hero_0=red @ 左上，town_1/hero_1=blue @ 右下），只改 header 不动 objects。
+
+### 工具链
+
+- `py/patch_king_players.py` — King 单图 patch（v2，改 header + objects）
+- `py/patch_t06_02_players.py` — T06 _02 批量 patch（只改 header）
+- `py/_scan_players.py` — 60 张 VMAP 全量扫描工具（新增 VMAP 入 MAPS 前必检）
+- 备份后缀：`.vmap.bak_players_patch`（5 张均有备份）
+
+### 系统性缺陷定性
+
+**缺陷 #4**（h3m2vmap 系列 + T06 生成脚本共同缺陷）：转换/生成脚本导出 VMAP 时未注入默认 `header.players` 字段。**其他未入池 H3M 转换产物同样有此缺陷**，未来入池前必扫。
+
+**长期治本**：改 `tools/h3m2vmap/main.cpp` + `py/vcmi_full_to_slim.py` + `fix_t06_maps.py` 生成管线，导出时注入默认 `header.players={blue,red}`。
+
+### 回归验证
+
+- `py/_scan_players.py` 60 张 VMAP：**52 张 dict-of-players OK**（含 King + T06 _02 系 4 张修补产物）+ **8 张 L1 老 list 格式**（非空数组，引擎兼容识别）+ **`players=[]` 空数组 0 张** ✓
+- 训练 MAPS 名单 10 图全部 `players OK`（无脏图）
+- 训练当前 `inactive`（未擅自启动）
+
+**关联**: 踩坑 #222（King 真实根因 + 单图 patch）+ #223（T06 _02 批量 patch）+ #221（reset 竞态假设已被证伪）+ #214（方案 A 过滤兜底仍生效）/ 任务清单 09-13 地图轴 patch 增量 / `train_wsl2_ppo_v2.py` L64（T06 72X72_02_duel 入池历史）/ `ep_runner_one.py` L584-596（`no_own_town` 判定）。
