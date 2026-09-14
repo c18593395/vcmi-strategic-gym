@@ -885,3 +885,28 @@
 - **教训**: ① **"跳过差集"的承诺必须落在同一个判定上**——防护写在 prev 更新处（L967）、奖励判定（L951）没吃，等于没防；同一份观测有效性（空拍标志）要同时门控所有下游消费者；② 局部修复（只排 duel）要回问"其他调用方是否同病"，#209 的 49/49 证据已证明机制是普遍的，后缀排除只是压症状；③ 日志分析不能只靠动作码+单条诊断推断空间事实，地形/可达性必须解包 vmap 实证（`zipfile`+BFS 五分钟事），否则会基于误读提出改图这种高成本动作；④ 事件配对验证用严格键（map+step，注意 capture 行是 `at step N` 不是 `step=N`，正则不一致会得出 strict=0 的假反证，需当场解释矛盾）。
 - **关联**: #209（duel 49/49 误报，只修后缀）/ #213（C 方案 proxy 上线）/ 空拍根因候选（C++ 填充竞态，L926 注释）/ `ep_runner_one.py` L923-979 / `battle_quality_events.log` / 任务清单 WIN-1 区（判据①重新攒窗）。
 
+#### #232 P10 经济期远目标碾压：蓝英雄 plen=64 经济期无衰减 → 200 步跑满 r=-11.3 (2026-09-15, P10 scorer 灰度启用首日) — ✅ 已修（V×0.2 衰减）
+
+- **现象**: P10 `--target_chain scorer` 灰度启用后，T05_adventure_36X36_01 step 28 蓝英雄候选 `plen=64 F=-0.33 score=168.7` 碾压 runner_up（近距离取兵）89.5，经济期锁死 64 步远目标，200 步跑满终局 `r=-11.3`（负收益）。
+- **根因**: `w_win*delta_cap*V`（1.5×100=150）在打分公式里对蓝英雄/蓝城无条件放大，`w_dist*g`（0.5×64=32）远小于 150 → 经济期开局远目标被锁定。`step_budget` 保守估算（`max_turns=10`，每回合约 20 步 → `step_budget=10*20-28=172`），远候选 plen=64 < 86（budget×0.5）不触发步预算惩罚，远目标持续霸占打分头部。
+- **修复**: `py/target_scorer.py` 打分循环内（`score_candidates`），经济期 + `g>50` 的蓝英雄/蓝城候选 `V × 0.2`（100→20 / 80→16），让近距离取兵/资源堆正常胜出。同步修正 `g` 定义顺序（先 BFS 算 `g`，再对 V 做衰减）。
+- **验证**: King_of_Pain_h3m step 28 选 `own_town`（plen=1 近距离取兵），守卫战斗 +100，115 步正常终局，`r=119.3` 正收益。经济期远目标衰减修复后，经济期正常节奏恢复。
+- **教训**: ① `w_win`（胜利贡献权重）对远目标是无条件乘法项，必须配合 `g`（实际路径长度）做经济期衰减，否则远目标开局即锁死；② 打分公式里所有乘法项的"适用窗口"要显式声明，经济期/capture 期对远目标的贡献系数应分阶段；③ 灰度首日首局即暴露 bug = `[SCORE]` 诊断日志的价值（没有这条日志，64 步远目标锁定会被误判为"模型正常学远目标"）。
+- **关联**: P10 方案 §3 / `py/target_scorer.py` `score_candidates` L250-271（V 衰减段）/ `ep_runner_one.py` L675-717（scorer 分支）/ `train_wsl2_ppo_v2.py` L196（`--target_chain scorer` 透传）。
+
+#### #233 P10 候选池坐标变量混用：`tx,ty` 未定义 NameError（蓝城/取兵城候选 BFS 过滤段）(2026-09-15, P10 离线测试发现) — ✅ 已修（`c["pos"]` 取坐标）
+
+- **现象**: `py/test_target_scorer.py` 测试 4（硬约束过滤）运行时，`score_candidates` 内蓝城/取兵城候选的 BFS 过滤段抛 `NameError: name 'tx' is not defined`；只有蓝英雄/资源堆候选（走 `tx, ty = c["pos"]` 赋值路径）正常。
+- **根因**: `score_candidates` 的打分循环（`for c in cands:`）里，蓝城/取兵城候选的 BFS 过滤段直接引用了 `tx, ty`，但 `tx, ty` 只在循环前针对"当前主角位"赋值，**蓝城/取兵城候选的坐标存在 `c["pos"]`（= `btx, bty`）**，未从候选 dict 里取出来就用了自由变量。
+- **修复**: 在打分循环内（`for c in cands:` 之后第一行），统一从 `c["pos"]` 取坐标：`_cx, _cy, _cz = c["pos"]`，将蓝城/取兵城候选的 BFS 过滤段改为 `bfs_full_dir(mapname, hx, hy, _cx, _cy, ...)`；蓝英雄/资源堆候选同理统一用 `_cx, _cy`。
+- **教训**: 候选池多类型并存时，坐标变量名必须在循环体内统一从 `c["pos"]` 解包，**不允许自由变量跨候选类型混用**；离线测试必须覆盖所有 5 类候选（蓝英雄/蓝城/取兵城/资源堆/守卫），仅测蓝英雄+资源堆会漏掉蓝城/取兵城的坐标路径。
+- **关联**: `py/target_scorer.py` `score_candidates` 打分循环 / `py/test_target_scorer.py` 测试 4（硬约束过滤）。
+
+#### #234 训练脚本透传 `--target_chain scorer` + `[SCORE]` 进主日志 (2026-09-15, P10 灰度启用) — ✅ 已上线
+
+- **现象**: P10 scorer 分支在 `ep_runner_one.py` 已就位，但训练脚本 `train_wsl2_ppo_v2.py` 未透传 `--target_chain scorer`，实际训练进程仍走 legacy 路径；且 `[SCORE]` 诊断日志未进主日志白名单，训练日志里 grep 不到打分详情。
+- **根因**: 灰度启用需要两处联动：① `train_wsl2_ppo_v2.py` 在构建 ep_runner 命令行时透传 `--target_chain scorer`（或按需透传 `--target_chain legacy` 回退）；② `[SCORE]` 加入 `train_wsl2_ppo_v2.py` 主日志转储词表（`highlights` 列表），否则 ep_runner 子进程的 `[SCORE]` print 不进 `train_loop.log`，无法从主日志侧 grep 诊断。
+- **处置（09-15）**: `train_wsl2_ppo_v2.py` L196 新增 `cmd.extend(["--target_chain", "scorer"])`（P10 灰度开关，默认 legacy 零行为变化，scorer 启用 `target_scorer.py` 统一打分器）；L222 `highlights` 列表补 `"[SCORE]"`。py_compile 通过，停启训练（`wsl -u root systemctl stop/start homm3-train-v5`），清 `__pycache__`，首局验证修复生效（King_of_Pain step 28 选 own_town 而非远蓝英雄，r=119.3 正收益）。
+- **教训**: 灰度开关启用是"训练脚本 + ep_runner 参数 + 主日志词表"三层联动，改任何一层都要检查另外两层是否同步；`[SCORE]` 这类新日志标签必须先加进主日志白名单，否则子进程日志对主日志不可见，灰度观察期形同虚设。
+- **关联**: #232（经济期远目标碾压，本条灰度首日暴露）/ #233（坐标变量混用，离线测试先暴露）/ `train_wsl2_ppo_v2.py` L196/L222 / `ep_runner_one.py` L133-144（argparse 7 参数）/ `py/target_scorer.py`。
+

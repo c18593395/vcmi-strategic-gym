@@ -1,4 +1,4 @@
-import sys, os, json, argparse, random, zipfile, time
+import sys, os, json, argparse, random, zipfile, time, importlib
 from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -672,163 +672,208 @@ try:
                     if tt[5] > 0 and (best is None or tt[5] < best[5]):
                         best = tt
                         next_dir_idx = i
-                # 2026-08-25: 守卫恒优先 — 守矿机制: 先占矿守卫消失, 战斗永不触发 → 守卫在 15 格内一律先打守卫
-                # 一步可达 (8 邻) 的守卫优先 (直接从英雄格进守卫, 避免经过矿/资源)
-                guard_best = None
-                # 0909 守卫引导失败黑名单: hero 站上守卫格 = 战斗已触发 (位置重合法同 [GUARD] 奖励口径)
-                # → 本局黑名单该守卫 — T06 duel 实锤振荡陷阱: hero 在 (4,6)↔(5,7) 守卫格回跳 26/60 步
-                # (战斗未触发/未胜 + 排除逻辑只在 hero 恰在格上时生效, 离格后 guard_best 又选中 → 往复),
-                # capture 路径被堵; 黑名单后引导自动切蓝城, 打不赢就绕; T05 一次即胜的局不受影响
-                for (gx, gy, gz) in get_guards(args.mapname):
-                    if gz != hz:
-                        continue
-                    if gx == hx and gy == hy:
-                        guard_blacklist.add((gx, gy))
-                    if (gx, gy) in guard_blacklist:
-                        continue
-                    gd = abs(gx - hx) + abs(gy - hy)
-                    adj = (gd <= 2 and abs(gx - hx) <= 1 and abs(gy - hy) <= 1)
-                    if 0 < gd < 15 and (
-                        guard_best is None or
-                        (adj and not guard_best[3]) or
-                        (adj == guard_best[3] and gd < guard_best[0])
-                    ):
-                        guard_best = (gd, gx, gy, adj)
-                # 0909 II: fail-count 黑名单 — "站上格"条件实测没接住 (hero 在邻格反复被引擎拒,
-                # 从未站上 → 位置重合条件永不触发, act 逐字复现振荡); 改为邻格停滞计数:
-                # guard_best 选中且 dist<=2 (已贴脸) 每步 +1, 3 步未胜 → 黑名单
-                if guard_best is not None and guard_best[0] <= 2:
-                    _gb = (guard_best[1], guard_best[2])
-                    guard_fail[_gb] = guard_fail.get(_gb, 0) + 1
-                    if guard_fail[_gb] >= 3:
-                        guard_blacklist.add(_gb)
-                # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) —
-                # 占领后 (mine_taken) 排除防粘死。
-                # 2026-08-29 II.3 调优: 城镇注入降级移除 — RECRUIT/BUILD 为玩家级远程操作无需到城,
-                # 城镇贪心远距必卡死 (每次烧 6 步探测 + [TOWN_BLOCKED] 常态触发), [TOWN] +30 降级为路过事件 (下方检测保留)
-                obj_best = None
-                if args.objective_reward > 0 and not mine_taken:
-                    for i, tt in enumerate(tl):
-                        if int(tt[0]) == 1 and int(tt[5]) > 0 and (
-                            obj_best is None or int(tt[5]) < obj_best[0]
-                        ):
-                            obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
-                # 2026-08-31 TOWN 轴引导恢复: 矿占完后引导最近非我方城 (占城 = 1v7 终极目标语义) —
-                # 约束防卡死复发 (此前 324 次 [TOWN_BLOCKED] 教训): ① 只在 mine_taken 后启用 (先经济后占城)
-                # ② 不设距离上限 — blue 城全在对角远端 (20X20 图 hero→城 ~22 格, 30X30 ~42), dist<=20 会让轴再死;
-                #    远城贪心失败由 move_stall (6步) + town_blocked 本局禁用兜底, 每局学费上限 6 步 vs first +30
-                # ③ first-only +30 天然限收益
-                town_best = None
-                # 0909: T06 大图矿引导断链实锤 (72X72 target_list top-8 距离排序被近目标挤占,
-                # obj_best 恒 None → [MINE]=0 → mine_taken 永 False → 蓝城引导死锁, capture +100 死信) →
-                # T06 绕过 mine_taken 门槛 (capture 激励包配套引导); T04/T05 行为不变 (前置保留)。
-                # 卡死防护沿用: BFS 不可达跳过 + move_stall 放弃 + town_blocked 本局禁用
-                _t06_direct = args.mapname.startswith('T06')
-                if args.objective_reward > 0 and (mine_taken or _t06_direct) and not town_blocked and not town_visited:
-                    # 2026-09-01 改法一: 选址从 greedy Manhattan 改为全图 BFS —
-                    # ① 不可达的城直接跳过 (不设目标 → 不烧 6 步学费, [TOWN_BLOCKED] 不再触发);
-                    # ② 可达的城按真实路径步数取最近 (绕岩石后 Manhattan 近的未必真近)
-                    for (_tx, _ty) in get_objectives(args.mapname)[1]:
-                        _dir, _plen = bfs_full_dir(args.mapname, hx, hy, _tx, _ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
-                        if _dir is None:
-                            continue
-                        if town_best is None or _plen < town_best[0]:
-                            town_best = (_plen, _tx, _ty)
-                # 2026-08-31 回城取兵引导: 己方城 recruit_mask 非零 (有巢穴可招) → 引导 MOVE_TO 己方城
-                # (visit 后取兵窗发 RECRUIT, 新兵直上英雄部队)
-                # 优先级 = 守卫 > 矿 > 回城取兵 > blue城占城 > 资源堆 (取兵高频+近城, 战力成长是 1v7 核心);
-                # 触发信号 = recruit_mask (C++ fill_v3_fields 填充) — garrison 字段 C++ 恒 0 未实现, 不可用;
-                # 约束: dist<=25 (取兵是常规行为不该跨图跑) ; 卡死由 move_stall 通用放弃 (目标可反复出现, 不禁用)
-                own_town_best = None
-                # 0909: T06 取兵引导限次 2 — 实锤 T06 duel 首局 [TOWN_VISIT]×4 (step 67/105/145/187,
-                # garrison 每周期回满 → 取兵引导复活) 与蓝城引导反复震荡, 200 步耗在往返没到蓝城
-                # (r=28.68 vs 旧守卫胜剧本 78); T06 蓝城单程 ~95 格, 200 步预算容不下取兵往返;
-                # start_home 已保底 1 次取兵, 限次后兵力成长靠开局; T04/T05 不限 (城近无往返成本)
-                _t06_limit_own = args.mapname.startswith('T06') and own_town_guide_count >= 2
-                if args.objective_reward > 0 and not _t06_limit_own:
-                    for _ti1 in range(8):
-                        _tb1 = 336 + _ti1 * 18
-                        if int(obs[_tb1+1]) == 0 and (int(obs[_tb1+2]) > 0 or int(obs[_tb1+3]) > 0):
-                            _rm1 = int(obs[_tb1+14]) | int(obs[_tb1+15])
-                            if _rm1 > 0:
-                                _od1 = abs(int(obs[_tb1+2]) - hx) + abs(int(obs[_tb1+3]) - hy)
-                                # 2026-09-01 改法一: 可达性过滤 (BFS 不可达 → 不引导, 防 greedy 卡死烧 move_stall)
-                                _d1, _ = bfs_full_dir(args.mapname, hx, hy, int(obs[_tb1+2]), int(obs[_tb1+3]), blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
-                                if _od1 <= 25 and _od1 > 0 and _d1 is not None and (own_town_best is None or _od1 < own_town_best[0]):
-                                    own_town_best = (_od1, int(obs[_tb1+2]), int(obs[_tb1+3]))
-                    # 诊断日志 (边沿触发): 区分"引导没启动"(此条不打) vs "启动了没走到"(打了但无 [TOWN_VISIT])
-                    if own_town_best is not None:
-                        if not own_town_guiding:
-                            own_town_guiding = True
-                            if own_town_guide_count < 5:
-                                print(f"[OWN_TOWN_GUIDE] garrison pickup guide started dist={own_town_best[0]} at step {traj['steps']}", flush=True)
-                            own_town_guide_count += 1
-                    else:
-                        own_town_guiding = False
-                elif own_town_guiding:
-                    own_town_guiding = False
-                if guard_best is not None:
-                    tx, ty, tz = guard_best[1], guard_best[2], hz
-                    next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
-                    move_town_target = False
-                    move_town_bfs = False
-                    if guard_done_countdown is not None:
-                        guard_done_countdown = args.guard_done_steps  # 新目标 (余守卫) → 重置倒计时
-                elif obj_best is not None:
-                    # 2026-08-29 T04 目标优先: 矿/城镇恒优先于最近资源堆 —
-                    # 资源堆 dist 近恒压过矿 → 模型被资源堆吸住, 远矿/城永远轮不到 (r=-80~-110 根因)。
-                    # 矿有 C++ next_dir 支撑远距可达; 城镇贪心卡死由 move_stall 放弃处 town_blocked 兜底
-                    tx, ty, tz = obj_best[1], obj_best[2], obj_best[3]
-                    next_dir_idx = obj_best[4]  # 矿= target_list slot (C++ next_dir); 城镇= -1 (Python BFS/贪心)
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = False
-                    move_town_target = (next_dir_idx == -1)
-                    move_town_bfs = False
-                    if guard_done_countdown is not None:
-                        guard_done_countdown = args.guard_done_steps
-                elif own_town_best is not None:
-                    # 2026-08-31 回城取兵分支: 到达后 visit 检测块自动开取兵窗 (RECRUIT 兵直上英雄)
-                    # move_town_target=False — 己方城卡死只走通用 move_stall 放弃, 不触发 town_blocked (blue城专用)
-                    # move_town_bfs=True — 改法二: 取兵城同为 BFS 引导, 卡死判定用 BFS plen (修绕岩误判)
-                    tx, ty, tz = own_town_best[1], own_town_best[2], hz
-                    next_dir_idx = -1
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = False
-                    move_town_target = False
-                    move_town_bfs = True
-                    if guard_done_countdown is not None:
-                        guard_done_countdown = args.guard_done_steps
-                elif town_best is not None:
-                    # 2026-08-31 TOWN 引导分支: 优先级 = 守卫 > 矿 > 城 > 资源堆 —
-                    # 城不在 target_list (C++ 不填) → next_dir_idx=-1 走 Python BFS/贪心; move_town_target=True 启用卡死兜底
-                    tx, ty, tz = town_best[1], town_best[2], hz
-                    next_dir_idx = -1
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = False
-                    move_town_target = True
-                    move_town_bfs = True
-                    if guard_done_countdown is not None:
-                        guard_done_countdown = args.guard_done_steps
-                elif best is not None:
-                    tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
-                    move_target = (tx, ty, tz)
-                    move_stall = 0
-                    move_guard_target = False
-                    move_town_target = False
-                    move_town_bfs = False
-                    if guard_done_countdown is not None:
-                        guard_done_countdown = args.guard_done_steps  # 新目标 (矿/资源) → 重置倒计时
+                # P10 (2026-09-15): scorer 分支 — 统一打分排序器替代五层 if/else "选谁"
+                # 零 .so 重编, OBS 3464/动作空间零变更; 移动执行/卡死检测/黑名单状态机全部复用
+                if args.target_chain == "scorer":
+                    if _target_scorer is None:
+                        if "/mnt/d/Bigdata/hero3_fresh/py" not in sys.path:
+                            sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh/py")
+                        _target_scorer = importlib.import_module("target_scorer")
+                    power_self = int(obs[base + 10])  # active hero total_power (H_F_POW=10)
+                    _t06_direct_s = args.mapname.startswith('T06')
+                    _phase = "capture" if (mine_taken or _t06_direct_s) else "economy"
+                    _t06_limit_s = args.mapname.startswith('T06') and own_town_guide_count >= 2
+                    _step_budget = 0
+                    if hasattr(args, 'max_turns') and args.max_turns > 0:
+                        _step_budget = max(0, int(args.max_turns * 20 - traj["steps"]))  # 保守估算
+                    _w = dict(w_type=args.ts_w_type, w_win=args.ts_w_win, w_pow=args.ts_w_pow,
+                              w_dist=args.ts_w_dist, w_stick=args.ts_w_stick,
+                              margin=args.ts_margin, temp=args.ts_temp)
+                    _scored = _target_scorer.score_candidates(
+                        obs, hx, hy, hz, power_self,
+                        mine_taken, town_blocked, town_visited,
+                        guard_blacklist, dyn_blocked, _phase, _w,
+                        mapname=args.mapname, current_target=move_target, stall_count=move_stall,
+                        guards=get_guards(args.mapname), bfs_full_dir=bfs_full_dir,
+                        own_town_limit=_t06_limit_s, step_budget=_step_budget)
+                    _pick, _runner_up = _target_scorer.pick_from_scored(_scored)
+                    if _pick is not None:
+                        tx, ty, tz = _pick["pos"]
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        next_dir_idx = _pick["tl_idx"]
+                        move_guard_target = _pick["is_guard"]
+                        move_town_target = _pick["is_blue_town"]
+                        move_town_bfs = _pick["is_blue_town"] or _pick["is_own_town"]
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps
+                        _m = _pick["meta"]
+                        _ru_score = _runner_up[0] if _runner_up else -1.0
+                        print(f"[SCORE] pick=({tx},{ty}) type={_pick['ttype']} score={_m['score']:.1f} "
+                              f"plen={_m['plen']:.0f} V={_m['V']:.0f} F={_m['F']:.2f} runner_up={_ru_score:.1f} "
+                              f"at step {traj['steps']}", flush=True)
+                        # → 跳到移动执行段 (L832 if tx is not None: 复用)
+                    # else: 无候选 → tx 仍 None → L916 zombie a=10 (无目标兜底)
+                    # 注意: scorer 分支不执行下方 legacy 五层 if/else (L770-831),
+                    # 需要跳过 legacy 段直接走移动执行
                 else:
-                    move_target = None
-                    move_guard_target = False
-                    move_town_target = False
-                    move_town_bfs = False
+                    # 2026-08-25: 守卫恒优先 — 守矿机制: 先占矿守卫消失, 战斗永不触发 → 守卫在 15 格内一律先打守卫
+                    # 一步可达 (8 邻) 的守卫优先 (直接从英雄格进守卫, 避免经过矿/资源)
+                    guard_best = None
+                    # 0909 守卫引导失败黑名单: hero 站上守卫格 = 战斗已触发 (位置重合法同 [GUARD] 奖励口径)
+                    # → 本局黑名单该守卫 — T06 duel 实锤振荡陷阱: hero 在 (4,6)↔(5,7) 守卫格回跳 26/60 步
+                    # (战斗未触发/未胜 + 排除逻辑只在 hero 恰在格上时生效, 离格后 guard_best 又选中 → 往复),
+                    # capture 路径被堵; 黑名单后引导自动切蓝城, 打不赢就绕; T05 一次即胜的局不受影响
+                    for (gx, gy, gz) in get_guards(args.mapname):
+                        if gz != hz:
+                            continue
+                        if gx == hx and gy == hy:
+                            guard_blacklist.add((gx, gy))
+                        if (gx, gy) in guard_blacklist:
+                            continue
+                        gd = abs(gx - hx) + abs(gy - hy)
+                        adj = (gd <= 2 and abs(gx - hx) <= 1 and abs(gy - hy) <= 1)
+                        if 0 < gd < 15 and (
+                            guard_best is None or
+                            (adj and not guard_best[3]) or
+                            (adj == guard_best[3] and gd < guard_best[0])
+                        ):
+                            guard_best = (gd, gx, gy, adj)
+                    # 0909 II: fail-count 黑名单 — "站上格"条件实测没接住 (hero 在邻格反复被引擎拒,
+                    # 从未站上 → 位置重合条件永不触发, act 逐字复现振荡); 改为邻格停滞计数:
+                    # guard_best 选中且 dist<=2 (已贴脸) 每步 +1, 3 步未胜 → 黑名单
+                    if guard_best is not None and guard_best[0] <= 2:
+                        _gb = (guard_best[1], guard_best[2])
+                        guard_fail[_gb] = guard_fail.get(_gb, 0) + 1
+                        if guard_fail[_gb] >= 3:
+                            guard_blacklist.add(_gb)
+                    # 2026-08-29 T04 目标优先层: obj_best = 矿 (target_list type=1) —
+                    # 占领后 (mine_taken) 排除防粘死。
+                    # 2026-08-29 II.3 调优: 城镇注入降级移除 — RECRUIT/BUILD 为玩家级远程操作无需到城,
+                    # 城镇贪心远距必卡死 (每次烧 6 步探测 + [TOWN_BLOCKED] 常态触发), [TOWN] +30 降级为路过事件 (下方检测保留)
+                    obj_best = None
+                    if args.objective_reward > 0 and not mine_taken:
+                        for i, tt in enumerate(tl):
+                            if int(tt[0]) == 1 and int(tt[5]) > 0 and (
+                                obj_best is None or int(tt[5]) < obj_best[0]
+                            ):
+                                obj_best = (int(tt[5]), int(tt[2]), int(tt[3]), int(tt[4]), i)
+                    # 2026-08-31 TOWN 轴引导恢复: 矿占完后引导最近非我方城 (占城 = 1v7 终极目标语义) —
+                    # 约束防卡死复发 (此前 324 次 [TOWN_BLOCKED] 教训): ① 只在 mine_taken 后启用 (先经济后占城)
+                    # ② 不设距离上限 — blue 城全在对角远端 (20X20 图 hero→城 ~22 格, 30X30 ~42), dist<=20 会让轴再死;
+                    #    远城贪心失败由 move_stall (6步) + town_blocked 本局禁用兜底, 每局学费上限 6 步 vs first +30
+                    # ③ first-only +30 天然限收益
+                    town_best = None
+                    # 0909: T06 大图矿引导断链实锤 (72X72 target_list top-8 距离排序被近目标挤占,
+                    # obj_best 恒 None → [MINE]=0 → mine_taken 永 False → 蓝城引导死锁, capture +100 死信) →
+                    # T06 绕过 mine_taken 门槛 (capture 激励包配套引导); T04/T05 行为不变 (前置保留)。
+                    # 卡死防护沿用: BFS 不可达跳过 + move_stall 放弃 + town_blocked 本局禁用
+                    _t06_direct = args.mapname.startswith('T06')
+                    if args.objective_reward > 0 and (mine_taken or _t06_direct) and not town_blocked and not town_visited:
+                        # 2026-09-01 改法一: 选址从 greedy Manhattan 改为全图 BFS —
+                        # ① 不可达的城直接跳过 (不设目标 → 不烧 6 步学费, [TOWN_BLOCKED] 不再触发);
+                        # ② 可达的城按真实路径步数取最近 (绕岩石后 Manhattan 近的未必真近)
+                        for (_tx, _ty) in get_objectives(args.mapname)[1]:
+                            _dir, _plen = bfs_full_dir(args.mapname, hx, hy, _tx, _ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
+                            if _dir is None:
+                                continue
+                            if town_best is None or _plen < town_best[0]:
+                                town_best = (_plen, _tx, _ty)
+                    # 2026-08-31 回城取兵引导: 己方城 recruit_mask 非零 (有巢穴可招) → 引导 MOVE_TO 己方城
+                    # (visit 后取兵窗发 RECRUIT, 新兵直上英雄部队)
+                    # 优先级 = 守卫 > 矿 > 回城取兵 > blue城占城 > 资源堆 (取兵高频+近城, 战力成长是 1v7 核心);
+                    # 触发信号 = recruit_mask (C++ fill_v3_fields 填充) — garrison 字段 C++ 恒 0 未实现, 不可用;
+                    # 约束: dist<=25 (取兵是常规行为不该跨图跑) ; 卡死由 move_stall 通用放弃 (目标可反复出现, 不禁用)
+                    own_town_best = None
+                    # 0909: T06 取兵引导限次 2 — 实锤 T06 duel 首局 [TOWN_VISIT]×4 (step 67/105/145/187,
+                    # garrison 每周期回满 → 取兵引导复活) 与蓝城引导反复震荡, 200 步耗在往返没到蓝城
+                    # (r=28.68 vs 旧守卫胜剧本 78); T06 蓝城单程 ~95 格, 200 步预算容不下取兵往返;
+                    # start_home 已保底 1 次取兵, 限次后兵力成长靠开局; T04/T05 不限 (城近无往返成本)
+                    _t06_limit_own = args.mapname.startswith('T06') and own_town_guide_count >= 2
+                    if args.objective_reward > 0 and not _t06_limit_own:
+                        for _ti1 in range(8):
+                            _tb1 = 336 + _ti1 * 18
+                            if int(obs[_tb1+1]) == 0 and (int(obs[_tb1+2]) > 0 or int(obs[_tb1+3]) > 0):
+                                _rm1 = int(obs[_tb1+14]) | int(obs[_tb1+15])
+                                if _rm1 > 0:
+                                    _od1 = abs(int(obs[_tb1+2]) - hx) + abs(int(obs[_tb1+3]) - hy)
+                                    # 2026-09-01 改法一: 可达性过滤 (BFS 不可达 → 不引导, 防 greedy 卡死烧 move_stall)
+                                    _d1, _ = bfs_full_dir(args.mapname, hx, hy, int(obs[_tb1+2]), int(obs[_tb1+3]), blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
+                                    if _od1 <= 25 and _od1 > 0 and _d1 is not None and (own_town_best is None or _od1 < own_town_best[0]):
+                                        own_town_best = (_od1, int(obs[_tb1+2]), int(obs[_tb1+3]))
+                        # 诊断日志 (边沿触发): 区分"引导没启动"(此条不打) vs "启动了没走到"(打了但无 [TOWN_VISIT])
+                        if own_town_best is not None:
+                            if not own_town_guiding:
+                                own_town_guiding = True
+                                if own_town_guide_count < 5:
+                                    print(f"[OWN_TOWN_GUIDE] garrison pickup guide started dist={own_town_best[0]} at step {traj['steps']}", flush=True)
+                                own_town_guide_count += 1
+                        else:
+                            own_town_guiding = False
+                    elif own_town_guiding:
+                        own_town_guiding = False
+                    if guard_best is not None:
+                        tx, ty, tz = guard_best[1], guard_best[2], hz
+                        next_dir_idx = -1  # 无 C++ next_dir → 走 BFS/贪心
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
+                        move_town_target = False
+                        move_town_bfs = False
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps  # 新目标 (余守卫) → 重置倒计时
+                    elif obj_best is not None:
+                        # 2026-08-29 T04 目标优先: 矿/城镇恒优先于最近资源堆 —
+                        # 资源堆 dist 近恒压过矿 → 模型被资源堆吸住, 远矿/城永远轮不到 (r=-80~-110 根因)。
+                        # 矿有 C++ next_dir 支撑远距可达; 城镇贪心卡死由 move_stall 放弃处 town_blocked 兜底
+                        tx, ty, tz = obj_best[1], obj_best[2], obj_best[3]
+                        next_dir_idx = obj_best[4]  # 矿= target_list slot (C++ next_dir); 城镇= -1 (Python BFS/贪心)
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        move_guard_target = False
+                        move_town_target = (next_dir_idx == -1)
+                        move_town_bfs = False
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps
+                    elif own_town_best is not None:
+                        # 2026-08-31 回城取兵分支: 到达后 visit 检测块自动开取兵窗 (RECRUIT 兵直上英雄)
+                        # move_town_target=False — 己方城卡死只走通用 move_stall 放弃, 不触发 town_blocked (blue城专用)
+                        # move_town_bfs=True — 改法二: 取兵城同为 BFS 引导, 卡死判定用 BFS plen (修绕岩误判)
+                        tx, ty, tz = own_town_best[1], own_town_best[2], hz
+                        next_dir_idx = -1
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        move_guard_target = False
+                        move_town_target = False
+                        move_town_bfs = True
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps
+                    elif town_best is not None:
+                        # 2026-08-31 TOWN 引导分支: 优先级 = 守卫 > 矿 > 城 > 资源堆 —
+                        # 城不在 target_list (C++ 不填) → next_dir_idx=-1 走 Python BFS/贪心; move_town_target=True 启用卡死兜底
+                        tx, ty, tz = town_best[1], town_best[2], hz
+                        next_dir_idx = -1
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        move_guard_target = False
+                        move_town_target = True
+                        move_town_bfs = True
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps
+                    elif best is not None:
+                        tx, ty, tz = int(best[2]), int(best[3]), int(best[4])
+                        move_target = (tx, ty, tz)
+                        move_stall = 0
+                        move_guard_target = False
+                        move_town_target = False
+                        move_town_bfs = False
+                        if guard_done_countdown is not None:
+                            guard_done_countdown = args.guard_done_steps  # 新目标 (矿/资源) → 重置倒计时
+                    else:
+                        move_target = None
+                        move_guard_target = False
+                        move_town_target = False
+                        move_town_bfs = False
             if tx is not None:
                 # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
                 nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1

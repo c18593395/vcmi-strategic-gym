@@ -74,6 +74,14 @@ PROFILES = {
 WIN_R, WIN_STEPS = 80.0, 60
 PROMO_WIN_RATE = 0.30
 
+# --- B4 晋级判据常量 (方案_B1-B4 L83-105, 双条件口径) ---
+B4_GUARD_PRIME_RATE = 0.30   # ① GUARD 首胜率 (guard>0 占比) ≥30%
+B4_POS_RATE_MIN = 0.70       # ② 正局率 (r>0 占比) ≥70%
+B4_AVG_R_MIN = 15.0          # ③ avg_r ≥+15
+B4_AVG_R_WINDOWS = 3        # ③ 连续 3 个 100 局窗口
+B4_BIG_NEG_MAX = 0.0        # ④ 大负率 (r<-100 占比) 保持 0
+B4_BIG_NEG_TH = -100.0      # 大负阈值
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--profile", choices=list(PROFILES), default="all")
 ap.add_argument("--episodes", type=int, default=None, help="默认 = profile 地图数")
@@ -265,6 +273,15 @@ avg_r = sum(r["r"] for r in valid_rs) / n_valid if n_valid else 0.0
 wins = sum(r["win"] for r in valid_rs)
 win_rate = wins / n_valid if n_valid else 0.0
 
+# B4 ① 正局率 (r>0 占比, valid 局中)
+pos_rate = sum(1 for r in valid_rs if r["r"] > 0) / n_valid if n_valid else 0.0
+# B4 ① 大负率 (r<-100 占比, valid 局中)
+big_neg = sum(1 for r in valid_rs if r["r"] < B4_BIG_NEG_TH) / n_valid if n_valid else 0.0
+# B4 ① GUARD 首胜率: 1v3 课程无独立"GUARD 首胜"标记 (守卫首胜+capture 双终局),
+# 用"guard>0 占比"作 proxy (与 B4 L99 注 "T03 课程下以 GUARD 首胜率作 proxy" 一致);
+# legacy profile 下 win_rate 即 GUARD 首胜率 (win 判据 = r>=80 & steps<60, 同 B4 L99)
+guard_prime_rate = (sum(1 for r in valid_rs if r["guard"] > 0) / n_valid) if n_valid else 0.0
+
 def grp_stats(g):
     rs = [r for r in valid_rs if group_of(r["map"]) == g]
     if not rs:
@@ -299,10 +316,13 @@ for g in ("1v3", "duel", "T05", "H3M"):
 print()
 if args.profile == "legacy":
     verdict = []
-    verdict.append(f"线①胜率 {win_rate:.0%} {'✅' if win_rate >= PROMO_WIN_RATE else '⬜'} (≥30%)")
+    verdict.append(f"线①GUARD 首胜率 {win_rate:.0%} {'✅' if win_rate >= PROMO_WIN_RATE else '⬜'} (≥30%)")
     verdict.append(f"线②avg_r {avg_r:.1f} {'✅' if avg_r > 0 else '⬜'} (>0)")
+    verdict.append(f"线③正局率 {pos_rate:.0%} {'✅' if pos_rate >= B4_POS_RATE_MIN else '⬜'} (≥70%)")
+    verdict.append(f"线④大负率 {big_neg:.0%} {'✅' if big_neg <= B4_BIG_NEG_MAX else '⬜'} (保持 0)")
+    # legacy profile 无 vloss (离线 eval 不测 vloss), 五指标中 vloss 跳过
     promo = "样本不足(n<10)" if n_valid < 10 else ("达标提示(晋级需人工确认)" if win_rate >= PROMO_WIN_RATE or avg_r > 0 else "未达标")
-    print(f"[eval] legacy 小图口径: {' | '.join(verdict)}  →  {promo}")
+    print(f"[eval] legacy 小图口径 (B4 五指标): {' | '.join(verdict)}  →  {promo}")
 else:
     s = panel.get("1v3")
     print("[eval] 1v3 课程判据快照 (固定 ckpt 基线, 晋级线人工拍板; 在线口径见 check_win1_watch):")
@@ -317,10 +337,64 @@ else:
         print(f"  ④ 200 步局 {s['t200']*100//nn}% {'✅' if s['t200']*100 <= 20*nn else '⬜'} (≤20%)")
         print(f"  avg_r={s['avg_r']:.1f} (与上次同 profile eval 比较, 跌幅 >20% 为回退线)")
 
+        # --- B4 双条件 PROMO_HINT (方案_B1-B4 L100: GUARD 首胜率 ≥30% AND avg_r ≥+15 连续 3 窗) ---
+        # 1v3 课程下 GUARD 首胜率 proxy = guard>0 占比 (1v3 无独立 GUARD 首胜标记,
+        # capture/守卫首胜双终局); 双条件用 AND (B4 L100 原文 "双条件触发晋级")
+        guard_ok = guard_prime_rate >= B4_GUARD_PRIME_RATE
+        avg_r_ok = avg_r >= B4_AVG_R_MIN
+        print(f"\n[B4] 双条件晋级判据 (GUARD 首胜率 ≥{B4_GUARD_PRIME_RATE:.0%} AND avg_r ≥+{B4_AVG_R_MIN:.0f} 连续 {B4_AVG_R_WINDOWS} 窗):")
+        print(f"  ① GUARD 首胜率 (proxy=guard>0 占比): {guard_prime_rate:.0%} {'✅' if guard_ok else '⬜'} (≥{B4_GUARD_PRIME_RATE:.0%})")
+        print(f"  ② 正局率 (r>0): {pos_rate:.0%} {'✅' if pos_rate >= B4_POS_RATE_MIN else '⬜'} (≥{B4_POS_RATE_MIN:.0%})")
+        print(f"  ③ avg_r: {avg_r:.1f} {'✅' if avg_r_ok else '⬜'} (≥+{B4_AVG_R_MIN:.0f})")
+        print(f"  ④ 大负率 (r<-100): {big_neg:.0%} {'✅' if big_neg <= B4_BIG_NEG_MAX else '⬜'} (保持 0)")
+        print(f"  ⑤ vloss: N/A (离线 eval 不测, 见 B4 L97 / 训练日志 [vloss] 字段)")
+
+        # avg_r 连续 N 窗: 查历史 eval_history.jsonl 本 profile 同 ckpt 趋势
+        windows_ok = False
+        if avg_r_ok and os.path.exists(HIST):
+            # 取本 profile 同 ckpt 最近 B4_AVG_R_WINDOWS 条历史 (含本次) 的 avg_r
+            same_ckpt = []
+            try:
+                for line in reversed(open(HIST).read().strip().split("\n")):
+                    try:
+                        rec_h = json.loads(line)
+                    except Exception:
+                        continue
+                    if rec_h.get("profile", "legacy") == args.profile and rec_h.get("ckpt_step") == ckpt_step:
+                        same_ckpt.append(rec_h.get("avg_r", 0.0))
+                        if len(same_ckpt) >= B4_AVG_R_WINDOWS:
+                            break
+            except Exception:
+                pass
+            # 历史不足 B4_AVG_R_WINDOWS 条时按实际条数判 (首跑仅 1 条 → 不触发, 需累积 3 窗)
+            if len(same_ckpt) >= B4_AVG_R_WINDOWS:
+                windows_ok = all(x >= B4_AVG_R_MIN for x in same_ckpt)
+            else:
+                print(f"  ⏳ avg_r 连续 {B4_AVG_R_WINDOWS} 窗未达: 本 ckpt 历史仅 {len(same_ckpt)} 条 "
+                      f"(需累积 {B4_AVG_R_WINDOWS} 条 eval, 首跑不触发)")
+
+        b4_pass = guard_ok and avg_r_ok and windows_ok
+        if n_valid < 10:
+            print(f"  → [PROMO_HINT] 样本不足 (n={n_valid}<10), 仅参考不出结论")
+        elif b4_pass:
+            print(f"  → [PROMO_HINT] B4 双条件达标 (GUARD {guard_prime_rate:.0%} ≥{B4_GUARD_PRIME_RATE:.0%} "
+                  f"& avg_r {avg_r:.1f} ≥+{B4_AVG_R_MIN:.0f} ×{B4_AVG_R_WINDOWS}窗) — 晋级提示, 需人工确认 (B4 L100)")
+        else:
+            reasons = []
+            if not guard_ok:
+                reasons.append(f"GUARD {guard_prime_rate:.0%}<{B4_GUARD_PRIME_RATE:.0%}")
+            if not avg_r_ok:
+                reasons.append(f"avg_r {avg_r:.1f}<+{B4_AVG_R_MIN:.0f}")
+            if avg_r_ok and not windows_ok:
+                reasons.append(f"avg_r 连续 {B4_AVG_R_WINDOWS} 窗未达")
+            print(f"  → B4 未达标: {', '.join(reasons)}")
+
 # --- 历史趋势 (同 profile 上一条有效记录) ---
 rec = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "profile": args.profile,
        "ckpt_step": ckpt_step, "n": n, "n_valid": n_valid,
        "win_rate": round(win_rate, 3), "avg_r": round(avg_r, 2),
+       "b4_pos_rate": round(pos_rate, 3), "b4_big_neg": round(big_neg, 3),
+       "b4_guard_prime_rate": round(guard_prime_rate, 3),
        "invalid": n_err, "panel": panel, "results": results}
 os.makedirs(os.path.dirname(HIST), exist_ok=True)
 with open(HIST, "a") as f:

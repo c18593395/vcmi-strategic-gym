@@ -1844,3 +1844,99 @@ cmake --build /home/administrator/vcmi-native/rel --target vcmiserver mlclient -
 ### 运维
 - systemd 口径 09-15 全面统一（system 级 enabled unit，禁 --user），详见踩坑 #229；存活判据沿用 #201 三件套。
 - C1 工具 `py/eval_promo.py` 已加固（独立进程组+看门狗 SIGKILL+实时事件），全 profile 待训练低峰跑。
+
+---
+
+## 2026-09-15：P10 target_scorer 实施 + 灰度启用（零重编 Python 旁路打分器）
+
+### 背景与定位
+
+P10 方案（`docs/方案_P10_target加权排序_20260915.md`）解决 72_02 卡点（58% 截断）+ WIN-1⑤ 联动：target_list 排序纯曼哈顿 top-8 无价值/威胁加权，蓝英雄完全不在目标池（D4），蓝城 stall 后无目标承接 → 失败局东向撞墙 ~90 步。设计形态 = Python 旁路统一打分器（`py/target_scorer.py`），OBS 3464/动作空间零变更（铁律），零 .so 重编，`--target_chain {legacy,scorer}` 灰度开关。
+
+### 核心产物 `py/target_scorer.py`
+
+**候选池 5 类**（相对 C++ target_list 的 D4 补全）：
+
+| 候选类 | 来源 | 基础价值 V |
+|--------|------|-----------|
+| 矿/资源/篝火/宝箱/宝物 | C++ target_list obs[3251:3315] 8×8 | 30/10/12/20/25 |
+| 蓝英雄 | obs[128:336] 8×26（total_power 直读） | 100 |
+| 蓝城 | obs[336:480] 8×18 | 80 |
+| 己方取兵城 | obs[336:480] 8×18（recruit_mask 非 0） | 35 |
+| 静态守卫 | vmap 注入（get_guards） | 45 |
+
+**打分公式**：
+
+```
+score = w_type*V + w_win*Δcap*V + w_pow*F*(V+20) - w_dist*g + w_stick*stick - p_phase - budget_pen
+```
+
+- `Δcap`：蓝英雄=1.0 / 蓝城=0.8 / 其他=0.0
+- `F`（可打性）：logistic 战力差，`power_feasibility(power_self, power_c, w)` ∈ [-1,1]；资源类恒 +1；蓝英雄直读 total_power；守卫/蓝城 half-self 近似
+- `g`：BFS 真实路径长度（`bfs_full_dir` 非 None 时），不可达剔除；守卫格/蓝英雄格 passable=0 不入 BFS（贴脸）
+- **经济期远目标衰减（#232 修复）**：`phase=="economy" and g>50` 且蓝英雄/蓝城 → `V *= 0.2`，防止 `w_win` 无条件下拉远目标开局锁死
+- `p_phase`：阶段惩罚（economy 罚蓝英雄/蓝城，capture 拉满）
+- `budget_pen`：步预算惩罚（远候选 plen > step_budget×0.5 加罚）
+- `stick`：粘滞 bonus（当前目标未 stall → 强化保持）
+
+**硬约束打分侧过滤**：
+- BFS 不可达剔除（方案 §3.3 硬约束）
+- 守卫/蓝英雄贴脸不走 BFS
+- `man > 30` 跨图剔除
+- 取兵 `man ≤ 25`；`own_town_limit`（T06 超限整类剔除）
+- `guard_blacklist` / `dyn_blocked` 透传
+
+**obs 段偏移常量**（冻结 3464）：
+
+```python
+OBS_TL_OFF   = 3251   # target_list 8×8
+OBS_HERO_OFF = 128    # 英雄段 8×26
+OBS_TOWN_OFF = 336    # 城镇段 8×18
+OBS_ND_OFF   = 3330   # C++ 全图 BFS next_dir[8]
+OBS_PAS_OFF  = 3211   # 8 方向 passable
+H_F_ID, H_F_OWNER, H_F_X, H_F_Y, H_F_Z, H_F_LEVEL, H_F_POW = 0, 1, 2, 3, 4, 5, 10
+T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
+```
+
+### ep_runner_one.py 集成（L675-717 新增 scorer 分支）
+
+- **argparse 7 参数**（L133-144）：`--target_chain {legacy,scorer}` + `--ts_w_type/--ts_w_win/--ts_w_pow/--ts_w_dist/--ts_w_stick/--ts_margin/--ts_temp`
+- **lazy import**：`_target_scorer = None`，scorer 分支首次调用时 `importlib.import_module("target_scorer")`，`sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh/py")`
+- **scorer 分支**（L675-717）：
+  1. `power_self = int(obs[base + 10])`（active hero total_power，H_F_POW=10）
+  2. 构造 `_phase`（T06 图直接 capture，否则 mine_taken→capture 否则 economy）
+  3. `score_candidates(...)` → `pick_from_scored(...)` → 赋值 `move_target/move_stall/next_dir_idx/move_guard_target/move_town_target/move_town_bfs`
+  4. `[SCORE]` 诊断日志（pick 坐标/类型/分值/路径长/V/F/runner_up 分值）
+  5. `pick is None` → tx 保持 None → L916 zombie a=10（无候选兜底）
+- **legacy 段**（L718-874）：原五层 if/else 整体缩进 +1，零行为变化
+
+### 训练脚本透传（#234）
+
+`train_wsl2_ppo_v2.py`：
+- L196：`cmd.extend(["--target_chain", "scorer"])`（P10 灰度启用，默认 legacy 零行为变化）
+- L222：`[SCORE]` 加入 `highlights` 主日志转储词表（否则 ep_runner 子进程日志对主日志不可见）
+
+### 灰度启用与验证（09-15）
+
+**离线 7 项测试全过**（`py/test_target_scorer.py`）：
+1. 候选完整性（5 类全部入池）
+2. 打分单调性（蓝英雄>蓝城>守卫>矿>资源堆）
+3. 72_02 卡点（蓝英雄入池且打分最高，legacy 完全不在池）
+4. 硬约束过滤（BFS 不可达/黑名单/取兵限次整类剔除）
+5. 步预算惩罚（远候选加罚）
+6. 粘滞 bonus（当前目标未 stall → 强化保持）
+7. 阶段调制（economy 罚蓝英雄/蓝城，capture 拉满）
+
+**灰度首日首局（#232 修复后）**：
+- King_of_Pain_h3m step 28 选 `own_town`（plen=1 近距离取兵）而非远蓝英雄（plen=64，修复前会被锁定），守卫战斗 +100，115 步正常终局，`r=119.3` 正收益。
+- T05_adventure_36X36_01 经济期远目标不再碾压，正常节奏恢复。
+
+**灰度纪律**：
+- 默认 `--target_chain legacy` 零行为变化，scorer 启用需训练脚本显式透传
+- 灰度观察期 ~40 局，重点指标：72_02 截断率（目标 ≤20%）、蓝英雄/蓝城进目标池频率、`[SCORE]` 日志 pick 坐标分布
+- 回退：`train_wsl2_ppo_v2.py` L196 改 `["--target_chain", "legacy"]` + 清 `__pycache__` + 重启
+
+### 关联
+
+踩坑 #232（经济期远目标碾压）/ #233（坐标变量混用）/ #234（训练脚本透传）/ WIN-1⑤（72_02 卡点拍板转 P10）/ `py/target_scorer.py` / `py/test_target_scorer.py` / `ep_runner_one.py` L133-144/L675-717 / `train_wsl2_ppo_v2.py` L196/L222。
+
