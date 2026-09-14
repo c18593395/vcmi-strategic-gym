@@ -1148,7 +1148,7 @@ try:
                         if _prev7 is not None and (_rm7 & ~_prev7 & 0xFFFF):
                             print(f"[BUILD_NEW] own town id={_tid7} new dwelling bits={_rm7 & ~_prev7 & 0xFFFF:#06x} at step {traj['steps']} (observe only)", flush=True)
                         recruit_mask_prev[_tid7] = _rm7
-        # --- 优先级3 (每步必算): 兵力power增量 × 0.01 (招兵→正; 战斗损耗→负不惩罚) ---
+        # --- 优先级3 (每步必算): 兵力power增量 × 0.02 (招兵→正; 战斗损耗→负不惩罚) ---
         # 2026-08-29 B 方案: 0.001→0.01 — 招 1 个 tier0 兵 (value 10) 原 +0.01 不可见, 现 +0.1;
         # 高级兵价值 900 → +9.0, 与 RECRUIT +12 同量级, 让"招到兵"有可学习信号 (战损负向同步放大, 促进避战保兵)
         # (旧注释 "5 slots field 10-19 id+count 交错" 是错误布局假设, 已废弃 — 见下方 P2 注)
@@ -1182,6 +1182,8 @@ try:
         # 保险丝: 每档每局上限 5 次发奖 (防 spam; 资源/每周兵量天然封顶)
         # 2026-08-29 撤梯子②: 每次 +2→+1; 2026-08-31 撤梯子③-S1: +1→+0.5 (递归半价, 每窗 x0.5 直至实质归零;
         #   同步兵力系数 0.01→0.02 + 效果观测 [RECRUITED]/[BUILD_NEW] — 糖减半效果信号翻倍, 总激励平滑迁移)
+        # 2026-09-15 T7.5 S2 改动已回退: S2 触发前置 (WIN-1 判据① BHERO_KILL 非零) 当前不满足,
+        #   用户拍板 D3+C2 L0 先部署、S2 延后 —— 此处保持 S1 值, 待判据①真正非零后再改 (见当前任务清单 T7.5)
         if a in (16, 17, 18):
             econ_recruit_count[a] += 1
             _rc_rewarded = econ_recruit_count[a] <= 5
@@ -1200,6 +1202,7 @@ try:
             elif _rc_rewarded:
                 print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +0.5", flush=True)
         # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行小额 (撤梯子② 3→1.5; ③-S1 1.5→0.75) ---
+        # 2026-09-15 T7.5 S2 改动已回退 (S2 延后, 保持 S1 值, 见当前任务清单 T7.5)
         if a == 20:
             econ_build2_count += 1
             _b2_rewarded = econ_build2_count <= 5

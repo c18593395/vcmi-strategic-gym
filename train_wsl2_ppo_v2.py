@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """WSL2 PPO v2 — GAE λ=0.90 + 梯度裁剪 1.0 — 多步自对弈训练 (GPU)"""
-import subprocess, json, time, os, random, signal, sys, shutil
+import subprocess, json, time, os, random, signal, sys, shutil, math
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
@@ -11,6 +11,11 @@ LR, CLIP, EPOCHS = 3e-4, 0.2, 6
 GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
 EXTREME_ADV_CLIP = 6.0
+# === P5/D3: 开局熵 bonus (B3 方案 docs/方案_B1-B4_20260829.md) ===
+# 训练侧 ent_coef 前期x2, 按全局步数指数衰减; 治开局动作熵~0 (换图/对手池无适应力)
+# 不动 ep_runner = 无环境奖励污染; 衰减钟锚 total_steps, checkpoint resume 自动延续
+ENT_COEF_BASE = 0.05
+ENT_WARMUP_STEPS = 2_000_000
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ===== Level 3 (T04) 晋级+开经济时启用：取消下方 5 行注释，同时注释掉上方对应原值 =====
@@ -468,6 +473,7 @@ for ep in range(N_EPISODES):
         returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
         kl_item = 0.0  # A+B: KL 日志 (USE_KL 关闭时恒为 0)
+        ent_coef_t, ent_mean = ENT_COEF_BASE, 0.0  # P5/D3: 熵调度循环外初值
         for _ in range(EPOCHS):
             pi, val = model(obs_t, terrain_t)
             logp = pi.log_prob(act_t)
@@ -477,7 +483,10 @@ for ep in range(N_EPISODES):
             surr = -torch.min(ratio*adv, torch.clamp(ratio,1-CLIP,1+CLIP)*adv).mean()
             # v2: value loss against GAE returns instead of TD target
             vloss = nn.MSELoss()(val, returns.detach())
-            loss = surr + 0.5*vloss - 0.05*pi.entropy().mean()
+            # P5/D3: 熵系数 x(1+exp(-step/2M)): 0步->0.10(x2) / 200万->0.068 / 400万->0.057 / inf->0.05
+            ent_coef_t = ENT_COEF_BASE * (1.0 + math.exp(-total_steps / ENT_WARMUP_STEPS))
+            ent_mean = pi.entropy().mean()
+            loss = surr + 0.5*vloss - ent_coef_t * ent_mean
             # === A+B: KL 约束 BC — 当前策略分布 vs 冻结的 BC 参考策略 ===
             # kl = Σ_a π(a) * (log π(a) - log π_ref(a)); kl_ref 前向在 no_grad 下
             if USE_KL:
@@ -522,7 +531,7 @@ for ep in range(N_EPISODES):
         for k in buffer: buffer[k] = buffer[k][BATCH:]
         elapsed = time.time() - t0
         kl_str = f" kl={kl_item:.3f} klc={kl_coeff:.3f}" if USE_KL else ""
-        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.3f} loss={loss.item():.3f}{kl_str} ep={ep_count} time={elapsed:.0f}s", flush=True)
+        print(f"  step{total_steps:>5d} avg_r={rew_t.mean():.1f} vloss={vloss.item():.3f} loss={loss.item():.3f}{kl_str} ep={ep_count} time={elapsed:.0f}s entc={ent_coef_t:.4f} ent={ent_mean.item():.3f}", flush=True)
 
         if vloss.item() < best_vloss:
             best_vloss = vloss.item()

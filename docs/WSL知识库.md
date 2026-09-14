@@ -76,6 +76,28 @@
 
 **vmap 结构备忘（09-15 实证）**：`.vmap` 是 ZIP 含 `header.json` + `surface_terrain.json` + `objects.json`；objects 是 dict `{key: {l, x, y, type, options:{owner,...}}}`，不是 list；hero/town 用 key 前缀 `hero_N`/`town_N` 识别，owner 在 `options.owner`。
 
+### S2 回退决策 + WIN-1 判据①数据核查 (09-15, 踩坑 #235)
+
+**决策背景**：原计划 D3 熵 bonus + C2 L0 崩溃插桩 + T7.5 S2 三项合批（同一 train_wsl2_ppo_v2.py + ep_runner_one.py 停启批次）。数据核查发现 S2 触发前置（WIN-1 判据① BHERO_KILL 非零）当前不满足，用户拍板"D3+C2 L0 先部署，S2 延后"。
+
+**WIN-1 五判据快照（09-15 05:18，`py/win1_five_criteria_snapshot.sh`，样本 40 局，本次窗 04:57:32 起仅 4 step）**：
+
+| 判据 | 阈值 | 实测 | 状态 |
+|------|------|------|------|
+| ① TOWN_CAPTURE / BHERO_KILL 非零 | >0 | BHERO_KILL=0（全历史 0 次） | ❌ |
+| ② GUARD 接战 ≥80% | ≥80% | 2482 次维持 | ✅ |
+| ③ avg_r 跌幅 <20%（基线 2.34） | 跌 <20% | 1.56（跌 33%）⚠ 含本次重启 + P10 灰度初期波动 | ⚠ |
+| ④ 自发经济 ≥80% 局 | ≥80% | RECRUITED=48454 | ✅ |
+| ⑤ 200 步截断率 ≤20% | ≤20% | 10.0%（4/40） | ✅ |
+
+**结论**：严格口径下 S2 前置未满足（判据① BHERO_KILL=0，与"预期短期 capture=0，真实全灭从未发生"一致，HEROSEG_EMPTY=0 空拍过滤已生效无新误报）。D3/C2 L0 无前置依赖，可独立部署。
+
+**S2 回退操作**：`ep_runner_one.py` 5 处 SearchReplace（RECRUIT +0.25→+0.5 / BUILD_2 +0.375→+0.75 / 兵力系数 0.03→0.02），数值与 HEAD 完全一致；保留 3 处注释改动（L1151 陈旧 `× 0.01`→`× 0.02` 修正 + L1185-1186/L1204 两处 S2 回退说明）。
+
+**教训**：合批部署前必须核查触发前置。S2 前置是"WIN-1 达标"，其中判据① BHERO_KILL 全历史 0 次是最关键的前置断链——若把 S2 一起部署，会污染 WIN-1 判据① 的窗口统计，让 capture 修复的验证与激励轴变化混入同一变量。
+
+**关联**：`py/win1_five_criteria_snapshot.sh` / `py/win1_window_split.sh`（区分本次窗 vs 历史累积，因日志无 ISO 时间戳方法受限）/ `ep_runner_one.py` L1148-1210 / WIN-1 五判据原文 / #204/#210/#228（BHERO_KILL 相关根因链）。
+
 ### capture proxy 空拍误报修复 + T06_02 地形实证方法 (09-15, 踩坑 #231)
 
 **事实 1：T06 _02 课程图是全草地，无静态墙（截至 09-15 解包实证）**。`maps/training/T06_adventure_72X72_02.vmap`（zip 三件套）surface_terrain = `gr24_` ×5184（72×72），无 wt/ro/rd；布局 = red hero(5,5)+town(2,2)，blue 三英雄 (66,66)/(66,5)/(5,66) + 三镇 (69,69)/(69,2)/(2,69)，5 金矿（18,18)/(54,54)/(18,54)/(54,18)/(36,36)，108_02 同构放大（蓝镇 105 系）。**以后凡"T06 走不过去/堵点"类结论，先解包 vmap 用 BFS 实证，不得只凭日志 TOWNSTALL 的 `block=(x,y)` 判断**——该 block 是引导层把"BFS 建议但引擎拒绝的首步格"拉黑的**动态障碍**诊断（多为敌方英雄/瞬态），不是地形。
