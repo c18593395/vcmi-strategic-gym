@@ -132,6 +132,27 @@ function Do-OneRound {
             Write-AlertLine -Level "TRAIN YELLOW" -Msg "连续 3 局大负 r=[$rs]"
         }
     }
+
+    # C2 L0: 崩溃计数监控 (09-15) — [FILTER] 行含 SIGSEGV/SIGABRT，近 100 局 ≥3 次即红警
+    $filterLines = @()
+    $fi2 = Get-Item -LiteralPath $LogPath
+    $bytes2 = [Math]::Min(256KB, $fi2.Length)
+    $fs2 = [System.IO.FileStream]::new($LogPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $fs2.Seek($fi2.Length - $bytes2, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $buf2 = New-Object byte[] $bytes2
+        $read2 = $fs2.Read($buf2, 0, $bytes2)
+        $txt2 = [System.Text.Encoding]::UTF8.GetString($buf2, 0, $read2)
+        $filterLines = $txt2 -split "`r?`n" | Where-Object { $_ -match '\[FILTER\].*(SIGSEGV|SIGABRT|rc=-\d+)' }
+    } finally {
+        $fs2.Dispose()
+    }
+    # 取最后 100 行 [FILTER]，统计含信号名的条数
+    $last100 = if ($filterLines.Count -ge 100) { $filterLines[-100..($filterLines.Count-1)] } else { $filterLines }
+    $crashCount = ($last100 | Where-Object { $_ -match '(SIGSEGV|SIGABRT)' }).Count
+    if ($crashCount -ge 3) {
+        Write-AlertLine -Level "TRAIN RED" -Msg "C2 L0: 近 $($last100.Count) 局中 $crashCount 次崩溃 (SIGSEGV/SIGABRT)，触发复发 SOP，翻 crashlog/"
+    }
 }
 
 # --- 主循环（Ctrl+C 会触发 finally） ---

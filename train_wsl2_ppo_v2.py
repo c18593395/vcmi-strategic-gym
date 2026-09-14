@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """WSL2 PPO v2 — GAE λ=0.90 + 梯度裁剪 1.0 — 多步自对弈训练 (GPU)"""
-import subprocess, json, time, os, random, signal, sys
+import subprocess, json, time, os, random, signal, sys, shutil
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
 
@@ -102,6 +102,8 @@ RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_state.pt"
 CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
+# C2 L0: 崩溃局 ep_log 归档目录 (09-15)
+CRASHLOG_DIR = "/mnt/d/Bigdata/hero3_fresh/crashlog"
 
 
 class Net(nn.Module):
@@ -190,6 +192,8 @@ def run_episode(mapname, blue_model=None):
     # cmd.extend(["--random_armies", "--random_army_min", "3000", "--random_army_max", "5000"])
     if blue_model:
         cmd.extend(["--blue_model", blue_model])
+    # P10 target_list 加权排序 Python 旁路打分器 (09-15 灰度, 默认 legacy 零行为变化; scorer 启用 target_scorer.py 统一打分器)
+    cmd.extend(["--target_chain", "scorer"])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
     proc = subprocess.Popen(
         cmd,
@@ -211,14 +215,19 @@ def run_episode(mapname, blue_model=None):
                 # 08-29+: [MINE]/[TOWN] (T04 目标引导首访事件)
                 # 09-02+: [START_HOME]/[RECRUITED] (招兵四拍判据链 1/4 与 4/4 拍, ep 日志逐局覆盖防丢失)
                 # 09-10+: [EP_TIME] (局耗时打点 — 间歇性慢速 4-8s/步局 定量画像, 历史样本已丢失从此积累)
+                # 09-15+: [SCORE] (P10 target_scorer 打分器每次 pick 诊断, 灰度观察 72_02 蓝英雄入池)
                 highlights = [l.rstrip("\n") for l in lines
                               if any(k in l for k in ("[ZOMBIE]", "[HERO_DEATH]", "[ENDTURN_FUSE]", "[ERROR]", "[GUARD]",
                                                       "[MINE]", "[TOWN",
                                                       "[START_HOME]", "[RECRUITED]",
                                                       "[EP_TIME]",
+                                                      "[SCORE]",
                                                       "Assertion",
                                                       "end ep at step", "fuse-break",
-                                                      "cycle_detect triggered", "penalty END_TURN"))]
+                                                      "cycle_detect triggered", "penalty END_TURN",
+                                                      "Segmentation fault", "core dumped",
+                                                      "Disaster happened", "terminate called",
+                                                      "AddressSanitizer"))]
                 if highlights:
                     for l in highlights:
                         print(f"  {l}", flush=True)
@@ -232,7 +241,19 @@ def run_episode(mapname, blue_model=None):
         with open(EP_TRAJ) as f: d = json.load(f)
         # 09-14 三道拦截: 子进程崩溃(rc!=0) / traj 是上一局残留(身份不符) / obs 全零 → 一律 return None 不入 buffer
         if ep_rc != 0:
-            print(f"  [FILTER] ep 子进程非正常退出 rc={ep_rc}, 丢弃防残留污染 map={mapname}", flush=True)
+            # C2 L0: rc 信号名翻译 (09-15)
+            _sig_map = {-(int(v)): v for v in dir(signal) if v.startswith("SIG") if isinstance(getattr(signal, v), int)}
+            _sig_name = _sig_map.get(ep_rc, f"rc={ep_rc}")
+            # C2 L0: 崩溃局 ep_log 归档不覆盖 (09-15)
+            try:
+                os.makedirs(CRASHLOG_DIR, exist_ok=True)
+                _ts = int(time.time())
+                _crash_dest = os.path.join(CRASHLOG_DIR, f"ep_{mapname}_{resume_step:07d}_{_ts}.log")
+                if os.path.exists(ep_log):
+                    shutil.copy2(ep_log, _crash_dest)
+                print(f"  [FILTER] ep 子进程非正常退出 {_sig_name}, 已归档 crashlog/{os.path.basename(_crash_dest)}, 丢弃防残留污染 map={mapname}", flush=True)
+            except Exception:
+                print(f"  [FILTER] ep 子进程非正常退出 {_sig_name}, 丢弃防残留污染 map={mapname}", flush=True)
             return None
         if d.get("mapname") != mapname:
             print(f"  [FILTER] traj 身份不符 traj_map={d.get('mapname')} != 调度={mapname}, 丢弃防残留污染", flush=True)
