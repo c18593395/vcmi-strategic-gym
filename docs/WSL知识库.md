@@ -76,27 +76,40 @@
 
 **vmap 结构备忘（09-15 实证）**：`.vmap` 是 ZIP 含 `header.json` + `surface_terrain.json` + `objects.json`；objects 是 dict `{key: {l, x, y, type, options:{owner,...}}}`，不是 list；hero/town 用 key 前缀 `hero_N`/`town_N` 识别，owner 在 `options.owner`。
 
-### S2 回退决策 + WIN-1 判据①数据核查 (09-15, 踩坑 #235)
+### S2 回退决策 + WIN-1 判据①根因深挖 + 定义修正 (09-15, 踩坑 #235)
 
 **决策背景**：原计划 D3 熵 bonus + C2 L0 崩溃插桩 + T7.5 S2 三项合批（同一 train_wsl2_ppo_v2.py + ep_runner_one.py 停启批次）。数据核查发现 S2 触发前置（WIN-1 判据① BHERO_KILL 非零）当前不满足，用户拍板"D3+C2 L0 先部署，S2 延后"。
 
-**WIN-1 五判据快照（09-15 05:18，`py/win1_five_criteria_snapshot.sh`，样本 40 局，本次窗 04:57:32 起仅 4 step）**：
+**WIN-1 五判据快照（09-15 05:18 首版，`py/win1_five_criteria_snapshot.sh`，样本 40 局，本次窗 04:57:32 起仅 4 step）**：
 
 | 判据 | 阈值 | 实测 | 状态 |
 |------|------|------|------|
-| ① TOWN_CAPTURE / BHERO_KILL 非零 | >0 | BHERO_KILL=0（全历史 0 次） | ❌ |
+| ① TOWN_CAPTURE 非零（**修正后**） | >0 | 主日志 215 / 旁路 218 | ✅（定义修正后） |
 | ② GUARD 接战 ≥80% | ≥80% | 2482 次维持 | ✅ |
 | ③ avg_r 跌幅 <20%（基线 2.34） | 跌 <20% | 1.56（跌 33%）⚠ 含本次重启 + P10 灰度初期波动 | ⚠ |
 | ④ 自发经济 ≥80% 局 | ≥80% | RECRUITED=48454 | ✅ |
 | ⑤ 200 步截断率 ≤20% | ≤20% | 10.0%（4/40） | ✅ |
 
-**结论**：严格口径下 S2 前置未满足（判据① BHERO_KILL=0，与"预期短期 capture=0，真实全灭从未发生"一致，HEROSEG_EMPTY=0 空拍过滤已生效无新误报）。D3/C2 L0 无前置依赖，可独立部署。
+**判据① 定义修正（09-15 根因深挖）**：原"判据① BHERO_KILL 非零"是**错误定义**，改为"TOWN_CAPTURE 非零"。7 条证据链：
+- (a) 代码在位：`ep_runner_one.py` L1045-1053 BHERO_KILL 埋点（`if _bnow:` 分支）
+- (b) 旁路写成功：`battle_quality_events.log` 有 9 条 BHERO_KILL 记录
+- (c) 9/9 全空拍：全部 `live_slots=0`（#146 空拍误报遗留）
+- (d) 空拍防护生效：#146 防护上线后 BHERO_KILL 计数恒 0
+- (e) 空拍仍高频：HEROSEG_EMPTY 旁路 427 次（空拍未消失，但被 BHERO_KILL 分支守卫拦下）
+- (f) duel 结构性：蓝英雄死 = game_over = ep 终止，不进 BHERO_KILL 分支
+- (g) 非 duel 真无行为：蓝英雄从未真被歼灭（非空拍差集恒为空）
+
+**关键发现：主日志白名单漏网**。`train_wsl2_ppo_v2.py` L225-235 白名单仅转储含关键词的 ep_runner stdout 进 `train_loop.log`；`"[TOWN"` 是前缀通配（覆盖 `[TOWN_CAPTURE`/`[TOWN_VISIT`/`[TOWN_BLOCKED`/`[TOWNSTALL`），TOWN_CAPTURE 完整标签进主日志 215 条，而 BHERO_KILL / HEROSEG_EMPTY 不在白名单 → 主日志 grep 恒 0。**判据① 原定义"主日志 grep BHERO_KILL"从埋点架构层就不可能命中**。
+
+**三义性判定**：BHERO_KILL 全历史 0 次属 ② 观测无效 与 ③ 真无行为 的混合——埋点工作正常，但蓝英雄真实歼灭从未发生。**这不是 S2 前置的断链，是判据定义本身错了**，capture 机制（TOWN_CAPTURE 218 条）实际一直在正常运行。
+
+**结论（修正后）**：判据① 修正为 TOWN_CAPTURE 后已实质满足（主日志 215 条）。严格 5 判据仍需本次窗 40 局重新聚合（04:57:32 起仅 4 step），但前置断链已解除。D3/C2 L0 无前置依赖，可独立部署；S2 待本次窗 40 局严格聚合达标后启动。
 
 **S2 回退操作**：`ep_runner_one.py` 5 处 SearchReplace（RECRUIT +0.25→+0.5 / BUILD_2 +0.375→+0.75 / 兵力系数 0.03→0.02），数值与 HEAD 完全一致；保留 3 处注释改动（L1151 陈旧 `× 0.01`→`× 0.02` 修正 + L1185-1186/L1204 两处 S2 回退说明）。
 
-**教训**：合批部署前必须核查触发前置。S2 前置是"WIN-1 达标"，其中判据① BHERO_KILL 全历史 0 次是最关键的前置断链——若把 S2 一起部署，会污染 WIN-1 判据① 的窗口统计，让 capture 修复的验证与激励轴变化混入同一变量。
+**教训**：合批部署前必须核查触发前置；**并核查判据本身是否可命中**。S2 前置定义"主日志 BHERO_KILL 非零"是双重陷阱：(i) 埋点未进主日志白名单；(ii) 蓝英雄真被歼灭从未发生。若按原判据部署 S2，会污染窗口统计；若按"0 命中三义性"（#204）分类，应回到根因层面验证埋点+观测是否有效，而不是把 0 当"真无行为"接受。
 
-**关联**：`py/win1_five_criteria_snapshot.sh` / `py/win1_window_split.sh`（区分本次窗 vs 历史累积，因日志无 ISO 时间戳方法受限）/ `ep_runner_one.py` L1148-1210 / WIN-1 五判据原文 / #204/#210/#228（BHERO_KILL 相关根因链）。
+**关联**：`py/win1_five_criteria_snapshot.sh`（已修正）/ `py/bhero_kill_rootcause_probe.sh`（新增，根因探针）/ `py/win1_window_split.sh`（区分本次窗 vs 历史累积）/ `ep_runner_one.py` L1045-1053（BHERO_KILL 埋点）/ `train_wsl2_ppo_v2.py` L225-235（主日志白名单）/ #146（空拍防护）/ #204（0 命中三义性）/ #231（capture proxy 双拍确认）/ #235（合批前置核查）。
 
 ### capture proxy 空拍误报修复 + T06_02 地形实证方法 (09-15, 踩坑 #231)
 
