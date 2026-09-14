@@ -6,6 +6,9 @@ import torch, torch.nn as nn
 import numpy as np  # 2026-08-19 第5轮: MOVE_TO 展开用 np.asarray — 第4轮 24 零出现掩盖了缺失 (强制引导后必炸)
 from torch.distributions import Categorical
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
+# P10 (2026-09-15): target_list 加权排序 Python 旁路打分器 (零 C++ 重编, OBS 3464/动作空间零变更).
+# lazy import — legacy 默认链完全不触碰 target_scorer, 行为零变化; 仅 --target_chain scorer 时才加载.
+_target_scorer = None
 
 # --- BFS 寻路 (Phase I.2): 用 local_tiles 通行性格子绕障碍 ---
 # local_tiles[0] 15×15 在 obs[480:705], 英雄在 (7,7)
@@ -126,6 +129,19 @@ parser.add_argument("--objective_reward", type=float, default=0.0,
 # 治"拿完奖励就送死"稳定剧本 (死亡局 r=+50~+93 vs 超时局 r=-18~-107, 死比活着结算更赚)。
 parser.add_argument("--death_penalty", type=float, default=-50.0,
                     help="T7.4 死亡惩罚 (09-11): 英雄死亡 (zombie_streak>=2) 确认帧追加此惩罚, -50 试探 / -100 对称守卫 / 0=关闭")
+# P10 (2026-09-15): target_list 加权排序 Python 旁路打分器 — 零 C++ 重编, OBS 3464/动作空间零变更
+# 开关 --target_chain legacy(默认) 走五层 if/else 旧链零行为变化; scorer 走 py/target_scorer.py 统一打分
+# 权重全部 argparse 化 (方案 §3.2 默认值), 支持网格对照; 灰度纪律: 一次一轴, 先在 T04/T05 小图对照再 T06
+parser.add_argument("--target_chain", type=str, default="legacy",
+                    choices=["legacy", "scorer"],
+                    help="P10: 动作 24 '选谁' 目标链. legacy=五层 if/else 旧链(默认零变化); scorer=target_scorer 加权排序")
+parser.add_argument("--ts_w_type", type=float, default=1.0, help="P10 打分器: 类型基础价值系数")
+parser.add_argument("--ts_w_win", type=float, default=1.5, help="P10 打分器: 1v3 终极目标贡献系数 (蓝英雄/蓝城)")
+parser.add_argument("--ts_w_pow", type=float, default=1.0, help="P10 打分器: 可打性 logistic 系数")
+parser.add_argument("--ts_w_dist", type=float, default=0.5, help="P10 打分器: 距离惩罚系数")
+parser.add_argument("--ts_w_stick", type=float, default=2.0, help="P10 打分器: 目标粘滞 bonus 系数")
+parser.add_argument("--ts_margin", type=float, default=20.0, help="P10 打分器: 战力差 logistic margin")
+parser.add_argument("--ts_temp", type=float, default=30.0, help="P10 打分器: logistic 温度")
 args = parser.parse_args()
 # 0909 T06 双死锁修复 (用户拍板): ① move_to_force →200 全程 — 蓝城引导天然在守卫胜后
 # (step 38-58+), 60 步强制窗外模型不采 24, 引导激活了也驱动不了模型; ② guard_done →0 —
@@ -413,6 +429,7 @@ try:
     # 双写: print → hermes_ep (逐局覆盖) + 追加 battle_quality_events.log (持久, check_duel_watch.py 读)
     bhero_ids_prev = None    # 上一步 blue 英雄 id 集合
     _t06_hero_kill_capture = False  # C 方案 (09-11): 蓝英雄死亡 = capture proxy (全图, 每局一次)
+    _kill_pending = None     # 09-15: 差集挂账 (frozenset), 下一非空拍仍缺席才确认发奖 (防空拍/部分少读误报)
     BHERO_EV_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
     recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
@@ -948,22 +965,34 @@ try:
         # 09-11 扩展 (用户拍板): 杀蓝英雄=capture proxy 全图生效, T06 duel 限定解除
         # 09-13 修复 (#209): duel 排除 — 49/49 全部误报 (obs 战斗瞬态少读, BHERO_KILL=0)
         #   duel 蓝英雄死 = game_over = ep 终止，无需 C 方案 proxy；+100 污染价值学习
-        if (bhero_ids_prev is not None and not _t06_hero_kill_capture
-            and not args.mapname.endswith('_duel.vmap')):
-            _killed = bhero_ids_prev - _bnow
-            if _killed:
-                _t06_hero_kill_capture = True
-                r += 100.0
-                if guard_done_countdown is not None:
-                    guard_done_countdown = args.guard_done_steps
-                _tc_msg = (f"[TOWN_CAPTURE] map={args.mapname} blue_hero_killed={sorted(_killed)} "
-                           f"at step {traj['steps']} +100 (C: hero-kill proxy)")
-                print(_tc_msg, flush=True)
-                try:
-                    with open(BHERO_EV_LOG, "a") as _bf2:
-                        _bf2.write(_tc_msg + "\n")
-                except Exception:
-                    pass
+        # 09-15 修复 (WIN-1 判据①翻案): 空拍帧严禁触发 proxy。
+        # 实勘 battle_quality_events.log: 全历史 218/218 TOWN_CAPTURE 全部紧跟同拍
+        # HEROSEG_EMPTY (slots 全 id=0 = 共享内存未填充帧, 战斗/visit 瞬态), 现池真实 BHERO_KILL=0;
+        # #209 只排了 duel (49), 非 duel 169 次假 +100 持续污染价值学习。
+        # 双拍确认 (连带防部分少读混合槽, 当前零样本): 差集先挂账, 下一【非空】拍仍缺席才发奖;
+        # 空拍期间挂账冻结 (本块条件含 _bnow); 英雄回来 = 瞬态, 撤账; 仍缺的滚动再确认一拍。
+        if (bhero_ids_prev is not None and _bnow
+                and not _t06_hero_kill_capture
+                and not args.mapname.endswith('_duel.vmap')):
+            _killed = frozenset(bhero_ids_prev - _bnow)
+            if _kill_pending is not None:
+                _still = frozenset(_g for _g in _kill_pending if _g not in _bnow)
+                if _still == _kill_pending:
+                    _t06_hero_kill_capture = True
+                    r += 100.0
+                    if guard_done_countdown is not None:
+                        guard_done_countdown = args.guard_done_steps
+                    _tc_msg = (f"[TOWN_CAPTURE] map={args.mapname} blue_hero_killed={sorted(_still)} "
+                               f"at step {traj['steps']} +100 (C: hero-kill proxy, confirmed 2 frames)")
+                    print(_tc_msg, flush=True)
+                    try:
+                        with open(BHERO_EV_LOG, "a") as _bf2:
+                            _bf2.write(_tc_msg + "\n")
+                    except Exception:
+                        pass
+                _kill_pending = _still or None  # 回来的撤账 (瞬态), 仍缺的滚动再挂一拍
+            if not _t06_hero_kill_capture and _killed:
+                _kill_pending = _killed
         if _bnow:
             if bhero_ids_prev is None:
                 bhero_ids_prev = _bnow

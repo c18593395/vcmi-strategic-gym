@@ -59,6 +59,16 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### capture proxy 空拍误报修复 + T06_02 地形实证方法 (09-15, 踩坑 #231)
+
+**事实 1：T06 _02 课程图是全草地，无静态墙（截至 09-15 解包实证）**。`maps/training/T06_adventure_72X72_02.vmap`（zip 三件套）surface_terrain = `gr24_` ×5184（72×72），无 wt/ro/rd；布局 = red hero(5,5)+town(2,2)，blue 三英雄 (66,66)/(66,5)/(5,66) + 三镇 (69,69)/(69,2)/(2,69)，5 金矿（18,18)/(54,54)/(18,54)/(54,18)/(36,36)，108_02 同构放大（蓝镇 105 系）。**以后凡"T06 走不过去/堵点"类结论，先解包 vmap 用 BFS 实证，不得只凭日志 TOWNSTALL 的 `block=(x,y)` 判断**——该 block 是引导层把"BFS 建议但引擎拒绝的首步格"拉黑的**动态障碍**诊断（多为敌方英雄/瞬态），不是地形。
+
+**事实 2：heroes obs 空拍（截至 09-15）**。obs [128+hi*26]×8 英雄槽偶发整拍全 id=0（`[HEROSEG_EMPTY]`，全历史 412 次；形态只有"全 0 = 共享内存未填充帧"，无全 -1），多发于战斗/visit 瞬态。空拍 = 观测无效：蓝英雄集合 `_bnow` 为空集，**不能进任何差集判定**。
+
+**事实 3：capture proxy 现行机制（09-15 修复后，ep_runner_one.py L952-979）**。蓝英雄 id 差集 → 先挂账 `_kill_pending`；**空拍帧整体跳过**（条件含 `_bnow`）；下一非空拍仍缺席才 +100/局一次（日志 `(C: hero-kill proxy, confirmed 2 frames)`）；id 回来撤账、部分仍缺滚动再挂一拍；duel 图后缀排除保持（#209）。验证真伪 proxy 一律查 `battle_quality_events.log`：真 capture 前不应有同图同步 HEROSEG_EMPTY；218/218 全配空拍 = 修复前全假。
+
+**方法：日志局轨迹重建**。`ep_steps= r= act=[...]` 行的动作码 0-7 = 方向（dx/dy：0=(0,-1) 1=(1,-1) 2=(1,0) 3=(1,1) 4=(0,1) 5=(-1,1) 6=(-1,0) 7=(-1,-1)），16-21=经济。累计位移可还原 agent 意图轨迹（无引擎拒绝时即真实轨迹）；确定性卡死局指纹 = 多局 act 序列逐位相同。事件配对用严格键 map+step（capture 行是 `at step N`，HEROSEG_EMPTY 是 `step=N`，正则勿混）。
+
 ### T06 duel 地图生成 + check 工具 + 入池流程 (09-12)
 
 **工具**: `py/gen_t06_duel.py`（生成 72X72_02/108X108_01/108X108_02 duel）+ `py/check_t06_maps.py`（7 维可用性检查）。
@@ -79,7 +89,7 @@
 
 ### P8-D 双机实机验证 WSL 双实例 9/9 PASS (09-14)
 
-**背景**: T13.10 唯一剩余实机项。09-12 设计骨架 + 本机 13/13 已过，双机路径（HSK 预交换 + 跨节点 TCP + HMAC 认证握手 + 远端状态文件）缺实机验证。真机未就绪，WSL 内双独立节点模拟双机拓扑（node1=server 端点，node2=client 部署目标，跨 WSL 网络命名空间 `172.23.41.125` 非 localhost）。
+**背景**: T13.10 唯一剩余实机项。09-12 设计骨架 + 本机 13/13 已过，双机路径（HSK 预交换 + 跨节点 TCP + HMAC 认证握手 + 远端状态文件）缺实机验证。按既定口径**不用第二台真实机器**，WSL 内双独立节点模拟双机拓扑（node1=server 端点，node2=client 部署目标，跨 WSL 网络命名空间 `172.23.41.125` 非 localhost），双机路径另以单机双实例（`py/p8d_two_instance.py` 13/13 PASS）实跑完成。
 
 **探针**: `py/p8d_dual_node_sim.py`——WSL 双节点模拟，6 项检查：① HSK 生成+预交换（node1→node2 `shutil.copyfile`，模拟人工 U盘/SCP 交换）+ 0o600 + VCMI 部署目录就绪；② 跨节点 TCP 可达（node1 监听 40311，node2 连接）；③ 正例 HMAC 认证握手（node2 `RemoteVCMITCPConnection(auth_enabled=True)` 发 `AuthToken` 帧，node1 `TokenVerifier` 验签回 0x01）；④ 负例错误 HSK 拒绝（新 HSK → 签名 mismatch → 0x00 → `AuthFailedError`）；⑤ 双节点状态文件（`StatusFileWriter` 写/读 OK）；⑥ HSK 权限 0o600。
 
@@ -89,9 +99,9 @@
 
 **与 09-12 本机 13/13 的差异**: 本机 probe（`p8d_deploy_probe.py --local`）用真实 `VCMI_server.exe` 起服务（auth_enabled=False，仅 TCP+游戏帧透传）；双机 probe 用 `AuthProxy`（Python socket + `TokenVerifier`）模拟认证端点，因为真实 `VCMI_server` 不识别 `AuthToken` 帧（T13.10 已知边界），HMAC 正负例在此 probe 首次全链实机通过。
 
-### P8-D 同机 2 实例真机部署验证 13/13 PASS (09-14)
+### P8-D 单机双实例部署验证 13/13 PASS (09-14)
 
-**背景**: 真机未就绪前，用同机 2 实例模拟双机部署拓扑（比 WSL 双节点 sim 更贴近真实：2 真实 `VCMI_server.exe` 端口隔离 3030/3031 + 2 真实 `VCMI_client.exe` 跨实例 + HSK 跨实例预交换，共享 `D:\vcmi-fork-build\bin` 无需副本）。回答用户"能同一台机器同时运行 2 个实例吗？不用 2 台电脑"——**能**，Windows 多进程可共载同一 dll，端口隔离即可并存。
+**背景**: 按既定口径**不用第二台真实机器**，统一用「单机双实例」完成双机部署路径实机验证——同一台 Windows 起 2 套独立 VCMI 实例（2 真实 `VCMI_server.exe` 端口隔离 3030/3031 + 2 真实 `VCMI_client.exe` 跨实例 + HSK 跨实例预交换，共享 `D:\vcmi-fork-build\bin` 无需副本），比 WSL 双节点 sim 更贴近真实部署拓扑。回答"能同一台机器同时运行 2 个实例吗？不用 2 台电脑"——**能**，Windows 多进程可共载同一 dll，端口隔离即可并存。
 
 **探针**: `py/p8d_two_instance.py`——同机 2 实例探针，13 项检查：
 - 实例 A（node1/host）：真实 `VCMI_server.exe --port=3030` 存活 + TCP 探活
@@ -106,9 +116,37 @@
 
 **修复 1 处（检查顺序 bug）**: 首跑 12/14——"同机 2 server 并存"判定放在 c2（起 srv_b 时 t=+7s，srv_a 尚未被 client 连入，VCMI server 无客户端会提前退出 → `srv_a.poll()` 非 None 误判）→ 判定延后到 c8（client 连入后 2 server 稳定存活）。
 
-**边界说明**: 真实 `VCMI_server` 不识别 `AuthToken` 帧（T13.10 已知边界，server 端未实装认证逻辑），故认证走协议层验证（`AuthProxy` 补认证端点，照 `p8d_dual_node_sim.py` 范式），游戏帧走真实 VCMI。真机部署时若 server 端实装 `AuthProxy` 同逻辑（收帧 → `TokenVerifier.verify` → 回 1B ACK），即可无缝切换。
+**边界说明**: 真实 `VCMI_server` 不识别 `AuthToken` 帧（T13.10 已知边界，server 端未实装认证逻辑），故认证走协议层验证（`AuthProxy` 补认证端点，照 `p8d_dual_node_sim.py` 范式），游戏帧走真实 VCMI。将来若 server 端实装 `AuthProxy` 同逻辑（收帧 → `TokenVerifier.verify` → 回 1B ACK），即可无缝切换（当前口径下以单机双实例为准，无第二台机器）。
 
-**真机路径**: 双机实机已验证，真机部署跑 `py/p8d_deploy_probe.py --remote <host> --port 3030`（需另一台 Windows 预交换 HSK + 部署 VCMI）。
+**双机路径口径**: 双机部署路径已用单机双实例实跑完成（`py/p8d_two_instance.py` 13/13 PASS），`py/p8d_deploy_probe.py --remote <host> --port 3030` 路径保留但不再作为待办（无需第二台机器预交换 HSK + 部署 VCMI）。
+
+### P8-E 人机混局验证（2 客户端拓扑）PASS (09-15)
+
+**背景**: T13.10 目标场景"人类 GUI 客户端 + 1 外挂 AI 客户端同局"实跑验证。P8-B/C/D 全 ✅ 后，真正缺口 = 从未验证"人类 GUI 客户端 + 外挂 AI 客户端"可在同一 VCMI_server 同局并正常开局。
+
+**拓扑**: 单机端口 3030（fork build `D:\vcmi-fork-build\bin`，隔离训练），2 客户端：
+- Python host (cid=1, VCMITCPConnection，先连当 host，发 `LobbyClientConnected` + `ChangeHost(2)` 让位)
+- 外挂AI (cid=2, headless, `VCMI_TESTMAP_ONLYAI=1`，guest，自动接管蓝方回合)
+- 人类 GUI（仅同机共存验证，不 join lobby 不占 Twins 2 玩家 slot）
+
+**关键踩坑（#202 衍生）**: Twins.h3m 仅 2 玩家 slot，第 3 个客户端 join lobby 会触发 server NEW_GAME 初始化 "Picking random factions for players" → "Disaster happened" 崩溃（09-15 实测：3 客户端连 Twins，`14LobbyStartGame` 广播后 server 在 NEW_GAME 崩）。故人类 GUI 若真实 join lobby（第 2 个 ClientConnected），AI（第 3 个）超出 2 槽 → 必崩。收敛为 2 客户端：人类 GUI 不连 3030，仅验证进程存活 + SDL 窗口。
+
+**改动**: `py/p8e_human_mix_probe.py`
+- 人类 GUI 不带 `--testmap`/`--serverport`（避免 `EntryPoint.cpp` L379 默认 `onlyai=true` 导致人类 GUI 也 join lobby）
+- AI 等 server log 第 2 个 `ClientConnected` 后 `send_change_host(2)` 让位
+- 判定从 `srv_log_cc()>=3`（3 客户端）收敛为 `>=2`（2 客户端）
+
+**验证**（P8-E PASS）：
+- server 存活 ✅
+- Python host 连入 ✅
+- 人类 GUI 进程存活（同机共存，不 join slot）✅
+- 外挂 AI 连入（server log 第 2 个 ClientConnected）✅
+- 对局开始（server log 含 "Received CPack of type 14LobbyStartGame"）✅
+- server 无崩溃（tail 30 行无 "Disaster happened"/"Crash info"）✅
+- 全进程存活（server / human / ai）✅
+- 含 BattleStart(132) 多回合闭环（战斗实际发生，AI 正常接管蓝方回合）
+
+**指针**：任务清单 T13.10 P8-E 行 / 踩坑 #202 (ChangeHost 时序) + Twins 2 slot 崩溃 / `py/p8e_human_mix_probe.py`。
 
 ### P8-D 跨机器部署脚手架 + 实机验证 (09-12, 设计+骨架+本机 13/13 PASS)
 
@@ -121,7 +159,7 @@
 
 **实机验证** (`py/p8d_deploy_probe.py`):
 - `--local` 13/13 PASS: HSK 生成/落盘/轮转 + VCMI_server 启动 + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 2 节点部署命令构造
-- `--remote <host> --port 3030`: 双机模式, 需另一台机器预交换 HSK + 部署 VCMI
+- `--remote <host> --port 3030`: 双机模式（保留可用，无需第二台机器——双机路径已用单机双实例 `py/p8d_two_instance.py` 13/13 PASS 实跑完成）
 
 **修复 2 处**:
 1. `remote_connection._do_connect` 原调 `VCMITCPConnection._socket_connect` (不存在) → 改用 `VCMITCPConnection.connect()`

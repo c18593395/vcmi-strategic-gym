@@ -627,8 +627,8 @@
 - **坑①**: `RemoteVCMITCPConnection._do_connect` 原调 `self._vcmi._socket_connect()` (VCMITCPConnection 无此方法) → 改为 `ok = self._vcmi.connect(); self._sock = self._vcmi.sock`。
 - **坑②**: `StatusFileWriter._write` 用 atomic rename (先写 `.tmp` 再 rename 到 `.json`)，Windows NTFS 目标已存在时 `tmp.rename` 抛 `FileExistsError` → 改为直接 `with open(self._path, 'w') as f: json.dump(data, f)`。
 - **坑③**: HSK 权限 0o600 检查在 Windows 下 `os.chmod` 不生效 (NTFS 无 POSIX 权限位) → 放宽为仅 Linux/macOS 检查，Windows 打印"跳过 POSIX 权限检查"。
-- **正确口径**: 跨机器脚手架本机验证 = 启动真实 VCMI_server + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 部署命令构造；双机验证需另一台机器预交换 HSK + 部署 VCMI。
-- **复现/验证**: `python py/p8d_deploy_probe.py --local` 13/13 PASS；`python py/p8d_deploy_probe.py --remote <host> --port 3030` 双机模式。
+- **正确口径**: 跨机器脚手架本机验证 = 启动真实 VCMI_server + TCP 探活 + RemoteVCMITCPConnection 连接 + 状态文件读写 + 部署命令构造；双机部署路径按既定口径**不用第二台真实机器**，统一用「单机双实例」实跑完成（`py/p8d_two_instance.py` 13/13 PASS：2 真实 VCMI_server 端口隔离 3030/3031 + 2 真实 ModelAI client 跨实例 + HSK 跨实例预交换 + HMAC 正负例 + 双节点状态文件，共享 fork build 无需副本）。
+- **复现/验证**: `python py/p8d_deploy_probe.py --local` 13/13 PASS；双机路径用 `python py/p8d_two_instance.py` 13/13 PASS（单机双实例）；`python py/p8d_deploy_probe.py --remote <host> --port 3030` 保留可用但不再作为待办。
 - **关联**: P8-D / `py/vcmi_protocol/remote_connection.py` / `py/vcmi_protocol/deployment.py` / `py/p8d_deploy_probe.py`。
 
 #### #212 gen_t06_duel.py 直接写 JSON 不走引擎 loader/saver → 缺 terrain_0.json + 蓝英雄贴蓝镇 6 格 vs 红方 3 格不对称 (2026-09-12, 生成 + check 检查抓出) — ✅ 已证伪（2026-09-13 引擎源码定判）
@@ -866,4 +866,22 @@
 - **处置（09-15，纯文档/脚本，零运行时触碰）**: ①project_rules 硬约束+常用命令统一为 `wsl -u root systemctl stop|start homm3-train-v5`（实测 wsl -u root 免密 uid=0；普通用户 stop 需 sudo 密码）并明示禁用 --user；②当前任务清单关机流程、WSL知识库 09-11 部署段、scripts/rebuild_tasks.py 同步；③check_train_log/monitor_recruit/check_mt200/verify_v5_restart/_status_check/probe docstring 去 --user；④两个旧 restart 脚本头部加废弃说明 + `echo FATAL >&2; exit 100` 硬封禁（旧命令保留在 exit 之后仅作历史）；⑤历史踩坑条目（#168/#195/#201 等）与一次性侦查脚本不改，保留当时事实。
 - **教训**: ①"命令能执行且返回了值"不代表"命令问的对象还存在"——运维口径变更后，旧命令的静默错误答案比命令不存在更危险；判活坚持 #201 三件套（PID etime + 日志 mtime + cgroup/MainPID），is-active 只作辅助；②架构迁移类变更必须同步"规则文件+活文档+可执行脚本"三层，只改知识库不够（规则文件是 agent 每次必读入口）；③废弃脚本不能只靠注释，必须让执行本身失败（exit 非 0），防止后来者照抄运行。
 - **关联**: #168（is-active 对消失 unit 也输出 inactive）/ #195（transient 停止即消失）/ #201（容器空闲关停 → system 级 enabled unit 重构，本条是其口径漂移余波）/ `.trae/rules/project_rules.md` L18 / `py/restart_train_v5_sys.sh`。
+
+#### #230 P8-E 人机混局探针 3 客户端连 Twins 触发 server NEW_GAME 崩溃 (09-15, P8-E 实跑踩) — ✅ 已收敛为 2 客户端
+
+- **状态**: ✅ 已修（收敛为 2 客户端拓扑，P8-E PASS）
+- **现象**: P8-E 初版 4 客户端（Python host + 人类 GUI×2 + 外挂 AI）→ server "Picking random factions for players" → "Disaster happened" 崩溃。二版 3 客户端（Python host + 人类 GUI + 外挂 AI）→ 同样崩溃。`14LobbyStartGame` 广播成功但 server 随后在 NEW_GAME 初始化阶段崩溃。
+- **根因**: Twins.h3m 仅 2 玩家 slot。VCMI server 的 NEW_GAME 初始化在 "Picking random factions for players" 阶段为每个 join lobby 的客户端分配玩家 slot，超出地图 max players（2）时触发 "Disaster happened"。3 客户端 = 3 个 join lobby 的客户端 → 超出 2 slot → 崩。
+- **收敛**: 改为 2 客户端拓扑（P8-B 范式）：Python host + 外挂 AI（AI 是第 2 个 join 的客户端，占 Twins 第 2 slot）。人类 GUI 不 join lobby（不带 `--testmap`/`--serverport`，避免 `EntryPoint.cpp` L379 默认 `onlyai=true` 导致人类 GUI 也 join lobby），仅验证"人类 GUI 进程与 AI 同机共存"。判定 `srv_log_cc()>=3` → `>=2`。
+- **复现**: `python py/p8e_human_mix_probe.py`（已修，PASS）；旧症状 = server log 末尾 "Player 0/1 is controlled by human" + "Picking random factions" → "Disaster happened" + crashinfo.dmp。
+- **关联**: #202（ChangeHost 时序，本条是其 2 客户端拓扑的前置约束）/ Twins.h3m 仅 2 玩家 slot / `EntryPoint.cpp` L379 `VCMI_TESTMAP_ONLYAI` 默认 true / `py/p8e_human_mix_probe.py` / 知识库 P8-E 人机混局章。
+
+#### #231 capture proxy 空拍误报 218/218：差集判定没吃"本拍观测无效"分支，#209 只堵 duel 留 169 个非 duel 假 +100 (2026-09-15) — ✅ 已修复（空拍跳过+双拍确认）
+
+- **现象**: WIN-1 判据①"1v3 TOWN_CAPTURE 非零"长期显示达标且触发即 `blue_hero_killed=[1,2,3]` 三蓝全灭；但动作序列重建显示触发当步红英雄意图位置仅 (34,18)，蓝英雄/蓝城全在 x≥66，零接触；同图 4 个 200 步截断局动作逐位相同（确定性局），"成功局"与失败局前 75 拍动作完全一致。`battle_quality_events.log` 严格配对（同图同步）：**全历史 218 次 TOWN_CAPTURE 100% 紧跟一条 `[HEROSEG_EMPTY] slots=0/0×8`，真实 BHERO_KILL 全历史仅 9 次（且 live_slots=0 同样可疑），现地图池时代 0 次**。
+- **根因**: `ep_runner_one.py` heroes 段观测存在瞬态空拍（8 槽全 id=0 = 共享内存未填充帧，战斗/visit 窗口，412 次样本）。代码 L926 注释自己写明"空拍=观测无效，**跳过差集**与 prev 更新防误报"，但实现上：① L935 空拍分支只 print 诊断；② L951 proxy 判定无条件执行 `prev - _bnow`，空拍时 `_bnow=空集` → 差集恒等于 prev 全量 → 必发 +100；③ L967 的 prev 不更新保护管不到同拍的 proxy 判定。09-13 #209 已用"duel 49/49 全误报"实锤同一机制，但修复方式 = 仅排除 `_duel.vmap` 后缀，非 duel 的 169 次继续裸奔，假 +100 长期污染价值学习。
+- **次生误诊**: 当日凌晨 analyze_trunc200.py ⑤专项把 72_02 截断归因为"地形堵点 (40,5)/蓝城贴东缘"，建议改图挪城。解包 `T06_adventure_72X72_02.vmap` 证伪：surface_terrain = gr24_ ×5184 全草地（零河零山零路），(40,5) 草地、蓝城 (69,2) BFS=64 完全可达；`block=(40,5)` 是 TOWNSTALL 引导把"BFS 建议但引擎拒绝的首步格"拉黑的诊断输出（动态障碍语义），被误读成静态墙。截断本质 = 确定性策略东缘空转（前 51 步打同矿/同守卫后一路东向，东缘空输出 ~90 步）。
+- **处置（09-15，695099 停启窗）**: ep_runner_one.py L952-979 重写为状态机：① proxy 判定条件加 `_bnow`（空拍帧整体跳过）；② 差集先进 `_kill_pending` 挂账，下一**非空**拍仍缺席才发 +100（日志带 `confirmed 2 frames`）；空拍冻结挂账、id 回来撤账、仍缺滚动再挂一拍；duel 排除保持。真击杀仅晚 1 拍发奖不漏。七序列桩测 ALL_PASS（空拍误报/多空拍/瞬态恢复/duel 0 奖；真杀延迟确认/双杀一次/滚动确认 +100）；py_compile + 清 `__pycache__`；resume 后首批局零 Traceback 零误报。
+- **教训**: ① **"跳过差集"的承诺必须落在同一个判定上**——防护写在 prev 更新处（L967）、奖励判定（L951）没吃，等于没防；同一份观测有效性（空拍标志）要同时门控所有下游消费者；② 局部修复（只排 duel）要回问"其他调用方是否同病"，#209 的 49/49 证据已证明机制是普遍的，后缀排除只是压症状；③ 日志分析不能只靠动作码+单条诊断推断空间事实，地形/可达性必须解包 vmap 实证（`zipfile`+BFS 五分钟事），否则会基于误读提出改图这种高成本动作；④ 事件配对验证用严格键（map+step，注意 capture 行是 `at step N` 不是 `step=N`，正则不一致会得出 strict=0 的假反证，需当场解释矛盾）。
+- **关联**: #209（duel 49/49 误报，只修后缀）/ #213（C 方案 proxy 上线）/ 空拍根因候选（C++ 填充竞态，L926 注释）/ `ep_runner_one.py` L923-979 / `battle_quality_events.log` / 任务清单 WIN-1 区（判据①重新攒窗）。
 
