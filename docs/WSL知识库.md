@@ -1656,4 +1656,24 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 3. 日志分析发现 King 仍 603s 脏局 → 部署后剥三层（dragon/orange/red 无城，#226）+ ep_runner passable bug（#227）→ 完整局 120 步 r=183.1 err=no。
 4. sync 工具固化 + project_rules 硬约束。
 
+### 生产回池首批验证（09-14，resume 685402 起 36 局，进程 04:59 启动至 step≈689300）
+
+#224-#227 修复 + sync 部署后，MAPS=10 全图池首批生产局（口径 = `[EP_TIME] err=no`，代码+日志实锤，非训练效果结论）：
+
+| 图 | 局数 | steps 区间 | r 区间 | err=yes |
+|---|---|---|---|---|
+| King_of_Pain_h3m | 2 | 1 / 149 | 12.5 / 157.2 | 0 |
+| T06 108X108_02（1v3） | 3 | 57-200 | 162.5-178.8 | 0 |
+| T06 108X108_02_duel | 6 | 34-200 | 15.9-261.7 | 0 |
+| T06 72X72_02（1v3） | 5 | 40-200 | 89.8-281.4 | 0 |
+| T06 72X72_02_duel | 5 | 84-200 | 172.6-221.4 | 0 |
+| T06 72X72_01 / _01_duel | 4 | 73-100 | 126.1-235.1 | 0 |
+| T05 三图 | 11 | 66-74 | 138.9-156.7 | 0 |
+
+- **零 SIGSEGV / 零 err=yes / 零挂死**：三张原致命图（72_02 系 header 挂死、108_02 系 SIGSEGV、King 三层连环）全部产出完整有效局。
+- **King 生产首效**：1 局脏（steps=1/603s/obs_nz=0，方案 A `[FILTER]` 拦截不进 buffer）→ 随后 149 步/259s/r=157.2/obs_nz=348，`[GUARD_DONE]` 正常早停，#226 修复生产闭环（探针局 120 步 r=183.1 之外的首个生产局）。
+- **TOWN_CAPTURE=4，全在 1v3 图**：108_02 step56、72_02 step39/step128、72_01 step92，均 `blue_hero_killed=[1,2,3]` +100（C 方案 proxy 在新 1v3 大图生效）；duel 图 0 次符合 #213 跳过逻辑。
+- **HERO_DEATH=0**：T06 大图池 36 局继续 0 触发，T7.4 判据 1"全草地大图 ZOMBIE 结构性不可达"再添生产证据（#210/#226 方向），判据 1 仍挂起待 standardDefeat。
+- **观察项（不断言）**：108_02_duel 2 局短终局（34 步/320s/r=15.9、41 步/335s/r=19.6，8-9.4s/步偏慢，无 GUARD_DONE/TOWN_CAPTURE/HERO_DEATH 任何终局标记，err=no），终局原因待攒样本定性（疑长战斗/卡顿后自然终局，非脏局）。
+
 **关联**: 踩坑 #224（部署拓扑）/ #225（header 13 字段）/ #226（King 四层）/ #227（passable）；工具 `py/sync_maps_to_runtime.py`、`py/patch_t06_02_header_0914.py`、`py/patch_king_dragon_0914.py`、`py/patch_king_rebuild_0914.py`；治本 `py/vcmi_full_to_slim.py`、`regenerate_t06_108.py`、`regenerate_level5.py`。

@@ -825,6 +825,7 @@
 - **非致命遗留（不阻塞）**: 启动警告 `Abandoned mine at (38,70) has no valid resource candidates`（1 个废弃矿）；偶发 `Cannot move hero, destination tile is blocked`（gr57 地形"全通"假设与引擎有小偏差，服务器拒绝单步，不崩不脏）。
 - **教训**: ① 对象 owner 在 `obj.options.owner`（颜色字符串，只允许 red/blue/null，orange 等=非法槽）；② 补丁改归属后必须验证**双方都有城有英雄**，不能制造空阵营；③ 修一层崩一层是地图加载顺序决定的正常现象，必须跑到 rc=0 err=no 完整局才算数；④ 难度纪律下修非法怪用图内既有三兽集，不引入红龙新强度。
 - **关联**: #221/#222（players/竞态）/ #224（部署）/ #227（passable）/ `py/vcmi_full_to_slim.py` L32-40 / `py/patch_king_dragon_0914.py` / `py/patch_king_rebuild_0914.py`。
+- **生产闭环 (2026-09-14 同窗口 36 局)**: resume 685402 后 King 先出 1 局脏（steps=1/603s，方案 A FILTER 拦截），随后**首个生产有效局 149 步/259s/r=157.2/obs_nz=348/err=no**（[GUARD_DONE] step149 正常早停），与探针局（120 步 r=183.1）互证。同窗 72_02 系/108_02 系零 SIGSEGV 零 err=yes，TOWN_CAPTURE 4 次全在 1v3 图，HERO_DEATH=0。明细见知识库「生产回池首批验证」小节。
 
 #### #227 ep_runner L1196 `passable` 只在带模型分支定义：无模型探针横跳即 NameError，err=yes 局静默不进 buffer (2026-09-14) — ✅ 已修复
 - **现象**: King 完整局探针（不带 `--model`）60 步提前结束，traj `"error": "name 'passable' is not defined"`；主日志侧 `train_wsl2_ppo_v2.py` L240 `if d.get("steps",0)>0 and not d.get("error")` 决定进 buffer——**error 局被静默跳过且无 [FILTER] 日志**（白跑还看不见）。
