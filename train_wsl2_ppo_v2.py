@@ -61,6 +61,8 @@ MAPS = [
     "T06_adventure_72X72_01.vmap",
     # 09-12 capture 观察窗五判据全达标 (66 局 avg_r 180.2 / TOWN_BLOCKED 0 / TOWN_CAPTURE 24)
     # 错窗切地图轴: 加 72X72_02_duel (MAPS 9→10, 一次一轴)
+    # 09-14 修复回池: 根因=header 缺 8 字段 (5→13, patch_t06_02_header_0914.py) + 运行时副本旧文件;
+    #               完整局验过 95步/389s/r=130.7 rc0 零致命错误
     "T06_adventure_72X72_02_duel.vmap",
     # 09-13 H3M 官方图适配: King of Pain (SoD, 72X72, 3p, has_underground=0, 无船无水下)
     # py/vcmi_full_to_slim.py 转换: 1657→173 对象 (hero_0 + town_5 + mine_38 + resource_68 + monster_61)
@@ -68,6 +70,8 @@ MAPS = [
     # 文件名加 _h3m 后缀 (strategic_env.py 强制要求 mapname 含 s1/mini/adventure/h3m)
     "King_of_Pain_h3m.vmap",
     # 09-13 地图轴扩展: T04 2 张移除, 加 T06 3 张 (72X72_02 / 108X108_02_duel / 108X108_02)
+    # 09-14 修复回池: 同 header 缺字段根因 (patch_t06_02_header_0914.py, 13字段 + 双副本部署);
+    #   完整局: 72_02 110步/432s/r=217.0, 108_02 93步/400s/r=416.4, 108_02_duel 30步/328s/r=36.2, 均 rc0 零致命错误
     "T06_adventure_72X72_02.vmap",
     "T06_adventure_108X108_02_duel.vmap",
     "T06_adventure_108X108_02.vmap",
@@ -131,6 +135,10 @@ EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
 def run_episode(mapname, blue_model=None):
     """Run one episode using current model policy (not random).
     Saves model to temp file, spawns isolated subprocess."""
+    # 09-14 防残留污染 (4 张新图 segfault 秒退实证): 开局先删上一局 traj,
+    # 子进程若在首步写入前崩溃 → 文件不存在 → 下方读取抛错 return None, 杜绝旧轨迹被当新局
+    if os.path.exists(EP_TRAJ):
+        os.remove(EP_TRAJ)
     # Save current model to temp checkpoint for the subprocess
     ep_ckpt = f"/tmp/hermes_ep_model_{os.getpid()}.pt"
     torch.save(model.state_dict(), ep_ckpt)
@@ -189,6 +197,7 @@ def run_episode(mapname, blue_model=None):
     )
     try: proc.wait(timeout=STEPS_PER_EP*60 + 300)  # C8.5: NK2 对手回合 15-60s, 原 *3+15 必误杀
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
+    ep_rc = proc.returncode  # 09-14: segfault/秒退非 0, 配合 traj 身份校验拦截残留污染
     try:
         # Clean up temp checkpoint
         if os.path.exists(ep_ckpt):
@@ -221,6 +230,13 @@ def run_episode(mapname, blue_model=None):
             except Exception as ep_exc:
                 print(f"  [WARN] ep_log dump failed: {ep_exc}", flush=True)
         with open(EP_TRAJ) as f: d = json.load(f)
+        # 09-14 三道拦截: 子进程崩溃(rc!=0) / traj 是上一局残留(身份不符) / obs 全零 → 一律 return None 不入 buffer
+        if ep_rc != 0:
+            print(f"  [FILTER] ep 子进程非正常退出 rc={ep_rc}, 丢弃防残留污染 map={mapname}", flush=True)
+            return None
+        if d.get("mapname") != mapname:
+            print(f"  [FILTER] traj 身份不符 traj_map={d.get('mapname')} != 调度={mapname}, 丢弃防残留污染", flush=True)
+            return None
         if d.get("steps",0)>0 and not d.get("error"):
             if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
                 obs_nz = np.count_nonzero(d["obs"][0])

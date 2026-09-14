@@ -19,6 +19,7 @@ VCMI 沙盒 PPO 训练战略模型 (1v7) → 真实 HoMM3 部署对战。当前�
 - **VCMI 铁律**: 不重编 libvcmi.so; vcmi-native 与 vcmi-native-build 双目录 cp 同步; .so 多副本部署 (改 .so 后同步全部副本)
 - **晋级纪律**: 晋级与开经济不同时做, 一次只加一个难度轴
 - 改 Python 后清 `__pycache__`; 动构建树前备份 .so + 源码
+- **改图后必跑同步 (09-14 踩坑×2 固化)**: 权威源 `maps/training/`，运行时真实目录 `vcmi/data/Maps`（两棵 VCMI 树的 data/Maps 都是指向它的软链）。改/生成任何 .vmap 后必须 WSL 执行 `/home/administrator/vcmi-workspace/venv/bin/python py/sync_maps_to_runtime.py --strict`（自带 header.players/owner/identifier 预检+原子写+写后校验；`--check` 只校验，rc≠0 禁训）
 - 代码文件保存到 /py 目录下 (用户规则); 全程中文回复
 
 ## 事实核查原则 (防文档过时)

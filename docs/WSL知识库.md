@@ -1598,4 +1598,62 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 - 训练 MAPS 名单 10 图全部 `players OK`（无脏图）
 - 训练当前 `inactive`（未擅自启动）
 
-**关联**: 踩坑 #222（King 真实根因 + 单图 patch）+ #223（T06 _02 批量 patch）+ #221（reset 竞态假设已被证伪）+ #214（方案 A 过滤兜底仍生效）/ 任务清单 09-13 地图轴 patch 增量 / `train_wsl2_ppo_v2.py` L64（T06 72X72_02_duel 入池历史）/ `ep_runner_one.py` L584-596（`no_own_town` 判定）。
+**关联**: 踩坑 #222（King 真实根因 + 单图 patch）+ #223（T06 _02 批量 patch）+ #221（reset 竞态假设已被证伪）+ #214（方案 A 过滤兜底仍生效）/ 任务清单 09-13 地图轴 patch 增量 / `train_wsl2_ppo_v2.py` L64（T06 72X72_01_duel 入池历史）/ `ep_runner_one.py` L584-596（`no_own_town` 判定）。
+
+## VMAP 运行时部署拓扑 + sync 同步固化 + King 1v3 重建（09-14）
+
+### 运行时地图加载链路（踩坑 #224，拓扑实锤）
+
+```
+权威源  d:\Bigdata\hero3_fresh\maps\training\<name>.vmap   (git 仓库, 改图只改这里)
+                          │  py/sync_maps_to_runtime.py (原子写+校验)
+                          ▼
+运行时真实目录  vcmi/data/Maps/<name>.vmap
+                          ▲ readlink 软链（同一目录, 不是双副本）
+        ┌─────────────────┴──────────────────┐
+  vcmi-native/rel/bin/data/Maps     vcmi-native-build/rel/bin/data/Maps
+                          ▲
+  ep_runner ctypes libmlclient.so: chdir(VCMI_BIN_DIR) → userDataPath()/Maps
+  代码: ML/MLClient.cpp L307-308 validateFile, L421 "Maps/"+mapname, L489 chdir
+```
+
+- 地图名强制含 `s1/mini/adventure/h3m`（strategic_env.py L522）。
+- 反查运行进程实际读图：`pgrep -f ep_runner_one` → `ls -la /proc/<pid>/cwd`；对比版本用 sha256/mtime。
+- 探针与训练并发安全（进程内连接器、无端口无锁），但 traj/ep_log 必须用独立文件（训练占用 `/tmp/traj_ep.json`）。
+
+### 权威同步工具 py/sync_maps_to_runtime.py
+
+| 用法 | 作用 |
+|---|---|
+| `python py/sync_maps_to_runtime.py --strict` | **改图后必跑**：预检→同步→写后校验，rc=0 才可训 |
+| `--check` | 只校验不同步，不一致 rc=1（重启前门禁/可接 CI） |
+| `--dry-run` | 报告不写盘 |
+| `--check --strict` | 纯校验 + identifier 注册表检查 |
+| `<name>.vmap ...` | 只同步指定图（仍须在 MAPS 清单内） |
+| `--purge` | 删除运行时非 MAPS 退役图（默认只汇总不删） |
+
+要点：① 同步范围 = AST 解析 train_wsl2_ppo_v2.py 顶层 MAPS（唯一清单，退役图自动排除）；② resolve() 软链去重只写一次；③ 源侧预检=zip 三条目/header.players 含 red+blue/owner∈{red,blue,null}/双方至少各一城/（strict）monster·town identifier 在 VCMI config 注册表；④ 原子写（tmp+fsync+rename）+ 写后 sha256 复验；⑤ 运行中 ep 不受影响，新局自动加载新版。负向回归脚本 `py/_test_sync_negative_0914.sh`。
+
+### VCMI core 注册表位置（identifier 合法性核查）
+
+- `/home/administrator/vcmi-native/config/creatures/<城镇>.json`（11 个城镇文件，**JSONC 带 // /* */ 注释**，解析前需 strip；顶层 key 即生物 id 如 redDragon/blackDragon/greenDragon，**无泛指 dragon**）。
+- `config/heroes/`（144 英雄）、`config/towns/`、`config/resources.json`。
+- `rel/bin/config` 是指向 `vcmi-native/config` 的软链；core mod 本体在 `rel/bin/Mods/vcmi`（只有 Content 资源，json 注册表在 config/）。
+
+### vmap 结构与 1v3 阵营模板（踩坑 #225/#226）
+
+- vmap = zip 三条目：`header.json` / `surface_terrain.json` / `objects.json`；objects 是 **dict-of-dicts**（key→obj）。
+- 合格 header = **13 字段**（5 基础 + allowedArtifacts/defeatIconIndex/difficulty/victoryConditions=[standardDefeat,specialVictory]/triggeredEvents/versionMajor/versionMinor/victoryIconIndex=2）；players 为 `{blue:{...}, red:{...}}`，mods 为 `{}`。
+- owner 在 **`obj.options.owner`**（颜色串 red/blue/None；orange/teal 等未在 players 声明 = 引擎 SIGSEGV）。
+- T06 1v3 英雄 schema：`subtype=core:alchemist`（职业），`options.type`=具体英雄（edric/iona/christian/piquedram），army 第 4 槽 peasant；英雄驻守在城旁切比雪夫距离 3 的对角格；header 每方只声明一个主角类型。
+- King 1v3 终态：red=town_1(10,8)+hero_0(13,11)；blue=town_0(4,62)+town_2(65,64)+town_4(54,28) + hero_1/2/3(7,65)/(62,61)/(57,31)；town_3(40,52) 中立；173→176 对象。
+- 完整局验收口径：**rc=0 且 traj 无 error 字段（EP_TIME err=no）**；err=yes 局 train 侧静默不进 buffer（train L240）。
+
+### 09-14 事故修复时间线（假局污染收尾）
+
+1. 残留 traj 假局三道拦截已在 09-14 凌晨上线（run 开头删 traj / 记录 ep_rc / rc≠0+身份不符 [FILTER]），checkpoint 683620 续训。
+2. T06 _02 4 图 header 补 8 字段（#225）→ 发现未部署（#224）→ 部署后 max_turns=1 + 200 步完整局全过 → MAPS 6→10 回池（resume 685402）。
+3. 日志分析发现 King 仍 603s 脏局 → 部署后剥三层（dragon/orange/red 无城，#226）+ ep_runner passable bug（#227）→ 完整局 120 步 r=183.1 err=no。
+4. sync 工具固化 + project_rules 硬约束。
+
+**关联**: 踩坑 #224（部署拓扑）/ #225（header 13 字段）/ #226（King 四层）/ #227（passable）；工具 `py/sync_maps_to_runtime.py`、`py/patch_t06_02_header_0914.py`、`py/patch_king_dragon_0914.py`、`py/patch_king_rebuild_0914.py`；治本 `py/vcmi_full_to_slim.py`、`regenerate_t06_108.py`、`regenerate_level5.py`。

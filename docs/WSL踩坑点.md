@@ -787,3 +787,49 @@
 - **关联**: #222（King 单图 patch，本条为其批量扩展）/ #214（方案 A 过滤仍生效作兜底）/ `py/patch_t06_02_players.py` / `py/_scan_players.py` / `train_wsl2_ppo_v2.py` L64（`T06_adventure_72X72_02_duel.vmap`）。
 - **训练 MAPS 名单现状 (2026-09-13 更新)**: 10 图全部 `players OK`（T05×3 + T06 72X72_01_duel + 72X72_01 + 72X72_02 + 108X108_02_duel + 108X108_02 + King_h3m），无脏图。T04 2 张（36X36_01 + 30X30_01）已移除，T06 72X72_02 + 108X108_02 + 108X108_02_duel 3 张新入池。
 
+#### #224 VMAP 运行时部署拓扑：maps/training 改了不部署 = 旧图继续跑（两次事故放大器） (2026-09-14) — ✅ 已固化
+- **现象**: 09-14 修 T06 _02 4 图 header 后探针仍 segfault/挂死，一度以为"补丁非充分还有第二层缺陷"；交叉拼装探针图（好 header+坏 body / 坏 header+好 body）两张都报 `Bad value for map: xxx.vmap (relative to: ./data/Maps)`，rc=1 死在 `MLClient.cpp` validateFile（L177-194），根本没进引擎地图加载器。
+- **根因（拓扑事实，代码+软链实锤）**:
+  - ep_runner 连接器 = 进程内 ctypes libmlclient.so，`MLClient.cpp` L489 `chdir(VCMI_BIN_DIR)` 后从 **`userDataPath()/Maps` = `VCMI_BIN_DIR/data/Maps`** 读图（L307-308 validateFile / L421 拼 `Maps/<mapname>`）；地图**不是**直接从仓库 `maps/training/` 读。
+  - 两棵 VCMI 树的入口 `vcmi-native/rel/bin/data/Maps` 与 `vcmi-native-build/rel/bin/data/Maps` **都是符号链接，指向同一真实目录** `/mnt/d/Bigdata/hero3_fresh/vcmi/data/Maps`（= Windows `vcmi/data/Maps`）。**不是双副本**——往两处 cp 实际写同一文件。
+  - 09-13 的 players 补丁、09-14 上午的 header 补丁都只改了权威源 `maps/training/`，运行时真实目录里还是 09-06/09-12 旧文件。探针"行为变化"（挂死→段错误）是非确定性竞态，不是补丁效果。
+- **排查方法（复用）**: 训练/探针时 `pgrep -f ep_runner_one` → `ls -la /proc/<pid>/cwd`（= rel/bin）→ `ls --time-style` 对比运行时 vmap 与源文件 mtime/hash；`readlink -f <data/Maps>` 看真实目录。core dump 不可用（core_pattern=`|/wsl-capture-crash`，ulimit -c=0）。
+- **探针图命名**: 地图名必须含 `s1/mini/adventure/h3m`（strategic_env.py L522 assert），且**必须先部署到运行时目录**否则 Bad value。
+- **修复/固化**: `py/sync_maps_to_runtime.py`（#226 后建立的权威同步工具，见知识库 09-14 章）：MAPS 清单 AST 解析为唯一同步范围 + resolve() 软链去重 + 预检 + 原子写 + 写后 hash 复验。已写入 `.trae/rules/project_rules.md` 硬约束：**改/生成任何 .vmap 后必跑 `--strict`，rc≠0 禁训**。
+- **教训**: "改了源文件"≠"运行时生效"；任何"修了没效果"先 hash/mtime 对比运行时产物再怀疑修复方向（呼应事实核查原则：以二进制产物为准）。
+- **关联**: #222/#223（players/header 补丁只改源未部署的两批图）/ #225 / #226 / `py/sync_maps_to_runtime.py` / `ML/MLClient.cpp` L307/L421/L489。
+
+#### #225 T06 _02 4 图 header 只有 5 字段：缺 8 字段 → `Invalid range provided: 0 ... -1` 挂死 / NEW_GAME SIGSEGV (2026-09-14) — ✅ 已修复
+- **现象**（max_turns=1 单图探针，独立 outfile 避免与训练 traj 冲突）:
+  - 72X72_02 / 72X72_02_duel（旧运行时图）：rc=137 挂满 timeout，`ERROR Failed to launch game: Invalid range provided: 0 ... -1`，死在 NEW_GAME 启动，traj 从未写。
+  - 108X108_02 / _duel：rc=139 SIGSEGV（~17-20s），无明确 ERROR，日志止于 `[SRV-DIAG] NEW_GAME start`。
+- **根因**: #223 只补了 players（注入 blue/red + mods→{}），但 `_02` 系 header.json 仍只有 5 字段（name/description/mapLevels/mods/players），正常 `_01` 系/108_01 系是 **13 字段**。源头 = `maps/training/regenerate_t06_108.py` L182 与 `regenerate_level5.py` L209 的 header 模板只写 5 字段。报错串定位到 `lib/CRandomGenerator.cpp` L59/81/96：对空容器随机取值（区间 0...-1），缺的 victoryConditions 等字段触发。
+- **修复**: `py/patch_t06_02_header_0914.py` 补 8 字段：allowedArtifacts / defeatIconIndex / difficulty / victoryConditions=[standardDefeat, specialVictory] / triggeredEvents / versionMajor=1 / versionMinor=1 / victoryIconIndex=2（备份 `.bak_header_0914`）；两个生成器模板同步治本。**但单独补 header 探针仍失败——因为 #224 未部署**，部署到运行时真实目录后 4 图 max_turns=1 全绿（4-6s，obs_nz 249-291）。
+- **完整 200 步局验证（rc=0 零致命）**: 72_02 110步/432s/r=217.0；72_02_duel 95步/389s/r=130.7；108_02 93步/400s/r=416.4；108_02_duel 30步/328s/r=36.2（蓝速败正常终局）。回池 MAPS 6→10，生产首局即原 SIGSEGV 图 108_02 完整 200 步 r=169.5。
+- **教训**: header 字段完整性是入池硬门槛（players 只是其一）；sync 工具的预检已把 13 字段/双方城镇/owner 合法性固化，新图自动卡。
+- **关联**: #223（players 层）/ #224（部署层）/ `py/patch_t06_02_header_0914.py` / `regenerate_t06_108.py` L182 / `regenerate_level5.py` L209。
+
+#### #226 King of Pain 残余三层缺陷连环：core:dragon 非法 id / orange 玩家4 崩溃 / red 被 09-13 补丁错送成无城无英雄 (2026-09-14) — ✅ 已修复
+- **现象**: #224 部署 players 修补版 King 后，603s 卡死消失但逐层炸出新错（典型剥洋葱）：
+  1. `Failed to find object of type monster::core:dragon` → `Failed to resolve identifier`，NEW_GAME 失败。
+  2. 修 dragon 后 rc=139 SIGSEGV，`ERROR Cannot find player 4 info!`（`lib/callback/CGameInfoCallback.cpp` L89，gameState().players 无 color=4=orange）。
+  3. 修 orange 后 max_turns=1 通过（rc=0/3s/obs_nz=348），但 200 步局 60 步 `err=yes`，traj error = `name 'passable' is not defined`（见 #227）。
+- **根因逐层**:
+  - **dragon**: `py/vcmi_full_to_slim.py` MONSTER_LEVEL_MAP L36-37 把 randomMonsterLevel4/5 映射成 `core:dragon`，core mod 无此泛指 id（只有 redDragon/blackDragon/greenDragon，注册表在 `/home/administrator/vcmi-native/config/creatures/*.json`，**JSONC 带注释**需清洗后解析）。King 4 个守卫 monster_29/31/37/47。
+  - **orange**: town_0(4,62) owner=`orange`（options.owner，藏在 options 内不在顶层），header 只注入 blue/red 两槽 → 引擎建 player 4 对象时找不到玩家信息直接段错误。
+  - **red 无城无英雄（#222 补丁方向性错误）**: #222 的 `patch_king_players.py` 把原图**本属 red 的 town_1(10,8)+hero_0 一起改成了 blue**（脚本注释自承认"Red: 0 town + 0 hero"），blue 独占 2 城，red 空槽——这就是 `no_own_town` 脏局的另一半根因，当时"引擎会按默认生成"的假设不成立。
+- **修复（1v3 重建，对齐 72X72_01 模板 schema：hero subtype=core:alchemist 职业 / options.type=英雄人物 / 城旁 3 格对角驻守）**:
+  - `py/patch_king_dragon_0914.py`：4 个 dragon→core:swordsman（图内已在用的三兽集，量 4/6 不变，不叠强度轴；备份 `.bak_dragon_0914`）；转换器 L36-39 治本。
+  - `py/patch_king_rebuild_0914.py`（备份 `.bak_rebuild_0914`）：town_0 orange→blue、town_1 blue→**red（还原）**、town_4 null→blue（town_2 保 blue、town_3 留中立）；hero_0→red 移 (13,11)；新建 hero_1/2/3 blue @(7,65)/(62,61)/(57,31)，iona/edric/christian + 25 peasant。脚本带**驻守城镇距离=3、其他城≥5、非同格、0≤坐标<72** 断言，173→176 对象。
+  - 验证：max_turns=1 rc0/obs_nz=348；修掉 #227 后完整局 **120步/240s/r=183.1 rc=0 err=no**。
+- **非致命遗留（不阻塞）**: 启动警告 `Abandoned mine at (38,70) has no valid resource candidates`（1 个废弃矿）；偶发 `Cannot move hero, destination tile is blocked`（gr57 地形"全通"假设与引擎有小偏差，服务器拒绝单步，不崩不脏）。
+- **教训**: ① 对象 owner 在 `obj.options.owner`（颜色字符串，只允许 red/blue/null，orange 等=非法槽）；② 补丁改归属后必须验证**双方都有城有英雄**，不能制造空阵营；③ 修一层崩一层是地图加载顺序决定的正常现象，必须跑到 rc=0 err=no 完整局才算数；④ 难度纪律下修非法怪用图内既有三兽集，不引入红龙新强度。
+- **关联**: #221/#222（players/竞态）/ #224（部署）/ #227（passable）/ `py/vcmi_full_to_slim.py` L32-40 / `py/patch_king_dragon_0914.py` / `py/patch_king_rebuild_0914.py`。
+
+#### #227 ep_runner L1196 `passable` 只在带模型分支定义：无模型探针横跳即 NameError，err=yes 局静默不进 buffer (2026-09-14) — ✅ 已修复
+- **现象**: King 完整局探针（不带 `--model`）60 步提前结束，traj `"error": "name 'passable' is not defined"`；主日志侧 `train_wsl2_ppo_v2.py` L240 `if d.get("steps",0)>0 and not d.get("error")` 决定进 buffer——**error 局被静默跳过且无 [FILTER] 日志**（白跑还看不见）。
+- **根因**: `passable = torch.tensor(obs[3211:3219]...)` 只在 `if red_model is not None:`（L435，训练带 `--model`）分支内定义；L519 同引用在分支内安全，**L1196 两格往返横跳处理（move_to_force 之后无条件执行）在分支外**。无模型探针一旦横跳即 NameError；训练生产因永远带模型不踩此坑——但使所有探针的 err=no 结论不可信。
+- **修复**: L1196 改为直接取同源 `_p8 = obs[3211:3219]`（8 方向可通行性，与模型分支同一 obs 切片），带模型路径行为不变。py_compile + 清 `__pycache__`（ep 子进程逐局加载，未停训即生效）。
+- **教训**: 分支内局部变量被分支外公共路径引用是典型潜伏 bug；探针（无模型）与生产（带模型）是两套执行路径，探针结论前先确认 traj 无 error 字段。
+- **关联**: #226（由 King 完整局暴露）/ `ep_runner_one.py` L435/L519/L1196 / `train_wsl2_ppo_v2.py` L240（error 局静默过滤）。
+

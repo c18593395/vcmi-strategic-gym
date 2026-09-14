@@ -179,12 +179,39 @@ for i in range(15):
             break
 
 # 创建 header
+# 09-14 治本: 补引擎启动必需的 8 字段 — 缺 victoryConditions 等会导致
+# "Failed to launch game: Invalid range provided: 0 ... -1" (72系挂死/108系SIGSEGV)
+# players 仍由 patch_t06_02_players.py 注入, 入池前必扫 py/_scan_players.py
 header = {
+    "allowedArtifacts": {"anyOf": ["core:pendantOfFreeWill"]},
+    "defeatIconIndex": 3,
     "name": name,
     "description": f"{w}x{h} complex battle, multiple towns and heroes",
+    "difficulty": "NORMAL",
     "mapLevels": {"surface": {"height": h, "width": w, "index": 0}},
-    "mods": [],
-    "players": []
+    "mods": None,
+    "players": [],
+    "victoryConditions": ["standardDefeat", "specialVictory"],
+    "triggeredEvents": {
+        "specialVictory": {
+            "condition": ["allOf", ["isHuman", {"value": 1}],
+                          ["haveResources", {"type": 0, "value": 100}]],
+            "effect": {"type": "victory"},
+            "message": {"exactStrings": None, "localStrings": None,
+                        "message": [2], "numbers": None,
+                        "stringsTextID": ["core.genrltxt.278"]},
+        },
+        "standardDefeat": {
+            "condition": ["daysWithoutTown", {"value": 7}],
+            "effect": {"type": "defeat"},
+            "message": {"exactStrings": None, "localStrings": None,
+                        "message": [2], "numbers": None,
+                        "stringsTextID": ["core.genrltxt.7"]},
+        },
+    },
+    "versionMajor": 1,
+    "versionMinor": 1,
+    "victoryIconIndex": 2,
 }
 
 # 创建对象

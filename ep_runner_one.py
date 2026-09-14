@@ -326,7 +326,8 @@ if args.model and os.path.exists(args.model):
         except:
             red_model = None
 
-traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "terrain_grid": [], "steps": 0, "total_rew": 0.0}
+traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "terrain_grid": [], "steps": 0, "total_rew": 0.0,
+        "mapname": args.mapname}  # 09-14: 身份字段, 主进程据此识别子进程崩溃后的上一局残留 traj
 _ep_t0 = time.time()  # 0910: 局耗时打点 — 间歇性慢速 (4-8s/步局) 定量画像数据源 (历史样本已丢失, 从此积累)
 try:
     env = StrategicEnv(
@@ -1192,7 +1193,10 @@ try:
                 if len(set(recent)) <= 2:
                     r -= 3.0
                     if force_dir is None:
-                        dirs = [d for d in range(8) if bool(passable[d])]
+                        # 09-14 修: passable 仅在 red_model 分支(L435)定义, 无模型探针横跳时 NameError
+                        # 直接用同源 obs[3211:3219] (8方向可通行性), 带模型路径行为不变
+                        _p8 = obs[3211:3219]
+                        dirs = [d for d in range(8) if bool(_p8[d])]
                         if dirs:
                             force_dir = random.choice(dirs)
         traj["obs"].append(obs.tolist())
