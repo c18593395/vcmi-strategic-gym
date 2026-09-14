@@ -2,7 +2,7 @@
 # 重启后验证: checkpoint 续训 + C 方案代码路径生效
 sleep 20
 echo "== unit 状态 =="
-systemctl --user is-active homm3-train-v5
+systemctl is-active homm3-train-v5
 echo "== 训练进程 =="
 ps aux | grep -E 'train_wsl2_ppo_v2|ep_runner' | grep -v grep | head -5
 echo "== train_loop.log 尾部 =="

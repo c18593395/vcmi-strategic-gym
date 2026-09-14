@@ -196,7 +196,7 @@ TOTAL = '''# HoMM3 全盘操盘 AI — 总任务（整体脉络）
 ## 关键原则
 
 1. **训练地图用 VMAP** (ZIP+JSON, T01-T06 课程体系)；H3M 经典图已停用。
-2. **改代码 → systemctl --user stop 优雅停止 → 重启 (checkpoint resume)**；WSL keepalive 常驻防 idle shutdown（v5 训练运维根治）。
+2. **改代码 → `wsl -u root systemctl stop homm3-train-v5` 优雅停止 → `start` 重启 (checkpoint resume)**（0911 起 system 级 enabled unit；旧 `systemctl --user` transient 已废弃）；WSL keepalive 常驻防 idle shutdown（v5 训练运维根治）。
 3. **VCMI 铁律**：不重编 libvcmi.so，只编 libmlclient.so + libMMAI.so + connector。
 4. **vcmi-native vs vcmi-native-build** 双目录须 cp 同步。
 5. **改 Python 后清 `__pycache__`**。
@@ -216,7 +216,7 @@ TOTAL = '''# HoMM3 全盘操盘 AI — 总任务（整体脉络）
 | StrategicEnv | `vcmi_gym/envs/v13/strategic_env.py` |
 | ep 执行器 | `ep_runner_one.py` |
 | strategic_state (C++) | `vcmi/ML/strategic_state.h/cpp` |
-| 训练启动 | WSL systemd 托管 `homm3-train-v5`；停止 `systemctl --user stop homm3-train-v5` |
+| 训练启动 | WSL systemd system 级 enabled unit `homm3-train-v5`（/etc/systemd/system，0911 起）；停/启 `wsl -u root systemctl stop\\|start homm3-train-v5` |
 | 训练日志 | `D:\\Bigdata\\hero3_fresh\\train_loop.log` |
 | Checkpoints | `checkpoints/` |
 | VMAP 训练地图 | `maps/training/` (T01-T06 共 31 张；运行时 3 副本同步) |

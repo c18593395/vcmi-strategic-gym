@@ -8,14 +8,13 @@
 # 用法: wsl bash /mnt/d/Bigdata/hero3_fresh/py/monitor_recruit.sh
 # 注意: hermes_ep 日志逐局覆盖, ep 侧只反映当前局; 历史靠主日志白名单转储
 # ============================================================
-export XDG_RUNTIME_DIR=/run/user/$(id -u)  # systemctl --user 兜底
 ROOT=/mnt/d/Bigdata/hero3_fresh
 MAIN="$ROOT/train_loop.log"
 DIAG=/tmp/rl_recruit_diag.log
 SO=/home/administrator/vcmi-native/rel/bin/AI/libMMAI.so
 
-echo "=== 0. 训练服务状态 ==="
-systemctl --user is-active homm3-train-v5
+echo "=== 0. 训练服务状态 (system 级 unit, 0911 起) ==="
+systemctl is-active homm3-train-v5
 
 echo ""
 echo "=== 1/4 [START_HOME] 三态 (begin/adjacent/abort) ==="

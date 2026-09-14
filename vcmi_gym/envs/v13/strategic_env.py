@@ -887,6 +887,14 @@ class StrategicEnv(gym.Env):
         if r >= 0:
             self.logger.debug(f"yourTurn: player={r} ({time.time()-t0:.1f}s)")
             return
+        elif r == -2:
+            # H3 fix (2026-09-14): C++ 侧 adventure_wait_for_turn 检测到终局（红方真败
+            # 无将无城, yourTurn 不再回调）已刷新终局快照 (game_over=2) → 返回 -2。
+            # 静默 return, 让 step() 继续走 _read_state → _build_obs → _calc_reward(-200)
+            # → _check_done (terminated), 避免落入下方 else 的 unexpected 分支被 L724 捕获
+            # 成 timeout forcing (r=0, 全零 obs, -200 败北信号丢失)。
+            self.logger.info(f"adventure_wait terminal: red lost, state refreshed (wait={time.time()-t0:.1f}s)")
+            return
         elif r == -3:
             raise RuntimeError("adventure_wait: exception in C call")
         else:
@@ -1043,7 +1051,15 @@ class StrategicEnv(gym.Env):
                     "ore": p0.ore, "sulfur": p0.sulfur, "crystal": p0.crystal, "gems": p0.gems,
                     "towns": p0.town_count, "heroes": p0.hero_count,
                 }
-            # 胜利/失败仍由 NK2 state_value 内的 ±50 处理, 无需额外加
+            # H3 fix (2026-09-14): 终局显式 ±200 对齐非 NK2 分支 L1122-1126。
+            # 旧设计"胜负只靠 NK2 state_value ±50 势差"在红灭瞬间失效: 终局快照
+            # nk2_val 退化为有界值 (实测=10), shaping delta 仅 -26, 无法表达"无将无城
+            # 判负"的强信号; 叠加本分支 clip 下限 -10 → 红败 r 被压成 -10, -200 信号丢失。
+            # H3 终局通道 (-2 → game_over=2) 落地后, 在此补显式终局奖惩并把下限放宽到 -300。
+            if self._game_over == 1:  # red wins
+                reward += self.reward_win
+            elif self._game_over == 2:  # blue wins
+                reward -= self.reward_win
             # 探索奖励: 新格子访问 (保留, 让模型有动力移动)
             if self.reward_explore > 0:
                 for h in state.heroes:
@@ -1054,7 +1070,7 @@ class StrategicEnv(gym.Env):
                                 if pos not in self._visited:
                                     self._visited.add(pos)
                                     reward += self.reward_explore
-            return float(np.clip(reward, -10, 300))
+            return float(np.clip(reward, -300, 300))
 
         # === 原有事件奖励模式 (use_nk2_shaping=False 时走这里) ===
         reward = self.reward_step_fixed

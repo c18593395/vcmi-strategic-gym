@@ -122,7 +122,7 @@ class RemoteVCMITCPConnection:
         # 读 1 字节 ACK
         ack = self._recv_exact(1)
         if ack != b'\x01':
-            self.close()
+            self.disconnect()
             raise AuthFailedError(f"认证被拒绝 (ACK={ack[0] if ack else 'EOF'})")
         self._authenticated = True
 

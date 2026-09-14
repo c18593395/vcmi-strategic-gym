@@ -77,6 +77,39 @@
 
 **重启验证**: 停 `homm3-train-v5` → 重启 resume step=659248 → 重启窗口（L76382→L78132, 66 局）TOWN_BLOCKED=0（修复前全 log 460）+ TOWNSTALL=41 全为 `move_stall==1` 瞬态诊断（pas 全 1 未升级）→ **修复生效**。
 
+### P8-D 双机实机验证 WSL 双实例 9/9 PASS (09-14)
+
+**背景**: T13.10 唯一剩余实机项。09-12 设计骨架 + 本机 13/13 已过，双机路径（HSK 预交换 + 跨节点 TCP + HMAC 认证握手 + 远端状态文件）缺实机验证。真机未就绪，WSL 内双独立节点模拟双机拓扑（node1=server 端点，node2=client 部署目标，跨 WSL 网络命名空间 `172.23.41.125` 非 localhost）。
+
+**探针**: `py/p8d_dual_node_sim.py`——WSL 双节点模拟，6 项检查：① HSK 生成+预交换（node1→node2 `shutil.copyfile`，模拟人工 U盘/SCP 交换）+ 0o600 + VCMI 部署目录就绪；② 跨节点 TCP 可达（node1 监听 40311，node2 连接）；③ 正例 HMAC 认证握手（node2 `RemoteVCMITCPConnection(auth_enabled=True)` 发 `AuthToken` 帧，node1 `TokenVerifier` 验签回 0x01）；④ 负例错误 HSK 拒绝（新 HSK → 签名 mismatch → 0x00 → `AuthFailedError`）；⑤ 双节点状态文件（`StatusFileWriter` 写/读 OK）；⑥ HSK 权限 0o600。
+
+**结果**: 9/9 PASS rc=0。ACK 日志正例 `ok→1`、负例 `signature mismatch→0`，HMAC 验签闭环真实生效。
+
+**修复 1 处**: `remote_connection._auth_handshake` 认证失败路径调 `self.close()`（类中无此方法，AttributeError）→ 改 `self.disconnect()`。
+
+**与 09-12 本机 13/13 的差异**: 本机 probe（`p8d_deploy_probe.py --local`）用真实 `VCMI_server.exe` 起服务（auth_enabled=False，仅 TCP+游戏帧透传）；双机 probe 用 `AuthProxy`（Python socket + `TokenVerifier`）模拟认证端点，因为真实 `VCMI_server` 不识别 `AuthToken` 帧（T13.10 已知边界），HMAC 正负例在此 probe 首次全链实机通过。
+
+### P8-D 同机 2 实例真机部署验证 13/13 PASS (09-14)
+
+**背景**: 真机未就绪前，用同机 2 实例模拟双机部署拓扑（比 WSL 双节点 sim 更贴近真实：2 真实 `VCMI_server.exe` 端口隔离 3030/3031 + 2 真实 `VCMI_client.exe` 跨实例 + HSK 跨实例预交换，共享 `D:\vcmi-fork-build\bin` 无需副本）。回答用户"能同一台机器同时运行 2 个实例吗？不用 2 台电脑"——**能**，Windows 多进程可共载同一 dll，端口隔离即可并存。
+
+**探针**: `py/p8d_two_instance.py`——同机 2 实例探针，13 项检查：
+- 实例 A（node1/host）：真实 `VCMI_server.exe --port=3030` 存活 + TCP 探活
+- 实例 B（node2/guest）：真实 `VCMI_server.exe --port=3031` 存活 + TCP 探活（同机 2 server 并存端口隔离）
+- HSK 预交换：生成 32B → node1 侧落盘 → `shutil.copyfile` 跨实例交换到 node2 侧（模拟 U 盘/SCP）
+- 真实 ModelAI client 连 3030（host 侧）与 3031（guest 侧，跨实例），`VCMI_TESTMAP_ONLYAI=1`
+- 协议层认证：`AuthProxy(3031)` 收 `AuthToken` 验签 → `0x01` ACK（正例）
+- 负例：错误 HSK → `signature mismatch` → `0x00` → `AuthFailedError`
+- `StatusFileWriter` 双节点（node1@3030, node2@3031）状态文件
+
+**结果**: 13/13 PASS rc=0。`ACK 日志: ['ok→1', 'signature mismatch→0']`。同机 2 真实 VCMI_server 并存（端口隔离）+ 2 真实 ModelAI client 跨实例连入 + HSK 跨实例预交换 + HMAC 正负例闭环 + 双节点状态文件全通过。
+
+**修复 1 处（检查顺序 bug）**: 首跑 12/14——"同机 2 server 并存"判定放在 c2（起 srv_b 时 t=+7s，srv_a 尚未被 client 连入，VCMI server 无客户端会提前退出 → `srv_a.poll()` 非 None 误判）→ 判定延后到 c8（client 连入后 2 server 稳定存活）。
+
+**边界说明**: 真实 `VCMI_server` 不识别 `AuthToken` 帧（T13.10 已知边界，server 端未实装认证逻辑），故认证走协议层验证（`AuthProxy` 补认证端点，照 `p8d_dual_node_sim.py` 范式），游戏帧走真实 VCMI。真机部署时若 server 端实装 `AuthProxy` 同逻辑（收帧 → `TokenVerifier.verify` → 回 1B ACK），即可无缝切换。
+
+**真机路径**: 双机实机已验证，真机部署跑 `py/p8d_deploy_probe.py --remote <host> --port 3030`（需另一台 Windows 预交换 HSK + 部署 VCMI）。
+
 ### P8-D 跨机器部署脚手架 + 实机验证 (09-12, 设计+骨架+本机 13/13 PASS)
 
 **架构**: 3 种拓扑 (A 本地 3 进程 / B 双机 1S+2C / C 三机 1S+3C), HMAC-SHA256 Token 认证 (client_id + timestamp + nonce 签名, ±300s 时间窗, nonce 去重防重放)。
@@ -1168,6 +1201,8 @@ Windows 端 PpoModelAI 插件（`ppomodelai/src/`, 256 维 ONNX obs, 训练侧 3
 
 ### 部署过程（09-11 停训窗）
 
+> ⚠️ 下述 1-2 步为 **09-11 白天旧 user 级 transient unit 的历史过程**；当晚已重构为 system 级 enabled unit（见本文 "#201 WSL 发行版容器空闲关停" 节）。**现行停启 = `wsl -u root systemctl stop|start homm3-train-v5`，禁用 `systemctl --user`**。
+
 1. `systemctl --user stop homm3-train-v5` 优雅停（尾部 `Saved STATE_PATH step=629167`）→ 清 `__pycache__`。
 2. **重启踩坑**: v5 为 transient unit（`--collect`），stop 后单元定义被清除，`systemctl start` 报 "Unit not found"（踩坑 #195，#168 三次复现）→ 改走 `py/restart_train_v5.sh`（systemd-run 重建，venv 必须绝对路径 `/home/administrator/vcmi-workspace/venv/bin/python`）→ `active`。
 3. 在位验证: `grep -c '_t06_hero_kill_capture' ep_runner_one.py` = 3（C 方案代码在位）。
@@ -1677,3 +1712,80 @@ if (bhero_ids_prev is not None and not _t06_hero_kill_capture
 - **观察项（不断言）**：108_02_duel 2 局短终局（34 步/320s/r=15.9、41 步/335s/r=19.6，8-9.4s/步偏慢，无 GUARD_DONE/TOWN_CAPTURE/HERO_DEATH 任何终局标记，err=no），终局原因待攒样本定性（疑长战斗/卡顿后自然终局，非脏局）。
 
 **关联**: 踩坑 #224（部署拓扑）/ #225（header 13 字段）/ #226（King 四层）/ #227（passable）；工具 `py/sync_maps_to_runtime.py`、`py/patch_t06_02_header_0914.py`、`py/patch_king_dragon_0914.py`、`py/patch_king_rebuild_0914.py`；治本 `py/vcmi_full_to_slim.py`、`regenerate_t06_108.py`、`regenerate_level5.py`。
+
+## H3 双编译树判定 + vcmiserver/mlclient 构建部署拓扑 (2026-09-14, 踩坑 #228 闭环)
+
+### 两棵源码树同名，改码前必须先判生产树（最大坑）
+WSL 侧存在两棵同名近似树，极易改错：
+
+| 树 | 构建目录 | CMAKE_HOME_DIRECTORY | 二进制时间 | 是否生产 |
+|----|----------|----------------------|-----------|---------|
+| `/home/administrator/vcmi-native` | `vcmi-native/rel` | `/home/administrator/vcmi-native` | rel/bin/vcmiserver = **09-11→09-14 11:45** | ✅ **生产/训练实际加载** |
+| `/home/administrator/vcmi-native-build` | `vcmi-native-build/rel` | `/home/administrator/vcmi-native-build` | rel/bin/vcmiserver = 08-02（陈旧） | ❌ 不参与生产/训练 |
+
+**判定生产编译树三件套（交叉验证，缺一易误判）**:
+1. `strings /home/administrator/vcmi-native/rel/bin/vcmiserver | grep -c 'vcmi-native/server'` → 168；对 native-build 树同名产物 grep `vcmi-native-build/server` → 时间戳陈旧（内嵌的是**编译时**源码根路径，最硬证据）。
+2. `grep CMAKE_HOME_DIRECTORY /home/administrator/vcmi-native/rel/CMakeCache.txt` → 指向哪棵源码树。
+3. `ls -l --time-style=full-iso rel/bin/vcmiserver rel/bin/libmlclient.so` 看产物 mtime（对照最近一次重编时刻）。
+
+> 教训：在陈旧的 vcmi-native-build 树分析会看到 `removeQuery` 游离实现 + `BattleResultProcessor` 用 `popIfTop`（header 声明还是注释、全树无调用点），从而误判"补丁没接线"；而生产 vcmi-native 树里 08-17 补丁本就完整自洽（header L37 有声明 + brp L404 调 removeQuery），只残留 `removalDone` 守卫这一处缺陷。**两树源码可能不同步，源码级改动前先在生产树 grep 确认。**
+
+### 构建命令（不碰 libvcmi.so）
+```bash
+cmake --build /home/administrator/vcmi-native/rel --target vcmiserver mlclient -j8
+# Unix Makefiles / RelWithDebInfo / ENABLE_ML=ON
+```
+- 产物：`rel/bin/vcmiserver`（可执行，仅此一份生产位）+ `rel/bin/libmlclient.so`。
+- `libmlclient.so` 需**双副本**（Python 侧 `strategic_env.py` 4 处硬编码 `rel/bin/libmlclient.so`；历史 build/bin 也有副本）：
+  `cp rel/bin/libmlclient.so /home/administrator/vcmi-native/build/bin/`，cp 后 `md5sum` 两处对齐，`chown administrator:administrator`。
+- 改后清 `vcmi_gym/**/__pycache__`（ep 逐局加载，无需停训即生效，但本次改了 C++ 必须重启训练让新 vcmiserver 被拉起）。
+- 备份后缀统一 `.bak.H3.20260914`（vcmiserver / libmlclient.so / 4 个 C++/py 源文件）。
+
+### vcmiserver 与训练的进程关系
+- 训练 `train_wsl2_ppo_v2.py`（systemd `homm3-train-v5.service`，system 级 enabled）→ 每局 fork `ep_runner_one.py`（一子进程一局）→ ep 内拉起/承载 VCMI（vcmiserver/libmlclient）。**局间 pgrep -x vcmiserver 可能为空**（reset/启动间隙），不代表卡死；判活看 `pstree -p <train_pid>` 有 ep_runner + `/tmp/hermes_ep_<trainpid>.log` 持续增长。
+- 大图（T06 108X108_02 1v3，200 步）单局 400-600s 正常，勿把慢启动误判挂死。
+- ep 收尾生产侧本就无条件 `os._exit(0)`（ep_runner_one.py L1261），规避真终局后 NK2 后台 makingTurn 线程与 connector shutdown 的析构竞态 SIGSEGV（rc=139）；**任何探针/独立脚本跑到真终局也必须 os._exit，不能 env.close()**。
+
+### H3 败北信号终局通道（本次新增代码契约）
+- `ML/strategic_state.cpp`: `adventure_process_turn` 入口 `if(userData) g_ml_player_cb=userData`（全局回调必须在此持久化）；`adventure_wait_for_turn` 每 25 拍（≈250ms）`shared_lock(CGameState::mutex)` 轮询 `gs.players`（**跳过 PlayerColor::NEUTRAL**，否则打野也算减员误触发），存活玩家≤1 → `fill_strategic_state(g_ml_player_cb)` 刷终局快照 → 返回 **-2**。
+- Python `strategic_env.py`: `_adventure_wait` 识别 -2 静默 return（step 继续 `_read_state→game_over=2→reward→terminated`）；**reward 必须在实际生效的 shaping 分支核对**：NK2 分支曾提前 `return clip(r,-10,300)` 吞掉 -200（终局 state_value 退化为有界值），需在 return 前补 `game_over==1 +200 / ==2 -200`，clip 下限放宽到 -300。
+- server 侧 `removeQuery()` 去 `removalDone` 守卫后每玩家各调一次 `onRemoval`；二次/重入安全由 `battleFinalize` 的 `finishingBattles.count(battleID)==0 return` 兜底，gdb 实机二次 onRemoval 无段错误。
+
+**关联**: 踩坑 #228（完整根因/修复/验证）/ R7「编译部署归属实锤」(09-03)；探针 `py/probe_t06_gameover.py`（`--idle --blue_adventure_ai Nullkiller2`，红败秒回 go=2 r≈-226 rc=0）；补丁 `py/patch_h3_server_0914.py`、`py/patch_h3_souser_0914.py`。
+
+---
+
+## 2026-09-15：WIN-1 ⑤专项 + C2/P10 方案备料 + fog 语义核查 + systemd 口径统一
+
+### ⑤ 200 步截断局专项（直接服务 WIN-1 达标判定）
+- 只读工具 `py/analyze_trunc200.py`（口径对齐 check_win1_watch.py；`--last/--all/--map`；A 胜后空转/B 推进未竟/C 未打出去三分类 + 末 20 拍动作画像 + 同图截断/非截断对照）。
+- 结论（全历史 1124 有效局 / 1v3 133 局）：截断 33/133=25%，**100% 为 B 类**（守卫胜+占矿后未 capture），零 A 零 C（无 ZOMBIE/ENDTURN_FUSE/END_TURN）→ 非策略退化。
+- 结构卡点 = **T06_adventure_72X72_02.vmap 1v3：7/12=58%**，跨 6k 步指纹一致（r≈89.8-93.8，末拍方向2 占 76-80%，H=1.47）。决定性证据：同图成功局（127 步 r=274.6）与失败局（200 步 r=92.9）**前 51 步事件完全同构**（同矿 step43 + 同守卫 (23,20) step51 + 同一 TOWNSTALL block=(40,5)）；分叉在 stall 后：成功绕行遇蓝英雄 capture，失败 step108 起朝东撞墙 ~90 拍（蓝城 (69,2) 在东缘）。
+- **提 250 步对此型无效（撞墙型非步数临界型）**；有效干预 = ①改图（蓝城挪离东缘/清 BFS 堵点，72_02 优先）或 ②修订判据（B 类 r≥150 非病态 / ⑤只数 C 类，当前 C=0）。⑤在改图/修订前结构性不可达 ≤20%，但不阻塞 WIN-1 聚合（①②③④已达标）。
+- 附带关键事实：ep_runner T06 无条件覆盖 `move_to_force=200 + guard_done_steps=0`（ep_runner_one.py L134-136，命令行传 60/15 对 T06 无效）；capture proxy +100 不 break，胜后继续走到 200。
+
+### C2 崩溃根因插桩（方案，零部署）
+- `docs/方案_C2_崩溃插桩_20260915.md`：8 个历史崩溃点台账（启动期/地图数据/断言/工具/关闭期）→ 运行期崩溃几乎都是引擎断言（SIGABRT 有文本栈）或空指针（SIGSEGV 无栈），随机内存腐败型至今无实证；09-14 干净图池后零 SIGSEGV。
+- 四缺口：rc 裸数字不翻译信号名 / ep_log 逐局覆盖 / core 被 WSL pipe 接管且 ulimit -c=0 / server 内 stderr 重定向（fprintf 不可见，#134）。
+- 三级方案：L0 纯 Python（rc→信号名、崩溃局 ep_log 归档 crashlog/、词表补 Segmentation fault、监控计数，建议随 D3 同窗口）；L1 复发时临时 core/gdb（core_pattern 改 `/tmp/core.%p.%e` + ulimit，排查完恢复 wsl-capture-crash pipe）；L2 C++ 信号 handler backtrace 写显式 fd（最后手段，走 .so 铁律）。
+
+### P10 target_list 加权排序（纯设计，零部署）+ 现状机制存档
+- `docs/方案_P10_target加权排序_20260915.md`。
+- **现状机制（代码实证，存档防再查）**：
+  - C++ `ML/strategic_state.cpp` fill_target_list（L197-246）：候选仅未占矿/资源/篝火/宝箱/宝物 5 类，**纯曼哈顿距离 sort top-8**，写 `target_list[8][8]`（type,idx,x,y,z,dist,log2(guard+1),flags=0）；不含城镇/蓝英雄；guard 只记录不参与排序。obs 映射 `obs[3251:3315]`（strategic_env.py L411）。
+  - Python ep_runner_one.py 动作 24 段是**五层硬编码 if/else**：守卫（get_guards 静态 vmap，15 格，L654-686，blacklist 状态机）＞ 矿（type=1 最近，L688-699）＞ 回城取兵（obs 城镇段 recruit_mask，≤25+BFS，T06 限次 2）＞ 蓝城（get_objectives 静态，全图 BFS plen，mine_taken 门控，T06 `_t06_direct` 绕过）＞ target_list 全局最近兜底；护栏 = 粘滞/move_stall 6 步/BFS 不可达跳过/dyn_blocked。
+  - 蓝英雄动态信息**在 obs 全知可读**：英雄段 `obs[128:336]` = 8×26（owner/pos xyz/movement/level/total_power/is_garrisoned…，StrategicHero 字段）；城镇 `obs[336:480]` = 8×18。
+  - 已实锤缺陷：大图 top-8 被近资源挤占致矿引导断链（0909 `_t06_direct` 补丁）、近资源压矿（0829 硬优先级补丁）、guard_power 填而不用、**蓝英雄不在目标池（72_02 stall 后撞墙 90 步的承接缺失）**。
+- 设计要点：Python 旁路统一打分器（候选全量化 vmap 缓存 + 蓝英雄动态入池 + BFS plen + 战力 logistic 可打性 + 阶段调制），硬约束层沿用现有黑名单/stall；**零 obs 变更零重编**，`--target_chain {legacy,scorer}` 开关，离线单测→探针局→T04/T05→T06 灰度；真实 H3 部署时蓝英雄位置须降为 explored/可见集。
+
+### fogOfWarMap 语义（T5.4 遗留核查，已消项）
+- **TeamState.fogOfWarMap = explored 累积语义，非"当前可见"**：枚举 ETileVisibility 仅 HIDDEN/REVEALED；英雄移动 `TryMoveHero.fowRevealed` 只收 fow==0 新格、apply 置 1（GameStatePackVisitor.cpp L543-545），只增不清；清 0 仅 ViewWorld/ViewAir 法术失效（CGameHandler.cpp L752-754）与网络回滚。
+- obs[1155:3203] global_explored 命名正确；local_tiles 以 explored 为黑雾门控、门内对象/守卫实时直读；引擎头注释 "true-visible" 系误导。要"当前帧可见"需按 sightRadius 另算，引擎无现成 per-tick 图。详见 `docs/源码分析地图.md` 待确认第 4 条。
+
+### D3 开局熵 bonus 补丁（备料，等自然重启窗）
+- `py/d3_entropy_bonus.patch`（train_wsl2_ppo_v2.py 5 hunk）：熵系数从常数 0.05 改 `0.05*(1+exp(-total_steps/2e6))`（0 步 0.10 / 200 万 0.068 / ∞0.05），warmup 200 万步；日志行尾在 `time=...s` 之后追加 entc/ent（analyze 脚本正则无尾锚，位置不能错）。
+- 应用：`wsl -u root systemctl stop homm3-train-v5` → cp .bak_d3_日期 → `patch -p1 < py/d3_entropy_bonus.patch` → py_compile → start；回滚 `patch -R`。当前 step 应用瞬间系数 ≈0.085。可与 C2-L0 合并为同一停启批次。
+
+### 运维
+- systemd 口径 09-15 全面统一（system 级 enabled unit，禁 --user），详见踩坑 #229；存活判据沿用 #201 三件套。
+- C1 工具 `py/eval_promo.py` 已加固（独立进程组+看门狗 SIGKILL+实时事件），全 profile 待训练低峰跑。

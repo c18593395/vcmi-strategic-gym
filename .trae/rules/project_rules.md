@@ -15,7 +15,7 @@ VCMI 沙盒 PPO 训练战略模型 (1v7) → 真实 HoMM3 部署对战。当前�
 ## 硬约束
 - **OBS(3464) / 动作空间冻结**: 禁增删维度; 扩展只走预留位或旁路 (terrain 走 terrain_grid.bin, 不占 obs)
 - **训练地图 = VMAP** (T01-T06 课程体系); H3M 已停用 (h3m_tool.py 逆向参考)
-- **训练进程运维**: 改代码 → `systemctl --user stop homm3-train-v5` 优雅停 → 重启 (checkpoint resume); Windows keepalive (`wsl.exe sleep infinity`) 常驻防 idle shutdown (踩坑 #114)
+- **训练进程运维**: unit = system 级 enabled `/etc/systemd/system/homm3-train-v5.service`（0911 起，旧 --user transient 已废弃，踩坑 #195/#201）。改代码 → `wsl -u root systemctl stop homm3-train-v5` 优雅停 → `wsl -u root systemctl start homm3-train-v5` (checkpoint resume; 或 `sudo bash py/restart_train_v5_sys.sh`); Windows keepalive (`wsl.exe sleep infinity`) 常驻防 idle shutdown (踩坑 #114/#201)。**禁用 `systemctl --user`**（当前无 user unit，会误报 inactive/not found）
 - **VCMI 铁律**: 不重编 libvcmi.so; vcmi-native 与 vcmi-native-build 双目录 cp 同步; .so 多副本部署 (改 .so 后同步全部副本)
 - **晋级纪律**: 晋级与开经济不同时做, 一次只加一个难度轴
 - 改 Python 后清 `__pycache__`; 动构建树前备份 .so + 源码
@@ -30,6 +30,7 @@ VCMI 沙盒 PPO 训练战略模型 (1v7) → 真实 HoMM3 部署对战。当前�
 
 ## 常用命令
 - 训练日志实时: `Get-Content D:\Bigdata\hero3_fresh\train_loop.log -Tail 20 -Wait`
-- 训练状态: `wsl bash -c "systemctl --user is-active homm3-train-v5"`
-- 停止训练: `wsl bash -c "systemctl --user stop homm3-train-v5"` (优雅保存)
+- 训练状态: `wsl bash -c "systemctl is-active homm3-train-v5"`（system unit，无 --user；存活性以 PID etime+日志 mtime 为准，踩坑 #201）
+- 停止训练: `wsl -u root systemctl stop homm3-train-v5` (优雅保存; root 免密通道; 普通用户 stop 需 sudo 密码)
+- 启动训练: `wsl -u root systemctl start homm3-train-v5`
 - 健康监控: `py/train_health_monitor.ps1` + `monitor_alerts.log`

@@ -28,11 +28,11 @@ probe_t06_gameover.py — T06 终局方向判别探针 (g3b 交付, 09-11 只写
     (_calc_reward L1057 提前 return) → 末步 r 无判别力, 只读终局 4-tuple。
 
 执行纪律 (错窗! 避免与在训 v5 争 VCMI 资源):
-  1. wsl bash -c "systemctl --user stop homm3-train-v5"
+  1. wsl -u root systemctl stop homm3-train-v5
   2. wsl bash -c "cd /mnt/d/Bigdata/hero3_fresh && \
        /home/administrator/vcmi-workspace/venv/bin/python py/probe_t06_gameover.py T06_adventure_72X72_01_duel.vmap"
      同命令加 --move24 再跑一局 (duel: T06_adventure_72X72_01_duel.vmap, 1v3: T06_adventure_72X72_01.vmap, 各 1-2 局)
-  3. 跑完重启: wsl bash -c "systemctl --user start homm3-train-v5"
+  3. 跑完重启: wsl -u root systemctl start homm3-train-v5
   traj 持久落盘 py/probe_t06_traj.json (D: 盘, 避免 /tmp/EP_TRAJ pid 覆盖事故重演)
 """
 import os, sys, json, time, argparse
@@ -134,6 +134,8 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--move24", action="store_true",
                         help="每步强制 a=24 (镜像 T06 override move_to_force=200 全程引导 regime)")
+    parser.add_argument("--idle", action="store_true",
+                        help="(09-14 H3) 红方每步强制 a=10 END_TURN 挂机 — 红败定向图配合, 蓝方完整回合行动推平红方")
     parser.add_argument("--sample", action="store_true",
                         help="Categorical.sample (镜像训练采样); 默认 greedy argmax")
     parser.add_argument("--out", default="py/probe_t06_traj.json",
@@ -143,7 +145,7 @@ def main():
     model_path = args.model if os.path.isabs(args.model) else os.path.join(PROJECT, args.model)
     out_path = args.out if os.path.isabs(args.out) else os.path.join(PROJECT, args.out)
     model = load_model(model_path) if args.model else None
-    mode = "move24" if args.move24 else ("sample" if args.sample else "greedy")
+    mode = "idle" if args.idle else ("move24" if args.move24 else ("sample" if args.sample else "greedy"))
 
     # ---- StrategicEnv 构造: 镜像 ep_runner L328-342 (T06 训练参数) ----
     # probe 专属差异:
@@ -174,7 +176,9 @@ def main():
     terminal = None  # (terminated, truncated, game_over, timeout, r_alive, b_alive)
 
     for _ in range(args.max_turns):
-        if args.move24:
+        if args.idle:
+            a = 10  # 红全程 END_TURN 挂机 (09-14 H3 红败实证)
+        elif args.move24:
             a = 24
         elif model is not None:
             with torch.no_grad():
@@ -248,10 +252,10 @@ def main():
     print(f"[PROBE][TERMINAL] players obs[8:43] sanity: {players.tolist()}")
     print(f"[PROBE][VERDICT] {verdict}")
     print(f"[PROBE] traj -> {out_path}", flush=True)
-    try:
-        env.close()
-    except Exception:
-        pass
+
+    # 09-14 H3: traj 已 fsync 落盘, 直接 os._exit(0) 收尾 (对齐 ep_runner_one.py L1261)。
+    # 刻意不调 env.close(): 真终局后 NK2 后台线程仍 makingTurn, close()->connector.shutdown()
+    # 的 join 会触发 VCMI client 线程析构竞态 SIGSEGV (rc=139); traj 已持久化, VCMI 子进程随父退出清理。
     os._exit(0)
 
 
