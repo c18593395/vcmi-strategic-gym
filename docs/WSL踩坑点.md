@@ -940,4 +940,17 @@
 - **复现/验证**: `grep -n "act_loop_from_step" ep_runner_one.py train_wsl2_ppo_v2.py` 确认 3 处；`grep "T06.*steps=200" train_loop.log` 观察新 r 值是否回升。
 - **关联**: #232（P10 经济期远目标无衰减）/ #228（败北信号根修）/ `ep_runner_one.py` L110/L150/L1226/L1257/L1269 / `train_wsl2_ppo_v2.py` L184 / 当前任务清单 WIN-1 ⑤ / P10-target。
 
+#### #238 P10 V×0.2 衰减对 108_02_duel 无效：蓝英雄 plen=201 > 200 步预算，经济+空转确定性无 capture (09-16, 日志分析发现) — ⚠️ 已定性（结构性不可达，按 WIN-3 ① 走 72X72_02_duel 单图轴）
+
+- **状态**: ⚠️ 已定性（108_02_duel 结构性不可达，按 WIN-3 ① 切 72X72_02_duel 单图轴；108_02_duel 暂移出 MAPS 或提 250 步）
+- **现象**: 09-16 重启段 duel 图（72_01_duel / 72_02_duel / 108_02_duel）持续 200 步截断，r 在 -1261 ~ -1283（108_02 最严重）。`[SCORE]` 行 `pick=(102,102) type=blue_hero score=110.9 plen=201 V=100 F=-0.32 runner_up=92.3`，模型每帧持续 `+10/+40/+120` 招兵 + 经济（act=16-21）+ 大量 END_TURN（act=2），200 步走完仍未到 capture 点。
+- **根因**: 蓝英雄 (102,102) BFS 距离 201 步 > 200 步预算（`max_turns=200`），属**结构性不可达**——与 WIN-3 评估「108_02_duel 红 hero→蓝镇 曼哈顿 200 步 = 100% 截断率」结论一致。P10 V×0.2 衰减（#232）把 score 从 V=100 压到 110.9（经济期远目标 F=-0.32），但 **衰减只降 score 不改 plen 不可达性**，模型仍被 P10 scorer 选中 blue_hero 目标（runner_up 接近头名），只会"经济+东进"确定性空转。
+- **72_01/72_02 duel 同因**: 蓝英雄 plen=68/129，经济期衰减同样未让 capture 真正发生（#232 灰度首日 King r=119.3 正收益，但 duel 图 r 仍 -1200+）。
+- **正确口径 / 处理**:
+  1. **P10 V×0.2 衰减对 duel 图无效**：衰减只是降 score 排序，不解决 plen > 步预算 的结构性不可达。duel 图需按 WIN-3 ① 切 72X72_02_duel 单图轴（距离 128 步 = 64%，200 步内可达）。
+  2. **108_02_duel 二选一**（不混做）：① 提 250 步（全局影响所有图，T05 小图节奏变慢 ~25%）；② 挪蓝镇到 (98,98)（`py/win3_move_town_108_02_duel.py` 09-15 备料，距离 200→174 = 69%）。当前不动，待 WIN-1 达标后走 WIN-3 难度轴。
+  3. **WIN-1 判据⑤ 200 步截断率**：本段 duel 图 200 步截断 ≥30%（ep16/ep20/ep28 全 duel），高于⑤ 20% 红线，但全属 B 类（守卫胜+占矿后未 capture），按 09-15 拍板口径不阻塞 WIN-1 聚合。
+- **复现/验证**: `grep "108X108_02_duel" train_loop.log | grep "steps=200"` 观察截断率；`grep "pick=.*blue_hero.*plen=20" train_loop.log` 看 P10 scorer 是否选中不可达目标。
+- **关联**: #232（P10 V×0.2 衰减）/ #237（T06 duel act_loop 门控失效）/ WIN-3 ① 72X72_02_duel 单图轴 / 知识库「WIN-3 难度轴纯评估」章 / `py/target_scorer.py`。
+
 
