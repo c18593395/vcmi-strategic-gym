@@ -952,5 +952,6 @@
   3. **WIN-1 判据⑤ 200 步截断率**：本段 duel 图 200 步截断 ≥30%（ep16/ep20/ep28 全 duel），高于⑤ 20% 红线，但全属 B 类（守卫胜+占矿后未 capture），按 09-15 拍板口径不阻塞 WIN-1 聚合。
 - **复现/验证**: `grep "108X108_02_duel" train_loop.log | grep "steps=200"` 观察截断率；`grep "pick=.*blue_hero.*plen=20" train_loop.log` 看 P10 scorer 是否选中不可达目标。
 - **关联**: #232（P10 V×0.2 衰减）/ #237（T06 duel act_loop 门控失效）/ WIN-3 ① 72X72_02_duel 单图轴 / 知识库「WIN-3 难度轴纯评估」章 / `py/target_scorer.py`。
+- **09-16 处置**: ✅ 提 250 步方案已部署——`STEPS_PER_EP 200→250` + T06 `move_to_force=250` + 清 `__pycache__` + stop/start（PID 25924），新 banner 行 96902 `1000eps×250steps` 已生效；T05 小图节奏变慢 ~25% 需后续观察。
 
 

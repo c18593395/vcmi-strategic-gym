@@ -39,11 +39,26 @@ T13 外挂 AI 客户端与 VCMI server 之间的二进制网络协议契约。
 关键出站包 SHALL 符合以下布局（字节级细节见 docs/序列化协议规格.md §5）：
 - EndTurn (180) = 6B
 - MoveHero (182) = 22B（4 点路径）
-- QueryReply (197) = 8-9B（queryID + player + result）
+- QueryReply (197) = 8B(absent)/9B(present)，布局 = isNull + pid + tid + player + req + qid + [0x00] / [0x01 + reply LVarInt]
+  （09-16 P8-C 收尾实机验证: 8B absent 帧 server 无 197 fishy = 受理; C++ 端 save(optional) absent 走 uint32(0) 4B 路径,
+  与 Python 8B absent 的 1B 0x00 存在潜在不匹配, 9B present 为回退候选, 回退判据 = 197 fishy）
 - RecruitCreatures (187) = 23B
 - TryMoveHero (109) 回包字段序 = id + result + start + end + movePoints + fow + attackedFrom
 
-#### Scenario: 玩家回合门控
+### Requirement: QueryReply 双布局回退
+外挂发 QueryReply(197) SHALL 按 8B absent 首发; 若 server 197 鱼线出现 ("applying 10QueryReply...fishy") 或 10s 内无 PackageApplied(84) 回流, 换 9B present 重试一次。
+真实 qid 数据源: server QUERY-DIAG 日志行 ([QUERY-DIAG] qid=N player=X type=...) 为主, 客户端 88/154-160 query 包体首字段 qid 为辅; 仅当我方 (MY_COLOR) qid != -1 才回送, 他方只记录。
+客户端 88 PlayerStartsTurn 包体的 queryID 字段 = 上一回合 qid 残值, 不作回送依据 (09-11 P8-B 实锤坑)。
+
+#### Scenario: 无计时器场景全程 qid=-1
+- **WHEN** 对局无 player timer, QUERY-DIAG 行全部 qid=-1
+- **THEN** 197 帧离线组包单测 + 实机发送 zero 197 fishy + server 16PlayerStartsTurn 广播 >=2 即 PASS(qid=-1 only), 与 09-14 p8c_query_probe_real 口径一致
+
+#### Scenario: 有真实 qid 时回送
+- **WHEN** QUERY-DIAG 行出现 qid != -1 且 player 为我方
+- **THEN** 组包 8B 回送; 197 zero fishy = PASS(replied)
+
+### Requirement: 玩家回合门控
 - **WHEN** 收到 PlayerStartsTurn(88) 包
 - **THEN** 包体 = queryID + playerColor 字段序（非 player+time_limit）；外挂仅在 MY_COLOR 回合发 EndTurn，否则 server 拒绝（"not allowed/fishy"）
 
@@ -57,6 +72,11 @@ server 注入诊断行（SRV-DIAG）：HERO OI dump / TOWNAVAIL dump，供外挂
 
 ## Notes
 
-- 验证基线：离线 test_e2e 145/145 PASS；实机 P8-B 阶段1/2 + P8-C 决策接入（MoveHero/Build/Recruit）PASS（0911）
+- 验证基线：离线 test_e2e 145/145 PASS；实机 P8-B 阶段1/2 + P8-C 决策接入（MoveHero/Build/Recruit）PASS（0911）；
+  P8-C 收尾 2.1/2.2 QueryReply 8B/9B 实机验证 PASS（09-16, py/p8/p8c_query_reply.py 两次 clean run:
+  ① DIAG qid=2/red 8B 帧发出 197 zero fishy = PASS(replied); ② qid=-1 only + server 16PST广播=3>=2 + 197 zero fishy = PASS(qid=-1 only)）
 - 安全约束：恶意包不得炸服（#205 retrievePack try/catch 已修，回归时保持）
-- 待实战样本：QueryReply(197) 实战字段验证
+- fork/1.8 已知限制：green(NK2) 客户端在 16PlayerStartsTurn 广播#2 时 runNetwork 线程段错误（dmesg 实锤，
+  每次 clean run 复现），导致 server SHUTDOWN + Python 连接 RST；对局推进判据以 server 侧 16PST 广播次数为准，
+  与 green 存活无关。QueryReply 8B absent 与 C++ save(optional) absent 路径（uint32 4B）存在字节级不匹配疑点，
+  9B present 为回退候选，待 197 fishy 出现时验证。
