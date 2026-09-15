@@ -918,3 +918,11 @@
 - **教训**: ①**合批判断必须双维**：技术前置（同批可行性）+ 业务前置（每项触发条件是否满足），缺一即漏；②"预期短期 capture=0"不等于"前置已满足"——BHERO_KILL 全历史 0 次是结构性前置断链（真 capture 从未发生），非"样本量不够"；③判据聚合脚本（如 `win1_five_criteria_snapshot.sh`）应作为每次合批部署前的**强制检查项**，而非事后追查工具；④回退代码时保留有价值的注释修正（如陈旧注释修正）+ 触发延后说明，为后续重新实施提供上下文。
 - **关联**: #204（0 命中三义性：埋点未生效/观测无效/真无行为，本条判据① BHERO_KILL=0 属"真无行为"）/ #210（HERO_DEATH 0 根因）/ #228（败北信号根修）/ #231（capture proxy 空拍误报修复，让判据①能真实反映"真 capture 未发生"）/ WIN-1 五判据原文 / `py/win1_five_criteria_snapshot.sh` / `py/win1_window_split.sh` / `ep_runner_one.py` L1148-1210 / 知识库 S2 回退决策章。
 
+#### #236 D3 entc 行（L534 per-epoch）需攒满 1 个 BATCH 才触发，部署后前 30min 看不到 entc 属正常现象 (2026-09-15, D3 部署验证发现) — ⚠️ 观察口径坑
+
+- **现象**: D3 熵 bonus 09-15 05:34 部署后，连续检查 3 次（05:38/05:53/06:50）`grep entc train_loop.log` 均 0 命中，一度怀疑 L534 print 语句未生效或 `__pycache__` 未清。实际上 entc 字段在 ep=14 行（`step698978`，约 05:34+55min 后）才首次出现。
+- **根因**: `train_wsl2_ppo_v2.py` 有两类 step 日志行：L435（per-episode，每局打一行，格式 `stepX avg_r=Y ep=N time=Zs`，**无 entc/vloss/loss/kl 字段**）和 L534（per-epoch，每攒满 1 个 BATCH=2048 条样本才打一行，格式含 `vloss/loss/kl/klc/entc/ent`）。T6.4 大图每局 ~130 step，BATCH 需 ~10-14 局 / ~55min。部署后前 30min 仅 ep=1-5（~5 局 / ~650 step），远未攒满 1 个 BATCH，L534 行尚未触发，故 grep entc=0 是**数据未到**而非**代码未生效**。
+- **教训**: ①部署新字段后验证需等 1 个完整 BATCH 周期（~55min），不可用前 30min 的 grep 0 命中下结论；②区分 per-episode 行（L435，高频）与 per-epoch 行（L534，低频）——前者每局打，后者每 BATCH 打；③`__pycache__` 已清 + `py_compile` 过 + 源文件 grep 到字段 ≠ 运行中进程已加载新代码，最终以日志行为准。
+- **关联**: #235（合批双维前置核查）/ `train_wsl2_ppo_v2.py` L435/L534 / 总任务.md「09-15 部署后首份观察记录」。
+
+
