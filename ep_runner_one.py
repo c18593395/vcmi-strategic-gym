@@ -107,6 +107,8 @@ parser.add_argument("--act_loop_alt", type=int, default=8,
                     help="动作级循环: 两两交替窗口步数 (偶数, 8 = [a,b]x4)")
 parser.add_argument("--act_loop_p3", type=int, default=9,
                     help="动作级循环: 三阶周期窗口步数 (9 = [a,b,c]x3)")
+parser.add_argument("--act_loop_from_step", type=int, default=0,
+                    help="动作级循环: 生效起始步 (0=跟随 move_to_force, 否则覆盖)")
 parser.add_argument("--reward_explore", type=float, default=0.0,
                     help="探索奖励: 访问新格子 +N (C8.5)")
 parser.add_argument("--use_nk2_shaping", action="store_true",
@@ -1223,7 +1225,10 @@ try:
         # 插入 10 会打断检测窗口; 剔除后 10 无法逃避检测, 投机失去收益
         if a != 10:
             act_hist.append(a)
-        if args.act_loop_penalty > 0 and traj["steps"] >= args.move_to_force:
+        # T06 move_to_force=200=max_turns → 门控永假 (act=2 循环无惩罚, r≈-420~-440 主因之一)
+        # act_loop_from_step>0 时与 move_to_force 解耦, T06 设 60 → step≥60 后惩罚生效
+        _al_from = args.act_loop_from_step if args.act_loop_from_step > 0 else args.move_to_force
+        if args.act_loop_penalty > 0 and traj["steps"] >= _al_from:
             if len(act_hist) >= args.act_loop_repeat and len(set(act_hist[-args.act_loop_repeat:])) == 1:
                 r -= abs(args.act_loop_penalty)
             elif len(act_hist) >= args.act_loop_alt:
@@ -1249,7 +1254,7 @@ try:
             prev_pos = (int(traj["obs"][-1][base+2]), int(traj["obs"][-1][base+3]), int(traj["obs"][-1][base+4]))
             cur_pos = (int(nobs[base+2]), int(nobs[base+3]), int(nobs[base+4]))
             if prev_pos == cur_pos:
-                r = -0.5
+                r += -0.5  # 0915: 改为累加, 原 r = -0.5 赋值会覆盖同帧其他正 reward
             # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
             if len(traj["obs"]) >= 2:
                 prev2 = traj["obs"][-2]
@@ -1261,7 +1266,9 @@ try:
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
             # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致
-            if len(traj["obs"]) >= 8 and traj["steps"] >= args.move_to_force:
+            # 0915: T06 move_to_force=200 → 横跳8步窗门控也永假, 用 act_loop_from_step 解耦
+            _al_from = args.act_loop_from_step if args.act_loop_from_step > 0 else args.move_to_force
+            if len(traj["obs"]) >= 8 and traj["steps"] >= _al_from:
                 recent = []
                 for o in traj["obs"][-8:]:
                     a2 = int(o[3203]) if o[3203] >= 0 else 0

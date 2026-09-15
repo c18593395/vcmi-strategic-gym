@@ -231,7 +231,7 @@ for i in range(n_ep):
         timed_out, rc = True, -1
     out = "".join(out_lines)
     ev = parse_events(out)
-    steps, total_r, tr_err, acts, valid = 0, 0.0, "", [], False
+    steps, total_r, tr_err, acts, valid, err_reason = 0, 0.0, "", [], False, ""
     try:
         with open(traj_out) as f:
             tr = json.load(f)

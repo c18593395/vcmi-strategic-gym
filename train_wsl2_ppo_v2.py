@@ -181,6 +181,10 @@ def run_episode(mapname, blue_model=None):
     # 状态级/横跳只抓位置往返, 抓不住推进型动作循环; 强制阶段不检测)
     # 第7轮 v2: 3.0→1.8 — 3.0 诱发 10 END_TURN 投机 (ROUND3 10 占比 6%→17.8% 全场第一)
     cmd.extend(["--act_loop_penalty", "1.0"])  # 降循环惩罚，减少负reward干扰
+    # T06 move_to_force=200=max_turns → act_loop 门控永假 (r≈-420 主因)
+    # 设 60: step≥60 后惩罚生效, 与 move_to_force 解耦; 非 T06 不设 (默认 0=跟随 move_to_force)
+    if mapname.startswith('T06'):
+        cmd.extend(["--act_loop_from_step", "60"])
     # 守卫击杀自动终局 (2026-08-29): +100 后 15 步内无新目标 → 提前结束 episode。
     # 治杀守卫后英雄存活长期振荡烧分 (每步-0.1+循环惩罚 → final r 跌破 80 晋级线, 20X20_01 全 0 胜)。
     # 新目标 (守卫/矿/资源) 自动重置倒计时; 回退 = 注释本行 (runner 默认 0=关闭)

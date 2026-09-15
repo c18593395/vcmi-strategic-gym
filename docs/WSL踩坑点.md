@@ -925,4 +925,19 @@
 - **教训**: ①部署新字段后验证需等 1 个完整 BATCH 周期（~55min），不可用前 30min 的 grep 0 命中下结论；②区分 per-episode 行（L435，高频）与 per-epoch 行（L534，低频）——前者每局打，后者每 BATCH 打；③`__pycache__` 已清 + `py_compile` 过 + 源文件 grep 到字段 ≠ 运行中进程已加载新代码，最终以日志行为准。
 - **关联**: #235（合批双维前置核查）/ `train_wsl2_ppo_v2.py` L435/L534 / 总任务.md「09-15 部署后首份观察记录」。
 
+#### #237 T06 duel act_loop_penalty + 横跳 8 步窗门控随 move_to_force=200 全程失效 + `r = -0.5` 赋值覆盖同帧正 reward (2026-09-15, T06 duel 轨迹分析发现) — ✅ 已修复
+
+- **状态**: ✅ 已修复（ep_runner_one.py 3 处 + train_wsl2_ppo_v2.py 1 处，`wsl -u root systemctl stop/start` 重启生效）
+- **背景**: T06 duel（72X72_02_duel / 108X108_02_duel）200 步截断局 r=-410~-446，act=2（SW）方向卡死 130+ 次，无任何 GUARD/CAPTURE 正向触发。根因分析发现三个机制耦合。
+- **坑① act_loop_penalty 门控永假（主根因）**: `ep_runner_one.py` L1226 `if args.act_loop_penalty > 0 and traj["steps"] >= args.move_to_force:`。T06 被 L150 无条件覆盖 `move_to_force=200`，而 `max_turns=200`，最后一帧 step=199，`traj["steps"] >= 200` 全程 False → 动作级循环惩罚（连续 4 步同动作 -1.0）在 T06 **全程被跳过**。小图（T03/T05）`move_to_force=60` 无此问题。
+- **坑② 横跳 8 步窗门控同样失效**: L1269 `if len(traj["obs"]) >= 8 and traj["steps"] >= args.move_to_force:` 同一门控，T06 全程 False → 8 步窗 ≤2 格交替 -3.0 + 强制随机方向 均不生效。
+- **坑③ `r = -0.5` 赋值 bug（放大器）**: L1257 `if prev_pos == cur_pos: r = -0.5` 是**赋值**而非累加。英雄被墙/边界挡时 r 被直接重置为 -0.5，同帧累积的 NK2 探索奖励、经济 RECRUIT +12/+0.5、BUILD +15/+0.75 全部丢失。T06 duel 200 步中 ~130 步 act=2 被挡 → 每次赋值覆盖前帧奖励，-440 的主要来源之一。
+- **正确口径 / 修复方案**:
+  1. 新增 `--act_loop_from_step` 参数（默认 0 = 跟随 move_to_force，保持非 T06 图行为不变）；T06 专属传 60 → step≥60 后循环惩罚生效
+  2. 横跳 8 步窗门控同步改用 `act_loop_from_step`（与 act_loop 同一解耦逻辑）
+  3. `r = -0.5` 改 `r += -0.5`（累加，保留同帧其他正 reward）
+- **预期效果**: T06 duel r 从 -440 回升至 -200~-300；act=2 循环占比下降；非 T06 图行为不变（`act_loop_from_step=0` 时回退到 `move_to_force`）。
+- **复现/验证**: `grep -n "act_loop_from_step" ep_runner_one.py train_wsl2_ppo_v2.py` 确认 3 处；`grep "T06.*steps=200" train_loop.log` 观察新 r 值是否回升。
+- **关联**: #232（P10 经济期远目标无衰减）/ #228（败北信号根修）/ `ep_runner_one.py` L110/L150/L1226/L1257/L1269 / `train_wsl2_ppo_v2.py` L184 / 当前任务清单 WIN-1 ⑤ / P10-target。
+
 
