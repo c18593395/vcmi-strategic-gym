@@ -1,0 +1,36 @@
+schema: spec-driven
+
+context: |
+  项目: HoMM3 RL + VCMI 外挂 AI（T13），双轨: 训练(WSL2, T1-T7) + 真实游戏对齐(P8 外挂协议)。
+  终极目标: AI 操控真实 HoMM3, 1v7, 人vs人vs模型联网。
+  语言: zh-CN。所有 artifacts 用中文撰写，OpenSpec 结构性标题与 SHALL/MUST 关键词保留英文。
+  真相源划分:
+  - openspec/specs = 行为与契约（协议、判据口径、模块边界）——改行为先改 spec
+  - docs/当前任务清单.md = 窗口焦点与任务状态（指针到 spec，不重复契约细节）
+  - docs/已完成任务.md + WSL知识库/踩坑点 = 过程记录与经验
+  - fact_store = 跨会话经验记忆
+  运行环境: 训练在 WSL2 Ubuntu (~/vcmi-native, ~/vcmi-workspace)；主仓 D:\Bigdata\hero3_fresh (Windows)。
+  硬约束: 训练后台跑不中断；rel/.so 部署与 eval 抢 GPU 需停训窗口（C 档谨慎）；契约变更须过 openspec change 流程。
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
