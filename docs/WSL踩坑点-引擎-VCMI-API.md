@@ -1229,8 +1229,8 @@ ML 强定义优先, 客户端默认空走 settings。
 - **影响**: ①3.2 "对局 >=2 回合" 判据只能以 server 侧 16PST 广播次数为准 (green 存活无关) ②green 崩前最后一波 [QUERY-DIAG] 行 (qid=2/red MapObjectVisitQuery) 在 Python 连接 RST 后才被 tail 到, 197 组包回送窗口极窄 (run10 抓住 1 次, run11/12 窗口错过, DIAG 行出现时 Python 已断)
 - **8B/9B 布局实测**: ①离线: 8B absent = `0000c50100010200` (isNull+pid+tid+player+req+qid+0x00), 9B present = `0000c5010001020100` (+0x01+reply LVarInt), 与 QueryReply 类字节级一致 ②实机: 8B 帧发出后 server **无 197 fishy** = 受理 (run10); C++ `BinarySerializer::save(std::optional<T>)` absent 路径 = `save(static_cast<uint32_t>(0))` 写 4B, 与 Python 1B 0x00 存在字节级不匹配疑点, 9B present 为回退候选 (回退判据 = 197 fishy 行 "applying 10QueryReply...fishy")
 - **判定口径** (09-16 固化): ① bad keyword 只数 197 QueryReply 鱼线, Build/Recruit 占位 OI 的 fishy 记录不计入 ② 客户端 88 PlayerStartsTurn 包体 queryID 字段 = 上一回合 qid 残值, 真实 qid 一律以 [QUERY-DIAG] 行为准 ③ green 崩前 5s 断线后仍 tail, 抢 197 组包窗口
-- **根因未闭合**: green runNetwork 段错误属 fork/1.8 引擎 C++ bug (QueriesProcessor use-after-free 疑似, 与 09-14 数据源墙记录 "green client 段错误" 同源), 修复需动 server/CGameHandler 生命周期 + 重编 vcmiserver/vcmiclient, 超出 P8-C 纯协议范围, 需独立 dev 任务 (reasonix-cli + dmp 分析)
-- 状态: ✅ 2.1/2.2 离线+实机验证 PASS; ⚠ green 段错误待 C++ 侧修复 (崩溃点已定位到 mov r13,[rax+0x80]); ⚠ 8B absent 与 C++ uint32 路径字节不匹配疑点待 197 fishy 出现时验证
+- **根因未闭合** (09-16 已由 #215 根治): green runNetwork 段错误原疑似 CGameHandler use-after-free, 实为 **client 框架 headless 路径 null-ENGINE 解引用** (gdb core 实锤), 非 use-after-free。修复 = 14 处 `if(ENGINE)` 守卫, 见 #215。
+- 状态: ✅ 2.1/2.2 离线+实机验证 PASS; ✅ green 段错误已由 #215 根治 (vcmi-native 65515ef24); ⚠ 8B absent 与 C++ uint32 路径字节不匹配疑点 → 实机 8B 帧无 197 fishy = 受理, 9B present 为回退候选, 见 #216
 
 ### 214. RecruitCreatures(187) 构造签名: 无 bid/count 参数 (09-16)
 - **现象**: `RecruitCreatures(tid=1, bid=30, count=1)` 报 `TypeError: __init__() got an unexpected keyword argument 'bid'`
@@ -1245,5 +1245,19 @@ ML 强定义优先, 客户端默认空走 settings。
 - **修复**: `client/CServerHandler.cpp` + `client/Client.cpp` 全部裸 `ENGINE->` 解引用 (discord/windows/interfaceMutex) 加 `if (ENGINE)` 守卫 (共 13+1 处), sendRestartGame/sendStartGame 的 CLoadingScreen 双分支收进 `if (ENGINE) {}` 消除 dangling-else。重编 vcmiclient
 - **验证**: 修后 16PlayerStartsTurn 广播=4 (修前=3, green 活到第3回合), 无 "Connection lost", dmesg 无新 runNetwork segfault, 无新 core。BuildStructure fishy 仍存 (占位 OI 正常, 不计入 197 判定)
 - **教训**: ① dmesg `segfault at 80` 的 `80` = 解引用偏移而非函数偏移, 直接符号化 ip 会被 inlined 调用者误导, **必须 gdb core 拿调用栈** ② headless/testmap-onlyai 路径在 fork 1.8 下未做 null-ENGINE 守卫 (上游无此模式), 任何 `ENGINE->` 裸调用在此路径都是定时炸弹 ③ `startGameplay`/`endGameplay` 是 green 收 171KB LobbyStartGame 广播时必经路径, 崩点不在 NK2 AI 侧而在 client 框架侧
-- 状态: ✅ 修复部署 (vcmi-native working tree, client/CServerHandler.cpp + client/Client.cpp), 待正式 commit
+- 状态: ✅ 修复部署 (vcmi-native working tree, client/CServerHandler.cpp + client/Client.cpp), 已 commit 65515ef24 (mmai-ml, 本地未推)
+
+### 216. 8B absent vs C++ save(optional) 字节不匹配: 实机 8B 无 197 fishy = 受理 (09-16)
+- **现象**: C++ `BinarySerializer::save(std::optional<int32>)` absent 路径 = `save(static_cast<uint32_t>(0))` 写 **4B** uint32, 但 Python `p8c_query_reply.py` 8B absent 帧只写 **1B `0x00`** → 理论字节级不匹配
+- **实机结论**: run10 发 8B absent 帧, server **无 197 fishy 行** = 受理 (197 fishy = "applying 10QueryReply...fishy")。说明 server 侧对 8B 帧的解析路径在 absent 场景下未触发拒绝 (要么 C++ actual 路径在 wire 上也是 1B, 要么 server 宽容解析)
+- **未实锤**: 9B present 回退候选尚未被 197 fishy 实际触发过验证 (对局无 player timer → qid=-1 → 无 197 帧, 无 reject)。待某次对局出现 197 fishy 时回退 9B 再验证
+- **教训**: ① byte-level wire 验证须跑实机 (离线字节对齐 ≠ server 实际解析行为) ② 回退判据 = 197 fishy 行, 不是 "server 没回 PackageApplied" (PackageApplied 回流时序宽, 别拿它当 reject 信号)
+- 状态: 8B 已实机受理; 9B 回退候选保留, 待 197 fishy 触发验证
+
+### 217. reasonix-cli 在 WSL 跑 Windows .exe 不通 + --dir 指 WSL 路径无效 (09-16)
+- **现象**: `wsl -u root ... /mnt/d/Bigdata/Reasonix/reasonix-cli.exe run --dir /home/administrator/vcmi-native` 15s 内 `run_done ok=false num_turns=0` 退出
+- **根因**: ① reasonix 是 Windows .exe (C#/.NET), 虽能从 WSL 走 /mnt/d 执行, 但其内部工作目录逻辑期望 **Windows 路径**, `--dir /home/administrator/vcmi-native` 对 .exe 无效 (Windows 文件系统看不到 WSL rootfs 路径) ② 任务文本 `$(cat file)` shell 展开在 `sh -c` 引号里被吞, 路径被转义破坏
+- **结论**: 修 WSL 侧 C++ 仓 (vcmi-native), reasonix **不适用**, 走主会话手动 gdb + patch。reasonix 只适用于 `--dir` 指 Windows 路径 (如 `D:/Bigdata/hero3_fresh` 主仓 Python 侧)
+- **关联**: 主仓 (Python) 侧 reasonix 可用; WSL vcmi-native (C++) 侧一律主会话手动
+- 状态: 知识归档
 

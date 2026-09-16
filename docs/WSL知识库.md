@@ -2218,3 +2218,25 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 ### 关联
 
 踩坑 #213/#214/#215 / spec `openspec/specs/vcmi-protocol/spec.md` / `py/p8/p8c_query_reply.py` / vcmi-native 65515ef24 / 上游 P8-E 人机混局 (09-15) / P8-D 双机部署 (09-14).
+
+## WIN-1 capture 观察窗 40 局临界复核 + P8-C green null-ENGINE 根治 (09-16)
+
+**背景**: P8-C 收尾 2.1-4.2 完成 (commit 1eb664b/7ae9ae7) + green 段错误根治 (踩坑 #215, vcmi-native 65515ef24) 后, WIN-1 capture+100 观察窗继续攒局。
+
+### WIN-1 攒局: 40 局临界越过, 判据①仍 0 = 实质卡点
+- **40 局临界**: 09-16 白天 ep=40 (step=725195) 本窗已攒满 40 局严格聚合 (切窗锚点 L=97434 'Loaded train state' step=719852 起)。
+- **判据① TOWN_CAPTURE 在 40 局大样本下仍=0** (主日志本窗 0 + runner 0), 三义性=生效但本窗 0 触发 (capture proxy 双拍确认修复在位, duel 图 blue_hero_killed 非空拍持续出现, 但真实全灭+占城从未走到"占城+双拍确认"那一步)。**40 局临界已过仍 0 = 实质卡点, 非挂起**——无脑续攒大概率还 0。
+- **判据② GUARD**: 本窗仅 2 次接战全 won +100 (比率 2/2=100% 但样本极小, 分母守卫局数不足), 需下窗攒厚。
+- **判据④ 经济 RECRUITED=758 维持; ⑤ duel 截断全 B 类 C 类=0**。
+- **下一步方向**: 深挖 blue_hero_killed 后占城链路为何未触发 (双拍确认被空拍吞 / 占城 OI 未易主 / 击杀后英雄未走到蓝城), 再决定继续攒 vs 切 WIN-3 ① 72X72_02_duel 单图轴。子 agent 判据对齐分析 (18:13 派发) 被用户"取消所有任务"中断, 占城链路深挖未出报告, 待重启。
+
+### P8-C green null-ENGINE 根治 (踩坑 #215, 已 commit)
+- **根因 (gdb core 实锤)**: client 框架 headless 路径 null-ENGINE 解引用——首崩点 `client/CServerHandler.cpp:697 startGameplay → ENGINE->discord()` (headless 下 EntryPoint L297 `if(!headless) ENGINE=make_unique` 使 ENGINE 恒 null), 二次崩点 `Client.cpp:536 removeGUI → ENGINE->windows()`。dmesg "segfault at 80" 的 80=解引用偏移非函数偏移, 直接 addr2line 落在 inlined `__Vector_base<char>` 是误导, 必须 gdb core 拿真实调用栈。
+- **修复**: 14 处裸 `ENGINE->` 加 `if(ENGINE)` 守卫 + 重编 vcmiclient。验证: 16PST 广播 3→4 (green 活到第3回合), 无 Connection lost, dmesg 无新 segfault。
+- **状态**: vcmi-native commit `65515ef24` (mmai-ml 分支, 本地未推, ahead 11 / behind 8); 主仓归档 commit `dfdc532`/`c7f7ba8`。
+
+### 踩坑沉淀
+- #215 green null-ENGINE 根治 / #216 8B absent vs C++ uint32 字节不匹配 (实机 8B 无 197 fishy=受理, 9B 回退候选待 197 fishy 触发) / #217 reasonix-cli WSL 跑 Windows .exe 不通 + --dir 指 WSL 路径无效 (09-16 实测 15s run_done ok=false, WSL C++ 仓一律主会话手动 gdb+patch)
+
+### 关联
+踩坑 #215/#216/#217 / 任务清单 WIN-1 进度核查 (09-16 深夜 ep=103) / vcmi-native 65515ef24 / 知识库「P8-C 收尾」章 / WIN-3 ① 72X72_02_duel 单图轴 (待 WIN-1 达标)。
