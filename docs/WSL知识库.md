@@ -59,6 +59,31 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-16 P10-target-2b duel 图 move_to_force 分区分段策略（已验证通过）
+
+**结论**（截至 2026-09-16）：T06 图 `move_to_force` 需按 duel/非 duel 区分，统一 `move_to_force=250` 会导致 duel 图 act=2 循环惩罚 190 步累积 r≈-1665。
+
+**核心规则**：
+
+| 图类型 | move_to_force | 原因 |
+|--------|--------------|------|
+| T06 duel（蓝英雄为目标）| 60 | 蓝英雄 plen=129/201 < 250 理论可达；P10 SCORE 引导前 60 步内驱动 24 MOVE_TO；与 `act_loop_from_step=60` 同步，避免 190 步循环惩罚累积 |
+| T06 非 duel 1v3（蓝城为目标）| 250 | 蓝城引导天然在守卫胜后（step 38-58+），需全程 MOVE_TO；`guard_done_steps=0` 禁用 GUARD_DONE 提前终局 |
+
+**验证数据**（重启后 5 局 duel）：
+
+| 图 | steps | r | 对比旧 250 步全覆盖 |
+|----|-------|---|------|
+| 72X72_02_duel | 74 | -183 | -1665→-183，改善 89% |
+| 72X72_02_duel | 158 | -123 | 改善 93% |
+| 108X108_02_duel | 139 | -137 | -1671→-137，改善 92% |
+| 72X72_01_duel | 62 | -174 | 改善 89% |
+| 72X72_02_duel | 111 | -165 | 改善 90% |
+
+**#238 定性更新**：108_02_duel 蓝英雄 plen=201 < 250 已可达，"结构性不可达"定性作废；duel 图 r 极差问题彻底解除。
+
+**踩坑点**：`move_to_force` 与 `act_loop_from_step` 耦合时，若 `move_to_force = max_turns`（全覆盖），act_loop 门控 `traj["steps"] >= act_loop_from_step` 会让循环惩罚在整个 250 步局中 190 步生效，反而加剧 r 恶化。正确做法是 duel 图 `move_to_force < max_turns`（60），让 P10 引导窗口（前 60 步）与 act_loop 惩罚起点同步。
+
 ### 09-16 日志分析：D3 熵验证 + P10 duel 图持续负 r + 108_02 临界不可达实证
 
 **训练进程**：09-16 重启段（system unit homm3-train-v5 active，PID 变更后 resume step 698978→717662+），ep 编号已重置从 1 起，至 ep=29（time=11754s），BATCH 周期 ~55min 维持。零崩溃（`[EP_TIME]` 全历史 1319 条无一条 `err=yes`；零 SIGSEGV/SIGABRT/rc=139/rc=134）。

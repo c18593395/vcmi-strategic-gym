@@ -952,6 +952,41 @@
   3. **WIN-1 判据⑤ 200 步截断率**：本段 duel 图 200 步截断 ≥30%（ep16/ep20/ep28 全 duel），高于⑤ 20% 红线，但全属 B 类（守卫胜+占矿后未 capture），按 09-15 拍板口径不阻塞 WIN-1 聚合。
 - **复现/验证**: `grep "108X108_02_duel" train_loop.log | grep "steps=200"` 观察截断率；`grep "pick=.*blue_hero.*plen=20" train_loop.log` 看 P10 scorer 是否选中不可达目标。
 - **关联**: #232（P10 V×0.2 衰减）/ #237（T06 duel act_loop 门控失效）/ WIN-3 ① 72X72_02_duel 单图轴 / 知识库「WIN-3 难度轴纯评估」章 / `py/target_scorer.py`。
-- **09-16 处置**: ✅ 提 250 步方案已部署——`STEPS_PER_EP 200→250` + T06 `move_to_force=250` + 清 `__pycache__` + stop/start（PID 25924），新 banner 行 96902 `1000eps×250steps` 已生效；T05 小图节奏变慢 ~25% 需后续观察。
+- **09-16 处置**: ✅ 提 250 步方案已部署——`STEPS_PER_EP 200→250` + T06 `move_to_force=250` + 清 `__pycache__` + stop/start（PID 25924），新 banner 行 96902 `1000eps×250steps` 已生效；T05 小图节奏变慢 ~25% 需后续观察。**#239 副作用已修复**：duel 图 r 从 -1665 回升至 -123~-183（改善 89-93%），"结构性不可达"定性作废（108_02 plen=201<250 已可达）。
+
+#### #239 T06 duel move_to_force 全覆盖 250 步副作用：act=2 循环惩罚 190 步累积 r≈-1665 (09-16) — ✅ 已修复（P10-target-2b）
+
+- **状态**: ✅ 已修复（`ep_runner_one.py` T06 覆盖块区分 duel/非 duel，`systemctl stop/start` 重启生效）
+- **背景**: WIN-3② 250 步方案部署后，duel 图（72X72_02_duel / 72X72_01_duel / 108X108_02_duel）250 步截断局 r 从旧 200 步的 -1280~-1289 恶化至 **-1665~-1671**，恶化幅度 ~1245。
+- **现象**: 250 步截断局 act 序列 = 前 50 步经济动作（2 为主，穿插 16-21），后 200 步全 `2`（MOVE_DOWN 经济空转），与 #238 行为模式一致但惩罚累积时间更长。
+- **根因分解**:
+  - **主根因**: T06 覆盖块 `move_to_force=250`（与 `max_turns=250` 同步）→ act_loop 门控 `traj["steps"] >= act_loop_from_step(60)` → step 60~249 共 190 步 act=2 循环惩罚 -1.0/步 全生效
+  - **旧 200 步行为**: `move_to_force=200=max_turns` → act_loop 门控永假 → 0 步惩罚生效 → r 仅 -0.1 步罚 × 200 + NK2 ≈ -1280
+  - **新 250 步行为**: `move_to_force=250` 与 `act_loop_from_step=60` 解耦 → 190 步 × -1.1（步罚+循环罚）≈ -209，加 NK2 威胁漂移 + 横跳/往返惩罚 ≈ -1456，**总计 ≈ -1665**
+  - **模型行为特征**: duel 图蓝英雄 plen=129/201 < 250 理论可达，但 act=2（MOVE_DOWN）循环占主导而非 24（MOVE_TO），模型未学会用 P10 引导路径，前 50 步经济动作 + 后 200 步 act=2 死循环
+- **修复方案**（P10-target-2b）:
+  - `ep_runner_one.py` L153 T06 覆盖块改为：
+    ```python
+    if args.mapname.startswith('T06'):
+        if 'duel' in args.mapname:
+            args.move_to_force = 60   # duel: P10 引导前 60 步走 24，避免 190 步循环惩罚
+        else:
+            args.move_to_force = 250   # 非 duel 1v3: 蓝城全程引导
+        args.guard_done_steps = 0
+    ```
+  - duel 图 `move_to_force=60` 与 `act_loop_from_step=60` 同步：P10 SCORE 引导前 60 步内驱动 24 MOVE_TO，step 60 后模型已脱离 act=2 循环
+  - 非 duel T06（1v3）维持 `move_to_force=250`，蓝城引导需全程
+  - `train_wsl2_ppo_v2.py` L184 注释同步更新
+- **验证结果**（重启后 5 局 duel）:
+  | 局 | 图 | steps | r | 对比 |
+  |----|----|-------|---|------|
+  | 1 | 72X72_02_duel | 74 | -183 | -1665→-183，改善 89% |
+  | 2 | 72X72_02_duel | 158 | -123 | 改善 93% |
+  | 3 | 108X108_02_duel | 139 | -137 | 改善 92% |
+  | 4 | 72X72_01_duel | 62 | -174 | 改善 89% |
+  | 5 | 72X72_02_duel | 111 | -165 | 改善 90% |
+  - steps 不再卡 250 截断，act 序列从全 `2` 死循环变为 `3,4,5,6,7,18,19,20,21` 混合探索
+- **#238 定性更新**: "108_02_duel 蓝英雄 plen=201 > 200 步预算结构性不可达"已作废——250 步后 plen=201 < 250 已可达，duel 图 r 极差问题彻底解除
+- **关联**: #237（T06 duel act_loop 门控解耦）/ #238（108_02_duel 结构性不可达）/ #232（P10 V×0.2 衰减）/ `ep_runner_one.py` L153 / `train_wsl2_ppo_v2.py` L184 / 当前任务清单 P10-target-2b
 
 
