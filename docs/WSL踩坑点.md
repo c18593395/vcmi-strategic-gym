@@ -989,4 +989,51 @@
 - **#238 定性更新**: "108_02_duel 蓝英雄 plen=201 > 200 步预算结构性不可达"已作废——250 步后 plen=201 < 250 已可达，duel 图 r 极差问题彻底解除
 - **关联**: #237（T06 duel act_loop 门控解耦）/ #238（108_02_duel 结构性不可达）/ #232（P10 V×0.2 衰减）/ `ep_runner_one.py` L153 / `train_wsl2_ppo_v2.py` L184 / 当前任务清单 P10-target-2b
 
+#### #240 独立 C++ 工具缺 `Global.h` → 宏/类型未声明编译失败（P10-B1 h3m2vmap 骨架首编踩）(09-01) — ✅ 已修
+
+- **状态**: ✅ 已解决（main.cpp 首行 include `Global.h`）
+- **现象**: `tools/h3m2vmap/main.cpp` 首编报 `GameConstants 未声明 / LIBRARY 未声明 / GameLibrary does not name a type`。
+- **根因**: 独立迷你工程不走 serverapp 的 include 链，`VCMI_LIB_NAMESPACE_*` 等宏定义在源码树根 `Global.h`，lib 头依赖该宏展开；单独引 lib 头时宏未定义，类型解析全炸。
+- **修复**: main.cpp 在引任何 lib 头之前 `#include "Global.h"`；CMake `target_include_directories` 含 `${VCMI_SOURCE_DIR}` 与 `${VCMI_SOURCE_DIR}/include`。
+- **教训**: 凡脱离 CMake 顶层工程树独立链接 `rel/bin/libvcmi.so` 的工具，必须直接引根头，不能赌 serverapp 的传递 include。
+
+#### #241 H3M 写回字节错位三连：AB+ main_town 2B / SOD hero artifact 19 槽 / resource msg=0 分支 1B（vmap2h3m 首版 strict 对账全抓出）(09-01) — ✅ 已修
+
+- **状态**: ✅ 已解决（`py/vmap2h3m.py` 三处载荷修复，strict 读回 skipped=0）
+- **现象**: 首版 vmap→H3M(SOD) 产物经 `h3m_tool.parse_objects(tolerant=False)` strict 对账在 3 处错位：header @62 main_town 段偏移、对象流 skipped>0、resource 对象后 4B 漂移。
+- **根因分解**:
+  - **main_town**: AB+（SOD 0x1c 属 AB+ 谱系）main_town 段比 ROE 多 2B 头字节，漏写 → 其后全错位
+  - **hero artifact**: SOD 谱系 19 槽 vs ROE/AB 18 槽（`h3m_tool._features` 中 `artifactSlotsCount=18 if ver in (ROE,AB) else 19`），写 18 槽少 2B
+  - **resource**: `readMessageAndGuards` 的 skip4 属于 `msg=1` 分支内部；`hasMessage=0` 时只写 1B 标志 + u32(amount) + 4B，不应再 skip
+- **修复**: `w.u8(1); w.u8(0); w.u8(0)` 补 main_town 2B；artifact 改 `b'\xFF\xFF'*19` + u16 backpack=0；resource 分支 `w.u8(0); w.u32(amount); w.raw(b'\x00'*4)`。
+- **教训**: H3M 对象载荷随版本谱系（ROE/AB/SOD）变体，写回必须以目标版本 features 表为准；strict 读回是发现偏移问题的唯一可靠手段（对照 trace 逐对象定位 GAP，`py/diag_v2h_strict.py` / `py/diag_v2h_trace.py`）。
+
+#### #242 `CMapService::loadMap` buffer 版：cb=nullptr 可用但 modName 必须传 `"map"`，传 `""` 走 ModsStorage 异常 core dump (09-01, h3m2vmap --check-h3m 验证踩) — ✅ 定论
+
+- **状态**: ✅ 已定论（`tools/h3m2vmap/main.cpp --check-h3m` 实跑 `ENGINE LOAD OK`）
+- **现象**: 独立工具调 `service.loadMap(data, size, path, "", "CP1252", nullptr)` 时 SIGABRT（core dump），官方原图同样崩，一度误判 cb 为根因。
+- **根因**: gdb 栈定位 = `CModLoaderH3M::readLocalizedString` → `CModHandler::getModLanguage("")` → `ModsStorage` 抛异常（`CMapHeader::mapRegisterLocalizedString` 对 modName 特判 `"map"`，`""` 无特判落入 ModsStorage 查找抛异常）。
+- **修复**: modName 传 `"map"`，cb 保持 nullptr（V1 定论：buffer 版 loadMap 不需要 EditorCallback）。
+- **教训**: 引擎局部字符串注册对 modName 有特判白名单，独立工具调用时传 `"map"` 而非空串；异常崩栈先 gdb 定位符号再下结论，勿误归因（见 #204 三义性教训）。
+
+#### #243 独立迷你 CMake 工程：空 build/ 壳 + 无 ccache 全树重建代价高，改只读链接 rel 产物 (09-01, B1 构建决策) — ✅ 已落地
+
+- **状态**: ✅ 已解决（`tools/h3m2vmap/CMakeLists.txt` 独立工程）
+- **现象**: vcmi 构建树 `build/` 为空壳、ccache 未装，改 1 行 C++ 全树重建不可接受。
+- **方案**: 独立工程 `add_executable` + `target_link_libraries(${VCMI_LIB_DIR}/libvcmi.so)`，`set_target_properties BUILD_RPATH/INSTALL_RPATH ${VCMI_LIB_DIR}` 只读链 `rel/bin/libvcmi.so`，零 lib 重编、零 rel 写入；单编译单元秒级出二进制。
+- **教训**: 工具类 C++（转换器/校验器）不要挂主构建树，独立工程 + 只读 RPATH 链 rel 产物；.so 升级后 RPATH 不变免改工程（见踩坑 #4 RPATH 陷阱的正面用法）。
+
+#### #244 双树纪律：Windows 侧 include Edit 丢失 → 同步后 WSL 编译仍报未声明 (09-01, h3m2vmap --check-h3m 编译踩) — ✅ 已修
+
+- **状态**: ✅ 已解决（重新 Edit 补 include + 双树 md5sum 核对后编译通过）
+- **现象**: Windows 侧 `tools/h3m2vmap/main.cpp` 新增 `CMapService` 相关 include 的 Edit 未真正落盘（md5 显示 cp 到 WSL 的内容不含新 include），WSL 编译报 `'CMapService' was not declared`。
+- **教训**: 双树（Windows 副本 → WSL vcmi-native）同步后，编译前 `md5sum` 双侧核对，不假设 Edit 一定写成功；WSL 侧 grep 源码确认再编译（与 project_rules「事实核查原则」一致）。
+
+#### #245 PowerShell 内联复杂命令反复炸 → 统一写 .py/.sh 脚本文件经 wsl bash 执行 (09-01, 本会话工具链开发全程) — 🔄 绕过中
+
+- **状态**: 🔄 约定已固化（本会话全部诊断/构建/验证脚本落地 `py/run_v2h_verify.sh` / `py/run_check_h3m2.sh` / `py/run_gdb_check.sh` 等）
+- **现象**: PowerShell 内联 for/数组/嵌套引号在 `wsl bash -c` 传递时引号转义反复炸（`&`/`{`/`(` 被 PowerShell 先行解析）。
+- **处理**: 凡多行 bash/复杂命令一律写成 `py/*.sh`（或 `.py`）脚本文件，再 `wsl bash py/xxx.sh` 执行；单条简单命令（grep/systemctl）可内联。
+- **教训**: 与 #75（python 补丁脚本残留拼接）、#22（python3 -c 引号嵌套）同源——Windows↔WSL 边界上的引号/换行转义是高频坑，脚本文件是稳态解法。
+
 

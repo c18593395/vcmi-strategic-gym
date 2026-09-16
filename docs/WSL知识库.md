@@ -84,6 +84,18 @@
 
 **踩坑点**：`move_to_force` 与 `act_loop_from_step` 耦合时，若 `move_to_force = max_turns`（全覆盖），act_loop 门控 `traj["steps"] >= act_loop_from_step` 会让循环惩罚在整个 250 步局中 190 步生效，反而加剧 r 恶化。正确做法是 duel 图 `move_to_force < max_turns`（60），让 P10 引导窗口（前 60 步）与 act_loop 惩罚起点同步。
 
+### 09-16 P10 会话沉淀：h3m2vmap B1 独立工具工程 + vmap2h3m 反向转换器（截至 2026-09-16）
+
+**结论**：
+1. **B1 完成**：`tools/h3m2vmap/main.cpp`（--selftest 两段初始化跑通 + --check-h3m 引擎级读回）+ 独立迷你 CMake 工程（只读 RPATH 链 `rel/bin/libvcmi.so`，零 lib 重编、零 rel 写入，单编译单元秒级出二进制）。独立工具 main.cpp 必须先 `#include "Global.h"`（VCMI_LIB_NAMESPACE_* 宏所在），不能赌 serverapp 传递 include（踩坑 #240）。
+2. **loadMap buffer 版两事实（V1 定论）**：`cb=nullptr` 可用；`modName` 必须传 `"map"`（`CMapHeader::mapRegisterLocalizedString` 特判），传 `""` 走 `getModLanguage("")`→ModsStorage 抛异常 SIGABRT（踩坑 #242）。
+3. **vmap2h3m 反向工具**：`py/vmap2h3m.py`（~490 行，SOD 谱系 0x1c）：H3M donor 模板库按 (id,subid) 匹配原样复制 raw 条目绕开 H3M 原始编号考证（缺条目 patch subid 兜底）；5 类对象特征集（hero/town/mine/resource/monster，全草地）；映射数据源 = 引擎 config json 的 index 字段（`Mods/vcmi/Content/config/creatures|heroes/*.json`，带注释需剥离）。双图（T04_36X36_02 / T03_30X30_01）strict 读回 skipped=0 + 引擎 `--check-h3m` 三图（含官方 For Sale 514obj 对照）全部 `ENGINE LOAD OK`。
+4. **版本事实**：fork 版本串实为 **VCMI 1.8.0**（此前文档按 1.7.4 记述，以二进制/源码为准）；C++20；Boost 1.83 系统包。
+5. **验证方法论**：H3M 写回双层 = 字节级（h3m_tool strict 读回 skipped=0 + trace 逐对象 GAP 定位）→ 引擎级（真实 loadMap）；写回字节错位三连（AB+ main_town 2B / SOD hero artifact 19 槽 / resource msg=0 分支 1B）均经 strict 对账定位（踩坑 #241）。
+6. **下一步 B2**：在 h3m2vmap 骨架上加 `loadMap(buffer 版) → MapFormatJson::saveMap` 直通转换，`Knee Deep in the Dead.h3m` 零改写往返，出口判据 = 引擎读回 + ep_runner 冒烟加载；V1 已实证，B2 首日即可直接跑 loadMap 路径。详见设计稿 §6/§8。
+
+**指针**：`docs/P10-B-h3m2vmap转换器设计稿.md`（§6 B1 完成记录 / §8 旁路工具）/ `docs/当前任务清单.md` P10 段 / `scripts/h3m_tool.py`（H3M reader/patcher 逆向资产）/ `tools/h3m2vmap/` / `py/vmap2h3m.py`。
+
 ### 09-16 日志分析：D3 熵验证 + P10 duel 图持续负 r + 108_02 临界不可达实证
 
 **训练进程**：09-16 重启段（system unit homm3-train-v5 active，PID 变更后 resume step 698978→717662+），ep 编号已重置从 1 起，至 ep=29（time=11754s），BATCH 周期 ~55min 维持。零崩溃（`[EP_TIME]` 全历史 1319 条无一条 `err=yes`；零 SIGSEGV/SIGABRT/rc=139/rc=134）。
