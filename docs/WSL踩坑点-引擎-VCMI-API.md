@@ -1225,11 +1225,12 @@ ML 强定义优先, 客户端默认空走 settings。
 
 ### 213. P8-C 收尾 QueryReply 197 实机验证: green(NK2) runNetwork 段错误 + 8B/9B 布局疑点 (09-16, fork/1.8)
 - **现象**: `py/p8/p8c_query_reply.py` 两次 clean run 均复现: green(NK2 client, cid=3) 在 server 广播 16PlayerStartsTurn #2 时 runNetwork 线程段错误 (dmesg `runNetwork[pid]: segfault at 80 ip ... in vcmiclient`), 进程消失 → server 走 SHUTDOWN (host=python 仍在但 activeConnections 减少触发) → Python 连接被 RST → 对局推进中断
+- **崩溃点定位** (09-16 dmesg Code 段符号化): Code 段 `<4c> 8b a8 80 00 00 00` = `mov r13,[rax+0x80]`，rax 非 null 但 +0x80 处无效内存。`segfault at 80` = 访问偏移 0x80 字段。结合 `server/CGameHandler.h` L74 `std::unique_ptr<QueriesProcessor> queries` 与 `CGameHandler` 在 SHUTDOWN 路径析构时序 → 疑似 **QueriesProcessor use-after-free**: green 的 runNetwork 线程在第二轮 16PlayerStartsTurn 回调 `QueriesProcessor::popIfTop/addQuery` 时，server 侧 CGameHandler 已因 green 自身上一回合崩溃触发的 SHUTDOWN 释放了 queries 指针。属 fork/1.8 引擎生命周期 bug。
 - **影响**: ①3.2 "对局 >=2 回合" 判据只能以 server 侧 16PST 广播次数为准 (green 存活无关) ②green 崩前最后一波 [QUERY-DIAG] 行 (qid=2/red MapObjectVisitQuery) 在 Python 连接 RST 后才被 tail 到, 197 组包回送窗口极窄 (run10 抓住 1 次, run11/12 窗口错过, DIAG 行出现时 Python 已断)
 - **8B/9B 布局实测**: ①离线: 8B absent = `0000c50100010200` (isNull+pid+tid+player+req+qid+0x00), 9B present = `0000c5010001020100` (+0x01+reply LVarInt), 与 QueryReply 类字节级一致 ②实机: 8B 帧发出后 server **无 197 fishy** = 受理 (run10); C++ `BinarySerializer::save(std::optional<T>)` absent 路径 = `save(static_cast<uint32_t>(0))` 写 4B, 与 Python 1B 0x00 存在字节级不匹配疑点, 9B present 为回退候选 (回退判据 = 197 fishy 行 "applying 10QueryReply...fishy")
 - **判定口径** (09-16 固化): ① bad keyword 只数 197 QueryReply 鱼线, Build/Recruit 占位 OI 的 fishy 记录不计入 ② 客户端 88 PlayerStartsTurn 包体 queryID 字段 = 上一回合 qid 残值, 真实 qid 一律以 [QUERY-DIAG] 行为准 ③ green 崩前 5s 断线后仍 tail, 抢 197 组包窗口
-- **根因未闭合**: green runNetwork 段错误属 fork/1.8 网络线程 C++ bug (与 09-14 数据源墙记录 "green client 段错误" 同源), 修复超出 P8-C 纯协议范围, 需单独 dev 任务 (reasonix-cli + C++ 崩溃 dmp 分析)
-- 状态: ✅ 2.1/2.2 离线+实机验证 PASS; ⚠ green 段错误待 C++ 侧修复; ⚠ 8B absent 与 C++ uint32 路径字节不匹配疑点待 197 fishy 出现时验证
+- **根因未闭合**: green runNetwork 段错误属 fork/1.8 引擎 C++ bug (QueriesProcessor use-after-free 疑似, 与 09-14 数据源墙记录 "green client 段错误" 同源), 修复需动 server/CGameHandler 生命周期 + 重编 vcmiserver/vcmiclient, 超出 P8-C 纯协议范围, 需独立 dev 任务 (reasonix-cli + dmp 分析)
+- 状态: ✅ 2.1/2.2 离线+实机验证 PASS; ⚠ green 段错误待 C++ 侧修复 (崩溃点已定位到 mov r13,[rax+0x80]); ⚠ 8B absent 与 C++ uint32 路径字节不匹配疑点待 197 fishy 出现时验证
 
 ### 214. RecruitCreatures(187) 构造签名: 无 bid/count 参数 (09-16)
 - **现象**: `RecruitCreatures(tid=1, bid=30, count=1)` 报 `TypeError: __init__() got an unexpected keyword argument 'bid'`
