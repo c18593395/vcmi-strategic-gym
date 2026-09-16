@@ -1063,4 +1063,12 @@
 - **坑 6 — GameLibrary 初始化依赖 cwd**：`CResourceHandler::load("config/filesystem.json")` 相对路径，工具必须在 `/home/administrator/vcmi-native` 下执行，否则 `CONFIG/FILESYSTEM not found` abort。**复犯提醒（09-16 B4 验证脚本首跑 SIGABRT RC=134）：任何新转换/验证/冒烟 shell 脚本模板必须首行 `cd /home/administrator/vcmi-native || exit 1`，勿靠记忆补**。
 - **教训**: VCMI 引擎 API 大量 private 封装（对象操作走引擎方法而非直改字段）；B3 全部坑在 `tools/h3m2vmap/main.cpp` 注释中有就地说明。
 
+#### #249 PowerShell 调 `wsl bash -c "..."` 时 `$var`/`$(...)` 被 PowerShell 先行插值 → WSL 侧拿空变量，grep/wc 静默返回空/0 (09-16, WIN-1 归因核查踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化（改用单引号包整条 bash 命令 / 弃 shell 变量写完整路径；本次因它多排查 2 轮"文件里为什么没有 BHERO_KILL"）
+- **现象**: `wsl bash -c "L=/path; grep -c BHERO_KILL $L"` 在 PowerShell 执行返回 `0`（实际 9 条）；`wc -l $F` 返回 `0`；`$(grep ...)` 报 `grep 不是 cmdlet`。
+- **根因**: PowerShell 对**双引号**字符串做自身插值：`$L`/`$F`/`$(...)` 在离开 Windows 之前就被 PowerShell 展开成空串/子表达式执行结果，WSL bash 收到的命令已无变量。不报错、静默给错数据——比 #245（引号转义炸错）更隐蔽：输出像合法的 `0` 而非异常。
+- **处理**: 三选一 ① 整条命令用单引号包（PowerShell 不插值单引号内容）；② 不用 shell 变量，写完整路径；③ 复杂逻辑落 .sh 文件再执行（同 #245 教训）。
+- **教训**: 判定"文件里没有 X"之前，先用 `ls -l` 字节数与 `wc -l` 对账，确认命令真的读到了文件；PowerShell 侧一切 `$` 一律视为已被消费，跨 wsl 传命令默认单引号。
+
 

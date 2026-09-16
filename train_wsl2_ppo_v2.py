@@ -110,6 +110,22 @@ CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 # C2 L0: 崩溃局 ep_log 归档目录 (09-15)
 CRASHLOG_DIR = "/mnt/d/Bigdata/hero3_fresh/crashlog"
 
+# WIN-1 击杀激励批次A/B (09-16, 方案 docs/方案_WIN1_击杀激励重设计_20260916.md):
+# ep_runner 新参数经环境变量注入 — 启动脚本 restart_train_v5_win1_batchA.sh 在 unit Environment= 注入;
+# 默认未设 = 关闭零行为变化; 回退 = 原版 restart_train_v5_sys.sh (无注入)。duel 图由 runner 内部排除。
+WIN1_ENV_ARGS = {
+    "HOMM3_BLUE_HERO_GRAD": "--blue_hero_grad",           # P-H1 接近梯度 (批次A, 建议 0.2)
+    "HOMM3_BLUE_HERO_GRAD_CAP": "--blue_hero_grad_cap",   # P-H1 每局上限 (批次A, 建议 25)
+    "HOMM3_BLUE_HERO_CONTACT_R": "--blue_hero_contact_r", # P-H2 接战奖 (批次B, 建议 15)
+    "HOMM3_KILL_R_FIRST": "--kill_r_first",               # P-H3 首杀 (批次B, 建议 40)
+    "HOMM3_KILL_R_NEXT": "--kill_r_next",                 # P-H3 后续杀 (批次B, 建议 30)
+}
+_win1_active = {k: os.environ[k] for k in WIN1_ENV_ARGS
+                if os.environ.get(k) not in (None, "", "0", "0.0")}
+if _win1_active:
+    print("[WIN1_BATCH] env-injected runner args: "
+          + " ".join(f"{WIN1_ENV_ARGS[k]}={v}" for k, v in sorted(_win1_active.items())), flush=True)
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -193,6 +209,11 @@ def run_episode(mapname, blue_model=None):
     # T04 目标引导 (2026-08-29): 首占矿/首进城镇各 +30 一次性事件 (T04 无守卫缺目标驱动源)。
     # 回退 = 注释本行 (runner 默认 0=关闭)
     cmd.extend(["--objective_reward", "30"])
+    # WIN-1 批次A/B (09-16): 环境变量注入 ep_runner 激励参数 (模块头 WIN1_ENV_ARGS 映射);
+    # 未设/0 = 不注入 → runner 默认 0 = 零行为变化; 值透传, duel 图由 runner 内部排除
+    for _ek, _ea in WIN1_ENV_ARGS.items():
+        if os.environ.get(_ek) not in (None, "", "0", "0.0"):
+            cmd.extend([_ea, os.environ[_ek]])
     # Phase I.1: NK2 势函数奖励 (替代事件奖励)
     # ===== Level 3 II.3 开经济 (2026-08-29): scale 0.3→0.45 =====
     # cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.3"])  # 恢复NK2，scale=0.3 防critic爆炸

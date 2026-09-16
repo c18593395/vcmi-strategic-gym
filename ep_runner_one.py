@@ -131,6 +131,20 @@ parser.add_argument("--objective_reward", type=float, default=0.0,
 # 治"拿完奖励就送死"稳定剧本 (死亡局 r=+50~+93 vs 超时局 r=-18~-107, 死比活着结算更赚)。
 parser.add_argument("--death_penalty", type=float, default=-50.0,
                     help="T7.4 死亡惩罚 (09-11): 英雄死亡 (zombie_streak>=2) 确认帧追加此惩罚, -50 试探 / -100 对称守卫 / 0=关闭")
+# WIN-1 击杀激励重设计 (09-16, 方案 docs/方案_WIN1_击杀激励重设计_20260916.md): 全部默认 0=关闭零行为变化,
+# 开窗只改 systemd 启动参数 (零干扰原则, 与 09-15 D3 同模式)。批次 A = blue_hero_grad;
+# 批次 B = blue_hero_contact_r + kill_r_first/kill_r_next (逻辑预置, 批次 A 达标后开)。
+# 共同护栏: 空拍冻结 (_bnow 非空才更新, #231 机制) + duel 图排除 (与 capture proxy 同口径)。
+parser.add_argument("--blue_hero_grad", type=float, default=0.0,
+                    help="P-H1 蓝英雄接近梯度 (批次A): 最近蓝英雄曼哈顿距离每创新低 1 格 +N, 新低制远离不扣, 0=关闭 (72 图建议 0.2)")
+parser.add_argument("--blue_hero_grad_cap", type=float, default=0.0,
+                    help="P-H1 每局梯度累计上限 (0=不限); 72 图建议 25")
+parser.add_argument("--blue_hero_contact_r", type=float, default=0.0,
+                    help="P-H2 首次接战奖 (批次B): 我方英雄坐标与蓝英雄重合 (走上敌英雄格必触发战斗) 每局每敌 id 一次 +N, 0=关闭 (建议 15)")
+parser.add_argument("--kill_r_first", type=float, default=0.0,
+                    help="P-H3 击杀阶梯 (批次B): 双帧确认的首个蓝英雄击杀 +N (建议 40), 0=关闭")
+parser.add_argument("--kill_r_next", type=float, default=0.0,
+                    help="P-H3 击杀阶梯 (批次B): 首杀之后每个确认击杀 +N (建议 30); 与全歼 proxy +100 同帧叠加, 0=关闭")
 # P10 (2026-09-15): target_list 加权排序 Python 旁路打分器 — 零 C++ 重编, OBS 3464/动作空间零变更
 # 开关 --target_chain legacy(默认) 走五层 if/else 旧链零行为变化; scorer 走 py/target_scorer.py 统一打分
 # 权重全部 argparse 化 (方案 §3.2 默认值), 支持网格对照; 灰度纪律: 一次一轴, 先在 T04/T05 小图对照再 T06
@@ -438,6 +452,10 @@ try:
     bhero_ids_prev = None    # 上一步 blue 英雄 id 集合
     _t06_hero_kill_capture = False  # C 方案 (09-11): 蓝英雄死亡 = capture proxy (全图, 每局一次)
     _kill_pending = None     # 09-15: 差集挂账 (frozenset), 下一非空拍仍缺席才确认发奖 (防空拍/部分少读误报)
+    _kill_paid = set()       # 09-16 P-H3: 已发击杀阶梯奖的蓝英雄 id (幂等, 默认参数 0 时恒空零行为)
+    _contact_paid = set()    # 09-16 P-H2: 已发接战奖的蓝英雄 id (每局每敌一次)
+    _bh_prev_d = None        # 09-16 P-H1: 最近蓝英雄距离基线 (新低制; None=未初始化, 空拍冻结)
+    _bh_grad_paid = 0.0      # 09-16 P-H1: 本局梯度累计 (cap 扣减用)
     BHERO_EV_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
     recruit_mask_prev = {}   # 08-31 S1 建设观测: {town_id: 上一步 recruit_mask} — 位增 = 新巢穴建成
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
@@ -1030,6 +1048,22 @@ try:
             _killed = frozenset(bhero_ids_prev - _bnow)
             if _kill_pending is not None:
                 _still = frozenset(_g for _g in _kill_pending if _g not in _bnow)
+                # P-H3 击杀阶梯 (09-16 方案批次B): 逐 id 双帧确认发奖 — 首杀 first, 之后 next;
+                # 复用同一挂账确认流 (空拍冻结/瞬态撤账), _kill_paid 幂等防重复发;
+                # 与下方全歼 proxy +100 同帧叠加 (第 3 杀 = +next +100); 参数全 0 = 零行为变化。
+                if (args.kill_r_first > 0 or args.kill_r_next > 0) and _still:
+                    for _gid2 in sorted(_still - _kill_paid):
+                        _kr = args.kill_r_first if not _kill_paid else args.kill_r_next
+                        r += _kr
+                        _kill_paid.add(_gid2)
+                        _ks_msg = (f"[BHERO_SLAIN] map={args.mapname} blue_hero_id={_gid2} "
+                                   f"at step {traj['steps']} +{_kr} (kill ladder, confirmed 2 frames)")
+                        print(_ks_msg, flush=True)
+                        try:
+                            with open(BHERO_EV_LOG, "a") as _bf3:
+                                _bf3.write(_ks_msg + "\n")
+                        except Exception:
+                            pass
                 if _still == _kill_pending:
                     _t06_hero_kill_capture = True
                     r += 100.0
@@ -1076,6 +1110,44 @@ try:
                 prev_guard_d = None  # 无活守卫 (全部清除)
         else:
             prev_guard_d = None
+        # WIN-1 击杀激励重设计 (09-16 方案批次A/B): 仅非 duel 大图, 空拍整帧跳过 (外层 _bnow 条件, #231 口径)。
+        # P-H1 蓝英雄接近梯度: 新低制 r += grad × max(0, prev_min_d − cur_d), 远离不扣 (防往返走位刷分),
+        #   cap 每局封顶; 蓝英雄被歼后剩余集合自动重定基准 (只奖新低, 基准跳变无负罚)。
+        # P-H2 首次接战: 我方英雄坐标与蓝英雄重合 = 走上敌英雄格 (VCMI 机制必触发战斗) — 每局每敌 id 一次;
+        #   误判面仅剩"蓝攻红胜后站我格", 该情形必致我败 (death_penalty 净亏) 激励安全。
+        if _bnow and not args.mapname.endswith('_duel.vmap') \
+                and (args.blue_hero_grad > 0 or args.blue_hero_contact_r > 0):
+            _ah1 = int(nobs[3203]) if nobs[3203] >= 0 else 0
+            _hb1 = 128 + _ah1 * 26
+            _myx1, _myy1 = int(nobs[_hb1+2]), int(nobs[_hb1+3])
+            _bh_min_d = None
+            for _hi1 in range(8):
+                _bid1, _bow1 = int(nobs[128+_hi1*26]), int(nobs[128+_hi1*26+1])
+                if _bid1 > 0 and _bow1 != 0:
+                    _bx1, _by1 = int(nobs[128+_hi1*26+2]), int(nobs[128+_hi1*26+3])
+                    _d1 = abs(_myx1 - _bx1) + abs(_myy1 - _by1)
+                    if _bh_min_d is None or _d1 < _bh_min_d:
+                        _bh_min_d = _d1
+                    if args.blue_hero_contact_r > 0 and _d1 == 0 and _bid1 not in _contact_paid:
+                        r += args.blue_hero_contact_r
+                        _contact_paid.add(_bid1)
+                        _bc_msg = (f"[BHERO_CONTACT] map={args.mapname} blue_hero_id={_bid1} "
+                                   f"at step {traj['steps']} +{args.blue_hero_contact_r} (first contact)")
+                        print(_bc_msg, flush=True)
+                        try:
+                            with open(BHERO_EV_LOG, "a") as _bf4:
+                                _bf4.write(_bc_msg + "\n")
+                        except Exception:
+                            pass
+            if args.blue_hero_grad > 0 and _bh_min_d is not None:
+                if _bh_prev_d is not None:
+                    _gain1 = args.blue_hero_grad * max(0.0, _bh_prev_d - _bh_min_d)
+                    if args.blue_hero_grad_cap > 0:
+                        _gain1 = min(_gain1, max(0.0, args.blue_hero_grad_cap - _bh_grad_paid))
+                    if _gain1 > 0:
+                        r += _gain1
+                        _bh_grad_paid += _gain1
+                _bh_prev_d = _bh_min_d
         # === 2026-08-28 Level 3: 经济成型奖励 4 条 (非 T04 掩码屏蔽 16-21, 本段自动零触发) ===
         # 动作合法性由掩码保证 — 非法 16-21 不会被采样, 因此"动作被选" ≈ "动作合法可执行" ≈ 给奖励安全
         ah_e = int(nobs[3203]) if nobs[3203] >= 0 else 0
@@ -1347,5 +1419,8 @@ except Exception as e:
 # 最终写入（正常退出时覆盖，确保完整数据）
 with open(args.outfile, "w") as f:
     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
+if args.blue_hero_grad > 0:
+    print(f"[BHERO_GRAD] map={args.mapname} grad_total=+{_bh_grad_paid:.1f} cap={args.blue_hero_grad_cap} "
+          f"final_min_d={_bh_prev_d} slain={sorted(_kill_paid)} contact={sorted(_contact_paid)}", flush=True)
 print(f"[EP_TIME] map={args.mapname} steps={traj['steps']} secs={time.time()-_ep_t0:.0f} r={traj['total_rew']:.1f} err={'yes' if 'error' in traj else 'no'}", flush=True)
 os._exit(0)

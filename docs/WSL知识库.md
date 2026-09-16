@@ -2240,3 +2240,25 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 
 ### 关联
 踩坑 #215/#216/#217 / 任务清单 WIN-1 进度核查 (09-16 深夜 ep=103) / vcmi-native 65515ef24 / 知识库「P8-C 收尾」章 / WIN-3 ① 72X72_02_duel 单图轴 (待 WIN-1 达标)。
+
+## WIN-1 capture 归零定谳（没杀到）+ 击杀激励重设计批次A开窗 (09-16)
+
+### 归因核查（零干扰，三层证据链）
+- **问题**：最后 `[TOWN_CAPTURE]` L89715 (step 695056) 后跨 4 run 段 0 触发，与 5c2f2b8（#231 双帧确认，step 695099 上线）时间线重合 → 假设 A（修复消除假阳性暴露真实能力缺口）vs 假设 B（双帧过严把真击杀也挡了）。
+- **证据1**：commit 5c2f2b8 实勘 218/218 TOWN_CAPTURE 严格战斗配对 100% 空拍误报；L89715 恰为上线前最后一次误报，归零起点与上线严格对齐。
+- **证据2（决定性）**：battle_quality_events.log（持久 append-only，834 行）全部 9 条 BHERO_KILL 集中文件头 L1-9 且 **live_slots=0** —— 按修复后打点条件 `if _bnow:`（非空拍才打点），只能是修复前旧代码空拍期痕迹；修复后 **0 单拍差集 / 0 confirmed** —— 双帧确认从未收到过需要裁决的挂账，"过严挡真"无从谈起。
+- **证据3**：修复后 HEROSEG_EMPTY 空拍仍持续出现且被正确冻结无一误发 —— 空拍现象还在，是 proxy 在挡。
+- **结论**：**"没杀到"（真实击杀基线=0），历史 218 次 capture 基线全部为假**。残余盲区仅"击杀发生在 ep 最后一个非空拍"（BHERO_KILL 首非空拍即留痕，几十局 0 条，概率趋零）。
+- **方法论沉淀**：proxy 归零归因要**分层取证** —— 发奖层（双帧 confirmed）与打点层（单拍 observe-only BHERO_KILL）分开看；持久旁路日志的单拍差集是"真击杀是否发生过"的下界证据，双帧发奖归零本身不能区分 A/B。
+
+### 击杀激励重设计（方案 docs/方案_WIN1_击杀激励重设计_20260916.md）
+- **行为链**：接近（P-H1 蓝英雄接近梯度，新低制 max(0)+cap 25）→ 接战（P-H2 坐标重合=走上敌英雄格必触发战斗，每局每敌幂等 +15）→ 击杀（P-H3 逐 id 双帧确认阶梯，首杀+40/后续+30）→ 全歼（proxy +100 不动）→ 占城（capture reward 不动）；击杀轴满贯 ≈+215 防通胀。
+- **护栏**：空拍冻结（#231 口径 `_bnow` 前提）/ duel 图排除（与 proxy 同口径）/ 新低制防往返刷分 / 步罚 -0.1 + death_penalty -50 不变（送死换 +15 接战奖净亏）。
+- **实装**：ep_runner_one.py 5 参数默认全 0 零行为（argparse + ep 级状态 + proxy 块内 P-H3 + 独立 P-H1/H2 块 + `[BHERO_GRAD]` ep 末汇总）；train_wsl2_ppo_v2.py `WIN1_ENV_ARGS` 环境变量注入（HOMM3_BLUE_HERO_GRAD/CAP + 批次B 三个预留，run_episode cmd 透传，启动打 `[WIN1_BATCH]` 行）。
+- **启动脚本**：py/restart_train_v5_win1_batchA.sh —— 与原版唯一差异 = unit 注入 `Environment=HOMM3_BLUE_HERO_GRAD=0.2 / HOMM3_BLUE_HERO_GRAD_CAP=25`；回退 = 原版 restart_train_v5_sys.sh（无注入）。
+- **开窗记录（09-16 20:17）**：优雅停 `Saved (step=736372)` → 主日志 `[WIN1_BATCH] env-injected runner args: --blue_hero_grad=0.2 --blue_hero_grad_cap=25` → `Loaded train state (step=736372)` 接续 → 首局 ep_runner 存活（VCMI 查询链正常）。
+- **批次A攒窗判据（~40 局）**：蓝英雄最小距离 p50 128→<64（`grep BHERO_GRAD` 取 final_min_d）/ avg_r 跌幅 <20% / WIN-1 ②④⑤ 不塌；回退线 = 判据塌跑原版脚本。
+- **踩坑**：#249（PowerShell `$var` 插值致 grep 静默空结果，本次多排查 2 轮）。
+
+### 关联
+踩坑 #231/#249 / 方案_WIN1_击杀激励重设计_20260916.md / 任务清单 WIN-1（09-16 晚开窗条目）/ T7.5 S2 前置（WIN-1 达标后才轮到）/ WIN-3 难度轴（错窗互斥）。
