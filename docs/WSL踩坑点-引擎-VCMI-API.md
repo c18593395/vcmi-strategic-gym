@@ -1239,3 +1239,11 @@ ML 强定义优先, 客户端默认空走 settings。
 - 状态: ✅ 已修正 p8c_query_reply.py act_turn
 
 
+### 215. green(NK2) runNetwork 段错误根因 = CServerHandler headless 路径 null-ENGINE 解引用 (09-16 修复)
+- **现象**: 每次 clean run 复现 green(NK2 client, headless/testmap-onlyai) 在 server 广播 16PlayerStartsTurn #2 时 runNetwork 线程 `segfault at 80` (dmesg `mov r13,[rax+0x80]`), 进程消失 → server SHUTDOWN + Python RST
+- **根因 (gdb core 实锤, 非 dmesg 符号化的 `__Vector_base<char>` 误导)**: 真实调用链 = `NetworkConnection::onHeaderReceived → CServerHandler::onPacketReceived → visitLobbyStartGame → startGameplay:697 → ENGINE->discord()`，headless 模式下全局 `ENGINE`(unique_ptr<GameEngine>) 为 **null** (clientapp/EntryPoint.cpp L297 `if(!headless) ENGINE=make_unique`)，`*discordInstance` this=null → null+0x80 (GameEngine 类内 Discord 成员偏移) = `segfault at 80`。二次崩点在 `onDisconnected → endGameplay → CClient::endGame → removeGUI → ENGINE->windows()` (Client.cpp:536, 同样 null-ENGINE)
+- **修复**: `client/CServerHandler.cpp` + `client/Client.cpp` 全部裸 `ENGINE->` 解引用 (discord/windows/interfaceMutex) 加 `if (ENGINE)` 守卫 (共 13+1 处), sendRestartGame/sendStartGame 的 CLoadingScreen 双分支收进 `if (ENGINE) {}` 消除 dangling-else。重编 vcmiclient
+- **验证**: 修后 16PlayerStartsTurn 广播=4 (修前=3, green 活到第3回合), 无 "Connection lost", dmesg 无新 runNetwork segfault, 无新 core。BuildStructure fishy 仍存 (占位 OI 正常, 不计入 197 判定)
+- **教训**: ① dmesg `segfault at 80` 的 `80` = 解引用偏移而非函数偏移, 直接符号化 ip 会被 inlined 调用者误导, **必须 gdb core 拿调用栈** ② headless/testmap-onlyai 路径在 fork 1.8 下未做 null-ENGINE 守卫 (上游无此模式), 任何 `ENGINE->` 裸调用在此路径都是定时炸弹 ③ `startGameplay`/`endGameplay` 是 green 收 171KB LobbyStartGame 广播时必经路径, 崩点不在 NK2 AI 侧而在 client 框架侧
+- 状态: ✅ 修复部署 (vcmi-native working tree, client/CServerHandler.cpp + client/Client.cpp), 待正式 commit
+
