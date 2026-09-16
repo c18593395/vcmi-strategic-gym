@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 # === C4.2: 扩规模 ===
 # 2026-08-29 Level 3 晋级 (II.2 切 T04, 不开经济): BATCH 1024→2048 / EPOCHS 4→6 / EXTREME_ADV_CLIP 5.0→6.0
-N_EPISODES, BATCH, STEPS_PER_EP = 1000, 2048, 200
+N_EPISODES, BATCH, STEPS_PER_EP = 1000, 2048, 250
 LR, CLIP, EPOCHS = 3e-4, 0.2, 6
 GAMMA, GAE_LAMBDA = 0.99, 0.90
 GRAD_CLIP_MAX = 1.0
@@ -181,8 +181,9 @@ def run_episode(mapname, blue_model=None):
     # 状态级/横跳只抓位置往返, 抓不住推进型动作循环; 强制阶段不检测)
     # 第7轮 v2: 3.0→1.8 — 3.0 诱发 10 END_TURN 投机 (ROUND3 10 占比 6%→17.8% 全场第一)
     cmd.extend(["--act_loop_penalty", "1.0"])  # 降循环惩罚，减少负reward干扰
-    # T06 move_to_force=200=max_turns → act_loop 门控永假 (r≈-420 主因)
-    # 设 60: step≥60 后惩罚生效, 与 move_to_force 解耦; 非 T06 不设 (默认 0=跟随 move_to_force)
+    # T06 move_to_force: duel=60 (蓝英雄 plen=129<250 可达, P10 引导前60步走24), 非duel=250 (蓝城全程引导)
+    # act_loop_from_step=60 与 duel move_to_force=60 同步; 非duel T06 250步局 step≥60 后惩罚生效
+    # 非 T06 不设 (默认 0=跟随 move_to_force)
     if mapname.startswith('T06'):
         cmd.extend(["--act_loop_from_step", "60"])
     # 守卫击杀自动终局 (2026-08-29): +100 后 15 步内无新目标 → 提前结束 episode。

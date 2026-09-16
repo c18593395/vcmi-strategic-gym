@@ -94,6 +94,21 @@
 
 **关联**：`py/win1_five_criteria_snapshot.sh` / `py/analyze_trunc200.py` / `py/win3_eval_difficulty_axis.py` / `py/target_scorer.py`（P10 灰度）/ 踩坑 #232（P10 V×0.2 衰减）/ 踩坑 #236（D3 entc 行延迟口径）/ 知识库「WIN-3 难度轴纯评估」章。
 
+### 250 步方案部署 (09-16, WIN-3 ②, STEPS_PER_EP 200→250)
+
+**动机**：#238 实证 108_02_duel 蓝英雄 plen=201 > 200 步预算 = 结构性不可达。WIN-3 ② 二选一中选「提 250 步」方案（全局影响所有图，T05 小图节奏变慢 ~25% 需后续观察），另一选项「挪城到 (98,98)」暂缓。
+
+**改动清单**：
+- `train_wsl2_ppo_v2.py` L9：`STEPS_PER_EP = 250`（原 200）
+- `ep_runner_one.py` T06 覆盖块：`move_to_force = 250`（原 200）+ `guard_done_steps = 0`（保留）
+- `ep_runner_one.py` 三处注释口径 200→250 对齐（L1229 / L1270 / T06 覆盖块注释）
+- 清 `__pycache__`（`find /mnt/d/Bigdata/hero3_fresh -name '*.pyc' -delete`）
+- `wsl -u root systemctl stop/start homm3-train-v5`（PID 25924，checkpoint resume）
+
+**验证**：新 banner 行 96902 `WSL2 PPO v2 — 1000eps×250steps batch=2048 maps=10 device=cuda`（maps=10 说明本次 checkpoint 重启后图池为 10 图）。
+
+**关联**：踩坑 #238（108_02_duel 结构性不可达）/ WIN-3 ②（250 步方案）/ 当前任务清单 WIN-3 ② 部署标记。
+
 ### C1 B4 晋级判据实质达成 (09-16, 人工拍板, ckpt=711583)
 
 **评估结果**：3 次 `--profile all`（ckpt=711583）avg_r = 153.2 / 133.1 / 144.6，全 ≥+15（B4 线③达标）。四项单指标全过：GUARD 首胜率 88%（≥30% 达标）/ 正局率 100%（≥70% 达标）/ avg_r 144.6（≥+15）/ 大负率 0%（≤0% 达标）。3 窗趋势稳定（均值 143.6，波动 ±10）。

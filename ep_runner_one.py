@@ -145,12 +145,18 @@ parser.add_argument("--ts_w_stick", type=float, default=2.0, help="P10 打分器
 parser.add_argument("--ts_margin", type=float, default=20.0, help="P10 打分器: 战力差 logistic margin")
 parser.add_argument("--ts_temp", type=float, default=30.0, help="P10 打分器: logistic 温度")
 args = parser.parse_args()
-# 0909 T06 双死锁修复 (用户拍板): ① move_to_force →200 全程 — 蓝城引导天然在守卫胜后
+# 0909 T06 双死锁修复 (用户拍板): ① move_to_force →max_turns 全程 — 蓝城引导天然在守卫胜后
 # (step 38-58+), 60 步强制窗外模型不采 24, 引导激活了也驱动不了模型; ② guard_done →0 —
-# 15 步收局掐死蓝城引导, 禁用 GUARD_DONE, 200 truncation 兜底 (capture +100 激励包配套)。
-# T04/T05 不受影响; capture 触发率稳定后撤梯子 (200→常规窗)。
+# 15 步收局掐死蓝城引导, 禁用 GUARD_DONE, truncation 兜底 (capture +100 激励包配套)。
+# 09-16: STEPS_PER_EP 200→250 (T05 全局提 250 步), T06 move_to_force 同步 200→250。
+# 09-16 WIN-3② duel 修复: duel 图蓝英雄 plen=129<250 理论可达, 但 T06 全覆盖 move_to_force=250
+# → act_loop_from_step=60 后 step≥60 的 190 步 act=2 循环累积 -1.0/步 = r≈-1665;
+# 非 duel T06(1v3) 蓝城引导需全程, 维持 250; duel 回 60 (与 act_loop 门控同步, P10 引导前 60 步走 24)。
 if args.mapname.startswith('T06'):
-    args.move_to_force = 200
+    if 'duel' in args.mapname:
+        args.move_to_force = 60
+    else:
+        args.move_to_force = 250
     args.guard_done_steps = 0
 
 
@@ -1225,7 +1231,7 @@ try:
         # 插入 10 会打断检测窗口; 剔除后 10 无法逃避检测, 投机失去收益
         if a != 10:
             act_hist.append(a)
-        # T06 move_to_force=200=max_turns → 门控永假 (act=2 循环无惩罚, r≈-420~-440 主因之一)
+        # T06 move_to_force=250=max_turns → 门控永假 (act=2 循环无惩罚, r≈-420~-440 主因之一)
         # act_loop_from_step>0 时与 move_to_force 解耦, T06 设 60 → step≥60 后惩罚生效
         _al_from = args.act_loop_from_step if args.act_loop_from_step > 0 else args.move_to_force
         if args.act_loop_penalty > 0 and traj["steps"] >= _al_from:
@@ -1266,7 +1272,7 @@ try:
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
             # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致
-            # 0915: T06 move_to_force=200 → 横跳8步窗门控也永假, 用 act_loop_from_step 解耦
+            # 0915: T06 move_to_force=250 → 横跳8步窗门控也永假, 用 act_loop_from_step 解耦
             _al_from = args.act_loop_from_step if args.act_loop_from_step > 0 else args.move_to_force
             if len(traj["obs"]) >= 8 and traj["steps"] >= _al_from:
                 recent = []
