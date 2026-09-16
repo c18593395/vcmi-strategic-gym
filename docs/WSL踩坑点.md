@@ -1036,4 +1036,12 @@
 - **处理**: 凡多行 bash/复杂命令一律写成 `py/*.sh`（或 `.py`）脚本文件，再 `wsl bash py/xxx.sh` 执行；单条简单命令（grep/systemctl）可内联。
 - **教训**: 与 #75（python 补丁脚本残留拼接）、#22（python3 -c 引号嵌套）同源——Windows↔WSL 边界上的引号/换行转义是高频坑，脚本文件是稳态解法。
 
+#### #246 ep_runner 图名断言：直通产物 vmap 命名须含 `s1/mini/adventure/h3m` 关键词，否则 strategic_env 加载即炸 (09-16, B2 冒烟首跑踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化（B2 冒烟产物改名 `B2_adventure_knee_deep.vmap`，两处副本同步；后续直通转换产物统一带 `adventure_` 前缀）
+- **现象**: `ep_runner_one.py 6 /tmp/b2_knee_traj.json B2_KneeDeep.vmap` 首跑即断言失败：`Map 'B2_KneeDeep.vmap' must contain 's1', 'mini', or 'adventure'`（`strategic_env.py` L522）。
+- **根因**: ep_runner/strategic_env 对训练图名做课程门控（T0x_s1/T0x_mini/adventure/h3m 家族前缀路由），H3M 直通转换产物原名（驼峰、无关键词）不在白名单。
+- **处理**: `py/rename_b2_knee.py` 双份改名（`rel/bin/data/Maps/` + `maps/training/`）；冒烟重跑通过。
+- **教训**: 任何新图入 ep_runner 链路前，图名先过关键词断言；命名纪律 = 前缀带课程/家族关键词。关联：#224（改图后必跑 sync_maps_to_runtime）/ 任务清单 P10-B B2 记录。
+
 
