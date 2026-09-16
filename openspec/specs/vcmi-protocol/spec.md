@@ -45,6 +45,18 @@ T13 外挂 AI 客户端与 VCMI server 之间的二进制网络协议契约。
 - RecruitCreatures (187) = 23B
 - TryMoveHero (109) 回包字段序 = id + result + start + end + movePoints + fow + attackedFrom
 
+#### Scenario: 玩家回合门控
+- **WHEN** 收到 PlayerStartsTurn(88) 包
+- **THEN** 包体 = queryID + playerColor 字段序（非 player+time_limit）；外挂仅在 MY_COLOR 回合发 EndTurn，否则 server 拒绝（"not allowed/fishy"）
+
+#### Scenario: QueryReply 实战闭环
+- **WHEN** 外挂客户端收到 server query（如招募确认）并回送 QueryReply(197)，queryID/player/result 与 DIAG 诊断行一致
+- **THEN** server 日志显示 query 正常应答（无 "not allowed/fishy"），对局继续推进不卡死
+
+#### Scenario: 197 双布局布局校验
+- **WHEN** 实测 197 absent/present 两种布局字节
+- **THEN** 8B absent 帧 server 无 197 fishy = 受理; C++ save(optional) absent 走 uint32(0) 4B 路径与 Python 1B 0x00 理论不匹配, 9B present 为回退候选
+
 ### Requirement: QueryReply 双布局回退
 外挂发 QueryReply(197) SHALL 按 8B absent 首发; 若 server 197 鱼线出现 ("applying 10QueryReply...fishy") 或 10s 内无 PackageApplied(84) 回流, 换 9B present 重试一次。
 真实 qid 数据源: server QUERY-DIAG 日志行 ([QUERY-DIAG] qid=N player=X type=...) 为主, 客户端 88/154-160 query 包体首字段 qid 为辅; 仅当我方 (MY_COLOR) qid != -1 才回送, 他方只记录。
@@ -59,8 +71,13 @@ T13 外挂 AI 客户端与 VCMI server 之间的二进制网络协议契约。
 - **THEN** 组包 8B 回送; 197 zero fishy = PASS(replied)
 
 ### Requirement: 玩家回合门控
+玩家回合门控 SHALL 遵循以下规则：
 - **WHEN** 收到 PlayerStartsTurn(88) 包
 - **THEN** 包体 = queryID + playerColor 字段序（非 player+time_limit）；外挂仅在 MY_COLOR 回合发 EndTurn，否则 server 拒绝（"not allowed/fishy"）
+
+#### Scenario: 非我方回合禁止发决策包
+- **WHEN** 88 包体 playerColor != MY_COLOR 且对局进行中
+- **THEN** 外挂 SHALL 仅回 180 EndTurn 占位或不发包，不发 MoveHero/Build/Recruit，否则 server 回 "not allowed/fishy"
 
 ### Requirement: Lobby 开局流程
 多人局建立 SHALL 遵循：join → LobbyChangeHost(225) → LobbySetMap(229) → LobbyPrepareStartGame(223) → LobbyStartGame(224, 含 171KB StartGame 数据) → GAMEPLAY 包流。
@@ -69,6 +86,16 @@ server 注入诊断行（SRV-DIAG）：HERO OI dump / TOWNAVAIL dump，供外挂
 #### Scenario: 完整对局建立
 - **WHEN** host 与 client1 完成 lobby 交换并发起开局
 - **THEN** 双方进入 GAMEPLAY，server 日志零 "not allowed/fishy"
+
+### Requirement: Query 分发诊断行（QUERY-DIAG）
+server 在向玩家分发 query 时 SHALL 输出诊断行（SRV-DIAG 路线，复用 #206 模式）：
+- 格式：`QUERY-DIAG: qid=<queryID> player=<player> type=<query类型>`
+- 输出位置：query 注册/分发的服务端代码路径，写入 vcmiserver 标准日志
+- 用途：外挂端 tail 日志获取活跃 queryID，免解析 StartGame/大包
+
+#### Scenario: 招募确认 query 分发
+- **WHEN** 城内触发招募确认 query 并分发给红方玩家
+- **THEN** server 日志出现一行 `QUERY-DIAG: qid=... player=0 type=...`，外挂端可据此组装 QueryReply
 
 ## Notes
 
