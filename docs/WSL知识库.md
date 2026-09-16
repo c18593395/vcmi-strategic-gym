@@ -2114,3 +2114,51 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 
 踩坑 #232（经济期远目标碾压）/ #233（坐标变量混用）/ #234（训练脚本透传）/ WIN-1⑤（72_02 卡点拍板转 P10）/ `py/target_scorer.py` / `py/test_target_scorer.py` / `ep_runner_one.py` L133-144/L675-717 / `train_wsl2_ppo_v2.py` L196/L222。
 
+
+## P8-C 收尾: QueryReply 197 组包 + green headless null-ENGINE 段错误根治 (09-16)
+
+**背景**: T13.10 P8-C 决策接入已闭环 (09-11, MoveHero/Build/Recruit 实机 PASS), 剩余 = QueryReply(197) 实战样本。本轮一次做完 2.1-4.2 + 遗留 green 段错误根治。
+
+### 1. QueryReply(197) 双布局 + 8B/9B 回退 (纯协议工作)
+
+**C++ 权威**: `lib/networkPacks/PacksForServer.h` `QueryReply = QueryID(qid LVarInt) + std::optional<int32>(reply)`. `BinarySerializer::save(std::optional<T>)` present = 1B(0x01)+int32; **absent = `save(static_cast<uint32_t>(0))` 写 4B** (非 1B 0x00). Python 侧 8B absent / 9B present 为两种 candidate 布局, 实机 197 无 fishy = 受理.
+
+**脚本** `py/p8/p8c_query_reply.py`:
+- 双数据源拿真实 qid: ① server tail `[QUERY-DIAG] qid=N player=X type=...` (VCMI_QUERY_DIAG=1 编译宏+运行时双控, fork 1.8 `server/queries/QueriesProcessor.cpp` 注入) 为主 ② client 88/154-160 query 包体首字段 qid 为辅
+- 组包: 8B absent 首发; 197 鱼线 ("applying 10QueryReply...fishy") 或 10s 无 PackageApplied 回流 → 9B present 回退一次
+- 判据: ① bad keyword 只数 197 鱼线 (Build/Recruit 占位 OI 的 fishy 记录不计入) ② 客户端 88 PlayerStartsTurn 包体 queryID = 上一回合 qid 残值, 真实 qid 一律以 QUERY-DIAG 为准 ③ 仅我方 (MY_COLOR) qid≠-1 才回送, 他方只记录 ④ 断线后仍 tail 5s 抢 197 组包窗口
+
+**两次 clean run (达标)**:
+- run10: DIAG 抓到 qid=2/red (MapObjectVisitQuery) → 8B 帧发出 → 197 zero fishy = **PASS(replied)** (唯一抓到真实 qid 回送的 run)
+- run12: qid=-1 only + server 16PST广播=3≥2 + 197 zero fishy = **PASS(qid=-1 only)**
+
+**8B absent vs C++ uint32 路径字节不匹配疑点** (遗留): 实机 8B 帧 server 无 197 fishy = 受理 (run10 实证), C++ absent 走 uint32(0) 4B vs Python 1B 0x00 理论不匹配, 9B present 为回退候选, 待 197 fishy 实锤时验证.
+
+### 2. green(NK2 client) runNetwork 段错误根治 (踩坑 #215, vcmi-native commit 65515ef24)
+
+**现象**: 每次 clean run 复现 green(NK2 client, headless/testmap-onlyai) 在 server 广播 16PlayerStartsTurn #2 时 runNetwork 线程 `segfault at 80` (dmesg `mov r13,[rax+0x80]` rax=null), 进程消失 → server SHUTDOWN (host=python 仍在但 activeConnections 减少触发) → Python 连接 RST → 对局推进中断.
+
+**根因 (gdb core 实锤, 非 dmesg 符号化误导)**:
+- 首崩点 `client/CServerHandler.cpp:697` `startGameplay → ENGINE->discord()`: headless 模式下全局 `ENGINE`(unique_ptr<GameEngine>) 为 **null** (`clientapp/EntryPoint.cpp` L297 `if(!headless) ENGINE=make_unique`), `unique_ptr<Discord>::operator*` this=null → null+0x80 (GameEngine 类内 Discord 成员偏移) = `segfault at 80`
+- 二次崩点 `client/Client.cpp:536` `removeGUI → ENGINE->windows()` (断线回收路径, 同样 null-ENGINE)
+- dmesg 符号化坑: "segfault at 80" 的 80 = 解引用偏移非函数偏移, 直接 addr2line 落在 inlined 的 `__Vector_base<char>` 是误导, **必须 gdb core 拿真实调用栈**
+
+**修复**: `client/CServerHandler.cpp` + `client/Client.cpp` 全部裸 `ENGINE->` 解引用 (discord/windows/interfaceMutex) 加 `if (ENGINE)` 守卫 (共 14 处), sendRestartGame/sendStartGame 的 CLoadingScreen 双分支收进 `if (ENGINE) {}` 消 dangling-else, 重编 vcmiclient.
+
+**验证 (修后 clean run)**: 16PST 广播 3→**4** (green 活到第 3 回合), 无 "Connection lost", dmesg 无新 runNetwork segfault, 无新 core 落地. BuildStructure 占位 OI 的 fishy 仍存 (不计入 197 判定).
+
+### 3. RecruitCreatures(187) 签名坑 (踩坑 #214)
+
+`RecruitCreatures(tid=1, bid=30, count=1)` → `TypeError: got an unexpected keyword argument 'bid'`. 正确签名 = `RecruitCreatures(tid, dst, crid, amount, level=0, player, request_id)`, 字段序 = tid(ObjectInstanceID 源建筑) + dst(ObjectInstanceID 英雄) + crid(string jsonKey) + amount(ui32) + level(si32), 与 185 Build(tid+bid LVarInt) 完全不同. 参考 `py/p8/p8c2_town_chain_probe.py` L110.
+
+### 4. 交付物
+
+- `py/p8/p8c_query_reply.py` (主仓 commit 1eb664b)
+- `openspec/specs/vcmi-protocol/spec.md` QueryReply 8B/9B 双布局 + "双布局回退" Requirement + 2 Scenario + Notes (commit 1eb664b)
+- 踩坑 #213 (green 段错误+8B/9B 布局疑点, 主仓 commit 7ae9ae7 补充) / #214 (RecruitCreatures 签名) / #215 (null-ENGINE 根治, 主仓 commit dfdc532)
+- vcmi-native commit 65515ef24 (client/CServerHandler.cpp + client/Client.cpp, 未推送 mmai-ml 分支)
+- 当前任务清单第七章 剩余工作②③标完成 + 遗留①标 ✅已修复 (commit dfdc532)
+
+### 关联
+
+踩坑 #213/#214/#215 / spec `openspec/specs/vcmi-protocol/spec.md` / `py/p8/p8c_query_reply.py` / vcmi-native 65515ef24 / 上游 P8-E 人机混局 (09-15) / P8-D 双机部署 (09-14).
