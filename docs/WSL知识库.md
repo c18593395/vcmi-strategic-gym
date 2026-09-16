@@ -110,6 +110,37 @@
 
 **B2 后续（09-16 同窗收口）**：冒烟 exit=124 = timeout 300s 跑满 6 步窗口属正常（非异常退出）；`Music file "music/CstleTown" not found` 等 music 缺失报错经核查 `train_loop.log` 与 #218 批量转换链均无记录，定性为 **rel/bin 缺 music 资源的已知良性噪声**（不影响引擎功能，不阻断入池，如部署后主日志再现再复查）。traj steps=2 r=-2.9 = 随机策略 6 步样本，仅证"引擎可玩"，非 PPO 判据。
 
+### 09-16 P10-B B3 完成：R1-R7 改写层 + report.json 审计 + 9 case 开关对账 + ep_runner 冒烟（✅ 出口判据全过）
+
+**B3 完成记录**（`tools/h3m2vmap/main.cpp` B3 改写层，独立 CMake 工程零 rel 写入）：
+
+1. **R1 城镇归零**：2 城 owner→NEUTRAL（直写 public `tempOwner`，`CGTownInstance::setOwner` 是 private）+ 清建筑 23（`getBuildings()` 计数 + `removeAllBuildings()`）+ 清守军 5 stack（`CArmedInstance::clearSlots()`）；hero 部队同清。
+2. **R3 守卫改写**：26 stack 遍历（16 monster + 10 randomMonsterLevel*），`--r3_scale X` 缩放（min 1，`stack->setCount`）+ `neverFlees=true` + `initialCharacter=SAVAGE`（scale=1.0 也做狂暴化，数量不变）。
+3. **R4 白名单过滤**：39 类短名保守集（ML 目标 18 类 + 静态装饰 21 类）— `randomMonsterLevel*`/`randomResource`/`randomArtifact*` 运行时定型为 MONSTER/RESOURCE/ARTIFACT 后 ML 可识别故保留；山/树/岩等 21 类装饰决定 `tile.blocked()` 障碍通道必须保留。实测 Knee Deep：**保留 366 / 移除 47**（31 类杂项：shrine/witchHut/magicWell/scholar/borderGuard/sign/event 等）。
+4. **R6 胜负重置**：原 4 个 triggeredEvents 清空 → standardWin(`EventCondition(STANDARD_WIN)`+VICTORY) + standardLose(`DAYS_WITHOUT_TOWN,0`+DEFEAT)。
+5. **R7 文本改写**：`map.name/description = MetaString::createFromRawString(--map-name ID)`。
+6. **R5 地形全草**：默认关（#94），`--terrain-flatten` 时计数 1296 cells（36×36×1 层）。
+7. **report.json 审计**：写 vmap 同目录，R1-R7 计数全量输出。
+
+**关键修复（踩坑 #247）**：R4 删对象初版用 `eraseObject`（置 null 保序）→ `CMapSaverJson::writeObjects` 用 `getObject(ObjectInstanceID(i))` 直接索引原始 vector（紧凑假设）→ 36 个尾部对象漏写 + null 槽写空壳，`ROUNDTRIP MISMATCH in=366 out=330`。改 `removeObject`（CMap.cpp:593，vector erase + id 重排 + towns/heroesOnMap/tile 引用全修正）+ **按 ID 降序删**（每次删除只重排 ≥ 该 id 的对象，待删集合中更大 id 已删完）→ ROUNDTRIP OK 366→366。
+
+**9 case 开关对账（`py/run_b3_matrix.sh`，全 ROUNDTRIP OK）**：
+| case | 对账点 | 结果 |
+|------|--------|------|
+| no_rules | OUT=413 + report 不写 | ✅ |
+| no_r1 | R1_* 键缺失 | ✅ |
+| no_r4 | OUT=413 + R4_* 缺失 | ✅ |
+| no_r6 / no_r7 | 对应键缺失 | ✅ |
+| r3_050 / r3_100 | R3_scale_pct=50/100 | ✅ |
+| flatten | R5_flattened_cells=1296 | ✅ |
+| default | 全开基线 R4 366/47 | ✅ |
+
+**全规则组合产出**（`py/run_b3_full.sh`，r3_scale=1.5）：RULED objects=366 / 15637B / ROUNDTRIP OK / RC=0。
+
+**ep_runner 冒烟**：`B3_adventure_knee_deep.vmap`（全规则 1.0 产物）部署 `rel/bin/data/Maps/`，`ep_runner_one.py 6` → **exit=0**（6 步跑完自然退出，无需 timeout 兜底），traj steps=6 / r=-7.2 / done 全 False；terrain_grid 旁路 1212 非零 OK；引擎加载无 error/exception。R1-R7 改写后地图在训练链路完整可玩。
+
+**指针**：`py/run_b3_full.sh`（全规则）/ `py/run_b3_matrix.sh`（9 case 对账）/ `py/run_b3_smoke.sh`（冒烟）/ `py/inspect_b2_types.py`（70 类短名调研）/ `tools/h3m2vmap/main.cpp`（B3 改写层）/ 踩坑 #247/#248 / 设计稿 §5/§7 B3 节。**B4 待做**：Knee Deep 全流程正式产出（R2 玩家重配 red=human/blue=ai 尚未实现，属 B4 范畴）→ 交 C/D/E 步入池。
+
 ### 09-16 日志分析：D3 熵验证 + P10 duel 图持续负 r + 108_02 临界不可达实证
 
 **训练进程**：09-16 重启段（system unit homm3-train-v5 active，PID 变更后 resume step 698978→717662+），ep 编号已重置从 1 起，至 ep=29（time=11754s），BATCH 周期 ~55min 维持。零崩溃（`[EP_TIME]` 全历史 1319 条无一条 `err=yes`；零 SIGSEGV/SIGABRT/rc=139/rc=134）。

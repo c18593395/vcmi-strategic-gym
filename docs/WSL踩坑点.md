@@ -1044,4 +1044,23 @@
 - **处理**: `py/rename_b2_knee.py` 双份改名（`rel/bin/data/Maps/` + `maps/training/`）；冒烟重跑通过。
 - **教训**: 任何新图入 ep_runner 链路前，图名先过关键词断言；命名纪律 = 前缀带课程/家族关键词。关联：#224（改图后必跑 sync_maps_to_runtime）/ 任务清单 P10-B B2 记录。
 
+#### #247 CMapSaverJson::writeObjects 紧凑 vector 假设：eraseObject 置 null 不重排 → 尾部对象漏写 + null 槽位写空壳 (09-16, B3 R4 首跑踩) — ✅ 已修
+
+- **状态**: ✅ 已修（R4 改 `removeObject` 按 ID 降序删，ROUNDTRIP OK 366→366）
+- **现象**: B3 R4 用 `eraseObject`（置 null 保序）删 47 个白名单外对象后，RULED 内存对象 366 正确，但 `ROUNDTRIP MISMATCH in=366 out=330`，读回日志 36 次 `Object type missing {instanceName:"",subtype:"",type:""}` 空壳。
+- **根因**: `CMapSaverJson::writeObjects`（MapFormatJson.cpp:1503）先 `resize(getObjects().size())`（过滤 null 后的数量），再循环 `map->getObject(ObjectInstanceID(i))` **直接索引原始 objects vector**——该 API 假设 vector 紧凑无 null。eraseObject 只做 `objects.at(id)=nullptr` 不重排 → 原始 vector 仍 413 项（47 个 null 槽），按 i=0..365 索引时：null 槽位取到空 → 空壳 JSON；落在原始尾部（≥366 位置）的 36 个有效对象**永远不会被写出**。
+- **处理**: R4 改用 `CMap::removeObject`（CMap.cpp:593，vector erase + 后续对象 id 重排 + towns/heroesOnMap/terrain tile blockingObjects/visitableObjects 引用全修正），且**按 ObjectInstanceID 从大到小删**——每次删除只重排 ≥ 该 id 的对象，待删集合中更大的 id 已删完，小 id 不受影响，顺序安全。
+- **教训**: 引擎内改 CMap 后要 saveMap 的路径，删对象只能 `removeObject`；`eraseObject` 是为 editor undo/redo 场景设计的（保留槽位），与 JSON 序列化器的紧凑假设互斥。审计口径：`getObjects().size()` 是过滤后数量，`objects.size()` 才是原始槽位数，对账时要分清。
+
+#### #248 B3 引擎 C++ API 一揽子坑（getTypeName 短名 / setOwner 与 builtBuildings 均 private / TargetTypeID 嵌套 using / boost 选项数字连字符 / GameLibrary cwd 依赖） (09-16, B3 开发全程) — ✅ 已固化
+
+- **状态**: ✅ 已固化（main.cpp 全部按正确 API 重写，B3 全规则 + 9 case 开关对账通过）
+- **坑 1 — `getTypeName()` 返回短名不是 `core:` 全名**：返回 `mountain`/`oakTrees`/`town`/`monster`（与 objects.json 的 type 字段同源），R4 白名单写 `core:town` 全部不匹配 → 413 对象全进待删集。白名单必须用短名。
+- **坑 2 — `CGTownInstance::setOwner` 是 private**（`setOwner(IGameEventCallback&, const PlayerColor&) const`，遮蔽基类 1 参版）→ 直接写 public 成员 `t->tempOwner = PlayerColor::NEUTRAL`。
+- **坑 3 — `builtBuildings` 是 private 且无 getter** → `t->getBuildings()` 拷贝出集合计数 + `t->removeAllBuildings()` 清空。
+- **坑 4 — `EventCondition::TargetTypeID` 是嵌套 using**（VariantIdentifier<ArtifactID,...>），构造 `EventCondition(DAYS_WITHOUT_TOWN, 0, TargetTypeID())` 必须写全限定 `EventCondition::TargetTypeID()`。
+- **坑 5 — boost program_options 选项名含数字+连字符不安全**：`--r3-scale` 报 `unrecognised option`，改下划线 `--r3_scale`。
+- **坑 6 — GameLibrary 初始化依赖 cwd**：`CResourceHandler::load("config/filesystem.json")` 相对路径，工具必须在 `/home/administrator/vcmi-native` 下执行，否则 `CONFIG/FILESYSTEM not found` abort。
+- **教训**: VCMI 引擎 API 大量 private 封装（对象操作走引擎方法而非直改字段）；B3 全部坑在 `tools/h3m2vmap/main.cpp` 注释中有就地说明。
+
 

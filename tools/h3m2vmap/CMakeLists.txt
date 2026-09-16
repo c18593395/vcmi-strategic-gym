@@ -23,6 +23,8 @@ add_executable(h3m2vmap main.cpp)
 target_include_directories(h3m2vmap PRIVATE
 	${VCMI_SOURCE_DIR}
 	${VCMI_SOURCE_DIR}/include
+	${VCMI_SOURCE_DIR}/lib
+	${VCMI_SOURCE_DIR}/lib/bonuses
 )
 
 find_package(Boost 1.66 REQUIRED COMPONENTS program_options filesystem system)
