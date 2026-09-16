@@ -103,7 +103,5 @@ server 在向玩家分发 query 时 SHALL 输出诊断行（SRV-DIAG 路线，�
   P8-C 收尾 2.1/2.2 QueryReply 8B/9B 实机验证 PASS（09-16, py/p8/p8c_query_reply.py 两次 clean run:
   ① DIAG qid=2/red 8B 帧发出 197 zero fishy = PASS(replied); ② qid=-1 only + server 16PST广播=3>=2 + 197 zero fishy = PASS(qid=-1 only)）
 - 安全约束：恶意包不得炸服（#205 retrievePack try/catch 已修，回归时保持）
-- fork/1.8 已知限制：green(NK2) 客户端在 16PlayerStartsTurn 广播#2 时 runNetwork 线程段错误（dmesg 实锤，
-  每次 clean run 复现），导致 server SHUTDOWN + Python 连接 RST；对局推进判据以 server 侧 16PST 广播次数为准，
-  与 green 存活无关。QueryReply 8B absent 与 C++ save(optional) absent 路径（uint32 4B）存在字节级不匹配疑点，
-  9B present 为回退候选，待 197 fishy 出现时验证。
+- fork/1.8 已知限制：green(NK2) headless null-ENGINE 段错误（dmesg `segfault at 80`）— 09-16 已根治（踩坑 #215，vcmi-native commit 65515ef24：client/CServerHandler.cpp + Client.cpp 14 处裸 `ENGINE->` 加 if(ENGINE) 守卫，重编 vcmiclient）。修后 16PST 广播 3→4（green 活到第 3 回合），无 "Connection lost"，dmesg 无新 segfault；对局推进判据继续以 server 侧 16PST 广播次数为准。
+- QueryReply 8B absent 与 C++ save(optional) absent 路径（uint32 4B）存在字节级不匹配疑点，实机 8B 帧无 197 fishy = 受理；9B present 为回退候选，待 197 fishy 实锤时验证。
