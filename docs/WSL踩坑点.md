@@ -1060,7 +1060,7 @@
 - **坑 3 — `builtBuildings` 是 private 且无 getter** → `t->getBuildings()` 拷贝出集合计数 + `t->removeAllBuildings()` 清空。
 - **坑 4 — `EventCondition::TargetTypeID` 是嵌套 using**（VariantIdentifier<ArtifactID,...>），构造 `EventCondition(DAYS_WITHOUT_TOWN, 0, TargetTypeID())` 必须写全限定 `EventCondition::TargetTypeID()`。
 - **坑 5 — boost program_options 选项名含数字+连字符不安全**：`--r3-scale` 报 `unrecognised option`，改下划线 `--r3_scale`。
-- **坑 6 — GameLibrary 初始化依赖 cwd**：`CResourceHandler::load("config/filesystem.json")` 相对路径，工具必须在 `/home/administrator/vcmi-native` 下执行，否则 `CONFIG/FILESYSTEM not found` abort。
+- **坑 6 — GameLibrary 初始化依赖 cwd**：`CResourceHandler::load("config/filesystem.json")` 相对路径，工具必须在 `/home/administrator/vcmi-native` 下执行，否则 `CONFIG/FILESYSTEM not found` abort。**复犯提醒（09-16 B4 验证脚本首跑 SIGABRT RC=134）：任何新转换/验证/冒烟 shell 脚本模板必须首行 `cd /home/administrator/vcmi-native || exit 1`，勿靠记忆补**。
 - **教训**: VCMI 引擎 API 大量 private 封装（对象操作走引擎方法而非直改字段）；B3 全部坑在 `tools/h3m2vmap/main.cpp` 注释中有就地说明。
 
 

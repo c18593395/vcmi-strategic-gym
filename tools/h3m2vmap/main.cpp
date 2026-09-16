@@ -71,6 +71,8 @@ namespace
 		bool rules       = true;   // --no-rules 关闭全部
 		// R1 城镇归零 (B 方案: 保留空壳, owner 归中立 + 清建筑 + 清守军)
 		bool r1          = true;   // --no-r1 关闭
+		// R2 玩家重配 (red=human only / blue=ai only / 其余禁用 → 1v1 训练形状)
+		bool r2          = true;   // --no-r2 关闭
 		// R3 守卫强度 (0.0~5.0, 1.0=原版)
 		double r3_scale  = 1.0;    // --r3-scale X
 		// R4 白名单过滤 (保留 ML 识别目标 + 地形装饰, 移除杂项)
@@ -179,6 +181,39 @@ namespace
 			o.report["R1_towns_zeroed"] = r1_towns;
 			o.report["R1_buildings_cleared"] = r1_buildings;
 			o.report["R1_garrisons_cleared"] = r1_garrisons;
+		}
+
+		if(o.r2)
+		{
+			// R2: 玩家重配 → 1v1 训练形状 (设计稿 §5 R2)
+			//   red(0)=human only, blue(1)=ai only, 其余 6 家 canAnyonePlay()=false
+			// 保存侧 serializePlayerInfo: canAnyonePlay()==false 的槽位整个不写出;
+			// 读取侧 readTeams: 无 teams 段时按可玩玩家自动各分一队 → 1v1 单队闭环,
+			// 无需写 teams (writeTeams 还会剔除单成员队).
+			// hero/town tempOwner 不动: Knee Deep 天然 red/blue 对置
+			//   (hero_45=red christian/castle, hero_202=blue sandro/necropolis),
+			//   town 由 R1 归中立; 仅对游离 owner 的 hero 做兜底重指派.
+			for(int i = 0; i < PlayerColor::PLAYER_LIMIT_I; i++)
+			{
+				PlayerInfo & info = map.players[i];
+				info.canHumanPlay    = (i == 0); // red: human only
+				info.canComputerPlay = (i == 1); // blue: ai only
+			}
+			long long r2_heroes = 0;
+			for(const auto * hPtr : map.getObjects<CGHeroInstance>())
+			{
+				if(!hPtr) continue;
+				auto * h = const_cast<CGHeroInstance *>(hPtr);
+				int own = h->tempOwner.getNum();
+				if(own != 0 && own != 1)
+				{
+					// 游离英雄 (中立/非法槽位) 归 red, 保证 human 侧有英雄可操作
+					h->tempOwner = PlayerColor(0);
+					r2_heroes++;
+				}
+			}
+			o.report["R2_players_configured"] = 2;
+			o.report["R2_heroes_reassigned"] = r2_heroes;
 		}
 
 		if(o.rules && o.r4)
@@ -335,6 +370,7 @@ int main(int argc, const char * argv[])
 		// B3 新增
 		("no-rules", "disable all B3 rewrite rules (pure pass-through, B2 behavior)")
 		("no-r1", "disable R1 (town zeroing)")
+		("no-r2", "disable R2 (player reconfig red=human/blue=ai)")
 		("no-r4", "disable R4 (whitelist filter)")
 		("no-r6", "disable R6 (victory reset)")
 		("no-r7", "disable R7 (text ID rewrite)")
@@ -430,6 +466,7 @@ int main(int argc, const char * argv[])
 		B3Options b3;
 		if(options.count("no-rules")) b3.rules = false;
 		if(options.count("no-r1"))     b3.r1   = false;
+		if(options.count("no-r2"))     b3.r2   = false;
 		if(options.count("no-r4"))     b3.r4   = false;
 		if(options.count("no-r6"))     b3.r6_reset = false;
 		if(options.count("no-r7"))     b3.r7   = false;
@@ -481,8 +518,8 @@ int main(int argc, const char * argv[])
 		// --- B3 改写层 (默认全开, --no-rules 关) ---
 		if(b3.rules)
 		{
-			logGlobal->info("h3m2vmap: applying B3 rules R1=%d R3=%.2f R4=%d R5=%d R6=%d R7=%d",
-				b3.r1, b3.r3_scale, b3.r4, b3.r5_flatten, b3.r6_reset, b3.r7);
+			logGlobal->info("h3m2vmap: applying B3 rules R1=%d R2=%d R3=%.2f R4=%d R5=%d R6=%d R7=%d",
+				b3.r1, b3.r2, b3.r3_scale, b3.r4, b3.r5_flatten, b3.r6_reset, b3.r7);
 			applyB3Rules(*map, b3, mapName);
 		}
 		else

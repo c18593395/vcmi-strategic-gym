@@ -110,6 +110,31 @@
 
 **B2 后续（09-16 同窗收口）**：冒烟 exit=124 = timeout 300s 跑满 6 步窗口属正常（非异常退出）；`Music file "music/CstleTown" not found` 等 music 缺失报错经核查 `train_loop.log` 与 #218 批量转换链均无记录，定性为 **rel/bin 缺 music 资源的已知良性噪声**（不影响引擎功能，不阻断入池，如部署后主日志再现再复查）。traj steps=2 r=-2.9 = 随机策略 6 步样本，仅证"引擎可玩"，非 PPO 判据。
 
+### 09-16 P10-B B4 完成：R2 玩家重配 + Knee Deep 全流程正式产出（✅ P10-B 全部收官）
+
+**R2 实现**（`tools/h3m2vmap/main.cpp`，`--no-r2` 关闭）：8 槽位重配 — `map.players[i]`（public vector，PLAYER_LIMIT_I=8）直接写 `canHumanPlay=(i==0)` / `canComputerPlay=(i==1)`（red=human only / blue=ai only，其余 6 家双 false）+ hero 游离 owner 兜底（非 red/blue 的英雄挪 red，Knee Deep 下 0 例）。
+
+**序列化闭环关键发现**（免写 teams 段，R2 只需 2 行核心赋值）：
+- 保存侧 `serializePlayerInfo`：`canAnyonePlay()==false` 的槽位**整个不写出**（header.json 里只出现 red/blue 两家）；
+- `canPlay` 枚举由 canHumanPlay/canComputerPlay 推导（PlayerOnly/AIOnly/PlayerOrAI）；
+- 读取侧 `readTeams`：无 teams 段 → 按可玩玩家自动各分一队（howManyTeams=2）；保存侧 `writeTeams` 剔除单成员队 → 1v1 各自单队时 teams 段为空 → 下次读取又自动恢复。**完全闭环，R2 无需碰 team/howManyTeams**；
+- heroes 段从实际对象遍历写出（`hero->getOwner()==PlayerColor(player)`）→ hero tempOwner 决定归属，无需动 PlayerInfo.heroesNames。
+
+**Knee Deep 天然 1v1 对置**（`py/b4_recon_players.py` 调研）：hero_45=red(christian/castle)、hero_202=blue(sandro/necropolis)、town_342=red(castle 区)、town_70=blue(necropolis 区)；red allowedFactions={castle} / blue={necropolis} 与英雄类型匹配 → R2 零对象改动。
+
+**对账 + 正式产出**（`py/run_b4_verify.sh`）：
+| case | header.json 校验 | 结果 |
+|------|------------------|------|
+| no_r2 | red canPlay=PlayerOrAI（原状保留） | ✅ ROUNDTRIP OK |
+| default 全规则 | red=**PlayerOnly** / blue=**AIOnly** / R2_players_configured=2 / R2_heroes_reassigned=0 | ✅ ROUNDTRIP OK |
+| 正式产出 | `B4_adventure_knee_deep.vmap` 15630B（#246 命名） | ✅ ROUNDTRIP OK / RC=0 |
+
+**ep_runner 冒烟**（`py/run_b4_smoke.sh`，部署 rel/bin/data/Maps + `ep_runner_one.py 6`）：**exit=0 / steps=6 / total_rew=+11.55**（B3 版 -7.2 → B4 版 +11.55，R2 后经济动作正奖励生效：`[ECON] first BUILD_2 step 2 +15` / `first RECRUIT tier=1 step 4 +12`）；`Grouped 2 heroes into p0:1 p1:1` 双方英雄分组正常；terrain_grid 旁路 1212 非零每步 OK；done 全 False（6 步未终局正常）。
+
+**复犯提醒**：run_b4_verify.sh 首跑 RC=134（SIGABRT）= 忘 `cd /home/administrator/vcmi-native`（#248 cwd 依赖），已加 cd 修复——**任何新转换/验证脚本模板必须首行 cd**。
+
+**指针**：`py/run_b4_build.sh`（同步+构建）/ `py/run_b4_verify.sh`（对账+产出）/ `py/run_b4_smoke.sh`（冒烟）/ `py/b4_recon_players.py`（header/objects 玩家调研，支持传参）/ `tools/h3m2vmap/main.cpp` R2 段 / 设计稿 §5 R2。**P10-B B1-B4 全部完成**，下一步 C/D/E：B4 产出入训练池。
+
 ### 09-16 P10-B B3 完成：R1-R7 改写层 + report.json 审计 + 9 case 开关对账 + ep_runner 冒烟（✅ 出口判据全过）
 
 **B3 完成记录**（`tools/h3m2vmap/main.cpp` B3 改写层，独立 CMake 工程零 rel 写入）：
