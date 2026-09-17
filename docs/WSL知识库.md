@@ -2297,3 +2297,26 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 - [ECON] first BUILD_2 全窗 0 条（T05/T06 act20 强制轮换零触发）→ BUILD 动作无效嫌疑待查。
 
 关联：踩坑 #250/#251/#252 / `docs/方案_own_town重复访问衰减_20260917.md` / `docs/备料_T05引导期卡死熔断_20260917.md`（证伪归档）/ `py/a4_stall_analyze.py`（名义轨迹审计工具） / `docs/已完成任务.md` 09-17 两条 / 方案_WIN1 §4（contact_d 增补行）。
+
+---
+
+### 09-17 OBS-3 登记改述 + A2 攻击步旁路方案（截至 2026-09-17）
+
+**OBS-3 旧描述"aggression 遗留"方向已证伪，改述如下**：
+
+- 原登记：OBS-3 T06 守卫战斗未触发（aggression 遗留）
+- 09-17 预研定谳（`docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md`）：引擎 `CGameHandler::moveHero → blockingVisit() → objectVisited → CGHeroInstance::onHeroVisit → gameEvents.startBattle` 链**无条件触发战斗，无 aggression 开关**；真闸门 = Python 侧 passable 掩码封锁敌格（三方结构性不可达）+ 引导层 MOVE_TO 贪心只走 `pas[d]==1`，蓝英雄格 `passable=0` 被完全堵死。
+- 改述为：**"Python mask/引导层缺攻击步"**——passable 掩码 + MOVE_TO 贪心两处堵点，非引擎 aggression 问题。
+
+**A2 攻击步旁路实现（Python 零重编，复用守卫特判同族模式）**：
+
+- 改动文件：`ep_runner_one.py`（argparse 新增 `--blue_hero_attack_bypass` int 默认 0 / `--attack_f_min` float 默认 0.0；状态变量 `move_blue_hero_target`/`blue_hero_id_target`/`_attack_tried`；MOVE_TO 执行段蓝英雄攻击步分支）+ `py/target_scorer.py`（蓝英雄候选 dict 加 `hero_id`；`pick_from_scored` 返回 dict 加 `blue_hero_id`）+ `train_wsl2_ppo_v2.py`（`WIN1_ENV_ARGS` 映射补 `HOMM3_BLUE_HERO_ATTACK_BYPASS`→`--blue_hero_attack_bypass` / `HOMM3_ATTACK_F_MIN`→`--attack_f_min` 两条）
+- 护栏：① 旁路总开关默认 0 零行为；② 战力 logistic F 阈值（`attack_f_min`，打不过不进入）；③ `_attack_tried` 幂等集合（本局已下发的蓝英雄不重复）；④ 送死 −50/−200 兜底（BHERO_KILL 双帧确认 + BHERO_CONTACT 已有时序）
+- 触发条件：`move_blue_hero_target=True`（scorer 链选中蓝英雄候选）且 `d ≤ blue_hero_contact_d`（默认 2）且 `F ≥ attack_f_min`
+- 方向码：绕 over passable 强制下发朝蓝英雄格方向（与守卫特判 `pas[d] or move_guard_target` 同族，扩展为 `pas[d] or move_guard_target or move_blue_hero_target`）
+- 日志：`[BHERO_ATTACK]` 双写（stdout + `bhero_events.log`）
+- 冒烟前注意：两次文档反转教训（#250 d==0 不可达 / #252 子进程输出落窗）→ 以引擎实机行为为最终准，部署前必须先做 72_01 单局手动冒烟（`--blue_hero_attack_bypass=1`，验 `[BHERO_ATTACK]` 埋点 + CBattleQuery + R6 onnx 结算 `state.battle_result` 非 0）
+- 方案文档：`docs/方案_攻击步旁路_20260917.md`
+- 踩坑：#254（`WIN1_ENV_ARGS` 缺 A2 参数映射致 ep_runner 收不到 `--blue_hero_attack_bypass`，scorer 链选中蓝英雄后贪心回退全 blocked → 引擎拒绝；`Cannot move hero, destination tile is blocked!` 反复出现）
+
+**指针**：`docs/方案_攻击步旁路_20260917.md` / `docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md` / 踩坑 #254 / `ep_runner_one.py`（argparse L85-168 / MOVE_TO L947-1021）/ `py/target_scorer.py` / `train_wsl2_ppo_v2.py`（`WIN1_ENV_ARGS`）

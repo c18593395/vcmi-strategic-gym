@@ -123,6 +123,8 @@ WIN1_ENV_ARGS = {
     "HOMM3_KILL_R_NEXT": "--kill_r_next",                 # P-H3 后续杀 (批次B, 建议 30)
     "HOMM3_OWN_TOWN_DECAY": "--own_town_decay",           # A3 own_town 访问衰减 (09-17 同窗, 建议 0.5; 0=关)
     "HOMM3_OWN_TOWN_MAX_VISITS": "--own_town_max_visits", # A3 访问硬上限 (备用闸门, 0=不限)
+    "HOMM3_BLUE_HERO_ATTACK_BYPASS": "--blue_hero_attack_bypass", # A2 攻击步旁路总开关 (09-17, 默认 0=关; 1=启用)
+    "HOMM3_ATTACK_F_MIN": "--attack_f_min",               # A2 战力 logistic F 阈值 (09-17, 默认 0.0; 打不过不进入)
 }
 _win1_active = {k: os.environ[k] for k in WIN1_ENV_ARGS
                 if os.environ.get(k) not in (None, "", "0", "0.0")}

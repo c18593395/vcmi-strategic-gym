@@ -1,4 +1,4 @@
-import sys, os, json, argparse, random, zipfile, time, importlib
+import sys, os, json, argparse, random, zipfile, time, importlib, math
 from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -898,6 +898,8 @@ try:
                         move_target = (tx, ty, tz)
                         move_stall = 0
                         move_guard_target = True  # 2026-08-25: 守卫格 passable=0 (blocked), 需跳过 passable 检查
+                        move_blue_hero_target = False  # A2: legacy 守卫链无蓝英雄
+                        blue_hero_id_target = None
                         move_town_target = False
                         move_town_bfs = False
                         if guard_done_countdown is not None:
@@ -911,6 +913,8 @@ try:
                         move_target = (tx, ty, tz)
                         move_stall = 0
                         move_guard_target = False
+                        move_blue_hero_target = False
+                        blue_hero_id_target = None
                         move_town_target = (next_dir_idx == -1)
                         move_town_bfs = False
                         if guard_done_countdown is not None:
@@ -924,6 +928,8 @@ try:
                         move_target = (tx, ty, tz)
                         move_stall = 0
                         move_guard_target = False
+                        move_blue_hero_target = False
+                        blue_hero_id_target = None
                         move_town_target = False
                         move_town_bfs = True
                         if guard_done_countdown is not None:
@@ -936,6 +942,8 @@ try:
                         move_target = (tx, ty, tz)
                         move_stall = 0
                         move_guard_target = False
+                        move_blue_hero_target = False
+                        blue_hero_id_target = None
                         move_town_target = True
                         move_town_bfs = True
                         if guard_done_countdown is not None:
@@ -945,6 +953,8 @@ try:
                         move_target = (tx, ty, tz)
                         move_stall = 0
                         move_guard_target = False
+                        move_blue_hero_target = False
+                        blue_hero_id_target = None
                         move_town_target = False
                         move_town_bfs = False
                         if guard_done_countdown is not None:
@@ -952,6 +962,8 @@ try:
                     else:
                         move_target = None
                         move_guard_target = False
+                        move_blue_hero_target = False
+                        blue_hero_id_target = None
                         move_town_target = False
                         move_town_bfs = False
             if tx is not None:
@@ -1001,6 +1013,54 @@ try:
                                     if pas[d] or move_guard_target:  # 守卫格 passable=0 (blocked) 但可攻击进入 (2026-08-25)
                                         a = d
                                         break
+                        # A2 攻击步旁路 (09-17, 方案_攻击步旁路_20260917.md):
+                        # 复用守卫特判同族模式 — 蓝英雄格 passable=0 (blocked),
+                        # 绕过 passable 强制下发朝蓝英雄格方向码 → 引擎 startBattle → R6 结算。
+                        # 护栏: ① args.blue_hero_attack_bypass > 0 才启用; ② 战力 F >= attack_f_min 才下发 (打不过不进);
+                        #       ③ _attack_tried 幂等 (本局已下发的蓝英雄不再重复); ④ 只贴脸 d<=blue_hero_contact_d
+                        elif move_blue_hero_target and args.blue_hero_attack_bypass > 0 \
+                                and blue_hero_id_target is not None and blue_hero_id_target not in _attack_tried:
+                            _d_bh = abs(tx - hx) + abs(ty - hy)  # 曼哈顿距离
+                            _d_th = int(args.blue_hero_contact_d) if args.blue_hero_contact_d > 0 else 2
+                            if _d_bh <= _d_th:
+                                # 战力 F 护栏 (复用 target_scorer.power_feasibility 公式, 参数同 args.ts_margin/ts_temp)
+                                _pw_self = float(obs[base + 10])  # active hero power (H_F_POW=10)
+                                _pw_blue = 0.0
+                                for _hi2 in range(8):
+                                    _bh_id = int(obs[128 + _hi2 * 26])
+                                    if _bh_id == blue_hero_id_target:
+                                        _pw_blue = float(obs[128 + _hi2 * 26 + 10])
+                                        break
+                                if _pw_blue > 0:
+                                    _f_arg = (math.log1p(max(0.0, _pw_self)) - math.log1p(_pw_blue)
+                                              - args.ts_margin) / max(1e-6, args.ts_temp)
+                                    _Fv = 2.0 / (1.0 + math.exp(-_f_arg)) - 1.0
+                                else:
+                                    _Fv = 1.0  # 无战力目标全可打
+                                if _Fv >= args.attack_f_min:
+                                    # 方向码: 朝蓝英雄格 (与守卫同模式: 先找 next==目标 的方向, 再绕过 passable)
+                                    for d in cand:
+                                        nx2, ny2 = hx + [0,1,1,1,0,-1,-1,-1][d], hy + [-1,-1,0,1,1,1,0,-1][d]
+                                        if (nx2, ny2) == (tx, ty):
+                                            a = d
+                                            break
+                                    if a == 24:
+                                        # 蓝英雄格 passable=0 但可攻击进入 (绕过 passable, 与守卫同族)
+                                        for d in cand:
+                                            a = d
+                                            break
+                                    _attack_tried.add(blue_hero_id_target)
+                                    print(f"[BHERO_ATTACK] map={args.mapname} blue_hero_id={blue_hero_id_target} "
+                                          f"step={traj['steps']} d={_d_bh}(th={_d_th}) F={_Fv:.2f} "
+                                          f"pw_self={_pw_self:.0f} pw_blue={_pw_blue:.0f} dir={a} "
+                                          f"(bypass passable, pas={[pas[d] for d in cand]})", flush=True)
+                                    try:
+                                        with open(BHERO_EV_LOG, "a") as _bf:
+                                            _bf.write(f"[BHERO_ATTACK] map={args.mapname} blue_hero_id={blue_hero_id_target} "
+                                                      f"step={traj['steps']} d={_d_bh} F={_Fv:.2f} "
+                                                      f"pw_self={_pw_self:.0f} pw_blue={_pw_blue:.0f} dir={a}\n")
+                                    except Exception:
+                                        pass
                         else:
                             for d in cand:
                                 if pas[d]:

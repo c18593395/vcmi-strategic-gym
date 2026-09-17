@@ -179,6 +179,7 @@ def score_candidates(obs, hx, hy, hz, power_self,
         man = abs(btx - hx) + abs(bty - hy)
         cands.append({
             "pos": (btx, bty, bz), "type": "blue_hero", "tl_idx": -1,
+            "hero_id": hid,  # A2 攻击步旁路 (09-17): 带回蓝英雄 id, 供 ep_runner 幂等 + F 读战力
             "man": man, "tl_dist": 0, "guard_pow": int(np.log2(max(1.0, bpow))),
             "is_blue_hero": True, "is_blue_town": False, "is_guard": False, "is_own_town": False,
             "power_c": bpow,
@@ -333,6 +334,7 @@ def pick_from_scored(scored):
         pos=c["pos"], ttype=c["type"], tl_idx=c.get("tl_idx", -1),
         is_blue_hero=c["is_blue_hero"], is_blue_town=c["is_blue_town"],
         is_guard=c["is_guard"], is_own_town=c["is_own_town"],
+        blue_hero_id=c.get("hero_id"),  # A2 攻击步旁路 (09-17): 蓝英雄候选带回 id, 供 ep_runner 幂等 + F
         meta=meta,
     )
     return pick, runner_up

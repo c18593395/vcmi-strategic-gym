@@ -1071,4 +1071,17 @@
 - **处理**: 三选一 ① 整条命令用单引号包（PowerShell 不插值单引号内容）；② 不用 shell 变量，写完整路径；③ 复杂逻辑落 .sh 文件再执行（同 #245 教训）。
 - **教训**: 判定"文件里没有 X"之前，先用 `ls -l` 字节数与 `wc -l` 对账，确认命令真的读到了文件；PowerShell 侧一切 `$` 一律视为已被消费，跨 wsl 传命令默认单引号。
 
+#### #254 `WIN1_ENV_ARGS` 缺 A2 参数映射 → ep_runner 收不到 `--blue_hero_attack_bypass`，scorer 链选中蓝英雄后贪心回退全 blocked → 引擎反复 `Cannot move hero, destination tile is blocked!` (09-17, A2 旁路首次部署踩) — ✅ 已修
+
+- **状态**: ✅ 已修（`train_wsl2_ppo_v2.py` `WIN1_ENV_ARGS` 补两条映射）
+- **现象**: A2 攻击步旁路代码已写入 `ep_runner_one.py`（argparse + 状态变量 + MOVE_TO 执行段蓝英雄分支），但训练启动后日志反复出现 `Cannot move hero, destination tile is blocked!`；`ps aux | grep ep_runner_one` 显示子进程反复重启（RestartCount 226+）；`[BHERO_ATTACK]` 日志零触发。
+- **根因**: `train_wsl2_ppo_v2.py` 的 `WIN1_ENV_ARGS` 映射字典（L108-110）没有 `HOMM3_BLUE_HERO_ATTACK_BYPASS` 和 `HOMM3_ATTACK_F_MIN` 两条，导致 ep_runner 子进程命令行缺少 `--blue_hero_attack_bypass` 参数。默认值 `blue_hero_attack_bypass=0`（关），但 `move_blue_hero_target=True`（scorer 链选中蓝英雄）时，贪心回退仍只走 `pas[d]==1`；蓝英雄格 `passable=0`（blocked）→ 所有 cand 方向全 blocked → `a=24`（END_TURN 等价）→ 引擎拒绝 → `blocked` 错误反复。
+- **修复**: `train_wsl2_ppo_v2.py` L110（`HOMM3_OWN_TOWN_MAX_VISITS` 后）加两行：
+  ```python
+  "HOMM3_BLUE_HERO_ATTACK_BYPASS": "--blue_hero_attack_bypass",
+  "HOMM3_ATTACK_F_MIN": "--attack_f_min",
+  ```
+- **教训**: ① 新增 ep_runner argparse 参数必须同步检查 `train_wsl2_ppo_v2.py` `WIN1_ENV_ARGS` 映射，否则参数永远走默认值，且不会报错（静默零行为）；② "blocked" 错误的根因不是引擎问题，而是 Python 侧引导层选中了 passable=0 的目标格但攻击步旁路关；③ 验证新参数是否传到子进程：`ps aux | grep ep_runner_one | grep 'blue_hero_attack_bypass'` 应有输出，或看 `[WIN1_BATCH]` 日志行是否包含该参数。
+- **关联**: A2 攻击步旁路 / `ep_runner_one.py`（argparse L85-168）/ `train_wsl2_ppo_v2.py`（`WIN1_ENV_ARGS`）/ `docs/方案_攻击步旁路_20260917.md` / 踩坑 #250（P-H2 同格不可达）
+
 
