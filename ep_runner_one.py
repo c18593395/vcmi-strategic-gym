@@ -140,7 +140,10 @@ parser.add_argument("--blue_hero_grad", type=float, default=0.0,
 parser.add_argument("--blue_hero_grad_cap", type=float, default=0.0,
                     help="P-H1 每局梯度累计上限 (0=不限); 72 图建议 25")
 parser.add_argument("--blue_hero_contact_r", type=float, default=0.0,
-                    help="P-H2 首次接战奖 (批次B): 我方英雄坐标与蓝英雄重合 (走上敌英雄格必触发战斗) 每局每敌 id 一次 +N, 0=关闭 (建议 15)")
+                    help="P-H2 首次接战奖 (批次B): 我方英雄与蓝英雄坐标重合每局每敌 id 一次 +N, 0=关闭 (建议 15)")
+parser.add_argument("--blue_hero_contact_d", type=float, default=0.0,
+                    help="P-H2 接战判定曼哈顿距离阈值 (09-17 A2 修复): 0=仅同格 d==0 (旧行为); 批次B 建议 2=8邻域贴脸 "
+                         "(同格 d==0 结构性不可达: #143 事实3 敌英雄格 moveHero 被拒, 英雄战不由走上敌格触发)")
 parser.add_argument("--kill_r_first", type=float, default=0.0,
                     help="P-H3 击杀阶梯 (批次B): 双帧确认的首个蓝英雄击杀 +N (建议 40), 0=关闭")
 parser.add_argument("--kill_r_next", type=float, default=0.0,
@@ -158,6 +161,12 @@ parser.add_argument("--ts_w_dist", type=float, default=0.5, help="P10 打分器:
 parser.add_argument("--ts_w_stick", type=float, default=2.0, help="P10 打分器: 目标粘滞 bonus 系数")
 parser.add_argument("--ts_margin", type=float, default=20.0, help="P10 打分器: 战力差 logistic margin")
 parser.add_argument("--ts_temp", type=float, default=30.0, help="P10 打分器: logistic 温度")
+# A3 (09-17): own_town 重复访问衰减 + 空撞拉黑 — 治 own_town 贴脸 89.5 恒定霸屏反复回城空撞
+# (T05 全负唯一根因, A4 深查定谳; 方案 docs/方案_own_town重复访问衰减_20260917.md)。默认全 0 = 零行为
+parser.add_argument("--own_town_decay", type=float, default=0.0,
+                    help="A3: own_town 访问衰减 (每次取兵窗后 V×0.5^n, 封底 3 次; 0=关闭, 建议 0.5)")
+parser.add_argument("--own_town_max_visits", type=float, default=0.0,
+                    help="A3: own_town 访问硬上限 (访问数>=N 整类剔除, 0=不限; 备用闸门)")
 args = parser.parse_args()
 # 0909 T06 双死锁修复 (用户拍板): ① move_to_force →max_turns 全程 — 蓝城引导天然在守卫胜后
 # (step 38-58+), 60 步强制窗外模型不采 24, 引导激活了也驱动不了模型; ② guard_done →0 —
@@ -429,6 +438,12 @@ try:
     # → 兵力增量奖励 0.01×dp 立刻生效 (此前招兵进城 garrison, 该奖励管道对 RECRUIT 是断的)
     visit_econ_steps = 0     # 剩余取兵窗步数 (触发=4 步 16/17/18 轮换)
     visit_econ_cooldown = 0  # 冷却 (窗结束/触发后 30 步内不再触发, 防锁死城内 spam 招 0)
+    # A3 (09-17): own_town 衰减/拉黑状态 (局内, 每局随 runner 重启重置; checkpoint resume 无残留)
+    own_town_visits = {}     # {town_id: 已完成取兵窗次数} — scorer 衰减用 (窗结束时 +1)
+    own_town_blocked = set() # 空撞拉黑: 取兵窗兵力零增量 → 本局整类剔除 (TOWN_EMPTY 打点)
+    visit_town_id = None     # 当前取兵窗的城 id
+    visit_army_snap = None   # 窗开启时兵力 power 快照 (空撞判定基线)
+    visit_check_pending = False  # 窗已结束待空撞复核 (延迟一帧到 army power 段, 用 nobs 最新兵力)
     start_home = True        # 2026-09-02 出发前招兵阶段: 每局开局先回城招兵带兵再探索 (用户设计)
     own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
     own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
@@ -592,6 +607,17 @@ try:
                             _rm0 = int(obs[_tb0+14]) | int(obs[_tb0+15])
                             if _rm0 > 0:
                                 visit_econ_steps = 4
+                                # A3 (09-17): 记窗城 id + 兵力快照 (空撞判定基线, L1245 同口径读 obs)
+                                visit_town_id = int(obs[_tb0])
+                                visit_army_snap = 0.0
+                                for _si0 in range(7):
+                                    try:
+                                        _c0 = int(obs[_hb0 + 15 + _si0])
+                                        if _c0 > 0:
+                                            visit_army_snap += _c0 * [10, 40, 120, 350, 900, 1600, 2500][_si0]
+                                    except Exception:
+                                        pass
+                                visit_check_pending = True
                                 print(f"[TOWN_VISIT] own town recruit window at step {traj['steps']} recruit_mask={_rm0}", flush=True)
                             break
             except Exception:
@@ -616,6 +642,9 @@ try:
             visit_econ_steps -= 1
             if visit_econ_steps == 0:
                 visit_econ_cooldown = 30
+                # A3 (09-17): 窗完成计数 (此后 scorer 衰减读 visits; 首次回城打分时 visits=0 全额 35 分)
+                if visit_town_id is not None:
+                    own_town_visits[visit_town_id] = own_town_visits.get(visit_town_id, 0) + 1
         # 2026-09-02 出发前招兵 (用户设计, 每局确定性): 先回城招兵带兵再探索 —
         # 英雄未邻接己方城时强制 MOVE_TO 己方城 (move_town_bfs 引导); 邻接后交由
         # 上方 visit 检测开取兵窗 (16/17/18), 引擎 P1/P1b 完成 visit+招兵直上英雄;
@@ -721,7 +750,10 @@ try:
                         guard_blacklist, dyn_blocked, _phase, _w,
                         mapname=args.mapname, current_target=move_target, stall_count=move_stall,
                         guards=get_guards(args.mapname), bfs_full_dir=bfs_full_dir,
-                        own_town_limit=_t06_limit_s, step_budget=_step_budget)
+                        own_town_limit=_t06_limit_s, step_budget=_step_budget,
+                        own_town_visits=own_town_visits, own_town_decay=args.own_town_decay,
+                        own_town_blocked=own_town_blocked,
+                        own_town_max_visits=int(args.own_town_max_visits))
                     _pick, _runner_up = _target_scorer.pick_from_scored(_scored)
                     if _pick is not None:
                         tx, ty, tz = _pick["pos"]
@@ -1113,8 +1145,10 @@ try:
         # WIN-1 击杀激励重设计 (09-16 方案批次A/B): 仅非 duel 大图, 空拍整帧跳过 (外层 _bnow 条件, #231 口径)。
         # P-H1 蓝英雄接近梯度: 新低制 r += grad × max(0, prev_min_d − cur_d), 远离不扣 (防往返走位刷分),
         #   cap 每局封顶; 蓝英雄被歼后剩余集合自动重定基准 (只奖新低, 基准跳变无负罚)。
-        # P-H2 首次接战: 我方英雄坐标与蓝英雄重合 = 走上敌英雄格 (VCMI 机制必触发战斗) — 每局每敌 id 一次;
-        #   误判面仅剩"蓝攻红胜后站我格", 该情形必致我败 (death_penalty 净亏) 激励安全。
+        # P-H2 首次接战: 判定距离阈值化 (09-17 A2 修复) — 同格 d==0 结构性不可达 (#143 事实3: 敌英雄格
+        # moveHero 被 "destination tile is blocked" 拒绝, 英雄战不由走上敌格触发; min_d=2 贴脸即机械下限),
+        # contact_d=0 保持旧行为 (仅同格), 批次B 注入 2 = 曼哈顿<=2 = 同格+8邻 (与 legacy "贴脸 8 邻" 口径一致);
+        # 语义 = 接战塑形近似 (贴脸奖), 真实战斗触发链 (OBS-3 aggression 遗留) 另行专项; 每局每敌 id 一次幂等
         if _bnow and not args.mapname.endswith('_duel.vmap') \
                 and (args.blue_hero_grad > 0 or args.blue_hero_contact_r > 0):
             _ah1 = int(nobs[3203]) if nobs[3203] >= 0 else 0
@@ -1128,11 +1162,12 @@ try:
                     _d1 = abs(_myx1 - _bx1) + abs(_myy1 - _by1)
                     if _bh_min_d is None or _d1 < _bh_min_d:
                         _bh_min_d = _d1
-                    if args.blue_hero_contact_r > 0 and _d1 == 0 and _bid1 not in _contact_paid:
+                    _d_th = int(args.blue_hero_contact_d) if args.blue_hero_contact_d > 0 else 0
+                    if args.blue_hero_contact_r > 0 and _d1 <= _d_th and _bid1 not in _contact_paid:
                         r += args.blue_hero_contact_r
                         _contact_paid.add(_bid1)
                         _bc_msg = (f"[BHERO_CONTACT] map={args.mapname} blue_hero_id={_bid1} "
-                                   f"at step {traj['steps']} +{args.blue_hero_contact_r} (first contact)")
+                                   f"at step {traj['steps']} d={_d1}(th={_d_th}) +{args.blue_hero_contact_r} (first contact)")
                         print(_bc_msg, flush=True)
                         try:
                             with open(BHERO_EV_LOG, "a") as _bf4:
@@ -1252,6 +1287,13 @@ try:
                 # 08-31 S1 招兵效果观测 (只观测): dp>0 = 兵力上英雄 (取兵链路/城内招兵)
                 print(f"[RECRUITED] army power +{_dp:.0f} at step {traj['steps']} (observe only)", flush=True)
         econ_prev_army_power = _army_now
+        # --- A3 (09-17): 取兵窗空撞复核 (延迟一帧, _army_now = nobs 最新兵力, 含窗内招兵增量) ---
+        if visit_check_pending:
+            visit_check_pending = False
+            if _army_now <= (visit_army_snap or 0.0) + 1e-6:
+                own_town_blocked.add(visit_town_id)
+                print(f"[TOWN_EMPTY] town={visit_town_id} at step {traj['steps']} "
+                      f"army={_army_now:.0f} snap={visit_army_snap or 0.0:.0f} (recruit empty, blocked this ep)", flush=True)
         # --- 优先级4 (前半): 首次踩资源点格 → 记步 ---
         _rpts = get_resource_points(args.mapname)
         if _rpts and econ_resource_step is None:

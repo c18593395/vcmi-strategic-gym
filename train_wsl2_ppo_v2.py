@@ -117,8 +117,12 @@ WIN1_ENV_ARGS = {
     "HOMM3_BLUE_HERO_GRAD": "--blue_hero_grad",           # P-H1 接近梯度 (批次A, 建议 0.2)
     "HOMM3_BLUE_HERO_GRAD_CAP": "--blue_hero_grad_cap",   # P-H1 每局上限 (批次A, 建议 25)
     "HOMM3_BLUE_HERO_CONTACT_R": "--blue_hero_contact_r", # P-H2 接战奖 (批次B, 建议 15)
+    "HOMM3_BLUE_HERO_CONTACT_D": "--blue_hero_contact_d", # P-H2 判定距离阈值 (09-17 A2 修复, 批次B 建议 2=8邻;
+                                                          # 0=旧行为仅同格, 而 d==0 结构性不可达 → 批次B 必须注入 2)
     "HOMM3_KILL_R_FIRST": "--kill_r_first",               # P-H3 首杀 (批次B, 建议 40)
     "HOMM3_KILL_R_NEXT": "--kill_r_next",                 # P-H3 后续杀 (批次B, 建议 30)
+    "HOMM3_OWN_TOWN_DECAY": "--own_town_decay",           # A3 own_town 访问衰减 (09-17 同窗, 建议 0.5; 0=关)
+    "HOMM3_OWN_TOWN_MAX_VISITS": "--own_town_max_visits", # A3 访问硬上限 (备用闸门, 0=不限)
 }
 _win1_active = {k: os.environ[k] for k in WIN1_ENV_ARGS
                 if os.environ.get(k) not in (None, "", "0", "0.0")}

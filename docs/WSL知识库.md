@@ -2262,3 +2262,38 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 
 ### 关联
 踩坑 #231/#249 / 方案_WIN1_击杀激励重设计_20260916.md / 任务清单 WIN-1（09-16 晚开窗条目）/ T7.5 S2 前置（WIN-1 达标后才轮到）/ WIN-3 难度轴（错窗互斥）。
+
+## 批次A 收口 + 批次B/A3 同窗部署 + A4 证伪重定性 (09-17)
+
+### 批次A 结算（生效窗 44 局, step 739253→745008+, 三判据全绿）
+
+- **窗口语义**：L101674 首开窗段（22 局）ep_runner 旧代码零 BHERO_GRAD = P-H1 未生效（踩坑 #252），判污染段不计；**生效窗 = L102375 resume 起新代码**。
+- ① 贴近 p50=47.0 <64（基线128）✅ ② 滚动 avg_r 0.6→0.8 持平 ✅（duel 对照组 P-H1 关闭 avg -157~-168 实锤大负值与本轴无关）③ 护栏不塌（RECRUITED 877 / 局长 mean=131 / 截断 20%）✅ KL 2/2<1.0。
+- 工具：`py/win1_batchA_agg.py`（窗口定位修复版，自动取最后 WIN1_BATCH 行 = 生效窗起点）/ `py/win1_guardrail_probe.py`（护栏计数）。
+
+### 双定谳（当日两大归因）
+
+- **A2（P-H2 判据）**：`_d1==0` 同格结构性不可达（#143 事实3 误读，踩坑 #250）→ contact_d 参数化，批次B 注 2（曼哈顿≤2 = 8 方向世界真 8 邻；注意 ≤1 只是 4 邻）。
+- **A4（"卡死段"证伪）**：act 长同向段 = MOVE_TO(24) 执行时被改写为方向动作（L906-957），是直线奔袭非卡死（踩坑 #251）；T05 全负唯一根因 = **own_town 贴脸 89.5 恒定霸屏回城循环**（38-59 段 pick 100% own_town，TOWN_VISIT 节律 ~33 步/次 = 冷却30+窗4，局均 3.0 次 vs T06 1.0）→ 根治转 A3。
+
+### 批次B + A3 同窗配置（09-17 部署, `py/restart_train_v5_win1_batchB.sh`, 8 Environment）
+
+| 参数 | 值 | 语义 |
+|---|---|---|
+| blue_hero_grad / cap | 0.2 / 25 | P-H1 保留（行为链完整） |
+| blue_hero_contact_r / **contact_d** | 15 / **2** | P-H2 接战塑形（邻域判据修复） |
+| kill_r_first / kill_r_next | 40 / 30 | P-H3 击杀阶梯（双帧确认） |
+| **own_town_decay / max_visits** | **0.5 / 4** | A3：V×0.5^min(visits,3) 封底3次 + 空撞拉黑（[TOWN_EMPTY]） |
+
+- **A3 机制**：窗开启记 tid+兵力快照 → 窗完成 visits+1 → army power 段延迟一帧复核（零增量 → 拉黑本局）；scorer 候选4 加 blocked/max_visits 过滤 + visits/decay 注入。离线自测 `py/a3_selftest.py`。
+- **首局实证**：[TOWN_EMPTY] town=13（开局取兵窗空撞当场识别）→ own_town 剔除 → pick 转矿(74.5) → **r=+98.4**（基线 -165~-337），74 步收局。
+- **双轨判据可分**（同窗纪律依据）：批次B 看 BHERO_CONTACT/BHERO_KILL/TOWN_CAPTURE；A3 看 own_town pick 行数（基线 589→<100）/ TOWN_VISIT 次数 / TOWN_EMPTY / T05 avg_r 回升。
+- **回退链**：批次B 塌 → batchA 脚本（仅 P-H1）；A3 异常 → 删 HOMM3_OWN_TOWN_DECAY/MAX_VISITS 两行；全关 → restart_train_v5_sys.sh。
+
+### 残余观察（不立项）
+
+- duel 自由期 22/22 停滞（疑贴脸僵局：min_d=2 机械下限 + 敌格 blocked 无路可走）→ 批次B contact_d=2 改变激励面后自然复验。
+- 自由期碎片化移动被 econ 每 40 步 4 步提醒插穿 act_loop 检测窗 → A3 斩断目标回流后复查。
+- [ECON] first BUILD_2 全窗 0 条（T05/T06 act20 强制轮换零触发）→ BUILD 动作无效嫌疑待查。
+
+关联：踩坑 #250/#251/#252 / `docs/方案_own_town重复访问衰减_20260917.md` / `docs/备料_T05引导期卡死熔断_20260917.md`（证伪归档）/ `py/a4_stall_analyze.py`（名义轨迹审计工具） / `docs/已完成任务.md` 09-17 两条 / 方案_WIN1 §4（contact_d 增补行）。

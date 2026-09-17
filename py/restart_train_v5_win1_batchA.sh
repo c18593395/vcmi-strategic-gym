@@ -1,5 +1,7 @@
 #!/bin/bash
 # WIN-1 批次A 开窗启动脚本 (09-16) — 击杀激励重设计 P-H1 蓝英雄接近梯度
+# ★ 09-17 批次A 判据达标收口 (44 局, 三判据全绿) — 本脚本保留作回退档;
+#   批次B (contact_r+contact_d+kill 阶梯) → py/restart_train_v5_win1_batchB.sh; 全关回退 → restart_train_v5_sys.sh
 # 方案: docs/方案_WIN1_击杀激励重设计_20260916.md
 # 与 restart_train_v5_sys.sh 唯一差异: unit 注入两条 Environment → 主进程透传 ep_runner:
 #   HOMM3_BLUE_HERO_GRAD=0.2      → --blue_hero_grad 0.2      (新低制接近梯度, 空/0=关)

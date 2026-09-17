@@ -81,7 +81,8 @@ def power_feasibility(power_self, power_c, w):
 
 
 def type_value(phase, ttype, mine_taken, c):
-    """类型基础价值 V (方案 §3.2): 蓝英雄>蓝城>未占矿>宝箱/宝物/篝火>资源堆; 已占矿 V=0 (D5)."""
+    """类型基础价值 V (方案 §3.2): 蓝英雄>蓝城>未占矿>宝箱/宝物/篝火>资源堆; 已占矿 V=0 (D5).
+    A3 (09-17): own_town 重复访问指数衰减 V×0.5^min(visits,3) (贴脸 89.5 恒定霸屏治本, decay=0 关闭)."""
     if c.get("is_blue_hero"):
         return BLUE_HERO_VALUE
     if c.get("is_blue_town"):
@@ -89,7 +90,11 @@ def type_value(phase, ttype, mine_taken, c):
     if c.get("is_guard"):
         return GUARD_VALUE
     if c.get("is_own_town"):
-        return OWN_TOWN_VALUE
+        v = OWN_TOWN_VALUE
+        _dec = float(c.get("own_town_decay", 0.0) or 0.0)
+        if _dec > 0:
+            v = v * (0.5 ** min(int(c.get("own_visits", 0)), 3))  # 35 → 17.5 → 8.75 → 4.4 封底
+        return v
     base = TYPE_VALUE.get(ttype, 5.0)
     if ttype == TL_MINE and mine_taken:
         return 0.0
@@ -116,7 +121,9 @@ def score_candidates(obs, hx, hy, hz, power_self,
                      phase,
                      w, mapname=None, current_target=None, stall_count=0,
                      guards=None, bfs_full_dir=None,
-                     own_town_limit=False, step_budget=0):
+                     own_town_limit=False, step_budget=0,
+                     own_town_visits=None, own_town_decay=0.0,
+                     own_town_blocked=None, own_town_max_visits=0):
     """统一打分排序器 (方案 §3). 返回 [(score, c, meta)] 降序.
 
     c = 候选 dict: pos=(tx,ty,tz) / type / tl_idx / man / tl_dist /
@@ -199,6 +206,9 @@ def score_candidates(obs, hx, hy, hz, power_self,
         })
 
     # --- 候选 4: 回城取兵城 (obs 城镇段 owner=0 且 recruit_mask≠0, 1v7 战力成长核心) ---
+    # A3 (09-17): 空撞拉黑 (own_town_blocked, runner 窗内兵力零增量判定) + 访问硬上限 + visits/decay 注入
+    _otv = own_town_visits or {}
+    _otb = own_town_blocked or ()
     for t in town_seg:
         tid = int(t[T_F_ID])
         towner = int(t[T_F_OWNER])
@@ -207,6 +217,10 @@ def score_candidates(obs, hx, hy, hz, power_self,
         btx, bty = int(t[T_F_X]), int(t[T_F_Y])
         if btx <= 0 and bty <= 0:
             continue
+        if tid in _otb:  # 空撞拉黑: 本局该城取兵零增量, 整局剔除
+            continue
+        if own_town_max_visits > 0 and _otv.get(tid, 0) >= own_town_max_visits:
+            continue  # 访问硬上限 (备用闸门)
         # recruit_mask 非零位 (field 14/15 位或, 同 ep_runner L549/589 口径)
         rm = int(t[14]) | int(t[15]) if len(t) > 15 else 0
         if rm <= 0:
@@ -223,6 +237,7 @@ def score_candidates(obs, hx, hy, hz, power_self,
             "man": man, "tl_dist": 0, "guard_pow": 0,
             "is_blue_hero": False, "is_blue_town": False, "is_guard": False, "is_own_town": True,
             "power_c": 0.0,
+            "own_visits": _otv.get(tid, 0), "own_town_decay": own_town_decay,
         })
 
     # --- 候选 5: 守卫 (vmap 静态 get_guards, D3: 可打性×价值, 非硬编码恒优先) ---
