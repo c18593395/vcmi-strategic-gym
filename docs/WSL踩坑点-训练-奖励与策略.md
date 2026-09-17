@@ -550,3 +550,14 @@
 - **处理**: 开窗后首个 ep 周期内必须 ① `ps aux | grep ep_runner` 确认命令行含新参数 ② grep 子进程特征输出 (BHERO_GRAD/新日志行) 确认新代码生效; 聚合口径区分"开窗行"与"代码生效行" (本例生效窗 = L102375 resume 起, 污染段 22 局不计)
 - **教训**: 多进程链路的生效验证必须落到**最末端进程的输出**; 中间层信号 (banner/Environment/unit 文件) 都是必要非充分; 类似先例: #143 事实5 (vmap 加载失败静默 fallback 旧图, "map=" 标签与实际加载图脱钩)
 - 关联: `py/win1_batchA_agg.py` (窗口定位已修) / `docs/已完成任务.md` 09-17 两条
+
+---
+
+### #253: 跨帧效果复核的挂起帧选错 — A3 空撞复核在窗开启帧跑, RECRUIT 未发出必零增量 → 25/25 局开局取兵窗误拉黑 (09-17, 批次B+A3 窗首日踩)
+
+- **状态**: ✅ 已修 (pending 移到窗结束帧, 重启验证 TOWN_EMPTY=0 / RECRUITED 恢复)
+- **现象**: 批次B+A3 部署首窗 25/25 局 `[TOWN_EMPTY] town=… at step 1/2` — 开局 START_HOME 取兵窗全被拉黑, "开局先回城招兵带兵"设计被废; TOWN_VISIT 与 TOWN_EMPTY 同步打印暴露时序
+- **根因**: `visit_check_pending = True` 设在**窗开启帧**, 而复核在同大循环后部 army power 段立刻消费 (该帧 nobs 的兵力 = 招兵前快照) — 窗内 4 步 RECRUIT 还没发出, 零增量是必然不是空撞; "延迟一帧"实际延迟错了帧
+- **处理**: pending 改在**窗结束帧**设 (visit_econ_steps 归零分支, 与 visits+1 同处) — 复核帧的 nobs 已含窗内招兵增量; 修复后首局 TOWN_EMPTY=0 / TOWN_VISIT 3 次正常 / RECRUITED 24 次恢复
+- **教训**: 跨帧效果复核的挂起时机必须挂在**效果动作已发生的帧**之后, 与"触发检测"帧严格区分; 同帧触发+同帧复核 = 复核的是前状态 (必假阴性); 上线前用"事件对是否同帧出现"做时序自检 (TOWN_VISIT 与 TOWN_EMPTY 同 step 即可疑)
+- 关联: `ep_runner_one.py` visit 窗状态机 / `py/win_bB_watch.py` (窗内信号监视)

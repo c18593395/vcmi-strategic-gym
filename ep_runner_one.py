@@ -148,6 +148,16 @@ parser.add_argument("--kill_r_first", type=float, default=0.0,
                     help="P-H3 击杀阶梯 (批次B): 双帧确认的首个蓝英雄击杀 +N (建议 40), 0=关闭")
 parser.add_argument("--kill_r_next", type=float, default=0.0,
                     help="P-H3 击杀阶梯 (批次B): 首杀之后每个确认击杀 +N (建议 30); 与全歼 proxy +100 同帧叠加, 0=关闭")
+# A2 攻击步旁路 (09-17, 方案 docs/方案_攻击步旁路_20260917.md): 贴脸(d<=contact_d)且目标=蓝英雄时,
+# 绕过 passable 屏蔽强制下发朝蓝英雄格的方向码(0-7) → 引擎 onHeroVisit 无条件 startBattle → R6 结算。
+# 复用守卫特判同族模式 (L969-981 的 pas[d] or move_guard_target), 纯 Python 零 C++ 重编, OBS 3464 不变。
+# 默认 0/关 = 零行为变化; 开窗只加参数 (--blue_hero_attack_bypass=1), 关窗摘参即 100% 回退。
+parser.add_argument("--blue_hero_attack_bypass", type=int, default=0,
+                    help="A2 攻击步旁路总开关: 1=启用蓝英雄贴脸强攻 (绕过 passable 强制进蓝英雄格触发 startBattle), "
+                         "0=关闭 (默认, 零行为)")
+parser.add_argument("--attack_f_min", type=float, default=0.0,
+                    help="A2 战力 logistic F 阈值: 仅当 F>=此值才下发攻击步 (打不过不进, 不送死); "
+                         "0.0=战力对等即可 (默认), 调高更保守")
 # P10 (2026-09-15): target_list 加权排序 Python 旁路打分器 — 零 C++ 重编, OBS 3464/动作空间零变更
 # 开关 --target_chain legacy(默认) 走五层 if/else 旧链零行为变化; scorer 走 py/target_scorer.py 统一打分
 # 权重全部 argparse 化 (方案 §3.2 默认值), 支持网格对照; 灰度纪律: 一次一轴, 先在 T04/T05 小图对照再 T06
@@ -398,6 +408,9 @@ try:
     zombie_streak = 0  # 2026-08-28: 全堵(英雄死亡)连续计数, >=2 确认死亡立即终局
     move_target = None  # MOVE_TO 粘滞目标 (tx,ty,tz) — 防目标漂移来回走
     move_guard_target = False  # 2026-08-25: 目标是否为守卫 (守卫格 passable=0, 跳过 passable 检查)
+    move_blue_hero_target = False  # A2 (09-17): 目标=蓝英雄 (格 passable=0, 攻击步旁路时绕过 passable)
+    blue_hero_id_target = None     # A2 (09-17): 当前目标蓝英雄 id (幂等 + F 读战力用)
+    _attack_tried = set()          # A2 (09-17): 本局已下发攻击步的蓝英雄 id (幂等双保险, 防瞬态回读振荡)
     move_stall = 0
     move_stall_prev = 10**9
     prev_passable = {}   # 2026-08-26: 守卫格 passable 基线 (守卫清除检测)
@@ -608,6 +621,8 @@ try:
                             if _rm0 > 0:
                                 visit_econ_steps = 4
                                 # A3 (09-17): 记窗城 id + 兵力快照 (空撞判定基线, L1245 同口径读 obs)
+                                # ⚠ pending 不在此设 — 窗开启帧 army 段立即复核会误判 (RECRUIT 尚未发出必零增量,
+                                #   09-17 实证 25/25 局开局窗全误拉黑废掉 START_HOME); 改窗结束帧设 (见下方窗结束分支)
                                 visit_town_id = int(obs[_tb0])
                                 visit_army_snap = 0.0
                                 for _si0 in range(7):
@@ -617,7 +632,6 @@ try:
                                             visit_army_snap += _c0 * [10, 40, 120, 350, 900, 1600, 2500][_si0]
                                     except Exception:
                                         pass
-                                visit_check_pending = True
                                 print(f"[TOWN_VISIT] own town recruit window at step {traj['steps']} recruit_mask={_rm0}", flush=True)
                             break
             except Exception:
@@ -643,8 +657,11 @@ try:
             if visit_econ_steps == 0:
                 visit_econ_cooldown = 30
                 # A3 (09-17): 窗完成计数 (此后 scorer 衰减读 visits; 首次回城打分时 visits=0 全额 35 分)
+                # + 空撞复核挂起 — 在窗结束帧设, army power 段用本帧 nobs 复核 (窗内 4 步 RECRUIT 已发出,
+                #   增量已入 nobs; 09-17 修: 原在窗开启帧设导致 RECRUIT 未发出即复核, 25/25 局误拉黑)
                 if visit_town_id is not None:
                     own_town_visits[visit_town_id] = own_town_visits.get(visit_town_id, 0) + 1
+                    visit_check_pending = True
         # 2026-09-02 出发前招兵 (用户设计, 每局确定性): 先回城招兵带兵再探索 —
         # 英雄未邻接己方城时强制 MOVE_TO 己方城 (move_town_bfs 引导); 邻接后交由
         # 上方 visit 检测开取兵窗 (16/17/18), 引擎 P1/P1b 完成 visit+招兵直上英雄;
@@ -763,6 +780,11 @@ try:
                         move_guard_target = _pick["is_guard"]
                         move_town_target = _pick["is_blue_town"]
                         move_town_bfs = _pick["is_blue_town"] or _pick["is_own_town"]
+                        # A2 (09-17): 蓝英雄目标识别 (攻击步旁路, 默认关零行为) —
+                        # move_blue_hero_target / blue_hero_id_target 供 MOVE_TO 执行段"贴脸强攻"分支使用;
+                        # legacy 目标池无蓝英雄 → 仅 scorer 链可置位 (最小面, 拍板设计)。
+                        move_blue_hero_target = bool(_pick["is_blue_hero"])
+                        blue_hero_id_target = _pick.get("blue_hero_id")
                         if guard_done_countdown is not None:
                             guard_done_countdown = args.guard_done_steps
                         _m = _pick["meta"]
