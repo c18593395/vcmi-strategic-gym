@@ -59,6 +59,36 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-17 VCMI 上游侦察 + A2 capture-all-mines 备料（截至 2026-09-17）
+
+**本地基线**：`vcmi-native` HEAD = `65515ef24`（09-16，P8-C null-ENGINE 修复）；运行时 `libvcmi.so` 版本串 = **VCMI 1.8.0（develop 线）**。上游 1.7.2→1.7.5 release changelog 的 fix 理论上已被 develop 线吸收，真正"新"的是 09-11 merge #7632 之后 master 又新增的 ~10 条提交（到 09-16）。
+
+**侦察方法**：GitHub 网页渲染拿不到标题 → `api.github.com` REST + `raw.githubusercontent.com`；`gh api` 认证 401 → 匿名 REST 可用。踩坑：PowerShell `wsl bash -c "..."` 双引号内 for 循环 `$s` 被 PowerShell 先行插值（#249 同源）→ 单引号包整条 bash。
+
+**分档清单（对本项目有用）**：
+
+| 编号 | PR | 内容 | 状态 |
+|------|-----|------|------|
+| A1 | #7837 | `manaOverflowFactor` 修复（满魔英雄从"给蓝"事件拿 0 蓝）| ✅ 09-17 已剔除（见下）|
+| A2 | #7810 | "capture all mines" 胜利条件 | 备料完成（本仓不依赖）|
+| A3 | #7826 | JSON 地图加载 spurious "Stream seek failed" 修复 | 记录 |
+| B | — | BattleAI 攻击路径 / 多 Seer / Actors 内存泄漏 / castle overlays | 记录集，无关 |
+| MMAI v15 | #7654 | draft/dirty/未合并，v15 vs BattleAI 89%、v15 vs v13 63%；仍无施法无战术阶段，2-4x 慢 | 状态不变（绑 T8）|
+
+**A1 核查方法**（zip-of-JSON 扫描 62 张训练地图）：把 .vmap 当 zip 打开，解析 header.json / surface_terrain.json / objects.json 全文 + 结构定位。结果：`Pandora`=0、`rewardSpellPoints`=0、`manaOverflowFactor`=0、`CAPTURES_ALL_MINES`=0；`manaReward` 命中 8 次全部落在 `objects.json $.hero_0.options.mana=10`（英雄初始蓝量属性，非事件奖励）。**结论：A1 对本课程零影响，剔除。**
+
+**A2（PR #7810）备料**：
+- PR 已 merged（09-12）。`mapeditor/mapsettings/victoryconditions.cpp` 的 `conditionStringsWin` 从 9 → 10 项，新增 `"Capture all mines"`，case 8 设置 `EventCondition cond(EventCondition::CONTROL_CURRENT); cond.objectType = Obj(Obj::MINE)`，`victoryIconIndex=9`，`victoryMessage="core.vcdesc.10"`。
+- `mapeditor/mapsettings/eventsettings.cpp`：timed-event resources 加 `vJson.setModScope(ModScope::scopeMap())`。
+- **关键语义**：PR 改动全在 `mapeditor/` 编辑器 UI 层，**不影响运行时引擎对 .vmap 的解析**。`CONTROL_CURRENT + Obj::MINE` 是合法 EventCondition 组合，.vmap 文本里可直接写 `["controlCurrent", {"objectType": "mine"}]` 实现"夺矿"胜利条件，零引擎依赖。
+- **当前地图结构**（`py/probe_victory.py` 探查 T05_36X36_01 / T06_72X72_02 / T05_52X52_01_mir 三图一致）：`header.json` `victoryConditions = ["standardDefeat", "specialVictory"]`；`triggeredEvents.specialVictory.condition = ["allOf", ["isHuman", {"value":1}], ["haveResources", {"type":0, "value":100}]]`（攒 100 金）；`victoryIconIndex = 2`。
+- **A2 落地方案（候选）**：把 `specialVictory.condition` 从 `haveResources{type:0,value:100}` 替换为 `["controlCurrent", {"objectType": "mine"}]`，`victoryIconIndex` 2→9，`victoryMessage` 改 `core.vcdesc.10`。属**地图轴**，与 WIN-1 激励轴错窗，WIN-1 达标后择窗实施。
+- **已知噪声**：`B2_adventure_knee_deep.vmap` header.json 在 char 7338 处 JSON 解析报错（Expecting property name），该图 header 格式异常（旧版 .vmap），不影响 A2 结论，需单独处理。
+
+**错窗纪律**：A2 属地图轴，当前 WIN-1 激励轴在线（批次B+A3），下一窗再动。
+
+**指针**：`py/probe_victory.py`（vmap 胜利字段探查工具）/ `docs/当前任务清单.md` 远期集 A2 条目 / 踩坑 #255。
+
 ### 09-16 P10-target-2b duel 图 move_to_force 分区分段策略（已验证通过）
 
 **结论**（截至 2026-09-16）：T06 图 `move_to_force` 需按 duel/非 duel 区分，统一 `move_to_force=250` 会导致 duel 图 act=2 循环惩罚 190 步累积 r≈-1665。

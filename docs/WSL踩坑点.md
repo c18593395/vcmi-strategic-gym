@@ -1084,4 +1084,13 @@
 - **教训**: ① 新增 ep_runner argparse 参数必须同步检查 `train_wsl2_ppo_v2.py` `WIN1_ENV_ARGS` 映射，否则参数永远走默认值，且不会报错（静默零行为）；② "blocked" 错误的根因不是引擎问题，而是 Python 侧引导层选中了 passable=0 的目标格但攻击步旁路关；③ 验证新参数是否传到子进程：`ps aux | grep ep_runner_one | grep 'blue_hero_attack_bypass'` 应有输出，或看 `[WIN1_BATCH]` 日志行是否包含该参数。
 - **关联**: A2 攻击步旁路 / `ep_runner_one.py`（argparse L85-168）/ `train_wsl2_ppo_v2.py`（`WIN1_ENV_ARGS`）/ `docs/方案_攻击步旁路_20260917.md` / 踩坑 #250（P-H2 同格不可达）
 
+#### #255 PowerShell `wsl bash -c "..."` 双引号内 for 循环 `$var` 被先行插值，`git merge-base --is-ancestor` 全空结果 (09-17, VCMI 上游侦察踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化（#249 同源，本次再次踩到，改用 Python 脚本 / 单引号包整条 bash）
+- **现象**: 在 PowerShell 里执行 `wsl bash -c "cd /home/administrator/vcmi-native; for s in $(git rev-parse HEAD); do git merge-base --is-ancestor $s 65515ef24 && echo yes || echo no; done"` 时，for 循环变量 `$s` 在 PowerShell 双引号里被先行展开为空字符串，到达 WSL 后 `git merge-base --is-ancestor $s 65515ef24` 变成无操作数（只跟 HEAD 比），全部静默返回 `yes`/空结果；`grep -c` 同样返回 0。
+- **根因**: PowerShell 对双引号字符串做自身插值：`$s`/`$f`/`$(...)` 在 Windows 侧被展开成空串或子表达式执行结果，WSL bash 收到的命令已无变量。比 #245（引号转义炸错）更隐蔽——输出像合法的 `yes`/`0` 而非异常，容易误判为"没有该提交"。
+- **处理**: 三选一 ① 整条 bash 命令用单引号包（PowerShell 不插值单引号内容）；② 不用 shell 变量，写完整路径/完整哈希；③ 复杂逻辑（含 for 循环、管道、JSON 解析）直接落 Python 脚本（`py/scan_vmap_events.py` / `py/locate_mana_hits.py` / `py/probe_victory.py`），完全绕开跨 shell 变量传递。
+- **教训**: ① #249 固化后仍需警惕——任何 `wsl bash -c "..."` 里出现 `$` 一律默认被 PowerShell 吞掉；② 涉及 for 循环 / 多行逻辑的跨 WSL 命令，优先落 Python/`.sh` 脚本，不要内联；③ 判断"命令无输出"时，先确认 WSL 侧变量是否真的存在（`echo "$var"` 自检），避免把"变量被吞"误判为"结果为零"。
+- **关联**: #249（同机制首次固化）/ #245（引号转义炸错对照）/ `py/probe_victory.py`（vmap 探查工具，本轮为绕开本坑新建）
+
 
