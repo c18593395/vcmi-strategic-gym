@@ -1437,6 +1437,7 @@ try:
                     pass
                 # 08-31 撤梯子③-S1 建设观测 (只观测不加奖): 己方城 recruit_mask 位增 = 新巢穴建成
                 # S2/S3 建设奖的基线数据源 (触发频率/每局次数)
+                # T7.5 S2 (09-19 部署): 低档巢建成 +3 — 新巢穴位落在低两位 (T1/T2 巢穴, 假设低位=低 tier)
                 for _ti7 in range(8):
                     _tb7 = 336 + _ti7 * 18
                     _tid7 = int(obs[_tb7])
@@ -1444,7 +1445,11 @@ try:
                         _rm7 = int(obs[_tb7+14]) | int(obs[_tb7+15])
                         _prev7 = recruit_mask_prev.get(_tid7)
                         if _prev7 is not None and (_rm7 & ~_prev7 & 0xFFFF):
-                            print(f"[BUILD_NEW] own town id={_tid7} new dwelling bits={_rm7 & ~_prev7 & 0xFFFF:#06x} at step {traj['steps']} (observe only)", flush=True)
+                            _new7 = _rm7 & ~_prev7 & 0xFFFF
+                            print(f"[BUILD_NEW] own town id={_tid7} new dwelling bits={_new7:#06x} at step {traj['steps']} (observe only)", flush=True)
+                            if _new7 & 0x3:  # 低档巢 (T1/T2 位) 建成
+                                r += 3.0
+                                print(f"[ECON] low-tier dwelling built +3 town={_tid7} bits={_new7 & 0x3:#06x} at step {traj['steps']}", flush=True)
                         recruit_mask_prev[_tid7] = _rm7
         # --- 优先级3 (每步必算): 兵力power增量 × 0.02 (招兵→正; 战斗损耗→负不惩罚) ---
         # 2026-08-29 B 方案: 0.001→0.01 — 招 1 个 tier0 兵 (value 10) 原 +0.01 不可见, 现 +0.1;
@@ -1466,7 +1471,7 @@ try:
         if econ_prev_army_power is not None:
             _dp = _army_now - econ_prev_army_power
             if _dp > 0:
-                r += 0.02 * _dp
+                r += 0.03 * _dp  # T7.5 S2 (09-19 部署): 兵力系数 0.02→0.03
                 # 08-31 S1 招兵效果观测 (只观测): dp>0 = 兵力上英雄 (取兵链路/城内招兵)
                 print(f"[RECRUITED] army power +{_dp:.0f} at step {traj['steps']} (observe only)", flush=True)
         econ_prev_army_power = _army_now
@@ -1493,7 +1498,7 @@ try:
             econ_recruit_count[a] += 1
             _rc_rewarded = econ_recruit_count[a] <= 5
             if _rc_rewarded:
-                r += 0.5
+                r += 0.25  # T7.5 S2 (09-19 部署): 撤梯子 0.5→0.25
             if not econ_recruit_first[a]:
                 r += 12.0
                 econ_recruit_first[a] = True
@@ -1505,20 +1510,20 @@ try:
                         econ_closure_done = True
                         print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
             elif _rc_rewarded:
-                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +0.5", flush=True)
-        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行小额 (撤梯子② 3→1.5; ③-S1 1.5→0.75) ---
-        # 2026-09-15 T7.5 S2 改动已回退 (S2 延后, 保持 S1 值, 见当前任务清单 T7.5)
+                print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +0.25", flush=True)
+        # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行小额 ---
+        # T7.5 S2 (09-19 部署): 撤梯子 0.75→0.375 (S1 值 0.75 在 09-15~09-18 运行)
         if a == 20:
             econ_build2_count += 1
             _b2_rewarded = econ_build2_count <= 5
             if _b2_rewarded:
-                r += 0.75
+                r += 0.375
             if not econ_build2_done:
                 r += 15.0
                 econ_build2_done = True
                 print(f"[ECON] first BUILD_2 (creature dwelling, act20) step {traj['steps']} +15", flush=True)
             elif _b2_rewarded:
-                print(f"[ECON] build2 (act20) step {traj['steps']} +0.75", flush=True)
+                print(f"[ECON] build2 (act20) step {traj['steps']} +0.375", flush=True)
         if cycle_penalty != 0.0:
             r += cycle_penalty  # 状态级循环惩罚 (第5轮)
         # === 动作级循环惩罚 (2026-08-19 第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward ===
