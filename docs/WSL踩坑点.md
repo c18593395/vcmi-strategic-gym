@@ -1111,14 +1111,23 @@
 - **教训**: ① 多进程写同一日志时，任何"按内容分窗"的 grep/awk 都要先画行序模型，确认锚点行真的在窗内；② hermes_ep 单局日志是局级归因的第一证据源，主日志只用于跨局统计；③ "条件全满足但没触发"类死循环推理，第二优先级永远是"怀疑观测工具本身"。
 - **关联**: #255（同日 PowerShell 插值坑，观测链第二坑）/ `py/a2_contact_probe.py` / `py/passable_gate_watch.py`（看板按"最后 WIN1_BATCH 行"切窗不受本坑影响）/ 知识库 09-18 T7.6 冒烟章
 
-#### #258 GitHub 建仓认证链断：gh device flow 端点 POST 被掐 + keyring token 失效 → 建仓只能"浏览器手建/用户 PAT + SSH push" (2026-09-18, 开源仓首推踩) — 🔄 已绕过
+#### #258 GitHub 建仓认证链断：gh device flow 端点 POST 被掐 + keyring token 失效 → 建仓"浏览器手建 + SSH push"，gh CLI 用 `GH_TOKEN` 驱动 (2026-09-18 踩 → 09-19 修复) — ✅ 已修复
 
-- **状态**: 🔄 已绕过（建仓走浏览器手建；push 走 SSH 443 代理已通；gh API 认证待用户出 PAT 一次性修复）
+- **状态**: ✅ 已修复（09-19：gh CLI 走 `GH_TOKEN` 环境变量驱动，绕开 `gh auth login` 的 `read:org` 硬校验；git push/clone 走 SSH 443；API 走 `api.github.com`。token 存 `~/.config/gh-token`(600) + Windows 用户级 `GH_TOKEN` env var 持久化）
 - **现象**: ① `gh auth status` 报 keyring token 失效（401，旧 token 过期）；② `gh auth login -s web`（device flow）POST `https://github.com/login/device/code` 报 `wsarecv: A connection attempt failed`；③ 手动 curl 复现：GET github.com / api.github.com / raw 全 200，唯独 POST /login/device/code 连接超时（curl 28）；④ gh-proxy.com 代理该端点返回 404（只代理 raw/release/clone 路径，不代理 /login）。
-- **根因**: 大陆网络环境对 github.com 的 **POST** 端点间歇性掐断（GET 通、POST 不稳，GFW SNI 干预特征）；gh 的 OAuth device flow 强依赖该 POST 端点；gh-proxy 系加速站覆盖不到 /login 认证端点。三个认证通道独立性实锤：**SSH push（443 代理 ssh.github.com，走 `ssh -T git@github.com` 已通，账号 c18593395）≠ gh API（需有效 token）≠ 浏览器 OAuth**——SSH 通不等于 gh 通。
-- **正确处理（建仓三条路）**: ① **浏览器手建空仓（30 秒，本次采用）**: 用户浏览器登 github.com → + → New repository → 建空仓（不勾 README，首次 push 用 git push 全量）→ 我侧 `git remote add github git@github.com:<user>/<repo>.git && git push`；② 用户浏览器生成 PAT（Settings → Developer settings → Tokens，scope 勾选 repo）→ 发给我一次性 `echo <pat> | gh auth login --with-token` 修好 gh（后续建仓/PR 全自动）；③ 浏览器登录态自动化（browser tool 驱动用户已登的浏览器建仓）。
-- **教训**: ① 大陆网络下 gh device flow 默认不可用，别在它上面烧轮次——第一步直接试 `gh auth status` 确认 token 有效性，无效就走 PAT/浏览器路线；② 认证通道分层评估（SSH/API/浏览器），push 能通就先把本地仓 commit 做好，建仓动作留给浏览器 30 秒；③ gh-proxy.com 能力边界记牢：raw/release/clone 加速可用，POST /login（device flow）与 api.github.com 写操作不可用。
-- **关联**: #184（gh auth 401 子 agent 认证坑，gh token 失效同源）/ vcmi_gym 仓首推（本坑触发场景）/ 知识库 09-18 开源立项章
+- **根因**: 大陆网络环境对 github.com 的 **POST** 端点间歇性掐断（GET 通、POST 不稳，GFW SNI 干预特征）；gh 的 OAuth device flow 强依赖该 POST 端点；gh-proxy 系加速站覆盖不到 /login 认证端点。
+- **精确网络拓扑（09-19 复测，实测 HTTP 码/连通性）**:
+  - `api.github.com` **HTTPS 通**（GET 200 / POST 返回真 HTTP 码，0.3-0.6s）→ gh CLI / 直接 API 走这里
+  - `github.com` **HTTPS:443 被掐**（git ls-remote https:// 报 "Could not connect to server"）→ git 不能走 HTTPS
+  - `github.com` **SSH:443（ssh.github.com）通**（`ssh -T git@github.com` → "Hi c18593395!"）→ git push/clone/fetch 全走 SSH remote（`git@github.com:...`）
+  - `github.com/login/*`（device flow / oauth）被掐 → gh 交互式登录不可用
+- **gh CLI 正解（`GH_TOKEN` 驱动，绕开 login scope 校验）**:
+  - 关键实锤：`gh auth login --with-token` 对 classic PAT **硬性校验 `read:org` scope**（gh 2.87.2），只有 `repo` 的 token 会被拒（报 `missing required scope 'read:org'`）——但 **`GH_TOKEN` 环境变量直接驱动 gh 不触发该校验**，`repo` scope 对 fork/PR/管自有仓全够用。
+  - 修法：token 存 `~/.config/gh-token`(chmod 600) → `[Environment]::SetEnvironmentVariable('GH_TOKEN', $t, 'User')` 持久化成 Windows 用户级 env var（rc 里不留明文，只从 600 文件读）→ 新进程 `gh auth status` 显示 `✓ Logged in ... (GH_TOKEN)`。
+  - 注意：git 操作仍走 **SSH**（`git@github.com` 443），token 只驱动 gh CLI（fork/PR/CI 管仓，全打 `api.github.com`）。`.netrc`（machine github.com）可建但无意义——git 走不到 github.com HTTPS。
+- **正确处理（建仓三条路，按可用度排）**: ① **gh CLI（GH_TOKEN）fork/建仓/开 PR（全自动，本仓已具备）**；② SSH push（443 代理 ssh.github.com，首推已用）；③ 浏览器手建（30 秒兜底）。PAT 生成时 scope 勾 `repo`+`read:org`+`workflow` 可让 `gh auth login --with-token` 也走通（当前只 `repo` 也能被 GH_TOKEN 驱动，够用）。
+- **教训**: ① 大陆网络下 gh device flow 默认不可用，第一步直接试 `gh auth status` 确认 token 有效性；② **gh 挑食 `read:org` 的解法不是重登而是 `GH_TOKEN` env var 驱动**（绕开 scope 校验，`repo` 就够）；③ 网络要分层实测（`api.github.com` / `github.com` HTTPS / `github.com` SSH443 / `github.com/login` 四通各不同），别用"gh 修不了"一杆子打死——能通的那条路（GH_TOKEN + SSH）就是"修好 gh"；④ gh-proxy.com 能力边界记牢：raw/release/clone 加速可用，POST /login（device flow）不可用。
+- **关联**: #184（gh auth 401 子 agent 认证坑）/ #259（#205 PR 提取，推 PR 依赖本条打通的 gh/SSH）/ vcmi_gym 仓首推（本坑触发场景）/ 知识库 09-18 开源立项章 + 09-19 gh 修复增量
 
 #### #259 摘取候选须 `merge-base --is-ancestor` 复核 + fork 基线 diff 不能 apply 上游 (2026-09-18, #205 官方 PR 提取踩) — ✅ 已固化
 
