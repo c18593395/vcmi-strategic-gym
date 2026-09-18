@@ -967,18 +967,113 @@ try:
                         move_town_target = False
                         move_town_bfs = False
             if tx is not None:
-                # Phase I.2: 优先用 C++ 全图 BFS (obs[3330:3338] = next_dir[8])
-                nd = int(obs[3330 + next_dir_idx]) if next_dir_idx >= 0 else -1
+                # A2 攻击步旁路·前置判定 (09-18 冒烟修复): 原攻击步挂 BFS 失败后的贪心段,
+                # 但 bfs_full_dir 对蓝英雄格恒成功 (visit 邻格语义), a 永不为 24 → 攻击步不可达
+                # (09-18 冒烟 72_01 实证: step45 pick 蓝英雄 → step94 d=2 贴脸 → [BHERO_ATTACK] 0 条)。
+                # 前置到导航之前: 蓝英雄目标 + d<=contact_d + bypass 开 + 未试过 → 直接下发朝敌格方向码。
+                _atk_skip_nav = False
+                # ATK_DBG (09-18 冒烟诊断): 蓝英雄目标贴脸期每拍打印触发链状态, 定位攻击步零触发
+                if move_blue_hero_target and blue_hero_id_target is not None:
+                    _dbg_d = None
+                    for _di in range(8):
+                        if int(obs[128 + _di * 26]) == blue_hero_id_target:
+                            _dbg_d = abs(int(obs[128 + _di * 26 + 2]) - hx) + abs(int(obs[128 + _di * 26 + 3]) - hy)
+                            break
+                    if _dbg_d is not None and _dbg_d <= 6:
+                        print(f"[ATK_DBG] step={traj['steps']} d={_dbg_d} byp={args.blue_hero_attack_bypass} "
+                              f"fmin={args.attack_f_min} tried={blue_hero_id_target in _attack_tried} "
+                              f"mt={(int(move_target[0]), int(move_target[1])) if move_target else None}", flush=True)
+                    elif _dbg_d is None and move_target is not None and abs(move_target[0] - hx) + abs(move_target[1] - hy) <= 6:
+                        print(f"[ATK_DBG] step={traj['steps']} id={blue_hero_id_target} NOT-IN-OBS "
+                              f"mt={(int(move_target[0]), int(move_target[1]))}", flush=True)
+                _dbg_force_on = os.environ.get("HOMM3_ATK_DEBUG_FORCE", "0") == "1"
+                if ((move_blue_hero_target and args.blue_hero_attack_bypass > 0
+                        and blue_hero_id_target is not None and blue_hero_id_target not in _attack_tried)
+                        or (_dbg_force_on and args.blue_hero_attack_bypass > 0)):
+                    # 实时坐标 (obs 蓝英雄段, 与 P-H2 contact 判定同源 L1240 口径) —
+                    # pick 时刻坐标 tx,ty 会因蓝英雄位移错位 (09-18 冒烟 v2 实锤: step40 pick (32,34),
+                    # 蓝英雄位移后 contact 实时 d=2 发奖, 陈旧坐标 d>2 → [BHERO_ATTACK] 0 条)
+                    _rtx = _rty = None
+                    _slot2 = -1
+                    if move_blue_hero_target and blue_hero_id_target is not None:
+                        for _hi2 in range(8):
+                            if int(obs[128 + _hi2 * 26]) == blue_hero_id_target:
+                                _rtx, _rty = int(obs[128 + _hi2 * 26 + 2]), int(obs[128 + _hi2 * 26 + 3])
+                                _slot2 = _hi2
+                                break
+                    if _dbg_force_on:
+                        # 冒烟调试旁路: 任何贴脸敌英雄 (d<=2) 即强攻, 不要求 pick 蓝英雄
+                        # (09-18 实锤: 自然局 "pick 蓝英雄" 与 "贴脸" 从未同时发生, 强攻链路无法自然激活)
+                        for _hi3 in range(8):
+                            _bid3 = int(obs[128 + _hi3 * 26])
+                            _own3 = int(obs[128 + _hi3 * 26 + 1])
+                            if _bid3 > 0 and _own3 != 0 and _bid3 not in _attack_tried:
+                                _dd3 = abs(int(obs[128 + _hi3 * 26 + 2]) - hx) + abs(int(obs[128 + _hi3 * 26 + 3]) - hy)
+                                if _dd3 <= 2:
+                                    _rtx, _rty = int(obs[128 + _hi3 * 26 + 2]), int(obs[128 + _hi3 * 26 + 3])
+                                    _slot2 = _hi3
+                                    blue_hero_id_target = _bid3  # 调试强攻借用 id (幂等 + 日志)
+                                    break
+                    if _rtx is not None:
+                        _d_bh = abs(_rtx - hx) + abs(_rty - hy)  # 曼哈顿距离 (实时)
+                        _d_atk = int(args.blue_hero_contact_d) if args.blue_hero_contact_d > 0 else 2
+                        if _d_bh <= _d_atk:
+                            # 战力 F 护栏 (同 target_scorer.power_feasibility 公式)
+                            _pw_self = float(obs[base + 10])  # active hero power (H_F_POW=10)
+                            _pw_blue = float(obs[128 + _slot2 * 26 + 10]) if _slot2 >= 0 else 0.0
+                            if _pw_blue > 0:
+                                _f_arg = (math.log1p(max(0.0, _pw_self)) - math.log1p(_pw_blue)
+                                          - args.ts_margin) / max(1e-6, args.ts_temp)
+                                _Fv = 2.0 / (1.0 + math.exp(-_f_arg)) - 1.0
+                            else:
+                                _Fv = 1.0  # 无战力信息全可打
+                            if _Fv >= args.attack_f_min:
+                                _dx9, _dy9 = _rtx - hx, _rty - hy
+                                if abs(_dx9) > abs(_dy9):
+                                    _cand9 = [2 if _dx9 > 0 else 6]
+                                    if _dy9 > 0: _cand9.append(3 if _dx9 > 0 else 5)
+                                    elif _dy9 < 0: _cand9.append(1 if _dx9 > 0 else 7)
+                                elif abs(_dy9) > abs(_dx9):
+                                    _cand9 = [4 if _dy9 > 0 else 0]
+                                    if _dx9 > 0: _cand9.append(3 if _dy9 > 0 else 1)
+                                    elif _dx9 < 0: _cand9.append(5 if _dy9 > 0 else 7)
+                                else:
+                                    if _dx9 > 0 and _dy9 > 0: _cand9 = [3, 2, 4]
+                                    elif _dx9 > 0: _cand9 = [1, 2, 0]
+                                    elif _dy9 > 0: _cand9 = [5, 4, 6]
+                                    else: _cand9 = [7, 0, 6]
+                                a = 24
+                                for d in _cand9:
+                                    nx2, ny2 = hx + [0,1,1,1,0,-1,-1,-1][d], hy + [-1,-1,0,1,1,1,0,-1][d]
+                                    if (nx2, ny2) == (_rtx, _rty):
+                                        a = d
+                                        break
+                                if a == 24:
+                                    a = _cand9[0]  # 直线 d=2 等情形: 先朝目标走一步, 下拍 d=1 再攻
+                                _attack_tried.add(blue_hero_id_target)
+                                _atk_skip_nav = True
+                                print(f"[BHERO_ATTACK] map={args.mapname} blue_hero_id={blue_hero_id_target} "
+                                      f"step={traj['steps']} d={_d_bh}(th={_d_atk}) F={_Fv:.2f} "
+                                      f"pw_self={_pw_self:.0f} pw_blue={_pw_blue:.0f} dir={a} "
+                                      f"(pre-nav bypass rt=({_rtx},{_rty}))", flush=True)
+                                try:
+                                    with open(BHERO_EV_LOG, "a") as _bf:
+                                        _bf.write(f"[BHERO_ATTACK] map={args.mapname} blue_hero_id={blue_hero_id_target} "
+                                                  f"step={traj['steps']} d={_d_bh} F={_Fv:.2f} "
+                                                  f"pw_self={_pw_self:.0f} pw_blue={_pw_blue:.0f} dir={a}\n")
+                                except Exception:
+                                    pass
+                nd = int(obs[3330 + next_dir_idx]) if (next_dir_idx >= 0 and not _atk_skip_nav) else -1
                 if nd >= 0:
                     a = nd
                 else:
                     # 2026-09-01 改法一: 城镇目标 (nd<0 非守卫) 先走全图 BFS 绕岩石, 失败再退 15×15 局部 BFS → 贪心
-                    if not move_guard_target:
+                    if not move_guard_target and not _atk_skip_nav:
                         _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
                         if _fd is not None:
                             a = _fd
                     # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
-                    if not move_guard_target and (a < 0 or a > 7):
+                    if not move_guard_target and not _atk_skip_nav and (a < 0 or a > 7):
                         bfs_dir = bfs_path(obs, tx, ty)
                         if bfs_dir is not None:
                             a = bfs_dir
