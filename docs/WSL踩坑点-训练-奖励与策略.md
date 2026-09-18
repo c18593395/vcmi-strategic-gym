@@ -561,3 +561,24 @@
 - **处理**: pending 改在**窗结束帧**设 (visit_econ_steps 归零分支, 与 visits+1 同处) — 复核帧的 nobs 已含窗内招兵增量; 修复后首局 TOWN_EMPTY=0 / TOWN_VISIT 3 次正常 / RECRUITED 24 次恢复
 - **教训**: 跨帧效果复核的挂起时机必须挂在**效果动作已发生的帧**之后, 与"触发检测"帧严格区分; 同帧触发+同帧复核 = 复核的是前状态 (必假阴性); 上线前用"事件对是否同帧出现"做时序自检 (TOWN_VISIT 与 TOWN_EMPTY 同 step 即可疑)
 - 关联: `ep_runner_one.py` visit 窗状态机 / `py/win_bB_watch.py` (窗内信号监视)
+
+---
+
+### #256: cmake 误用 `vcmi-native/build` 目录（无 CMakeCache）→ 重编 mlclient 必须走 `rel`（09-18, passable 闸门重编踩）
+
+- **状态**: ✅ 已固化（正确目录 `~/vcmi-native/rel`，原位编译即部署）
+- **现象**: passable 补丁后首次重编用 `cmake --build /home/administrator/vcmi-native/build --target mlclient` 报 "could not load cache"；正确命令 = `cmake --build /home/administrator/vcmi-native/rel --target mlclient -j8`（RC=0，产物 `rel/bin/libmlclient.so` 直接就是运行时加载副本，无需 cp 同步）
+- **根因**: `build/` 是陈旧目录无 CMakeCache.txt；运行时 .so 由 `train_wsl2_ppo_v2.py` L174 `STRATEGIC_STATE_LIB=/home/administrator/vcmi-native/rel/bin/libmlclient.so` 直读（/proc maps 实锤），rel/bin 原位即部署，"cp 同步副本" 步骤在本工程不适用
+- **教训**: 重编前先 `strings/ls` 确认运行时实际加载路径与构建目录对应关系（知识库 L598 实锤条目），别按习惯猜 build 目录；mlclient 目标编译只需 `--target mlclient`（约 1-2 分钟），全量构建不必要
+- 关联: 知识库「WSL双目录陷阱」/ `train_wsl2_ppo_v2.py` L174 / `py/patch_passable_0917.py`
+
+---
+
+### #257: 观测 passable 口径错标为"贴脸口径"——实为与 GHandler 不符的观测错误，修正属引擎侧（09-18, passable 闸门方案甲立项定性）
+
+- **状态**: ✅ 已定性并部署（strategic_state.cpp 两处 `isClear` → `getTerrain()->isPassable() && !(blocked() && !visitable())`，对齐 `CGameHandler.cpp:916 movingOntoObstacle`）
+- **现象**: WIN-1 全窗真实击杀=BHERO_KILL=TOWN_CAPTURE=0；批次B+A3 42 局 ①接战 ④防通胀达标后 ②③ 仍恒 0。预研逐层核对后定谳：旧 `isClear`（CMap.cpp:152 = `entrableTerrain && !blocked`）把**敌英雄格/敌城格/怪物格全标 passable=0**，而引擎 `movingOntoObstacle = blocked && !visitable` 对这些格 = false（可踏入且触发战斗）→ 观测与引擎事实不符
+- **三方封锁链**: ① 模型方向动作 `logits[:8][~passable]=-inf`（ep_runner L478-481）② MOVE_TO/BFS 只走 `pas[d]==1` 引导只到邻格 ③ 蓝方 AAI `nearestInteractable`（AAI.cpp:109-111）显式跳过 HERO——三层叠加 = 结构性永不可达敌格
+- **影响面（方案甲）**: 敌英雄格/敌城格/怪格全开放 → ① 击杀链激励闭环（contact+15/守卫+100/kill+40 vs death_penalty -50）② 顺带修复 #103 "模型绕开守卫"（怪格开放）③ 风险 = 战力评估缺位下模型可能冲进打不过的怪 → 判据④ 死亡局占比 <20% 兜底
+- **教训**: ① "口径对齐"类改动必须逐字对齐引擎 GHandler 判定（`blocked && !visitable`），不要发明近似口径（方案乙最小特判 = 与引擎仍有偏差，已弃）② 观测字段与引擎事实不符时，修观测优于加旁路动作通道（动作空间侵入更重）③ 引擎侧 .so 改动 = 触铁律，双备份（源码+.so）+ 重编 + 重启窗 + 验证 4 判据 + 回退线缺一不可
+- 关联: `docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md` §1.2/§1.4 / `py/patch_passable_0917.py` / 踩坑 #143（坐标系 bug 同文件不同层，L83 注释已记录）/#256
