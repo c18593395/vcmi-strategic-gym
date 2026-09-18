@@ -59,6 +59,34 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-18 晚 B+C 窗：红蓝英雄真实战斗链路首次全线打通（OBS-3 历史性闭环）
+
+**背景**：passable 闸门方案甲部署后恢复窗 31 局——①不炸✅ ④实质✅（duel 底噪剔除后 0/22）但 ②🟡 ③❌：贴脸 7 局全 d=2 而 slain 恒空、BHERO_KILL=0。深挖定位**真卡点**：恢复窗 `destination tile is blocked` **0 条** → 红方从未尝试落敌格 → 卡点不是引擎拒绝而是**引导层自绕**：`bfs_full_dir` 调用点喂的 `dyn_blocked` 动态障碍集合（#143 时代加入，含敌方英雄格）使 BFS 恒返回邻格方向，hero 贴脸后原地打转永远差最后一格（方案甲只改了 C++ 观测掩码/C++ next_dir，Python BFS 引导的 blocked 喂食没跟着变）。
+
+**B+C 落地（commit `69bab3d`/`7e8491d`）**：
+- **C**：`bfs_full_dir` 调用点在 `move_blue_hero_target` 时把蓝英雄格 `(tx,ty)` 从 `dyn_blocked` 豁免——BFS 可直达落格。
+- **B**：unit 加三 Environment：`HOMM3_BLUE_HERO_ATTACK_BYPASS=1`（旁路总开关）+ `HOMM3_ATTACK_F_MIN=-1`（护栏放宽）+ `HOMM3_ATK_DEBUG_FORCE=1`（贴脸强攻不依赖 pick，调试语义）。
+
+**首考即中（72_02 局 step 95，hermes 快照 ring_0 完整证据链）**：
+```
+[ATK_DBG] step=93/94/95 d=6→4→2 byp=1 fmin=-1.0 tried=False mt=(5,66)   ← 埋点/幂等/实时坐标全正常
+[BHERO_ATTACK] blue_hero_id=3 step=95 d=2 dir=5 (pre-nav bypass rt=(5,66)) ← 攻击步首次下发, dir 精确指向敌格
+[ML-battle] BattleProcessor::startBattle DONE                            ← 引擎受理, 零 blocked 拒绝
+CBattleQuery qid=106 affecting players RED and BLUE                      ← 双人参战 (守卫战仅 RED 单方)
+battleStarted color=red + color=blue                                     ← 蓝方入场 (守卫战是 neutral)
+CBattleQuery::notifyObjectAboutRemoval objType=hero                      ← 蓝英雄被歼 (守卫战是 monster)
+CBattleQuery::battleFinished RETURN qid=106 winner=0                     ← 红方获胜, R6 正常结算
+```
+**判据②（首个真实战斗事件）✅ 达成；OBS-3"英雄战斗未触发"链路级闭环**——引擎 `moveHero 落敌英雄格 → onHeroVisit startBattle → R6 双人结算` 在新口径下全通，#143"moveHero 被拒"仅是旧观测口径时代的事实。
+
+**唯一残留（记账时序，非链路）**：该局 BHERO_GRAD `slain=[]`、BHERO_KILL 未发——双帧确认需连续两拍蓝英雄从 obs 消失，而攻击步发生在 step 95/96 步局尾，局截断时确认来不及。候选修复（待拍板）：ep 终局对"攻击步已下发 + 蓝英雄从末帧 obs 消失"的 id 补记账 + 补发阶梯奖。
+
+**运维配套（同窗落地）**：
+- 22:31 再发一次 WSL idle shutdown（11:30 手动 keepalive 已丢、LogOn 计划任务未覆盖）→ **keepalive 守护** `py/homm3_keepalive_guard.ps1` + 计划任务 `homm3-wsl-keepalive-guard`（每 5 分钟检测 `wsl.exe ...sleep infinity` 进程，丢失自愈拉起）。
+- hermes log 单文件每局覆盖 → **贴脸局日志快照器** `py/contact_log_snapshot.py`（主日志 BHERO_CONTACT 触发即时快照 + 环形 5 槽×240s≈20 分钟覆盖）+ `py/restart_snapshotter.sh` 重启入口。
+
+**指针**：commit `69bab3d`（B+C+快照器+守护）/ `7e8491d`（C 豁免+restart 三行，并行会话入库）/ 踩坑 #256（交织误归属）/#257（pgrep 假阳性）/ 任务清单 T7.6+WIN-1 / 方案_攻击步旁路_20260917.md（§2 语义改版建议已被 C 方案部分替代）。
+
 ### 09-18 上游侦察 + 开源立项可行性评估（VCMI develop 增量 + GitHub 核查 + 独立项目定案）
 
 **上游增量（vcmi develop @2026-09-18，09-11 以来）**：

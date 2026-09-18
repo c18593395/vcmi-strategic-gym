@@ -1093,6 +1093,15 @@
 - **教训**: ① #249 固化后仍需警惕——任何 `wsl bash -c "..."` 里出现 `$` 一律默认被 PowerShell 吞掉；② 涉及 for 循环 / 多行逻辑的跨 WSL 命令，优先落 Python/`.sh` 脚本，不要内联；③ 判断"命令无输出"时，先确认 WSL 侧变量是否真的存在（`echo "$var"` 自检），避免把"变量被吞"误判为"结果为零"。
 - **关联**: #249（同机制首次固化）/ #245（引号转义炸错对照）/ `py/probe_victory.py`（vmap 探查工具，本轮为绕开本坑新建）
 
+#### #257 `pgrep -f`/`pkill -f` 在 `wsl bash -c` 内匹配 bash 自身命令行 → 服务假阳性 ALIVE、`||` 短路致后台进程从未启动 (2026-09-18, 快照器部署踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化（快照器"部署成功"假象持续 ~40 分钟，取证一直空转才暴露）
+- **现象**: `wsl bash -c "pgrep -f contact_log_snapshot >/dev/null || (nohup python contact_log_snapshot.py &); pgrep -f contact_log_snapshot && echo ALIVE"` 返回 pid 且输出 ALIVE，但快照器从未工作（环形快照零文件）。另 PowerShell **单引号**包 `wsl bash -c '...$(pgrep...)...'` 也失守——`$(...)` 在 PowerShell 侧被执行成字面数字拼进 bash 命令（`for p in 3553; do` 语法炸），推翻"#255 单引号安全"的旧口径。
+- **根因**: `pgrep -f` 按完整命令行匹配——`bash -c "... contact_log_snapshot ..."` 的 **bash 进程自身命令行含关键字** → pgrep/pkill 永远"找到"自己所在的 bash → `||` 判"已在跑"跳过启动；`pkill -f` 则直接把 bash 自己杀掉（exit 15）。
+- **处理**: ① 匹配串加进程特征再过滤：`ps aux | grep contact_log_snapshot.py | grep -v grep | grep -c 'bin/python'`（三段过滤，bash 命令行不含 `bin/python` 前缀）；② 启动+验证逻辑落 **sh 脚本文件**执行（`py/restart_snapshotter.sh`，脚本内 `SELF=$$` 排除自身 pid）——文件执行零引号传递，是 #255/#257 的共同终极解；③ PowerShell 单引号在跨 wsl 场景一律不再信任，复杂命令一律脚本化。
+- **教训**: ① "进程存活检测"必须用与进程名无关的特征组合并排除自匹配，或干脆检查**进程产物**（本例：环形快照文件是否生成——产物检查第一时间就能暴露假部署）；② `X || 启动X` 的幂等启动模式在 `-f` 模糊匹配下天然自欺；③ #255 的"单引号安全"结论**只对简单命令成立**，含 `$(...)`/`$var` 的复杂命令单引号也会失守。
+- **关联**: #255（同日跨 shell 插值主坑，本条为其单引号失守扩展 + 自匹配假阳性变体）/ #256（交织误归属，同日观测链三连坑）/ `py/contact_log_snapshot.py` + `py/restart_snapshotter.sh`（本坑产物）
+
 #### #256 主日志 10-env 交织写入 + 事件行不含地图名 → 按地图名分段抓取把 [SCORE] 等事件误归属相邻局 (2026-09-18, T7.6 冒烟踩) — ✅ 已固化
 
 - **状态**: ✅ 已固化（分析结论因此差点全部走偏，冒烟中途发现纠正）
