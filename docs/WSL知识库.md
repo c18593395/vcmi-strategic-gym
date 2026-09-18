@@ -59,6 +59,22 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-18 T7.6 A2 攻击步旁路单局冒烟（5 轮窗，三缺陷修复 + 自然激活不可行实锤）
+
+**冒烟过程**：v1(原 elif 版) → v2(BFS 前置块) → v3(实时坐标) → v4(ATK_DBG 埋点) → v5(调试强攻 HOMM3_ATK_DEBUG_FORCE)，每轮 72_01/72_02 贴脸局复现但 `[BHERO_ATTACK]` 恒零，逐层定位出三处前置缺陷（已修复入库，commit `8c5b5e1`）：
+
+1. **BFS 恒成功遮蔽**：原攻击步 elif 挂在 `if a == 24` 引导块的"BFS 失败后贪心段"（`a==24` 才可达），但 `bfs_full_dir` 对蓝英雄格恒成功（visit 邻格语义，目标格不可入也返回朝向方向）→ 攻击步判定永远不可达。修复 = 判定前置到导航之前（贴脸即强攻，`_atk_skip_nav` 短路 BFS/next_dir）。
+2. **pick 坐标错位**：判定用 pick 时刻 `tx,ty`，蓝英雄位移后 d 计算失真（contact 用实时 obs 坐标发奖、攻击步用陈旧坐标不触发）。修复 = 改 obs 蓝英雄段实时坐标（与 P-H2 contact 判定 L1240 同源）。
+3. **自然激活概率≈0（决定性）**：24+ 局实锤"scorer pick 蓝英雄"与"贴脸 d≤2"**从未同时发生**——pick 蓝英雄的局走不到贴脸（52X52_02 min_d=42），顺路贴脸的局没 pick（72_01/108/72_02 的 contact 全是几何判定发奖，hero 在奔矿/打怪途中路过）。攻击步引擎侧验证（落敌格 + R6 结算）**未完成**。备用：调试强攻开关 `HOMM3_ATK_DEBUG_FORCE=1`（默认关，任何贴脸敌英雄即强攻不要求 pick）。
+
+**72_02 局 96 步提前终局定性（hermes_ep_7783.log 查询栈解码）**：`CHeroMovementQuery qid=175 → MapObjectVisitQuery qid=176 → CBattleQuery qid=177 (objType=monster) → battleFinished + notifyObjectAboutRemoval hasResult=1` = **红打怪胜 → 守卫/野怪被歼 → guard_done 流程终局**（08-29 既有机制），与蓝英雄无关；BLUE 侧 query 全是正常 visit 对象（占矿），**无主动攻击红迹象 → A2"蓝方近乎静止"结论维持**（hermes_ep_61492 实证不翻案）。
+
+**下游影响与待拍板（方案 C）**：攻击步现行触发语义（"scorer pick 蓝英雄"为前提）在自然局中不可达 → 若要保留攻击步，需改"贴脸自动强攻"语义（不依赖 pick，激励归属随之调整为事件驱动），等 passable 闸门 4 判据收口后择窗拍板；passable 新口径下普通移动理论上可走上敌英雄格，是否还需要强攻旁路待验证窗数据回答。
+
+**工具沉淀**：`py/passable_gate_watch.py`（passable 闸门 4 判据看板：①不炸 ②战斗事件 ③BHERO_KILL ④死亡局/avg_r，窗起点=最后 WIN1_BATCH 行）。
+
+**指针**：commit `8c5b5e1`（ep_runner_one.py 三修复 + 看板）/ 踩坑 #256（主日志交织误归属）/ 任务清单 T7.6 / 方案_攻击步旁路_20260917.md §2/§6。
+
 ### 09-18 WSL idle shutdown 循环定性 + Windows keepalive 置顶纪律（截至 2026-09-18）
 
 **现象**：训练"重启循环"——MainPID 反复变化、journalctl 出现 9+ 轮 "Stopping homm3-train-v5"，极易误判为外部 stop 或训练崩溃。`systemctl is-active` 瞬时快照还会显示 active（容器冷启动后 unit 自动拉起），进一步误导。
