@@ -263,7 +263,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #266，下一条为 #267…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #269，下一条为 #270…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1222,3 +1222,22 @@
 - **处理**: ① 白名单补 [ECON]/[BHERO_ATTACK]/[BHERO_KILL]/[ATK_DBG]（重启窗生效）；② 新增埋点时的 checklist 加一项"highlights 白名单同步"。
 - **教训**: ① 判据统计类标签（如 [BHERO_SLAIN]）与诊断标签要分开管理，新增奖励/埋点必须同步白名单，否则判据永远读零——与 #254（参数静默零行为）同属"静默不生效"家族；② 观测不到 ≠ 没发生：先用旁路数据（act 序列/BHERO_EV_LOG/hermes log）反证，再下"零触发"结论；③ 主日志是**过滤视图**不是全量日志，全量在 /tmp/hermes_ep_*.log。
 - **关联**: #256（交织误归属，同为观测链坑）/#257（假阳性检测）/ #254（静默零行为家族）/ `py/build2_probe.py`（act20 统计探针）/ 知识库 09-19 凌晨章 A6/A9 定谳
+
+#### #269 WSL 引擎自更新到 2.7.10 后 cold-start 重建 distro 元数据 — 训练 venv/systemd unit 全丢，rootfs 被重置为全新 Ubuntu (09-19) — 🔄 用户重装 ext4.vhdx 中（防再犯三件套已固化）
+
+- **状态**: 🔄 事故定性与防再犯措施已固化；数据抢救完成，venv/unit 随用户重装恢复
+- **现象**: 09-19 02:47 训练 `homm3-train-v5` 正常运行（PID 160/2083，T05/T06 图池，step=770300）；02:50:10 触发 "Shutdown signal received, saving current state..." 优雅存盘（wsl2_model.pt + wsl2_model_state.pt 双写 D:\Bigdata\hero3_fresh，step=770300）。随后 WSL 引擎 2.7.10 自更新窗口内，`wsl -l -v` 列出的 distro 注册表条目与 `HKCU\...\WSL` 键消失，cold-start 时 `ext4.vhdx` 被重建为 1.2G 全新 Ubuntu（/home 仅 44K，无 venv、无 systemd unit、无 C 扩展），03:13 起 `homm3-train-v5` 服务找不到 unit 文件，训练中断。
+- **根因链（有把握 + 没把握分开说）**:
+  - 有把握：ext4.vhdx 03:13 被重建，旧注册表元数据（HKCU\WSL 键 + distro GUID）丢失，rootfs 内容重置为全新 Ubuntu；
+  - 没把握：重建触发的确切机制（引擎 2.7.10 自更新后首次 cold-start 时的元数据迁移/修复 vs 其它）。本次窗口期 WSL 引擎 2.7.10.0（HKLM Lxss\MSI Version），引擎行为与 2.6/2.7 早期不同，自更新后注册表/元数据兼容性是最大嫌疑。
+- **损失评估（数据分层）**:
+  - ✅ 安全（Windows D 盘）: 模型 checkpoint（wsl2_model.pt + wsl2_model_state.pt，step=770300）、训练日志（train_loop.log）、maps/data、openspec、docs、.so 产物（rel/bin）、全部源码与 scripts（hero3_fresh 主仓 D 盘）。
+  - ❌ 丢失（原 rootfs）: `/home/administrator/vcmi-workspace/venv`（PyTorch+CUDA）、`/etc/systemd/system/homm3-train-v5.service`（system 级 enabled unit）、C 扩展（.so 的 C 依赖/编译缓存）、home 目录其它（ssh 配置/git config/pip 缓存）。
+  - 注：`D:\Bigdata\hero3\vm\Hero3TrainVM.vhdx`（7.97G）与 `D:\Bigdata\ubuntu-noble-wsl.rootfs.tar.gz` 均**不是**当前训练 WSL 的 rootfs 备份——前者是 07-16 的 HyperV 时代老镜像（1 月未动），后者是原始 rootfs 基线（新装 Ubuntu 镜像，非已装 venv 的状态）。两者都**不能**用来恢复已装好的 venv/unit。
+- **防再犯三件套（用户拍板要做，重装完成时执行）**:
+  1. **vcmi-native 推 D 盘镜像仓**：`git push D:\Bigdata\git-mirrors\vcmi-native.git mmai-ml`（本地 bare 仓即可，不需要 GitHub），让 6 个战略层 commit + 132 个管线文件有第二落点，rootfs 再丢也不致命。
+  2. **定期 `wsl --export` 备份 rootfs**：大改/晋级达标后跑 `wsl --export Ubuntu D:\backup\ubuntu-YYYYMMDD.tar.gz`（export 是 rootfs 级快照，可 `wsl --import` 恢复；**不要直接拷 ext4.vhdx**——动态盘离线拷贝后开机可能无法挂载，export 才是正确姿势）。频率建议：每周一次 + 每次大改/晋级后必做。
+  3. **重建脚本固化在 D 盘**：`setup_wsl_train.sh`（venv 建 + 依赖装 + systemd unit 写 + 服务启），unit 文件内容从 09-11 #201 窗口记录复现（/etc/systemd/system/homm3-train-v5.service，User=administrator，StandardOutput=append 到 train_loop.log，ExecStart 用绝对路径 venv）。把 rootfs 丢失的代价从"灾难"降成"30 分钟重建"。
+- **触发时机（运维检查口径）**: 每次 Windows 更新 / WSL 引擎版本跳了之后，先 `wsl -l -v` + 查 `D:\wsl\Ubuntu\ext4.vhdx` mtime，确认没被重置再开工；可选把 WSL 引擎更新设成手动（Windows Update 设置 → 高级选项 → 暂停/手动控制 driver updates），降低自更新撞训练窗口概率。
+- **教训**: ① rootfs（WSL 内部）与 Windows D 盘（宿主）是**两套数据层**，checkpoint/源码/产物全部落 D 盘是本次没丢训练进度的根本原因——这条分层纪律必须保持：任何新工件（新脚本、新 .so、新数据）默认落 D 盘，不在 rootfs 里留唯一副本；② 引擎自动更新是本次导火索，"更新后检查一次 WSL 状态"应成为更新后例行检查；③ 注册表键/元数据丢失 ≠ 数据丢失，ext4.vhdx 还在就有恢复窗口，panic 前先分层盘点"哪些数据在哪一层"。
+- **关联**: #201（容器空闲关停双层修复——本次 keepalive/systemd unit 架构是其产物）/ #168（unit 消失 + is-active 骗人，同族）/ #267（keepalive 被 360 清，本窗口期 keepalive 已按拍板改为手工拉起）/ 知识库 09-19 章「WSL rootfs 重置事故 + 防再犯三件套」。

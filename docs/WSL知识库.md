@@ -59,6 +59,26 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-19 WSL rootfs 重置事故 + 防再犯三件套（数据分层盘点 + 备份纪律）
+
+**事故链（截至 09-19 03:20，定性）**：02:47 `homm3-train-v5` 正常跑（PID 160→2083→163，T05/T06 图池）→ 02:50:10 触发 WSL 侧 shutdown 信号，训练优雅存盘 `Saved STATE_PATH (step=770300)`，checkpoint 双写 D 盘（`wsl2_model.pt` + `wsl2_model_state.pt`，mtime 02:50:10）→ WSL 引擎（2.7.10.0，HKLM Lxss\MSI）自更新窗口内 `wsl -l -v` 的 distro 注册表条目（`HKCU\...\WSL` 键 + per-distro GUID）丢失，cold-start 时 `D:\wsl\Ubuntu\ext4.vhdx` 被重建为 **1.2G 全新 Ubuntu**（03:13 mtime）→ `/home/administrator/vcmi-workspace/venv`、`/etc/systemd/system/homm3-train-v5.service`、C 扩展全部丢失 → 03:13 起 `systemctl` 报 "Unit could not be found"，训练中断。
+
+**关键盘点结论（数据分层，决定损失面）**：
+- **rootfs（WSL 内部 ext4）层 = 易失层**：venv（PyTorch+CUDA）、systemd unit、C 扩展、home 其它。本次全部丢失。
+- **Windows D 盘（宿主）层 = 持久层**：checkpoint（step=770300 完好）、train_loop.log、maps/data、源码、scripts、.so 产物（rel/bin）、openspec、docs、知识库。**本次零损失**——因为"任何新工件默认落 D 盘"的分层纪律一直执行。
+- **反直觉：D 盘两个"看起来像 rootfs 备份"的文件都不能救**：`D:\Bigdata\hero3\vm\Hero3TrainVM.vhdx`（7.97G）是 07-16 HyperV 时代老镜像（1 个月没动，非当前训练 rootfs）；`D:\Bigdata\ubuntu-noble-wsl.rootfs.tar.gz` 是原始基线（新装 Ubuntu，不含已装 venv）。**rootfs 级备份只有 `wsl --export` 一种有效姿势**，直接拷 ext4.vhdx 不算备份（动态盘离线拷贝开机可能无法挂载）。
+
+**防再犯三件套（用户拍板要做，09-19 重装完成时执行，见踩坑 #269）**：
+1. **vcmi-native 推 D 盘镜像仓**：`git push D:\Bigdata\git-mirrors\vcmi-native.git mmai-ml`（本地 bare 仓），让 WSL 内的 6 个战略层 commit + 132 个管线文件（`/home/administrator/vcmi-native`，ahead/behind 未推 GitHub，**全量只存在于 rootfs**）有第二落点。这条是本次**最大潜在损失**（比 venv 重建贵得多），优先级最高。
+2. **定期 `wsl --export` 备份**：`wsl --export Ubuntu D:\backup\ubuntu-YYYYMMDD.tar.gz`，频率 = 每周一次 + 每次大改/晋级达标后必做。恢复 = `wsl --unregister Ubuntu` + `wsl --import Ubuntu D:\wsl\Ubuntu D:\backup\ubuntu-<date>.tar.gz`。
+3. **重建脚本固化 D 盘**：`D:\Bigdata\hero3_fresh\py\setup_wsl_train.sh`——venv 建 + 依赖装 + systemd unit 写回 + 服务启。unit 内容从 #201 记录复现（system 级 enabled，User=administrator，`/home/administrator/vcmi-workspace/venv/bin/python train_wsl2_ppo_v2.py`，WorkingDirectory=`/mnt/d/Bigdata/hero3_fresh`，StandardOutput/StandardError=append 到 train_loop.log）。效果 = rootfs 丢失代价从"灾难"降为"30 分钟"。
+
+**触发时机（运维口径）**：每次 Windows 更新 / WSL 引擎版本跳级后，先 `wsl -l -v` + 查 `D:\wsl\Ubuntu\ext4.vhdx` 的 mtime，确认没被重置再开工；可选把 WSL 引擎更新设为手动（Windows Update → 高级选项 → 驱动更新手动）。
+
+**教训（三句话）**：① rootfs 是易失层、D 盘是持久层，新工件默认落 D 盘（本次训练进度没丢的根本原因）；② 引擎自更新是导火索，"更新后查一次 WSL 状态"入例行检查；③ 注册表/元数据丢了 ≠ 数据丢了，ext4.vhdx 还在就有恢复窗口，panic 前先分层盘点。
+
+**指针**：踩坑 #269（本事故）/ #201（keepalive+systemd 双层存活架构，本次丢的就是它的 unit）/ #168（unit 消失 + is-active 骗人）/ #267（keepalive 360 拦截，改手工）/ `D:\wsl\Ubuntu\ext4.vhdx`（rootfs 实体）/ `D:\Bigdata\hero3_fresh\wsl2_model{,_state}.pt`（step=770300 checkpoint）。
+
 ### 09-19 凌晨：passable 闸门 4 判据全绿 + S2 撤梯子开窗（判据③收官 + A6 定谳 + 自动收口监控）
 
 **判据③达成（BHERO_KILL 首次全链路记账）**：09-19 00:17 的 72_02 局——攻击步下发（[BHERO_ATTACK] step=95 dir=5）→ 战斗 → 局尾补记账修正版命中：`[BHERO_SLAIN] blue_hero_id=3 at step 96 +40.0 (end-of-ep attack-step credit)` → `BHERO_GRAD slain=[3]` 非空。**passable 闸门 4 判据全绿，WIN-1 收口条件达成**。
