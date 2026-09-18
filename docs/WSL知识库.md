@@ -59,6 +59,20 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-17 批次B 首窗（07:42）归因增量沉淀（A2 归因报告完整版补录）
+
+> 本节为 09-17 A2「贴近未接战」归因报告的增量补录（主结论已进预研文档/OBS-3 改述/批次B 部署记录，此处只补仓内此前没有的数据与证据细节）。
+
+**批次B 部署后首窗数据（09-17 07:42，15 局）**：
+- 非 duel 9 局 `final_min_d=[14,37,42,48,48,50,60,60,96]`，**逐拍判定无一拍 d≤2**，BHERO_CONTACT=0——语义判定：不是 contact 判据抓不到，是这窗**压根没走到贴脸**（P-H2 已修 d==0→d≤2，非瓶颈）。
+- A3 侧健康佐证：T05 mean_r 翻正 **+58**（own_town 衰减效果）、KL 回落 **0.52**、TOWN_EMPTY 15 条。
+- 单局实证（`/tmp/hermes_ep_61492.log`）：72_01 贴脸局蓝英雄 (5,66) 在 step28→68 共 **40 拍坐标完全不变**，plen 68→56 全是红在接近——**蓝方 MMAI_RANDOM 实测近乎静止，"等它自己走上来开战"概率趋零**，三假设之"蓝英雄漂移"就此排除。
+- 直接含义：不补攻击步，BHERO_KILL/TOWN_CAPTURE 结构性等不到（后续已按此实现攻击步旁路，commit `45186ef` + 踩坑 #254）。
+
+**分析工具**：`py/a2_contact_probe.py`（批次窗 contact/min_d 聚合，只读 train_loop.log；正则注意 `BHERO_GRAD` 行 `cap=` 值可带 `+` 号，`[-+\d.]+` 已修）。
+
+**指针**：`docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md`（四层证据链全文）/ 踩坑 #250（d==0 误读修正）/#254 / commit `45186ef`（攻击步旁路实现）/ 任务清单 T7.6（单局冒烟待办）。
+
 ### 09-17 VCMI 上游侦察 + A2 capture-all-mines 备料（截至 2026-09-17）
 
 **本地基线**：`vcmi-native` HEAD = `65515ef24`（09-16，P8-C null-ENGINE 修复）；运行时 `libvcmi.so` 版本串 = **VCMI 1.8.0（develop 线）**。上游 1.7.2→1.7.5 release changelog 的 fix 理论上已被 develop 线吸收，真正"新"的是 09-11 merge #7632 之后 master 又新增的 ~10 条提交（到 09-16）。
@@ -78,7 +92,7 @@
 **A1 核查方法**（zip-of-JSON 扫描 62 张训练地图）：把 .vmap 当 zip 打开，解析 header.json / surface_terrain.json / objects.json 全文 + 结构定位。结果：`Pandora`=0、`rewardSpellPoints`=0、`manaOverflowFactor`=0、`CAPTURES_ALL_MINES`=0；`manaReward` 命中 8 次全部落在 `objects.json $.hero_0.options.mana=10`（英雄初始蓝量属性，非事件奖励）。**结论：A1 对本课程零影响，剔除。**
 
 **A2（PR #7810）备料**：
-- PR 已 merged（09-12）。`mapeditor/mapsettings/victoryconditions.cpp` 的 `conditionStringsWin` 从 9 → 10 项，新增 `"Capture all mines"`，case 8 设置 `EventCondition cond(EventCondition::CONTROL_CURRENT); cond.objectType = Obj(Obj::MINE)`，`victoryIconIndex=9`，`victoryMessage="core.vcdesc.10"`。
+- PR 已 merged（09-12，merge commit `682e1dea`）。`mapeditor/mapsettings/victoryconditions.cpp` 的 `conditionStringsWin` 从 9 → 10 项，新增 `"Capture all mines"`，case 8 设置 `EventCondition cond(EventCondition::CONTROL_CURRENT); cond.objectType = Obj(Obj::MINE)`，`victoryIconIndex=9`，`victoryMessage="core.vcdesc.10"`。
 - `mapeditor/mapsettings/eventsettings.cpp`：timed-event resources 加 `vJson.setModScope(ModScope::scopeMap())`。
 - **关键语义**：PR 改动全在 `mapeditor/` 编辑器 UI 层，**不影响运行时引擎对 .vmap 的解析**。`CONTROL_CURRENT + Obj::MINE` 是合法 EventCondition 组合，.vmap 文本里可直接写 `["controlCurrent", {"objectType": "mine"}]` 实现"夺矿"胜利条件，零引擎依赖。
 - **当前地图结构**（`py/probe_victory.py` 探查 T05_36X36_01 / T06_72X72_02 / T05_52X52_01_mir 三图一致）：`header.json` `victoryConditions = ["standardDefeat", "specialVictory"]`；`triggeredEvents.specialVictory.condition = ["allOf", ["isHuman", {"value":1}], ["haveResources", {"type":0, "value":100}]]`（攒 100 金）；`victoryIconIndex = 2`。
