@@ -59,6 +59,27 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-18 WSL idle shutdown 循环定性 + Windows keepalive 置顶纪律（截至 2026-09-18）
+
+**现象**：训练"重启循环"——MainPID 反复变化、journalctl 出现 9+ 轮 "Stopping homm3-train-v5"，极易误判为外部 stop 或训练崩溃。`systemctl is-active` 瞬时快照还会显示 active（容器冷启动后 unit 自动拉起），进一步误导。
+
+**真根因（三层判定）**：
+- WSL 空闲判定只看 **Windows 侧客户端**（终端会话 / keepalive 进程），**不看 VM 内训练进程**。keepalive 缺失时，终端关闭 ~60s 后 WSL 执行 idle shutdown（发行版容器级关停，#201 同源）。
+- `last` 显示当天 WSL reboot 9+ 次；journalctl 里 "Stopping" 全是 **poweroff 关机流程**（`systemctl poweroff did not terminate ... calling reboot`），非外部 stop。
+- NRestarts=0 排除 systemd 自动重启；PID etime 短 + 日志 mtime 断档坐实容器反复冷启。
+
+**判活三件套（踩坑 #201 纪律）**：异常重启先 `wsl bash -c "last | head"` 看 WSL 是否 reboot，再查 journalctl 区分 poweroff vs 真实 stop；判活 = PID etime + 日志 mtime + cgroup/MainPID 三对照，**不能只看 `systemctl is-active`**。
+
+**修复 = Windows 侧 keepalive（11:30:35 拉起后 3 分钟无再 reboot，训练稳定至 MainPID=160）**：
+```powershell
+Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden
+```
+**置顶纪律（已写入当前任务清单顶部）**：每次启动训练后**必须立即**拉起 keepalive，否则 ~60s 后训练被带走。keepalive 是隐藏进程，Windows 重启后丢失 → **加入 Windows 开机自启（09-18 已配）**：
+- 落地方式：`Register-ScheduledTask -TaskName "homm3-wsl-keepalive" -Action (New-ScheduledTaskAction -Execute "wsl.exe" -ArgumentList "-d","Ubuntu","sleep","infinity") -Trigger (New-ScheduledTaskTrigger -AtLogOn)`（LogOn 触发；`schtasks` 无 -Hidden，隐藏窗口需 VBS 包装）。
+- 验证：`Get-ScheduledTask -TaskName "homm3-wsl-keepalive" | Select TaskName,State`。
+
+**指针**：踩坑 #114（keepalive 首次引入）/ #201（容器空闲关停双层修复）/ #255（PowerShell 双引号 for 循环插值坑，排查时复踩）/ 当前任务清单顶部置顶块。
+
 ### 09-17 批次B 首窗（07:42）归因增量沉淀（A2 归因报告完整版补录）
 
 > 本节为 09-17 A2「贴近未接战」归因报告的增量补录（主结论已进预研文档/OBS-3 改述/批次B 部署记录，此处只补仓内此前没有的数据与证据细节）。
@@ -72,6 +93,19 @@
 **分析工具**：`py/a2_contact_probe.py`（批次窗 contact/min_d 聚合，只读 train_loop.log；正则注意 `BHERO_GRAD` 行 `cap=` 值可带 `+` 号，`[-+\d.]+` 已修）。
 
 **指针**：`docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md`（四层证据链全文）/ 踩坑 #250（d==0 误读修正）/#254 / commit `45186ef`（攻击步旁路实现）/ 任务清单 T7.6（单局冒烟待办）。
+
+### 09-18 passable 闸门（方案甲）立项部署：观测口径与 GHandler 对齐
+
+> 立项材料见 `docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md` §1.4（09-17 补，当时待拍板）；本节记录 09-18 执行落地事实。
+
+**结论（截至 2026-09-18）**：
+- **改动**：`ML/strategic_state.cpp` 两处 passable 填充（原 L698-700 `state->passable[d]=tt->isClear(hposTile)` 与 L955-974 第二副本 `state.passable[d]=…`），口径由 `isClear`（= `entrableTerrain && !blocked`，CMap.cpp:152）改为 `getTerrain()->isPassable() && !(tt->blocked() && !tt->visitable())` —— 与 GHandler `movingOntoObstacle`（CGameHandler.cpp:916）**逐字对齐**。效果：敌英雄格/敌城格/怪物格 passable=1（引擎事实：可踏入并触发战斗），模型方向掩码、MOVE_TO/BFS、蓝方 AAI 三方结构性封锁解除 = WIN-1"真实击杀=0"机械根因修复。
+- **部署流程**：双备份 `.bak_passable_0917`（源码 `strategic_state.cpp` + 运行时 `rel/bin/libmlclient.so`）→ 补丁 `py/patch_passable_0917.py`（两处精确替换 + `src.count(old)==1` 断言，失败即退回）→ `cmake --build ~/vcmi-native/rel --target mlclient -j8` RC=0（产物 294945296B @ 09-17 16:48；`STRATEGIC_STATE_LIB` 唯一运行时副本 = rel/bin 原位即部署，**cp 同步步骤不适用**）→ `systemctl stop/start homm3-train-v5` 走 `restart_train_v5_win1_batchB.sh`（8 Environment 不变，checkpoint resume）。
+- **验证 4 判据（窗内观察）**：① passable 新口径不炸（无 moveHero 全被拒/#143 复发）② 首个真实战斗事件（引擎 battleStarted/战斗结果）③ BHERO_KILL 非零 ④ 死亡局占比 <20% + avg_r 无塌。回退 = .so 备份恢复 + 重启窗（C++ 无参数层开关）。
+- **构建目录实锤**（踩坑 #256 同源）：mlclient 重编必须 `~/vcmi-native/rel`（有 CMakeCache，原位即部署）；`~/vcmi-native/build` 无 cache 不可用。
+- **关联纪律**：引擎侧 .so 改动触 VCMI 铁律（不重编 libvcmi.so；本例只重编 mlclient 目标）；与 BUILD P1 经济轴错窗（一次一轴，见预研 §1.4 排期建议）。
+
+**指针**：`py/patch_passable_0917.py` / `docs/当前任务清单.md` WIN-1 段（部署态+判据）/ 踩坑 #256（构建目录）/#257（口径定性）/ `docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md` §1.2-§1.4。
 
 ### 09-17 VCMI 上游侦察 + A2 capture-all-mines 备料（截至 2026-09-17）
 
