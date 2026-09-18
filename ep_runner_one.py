@@ -1069,7 +1069,13 @@ try:
                 else:
                     # 2026-09-01 改法一: 城镇目标 (nd<0 非守卫) 先走全图 BFS 绕岩石, 失败再退 15×15 局部 BFS → 贪心
                     if not move_guard_target and not _atk_skip_nav:
-                        _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=(dyn_blocked | guard_blacklist) - {(hx, hy)})
+                        _blk9 = (dyn_blocked | guard_blacklist) - {(hx, hy)}
+                        if move_blue_hero_target:
+                            # passable 新口径 (09-18 方案甲): 敌英雄格为合法落格目标 (moveHero 落格 →
+                            # onHeroVisit startBattle), 从动态障碍豁免 — 否则 BFS 恒返回邻格方向, hero
+                            # 贴脸后原地打转永远差最后一格 (09-18 恢复窗实锤: blocked 拒绝 0 条 + 7 局贴脸 0 落格)
+                            _blk9 = _blk9 - {(tx, ty)}
+                        _fd, _ = bfs_full_dir(args.mapname, hx, hy, tx, ty, blocked=_blk9)
                         if _fd is not None:
                             a = _fd
                     # 回退: 旧 15×15 BFS (守卫目标跳过 — BFS 按可通行性会绕开守卫格)
@@ -1605,7 +1611,10 @@ try:
             # 同帧双罚复核 (方案_T74 §6): capture proxy +100 (蓝英雄死) 与 death_penalty -50 (红英雄死)
             # 落在不同帧/不同事件, 不存在同帧叠加; 红英雄全灭后蓝英雄已无 target, 不会再触发 capture。
             r += args.death_penalty
-            traj["rewards"][-1] += args.death_penalty
+            # 09-18 修存量 bug: 原为 traj["rewards"] → KeyError → 整局被 error 丢弃,
+            # T7.4 死亡惩罚自上线起从未实际写入轨迹; 且同步 total_rew 修正 [EP_TIME] 日志
+            traj["rew"][-1] += args.death_penalty
+            traj["total_rew"] += args.death_penalty
             traj["done"][-1] = True
             print(f"[HERO_DEATH] penalty {args.death_penalty} [ZOMBIE] hero dead (all-blocked x{zombie_streak}), end ep at step {traj['steps']}", flush=True)
             break
