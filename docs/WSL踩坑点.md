@@ -1120,4 +1120,14 @@
 - **教训**: ① 大陆网络下 gh device flow 默认不可用，别在它上面烧轮次——第一步直接试 `gh auth status` 确认 token 有效性，无效就走 PAT/浏览器路线；② 认证通道分层评估（SSH/API/浏览器），push 能通就先把本地仓 commit 做好，建仓动作留给浏览器 30 秒；③ gh-proxy.com 能力边界记牢：raw/release/clone 加速可用，POST /login（device flow）与 api.github.com 写操作不可用。
 - **关联**: #184（gh auth 401 子 agent 认证坑，gh token 失效同源）/ vcmi_gym 仓首推（本坑触发场景）/ 知识库 09-18 开源立项章
 
+#### #259 摘取候选须 `merge-base --is-ancestor` 复核 + fork 基线 diff 不能 apply 上游 (2026-09-18, #205 官方 PR 提取踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化（本轮把"官方 3 小 PR"清单从 3 收窄到 1）
+- **现象**: ① 按 skill ref 的"摘取候选"清单推荐先提 NKAI race `a1ea3f4d2d` + JSON seek `01f741713c`，动手前用 `git merge-base --is-ancestor <sha> upstream/develop` 一核，发现两者**都已进官方**（NKAI=Ivan Savenko 6 月自修、JSON seek=kdmcser 9 月 10 日修）——skill ref 里"仍 MISSING"的记录已随上游迭代过时，照单推荐等于提重复 PR。唯一还原创可提的是 #205 服务端 pack try/catch。② 本地 #205 的 diff（commit `1c3be8d030`）是相对 **smanolloff fork 基线**写的（`retrievePack` 在 L164、`auto pack`），而 `upstream/develop` 上在 **L147**——文件已分叉，`git apply`/`git cherry-pick` 不能直接用，得基于 `upstream/develop` 重建。
+- **根因**: 摘取候选清单是某一时点的快照，官方 develop 在 9 月还在滚动合入（09-11 复核时还 MISSING，09-18 已被上游维护者自己修掉）。"能否提 PR"的判据不是"我本地有没有"，而是**"upstream/develop 是否已含等价修复"**——必须每次动手前用 `merge-base --is-ancestor` 对上游实锤，不能信静态记录。
+- **正确处理**: ① 每个摘取候选提 PR 前先 `git fetch upstream && git merge-base --is-ancestor <fix-sha> upstream/develop && echo 已含 || echo 可提`；② fork 基线改的 diff 要进官方，**不 cherry-pick**，而是在 `git worktree add -b <pr-branch> <path> upstream/develop` 干净 worktree 上**手工重建**（只摘该修的段，剔掉本地混入的诊断脚手架，如 #205 剔 `[SRV-DIAG]`/`TOWNAVAIL` fprintf）；③ 重建后做符号级实锤（异常类定义位置/成员、被调函数返回类型、既有同构代码块），不裸信"改了能编译"。
+- **附带坑（同轮）**: `git worktree add /d/.../vcmi_pr205` 在 MSYS 下把 `/d/` 当字面量，worktree 实际落到 `D:/d/...`（native git 不转 MSYS 路径）；`git worktree list` 能看到真实落点，后续 `cd` 用 native `D:/d/...` 路径。
+- **教训**: ① 上游跟踪型清单（MISSING/候选）一律视为"待复核"快照，不是结论——提 PR/摘取前逐条对 `upstream/develop` 重验；② "我方已修"≠"官方需我提"，判据永远是对上游的 `is-ancestor`；③ fork 基线 diff 进官方走 worktree 手工重建，不走 cherry-pick。
+- **关联**: #258（gh API 认证断，推 PR 需浏览器手建 fork 或用户出 PAT）/ 知识库 09-18「官方小 PR 清单（09-18 复核后收窄）」/ worktree `vcmi_pr205` 分支 `pr205-server-pack-guard`
+
 

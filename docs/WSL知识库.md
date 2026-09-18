@@ -90,7 +90,7 @@ CBattleQuery::battleFinished RETURN qid=106 winner=0                     ← 红
 ### 09-18 上游侦察 + 开源立项可行性评估（VCMI develop 增量 + GitHub 核查 + 独立项目定案）
 
 **上游增量（vcmi develop @2026-09-18，09-11 以来）**：
-- 无 stable 新发布（1.7.5 仍 latest），活跃全在 develop。战略层/AI 玩法改动 = **0 条**（master 冻结 @1.7.5）。摘取候选复验：`a1ea3f4d2d`（NKAI 并发 race，C4 第一摘取）仍 MISSING；`9b18469eb6`（Pandora mana overflow #7837）、`682e1dead7`（capture-all-mines 编辑器 #7810）均 MISSING。
+- 无 stable 新发布（1.7.5 仍 latest），活跃全在 develop。战略层/AI 玩法改动 = **0 条**（master 冻结 @1.7.5）。**09-18 复核订正**：`a1ea3f4d2d`（NKAI 并发 race，Ivan Savenko 6 月修）与 `01f741713c`（JSON seek 误报，kdmcser 9 月 10 日修）**均已进 upstream/develop**（`git merge-base --is-ancestor` 实锤，skill ref 里"仍 MISSING"记录已过时）→ 官方小 PR 清单缩到只剩 **#205 服务端 pack try/catch（我方原创，上游 `CVCMIServer::onPacketReceived` 对 `retrievePack` 仍裸调用）**；`682e1dead7`（capture-all-mines #7810）已进 develop。
 - **capture-all-mines（#7810）编辑器 UI 已进 develop**：印证任务清单 A7 备料成立——`.vmap` 文本直接写 `["controlCurrent", {"objectType":"mine"}]` 替换 `specialVictory.condition`（攒 100 金）+ `victoryIconIndex` 2→9 + `victoryMessage`→`core.vcdesc.10`。地图轴择窗实施无需再等上游。
 - **官方 MMAI 现状核对（smanolloff PR #4788）**：官方 ML AI 只到**战斗层**（MMAI BAI v13/v15）；PR 原话 "an ML-powered adventure AI... These are just concepts and nothing particular is planned at this point"。→ **战略层 RL 在官方/fork 全空白**，无人做 = 用户判断实锤。
 - fork 侧（smanolloff/vcmi mmai 分支）09-14 活跃：HARBot 战斗层脚本 bot 迭代 + ML neutrals bank + CalculateValue 更新——全战斗层，对战略层训练栈零直接价值。
@@ -101,13 +101,18 @@ CBattleQuery::battleFinished RETURN qid=106 winner=0                     ← 红
   1. `strategic-gym`（MIT）：训练栈 env/reward/connector/PPO/地图池/h3m2vmap + 英文 quickstart。本仓 `vcmi_gym` 是雏形（单 commit 90d6d2e，132M 含 `connectors/build` 122M + 93 个 pyc 构建产物，已 `git rm --cached` 清出，`.gitignore` 已立）。
   2. `engine-plugin`（GPL-2.0+）：vcmi-native diff（SRV-DIAG/passable/strategic_state/ML ServerPlugin）。**基线 = 官方 develop 干净 commit，不继承老 fork 脏分支（ahead11/behind8）**；CI 只跑 base+patch。迁移=重编验证一轮（08-29 已有 upstream diff report，半天~一天，进自然停训窗做）。
   3. `models-release` + mod：onnx 周更 release（仿 mmai 的 `vcmi-1.8-latest` 节奏），进 vcmi-mods 官方 launcher 自动下载 = 引流主钩子。
-- **官方小 PR 清单（3 类，每个 2~30 行低风险换好感）**：NKAI race `a1ea3f4d2d` / #205 恶意包 try/catch（已修）/ JSON map seek 误报 `01f741713c`（3 行）。
+- **官方小 PR 清单（09-18 复核后收窄）**：① ~~NKAI race `a1ea3f4d2d`~~ 官方已含（Ivan Savenko）；② ~~JSON map seek `01f741713c`~~ 官方已含（kdmcser）；③ **#205 服务端 pack try/catch（唯一可提，我方原创）**——上游 `CVCMIServer::onPacketReceived`（L147）对 `c->retrievePack(message)` 仍裸调用，外部 AI 客户端发畸形实体标识符（假 CreatureID 字符串）即抛 `IdentifierResolutionException` 炸整服。修复=try/catch 后 drop 该 pack 保连接（~21 行，剔掉本地 commit 里混入的 `[SRV-DIAG]`/`TOWNAVAIL` fprintf 脚手架只提 `CVCMIServer.cpp` 段）。已基于 `upstream/develop` 在 worktree `vcmi_pr205` 重建分支 `pr205-server-pack-guard`（diff 21 行，符号实锤：`IdentifierResolutionException` 定义在 `lib/constants/IdentifierBase.h` 有 `identifierName` 成员、`retrievePack` 返回 `std::unique_ptr<CPack>`、`logGlobal->error` printf 风格与本文件既有 L335 catch 块同构）。**待办：推送 PR 需 fork `vcmi/vcmi`（账号 c18593395 无现成 fork，gh API 认证仍断 #258，需浏览器手建 fork 或用户出 PAT）**。
 - **钩子排序**：可即玩模型（mod）> 能自训 gym > 1v7 人机对战 demo（终极目标反过来=最强 showcase）。
 - **最大 gap = 包装非代码**：英文文档 3 篇（quickstart / model card / architecture 一页图）+ CI daily build + 环境依赖文档（WSL2 keepalive/RTX 写成 setup 反而成卖点）。
 - **风险**：公开维护税（issue/PR 量×3，reasonix 子 agent + sdlc-review 扛）；激励配方可只发结果不发配方；跟 smanolloff 是**扩展生态**（他 vision 原话 adventure AI），动手前建议 Discord 打招呼。
 - **触发条件（任一→开"开源周"）**：① passable 闸门 4 判据达标 ② 首个可展示 milestone（真实击杀实锤 / 1v7 录屏）③ 下次大改图/改激励的自然停训窗。当前 WIN-1 错窗纪律下只登记不执行。
 
 **指针**：`vcmi_gym/`（git 仓，已清理待推 GitHub，账号 c18593395）/ MMAI PR #4788（战斗层 ML 模板）/ 任务清单八「开源立项」拍板 / 技能 `vcmi-gym/references/vcmi-upstream-20260906.md`（09-18 增量已追进）。
+
+**09-18 开源落地增量（首推后）**：
+- **首推 + CI 绿**：`cmi-strategic-gym` 空仓建好 → SSH push 74 文件（含 LICENSE/CI/CONTRIBUTING，HEAD `c0cb8ed`）；CI 首跑（run #35362844432）Success = `python -m compileall` 语法闸（test_* 需活 VCMI server 跑不进 CI，已在 CONTRIBUTING 说明）。**仓名已改名 `vcmi-strategic-gym`**（用户手动，去 Settings 一键改，本地 `git remote set-url origin` 已同步，GitHub 301 旧名）。
+- **敏感内容扫描（4 commit 全历史 + 当前树，全绿）**：① API key/token/密码（`sk-`/`ghp_`/`github_pat_`/`AKIA`/`Bearer`/`password=`）零命中；② 模型权重/map 全被 `.gitignore` 挡，74 跟踪文件全源码；③ **唯二瑕疵（打磨项非泄密）**——(a) 5 文件硬编码 WSL 个人路径 `/home/administrator/...`（`connectors/CMakeLists.txt` `VCMI_DIR`、`v13/threadconnector.cpp` `XDG_DATA_HOME`、`v13/strategic_env.py` `libmlclient.so`+`terrain_grid.bin`、两个 test 的 `VCMI_REL/CONN_REL`），克隆者直跑会卡路径；(b) 历史混入 3 个二进制 `.bak/.so`（`connector_v13.so.bak` 282KB）。**清洗方案已定（未动手，留开源周）**：env 变量优先 + 自动探测回退 + 去硬编码默认，本地先实现验证再推；`.bak/.so` 走 `git rebase`/squash 重写 4 commit 成 1 干净根 + force-push（新仓无 fork 无依赖，成本低）。
+- **#205 官方 PR 提取（本轮唯一真上游贡献，已建 worktree 未推）**：详见上方「官方小 PR 清单」条 + 踩坑 #259。
 
 ### 09-18 T7.6 A2 攻击步旁路单局冒烟（5 轮窗，三缺陷修复 + 自然激活不可行实锤）
 
