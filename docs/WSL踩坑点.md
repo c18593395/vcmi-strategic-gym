@@ -263,7 +263,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #269，下一条为 #270…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #277b，下一条为 #278…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1241,3 +1241,84 @@
 - **触发时机（运维检查口径）**: 每次 Windows 更新 / WSL 引擎版本跳了之后，先 `wsl -l -v` + 查 `D:\wsl\Ubuntu\ext4.vhdx` mtime，确认没被重置再开工；可选把 WSL 引擎更新设成手动（Windows Update 设置 → 高级选项 → 暂停/手动控制 driver updates），降低自更新撞训练窗口概率。
 - **教训**: ① rootfs（WSL 内部）与 Windows D 盘（宿主）是**两套数据层**，checkpoint/源码/产物全部落 D 盘是本次没丢训练进度的根本原因——这条分层纪律必须保持：任何新工件（新脚本、新 .so、新数据）默认落 D 盘，不在 rootfs 里留唯一副本；② 引擎自动更新是本次导火索，"更新后检查一次 WSL 状态"应成为更新后例行检查；③ 注册表键/元数据丢失 ≠ 数据丢失，ext4.vhdx 还在就有恢复窗口，panic 前先分层盘点"哪些数据在哪一层"。
 - **关联**: #201（容器空闲关停双层修复——本次 keepalive/systemd unit 架构是其产物）/ #168（unit 消失 + is-active 骗人，同族）/ #267（keepalive 被 360 清，本窗口期 keepalive 已按拍板改为手工拉起）/ 知识库 09-19 章「WSL rootfs 重置事故 + 防再犯三件套」。
+
+#### #270 ENABLE_ML 默认 OFF → ML/ 子树不进构建树，`No rule to make target 'mlclient'` (09-19 重建踩) — ✅ 已修（-DENABLE_ML=ON）
+
+- **状态**: ✅ 已修（cmake 加 `-DENABLE_ML=ON`，configure 一次过）
+- **现象**: 重建后 `cmake --build rel --target mlclient` 报 `gmake: *** No rule to make target 'mlclient'`；`make help` 里只有 vcmi/vcmiclient/vcmiserver，无任何 ML 目标。
+- **根因**: vcmi 根 CMakeLists.txt L113 `option(ENABLE_ML "Enable compilation of extensions for MMAI training" OFF)` 默认 OFF；L778-779 `if(ENABLE_ML) add_subdirectory(ML)`——ML/ 子树（mlclient 库 + mlclient-cli）**根本不进构建树**。原 WSL 编译时显然带过此开关，但开关不在任何文档/脚本里，属"环境记忆丢失"。
+- **处理**: `cmake -S . -B rel ... -DENABLE_ML=ON`（configure 阶段同时注入 `-DENABLE_ML` 宏定义，strategic_state.cpp 的 ML 分支依赖它）。
+- **教训**: ① **非默认开关必须在重建脚本/文档中固化**——本次 4 个 cmake 开关（ENABLE_ML=ON / ENABLE_DISCORD=OFF / LAUNCHER/EDITOR/TEST=OFF）全是靠报错逐个试出来的，应写进防再犯三件套的 `setup_wsl_train.sh`；② `make help` 查 target 存在性是定位"开关缺失 vs target 写错"的第一步。
+- **关联**: #269（rootfs 重置，本坑是其重建副产品）/ #271（同批 cmake 开关）
+
+#### #271 ENABLE_DISCORD 默认 ON + submodule 未拉 → configure 炸 `discord-presence does not contain a CMakeLists.txt` (09-19 重建踩) — ✅ 已修（-DENABLE_DISCORD=OFF）
+
+- **状态**: ✅ 已修
+- **现象**: cmake configure 报 `CMake Error at client/CMakeLists.txt:553 (add_subdirectory): .../client/lib/discord-presence does not contain a CMakeLists.txt file`。
+- **根因**: client/CMakeLists.txt L545-556 `if(ENABLE_DISCORD)` 默认打开 → `add_subdirectory(lib/discord-presence)`；而 `D:\Bigdata\hero3_fresh\vcmi\` 副本当初 `git clone` 时**未拉 submodule**（discord-presence 目录为空壳）。训练引擎与 Discord RPC 毫无关系，此依赖纯属客户端附带。
+- **处理**: `-DENABLE_DISCORD=OFF`（Discord.cpp 源文件仍在 vcmiclientcommon 源列表里，但宏关闭后其内容被 `#ifdef` 保护，不参与编译）。
+- **教训**: ① **副本搬运源码树时 submodule 完整性必须校验**（`git submodule status` / 看关键目录是否空壳）；② 对训练无用的可选依赖优先关而不是补——补 submodule 需要网络 + git 重建，关一个开关零成本。
+- **关联**: #270（同批 cmake 开关）/ #269
+
+#### #272 D 盘 vcmi/ 副本缺原 WSL 本地补丁：VCMIDirsXDG 缺 libraryName/libraryPath 纯虚实现 → `cannot declare variable 'singleton' to be of abstract type` (09-19 重建踩) — ✅ 已修（patch_vcmidirs_0919.py）
+
+- **状态**: ✅ 已修（补丁脚本幂等可重放，落 `py/patch_vcmidirs_0919.py`）
+- **现象**: 编译 `lib/VCMIDirs.cpp` 报两轮 abstract type 错：① 缺 `libraryName`（VCMIDirs.h L58 纯虚）② 补完再缺 `libraryPath`（L51 纯虚）。
+- **根因**: **D 盘 vcmi/ 副本与原 WSL vcmi-native 源码不同步**（项目规则早有警告，本次第 2 次实锤）。头文件里 IVCMIDirs 的 10 个纯虚函数，Linux 侧实现链（IVCMIDirsUNIX/VCMIDirsXDG）缺 2 个——原 WSL 树里这 2 个实现是本地补丁，从未回推 D 盘副本。md5 对比证明不是拷贝损坏，是**副本本身就没有**。
+- **处理**: `VCMIDirsXDG` 类内补 `libraryName() { return "lib" + basename + ".so"; }` + `libraryPath() { return "."; }`（与 VCMIDirsWIN32 ML 便携口径一致，L208 实证 WIN32 版 libraryPath 也是 "."）。
+- **教训**: ① 重建编译遇 C++ 报错，**第一怀疑不是"代码有 bug"而是"副本缺本地补丁"**——历史补丁可查 `docs/服务器知识库.md` 同步台账 + `py/patch_passable_0917.py` 先例；② 补丁一律写成幂等脚本落 py/ 目录（可重放、可审计），本次 4 个补丁全部按此模式；③ 同类风险还没排完：可能仍有 WSL 侧独有改动未回推，后续编译/运行报错优先走此排查路径。
+- **关联**: #44/#269（三份源码不同步老问题）/ #273/#274（同批补丁）/ `py/patch_passable_0917.py`（strategic_state.cpp passable 补丁，先例）
+
+#### #273 GameEngine.cpp 死锁诊断打点用 Win32 API 无平台 guard (09-19 重建踩) — ✅ 已修（patch_gameengine_0919.py）
+
+- **状态**: ✅ 已修
+- **现象**: 编译 client 至 97% 报 `GetCurrentThreadId was not declared in this scope`（GameEngine.cpp L27/34/43）。
+- **根因**: 09-10 死锁诊断补丁给 `GameEngine::LoggingMutex` 加 mutex 打点，直接用 `GetCurrentThreadId()`（Win32 API）+ 无 `#ifdef` 平台保护——当时显然只在 Windows 侧编过，原 WSL 树应有平台适配补丁（副本缺失，同 #272 家族）。
+- **处理**: 包一层 `_dbg_tid()`：Win32 分支保留原 API，Linux 分支 `syscall(SYS_gettid)`（语义等价：内核线程 id，日志排障口径不变）。
+- **教训**: ① 跨平台项目里**任何平台专用 API 必须当场包抽象层**，"以后再说"=给重建埋雷；② 死锁诊断打点保留（stderr [MUTEX] 行），Linux 侧同样有死锁排查价值。
+- **关联**: #272（副本缺补丁家族）/ 知识库 09-10 死锁诊断章
+
+#### #274 v13 GLOBAL_ENCODING 缺 BATTLE_ROUND 条目：types.h 11 项 vs constants.h 10 条 → static_assert `Found uninitialized elements` (09-19 重建踩，#37 的重演) — ✅ 已修（patch_schema13_battleround_0919.py）
+
+- **状态**: ✅ 已修（编译期 static_assert 全绿；OBS 冻结口径未动）
+- **现象**: vcmiclientcommon 编过之后，ML 目标编 mlclient 时炸 `AI/MMAI/schema/v13/constants.h:283/286: static assertion failed: Found uninitialized elements / Found wrong element at this index`。
+- **根因**: v13 `types.h` 的 `GlobalAttribute` 枚举有 **BATTLE_ROUND（11 项，index 1）**，但 `constants.h` 的 `GLOBAL_ENCODING` 表只有 **10 条**（BATTLE_SIDE 直接跳 BATTLE_SIDE_ACTIVE_PLAYER）——`UninitializedEncodingAttributes` 按枚举 `_count` 遍历 `.at(i)`，末位越界/错位 → 编译期断言双杀。**这正是踩坑 #37（BATTLE_SIDE vs BATTLE_ROUND schema 版本冲突）的延续**：服务器知识库当年记录的修复动作"补 BATTLE_ROUND 到 GLOBAL_ENCODING"补在了原 WSL vcmi-native 侧，D 盘副本的 constants.h 没带出来。md5 对比再次确认是副本缺补丁（同 #272 家族），不是拷贝损坏。
+- **处理**: 按 **v14 同位置先例**（v14 constants.h L182-184 带注释："LS is correct encoding but since it replaces BATTLE_SIDE ... use LE to keep the dimensions unchanged"）在 BATTLE_SIDE 之后插入 `E5(X::GA::BATTLE_ROUND, X::LE, MAX_ROUNDS + 1)`（v13 已有 `MAX_ROUNDS=30` 常量）。编译过 = schema 自洽。
+- **教训**: ① **types.h 与 constants.h 是必须成对同步的一对文件**——同一段历史在 #37（运行时 core dump 风险）和本次（编译期炸）栽了两次；② v14/v15 是 v13 的后继版本，**补缺失内容先查后继版本同位置写法**（语义与维度注释都在）；③ 编译期 static_assert 是 schema 冻结的守护神——它能炸恰好证明 OBS 编码一致性有人盯着。
+- **关联**: #37（BATTLE_SIDE vs BATTLE_ROUND 初代）/ #272（副本缺补丁家族）/ 服务器知识库「同步 v13 schema + 补 BATTLE_ROUND」条目 / `py/patch_schema13_battleround_0919.py`
+
+#### #275 wsl.exe 会话回收 SIGHUP 全灭 nohup 后台编译任务 (09-19 重建踩) — ✅ 已修（长任务一律 systemd-run）
+
+- **状态**: ✅ 已修（编译/下载全部改 systemd-run 托管）
+- **现象**: `wsl bash -c "... nohup cmake --build ... &"` 命令本身退出后，后台编译在 ~15% 处全灭：`gmake[3]: ... Hangup` ×N + `SIGHUP`。free 显示内存充裕（非 OOM，dmesg 无 oom-kill）。
+- **根因**: blocking=false 的 RunCommand 结束 → wsl.exe 客户端退出 → WSL 回收启动会话 → **整个进程组收 SIGHUP**。nohup 只对"启动时已是后台且 stdin 脱离"的进程免疫 SIGHUP 的默认动作，但 make 的并行子进程树在会话 leader 消失时仍被成组带走（Hangup 语义）。同窗口期老 pip 进程（pts/0 残留会话）侥幸存活，具有迷惑性。
+- **处理**: 长任务一律 **system 级 transient unit** 托管：`wsl -u root systemd-run --unit=<名> --collect bash -c '... > /tmp/xx.log 2>&1'`。root 免密通道（项目规则）+ 日志落文件 + journalctl 可查 + 与 wsl.exe 会话生死完全解耦。本次编译（vcmi-build919×3 轮）与 pip 安装（pip919）均靠它跑完。
+- **教训**: ① **WSL 里"后台任务"只有两种活法：systemd-run 托管，或 keepalive 会话在挂**——nohup/setsid 在 wsl.exe 会话回收面前不可靠；② --unit 命名带日期（919）便于 journalctl 定位；③ 与 #201/#267 的 keepalive 体系互补：unit 管"活"，keepalive 管"VM 不关"。
+- **关联**: #201（system unit 训练架构，同一哲学）/ #267（keepalive 手工纪律）/ #114（idle shutdown）
+
+#### #276 Windows→wsl bash -c 嵌套引号失守：heredoc/内联 python 一律传不过去 (09-19 重建踩) — ✅ 已修（写脚本落 py/ 再执行）
+
+- **状态**: ✅ 已修（流程性规避）
+- **现象**: `wsl bash -c "python3 - <<'EOF' ... EOF"` 与 `python -c 'print("x")'` 两类命令，PowerShell→wsl.exe→bash 三层引号转义后被破坏：heredoc 定界符丢失（`unterminated triple-quoted string`）、`\"` 变形（`unexpected EOF while looking for matching quote`）。同一命令在纯 bash 里完全正常。
+- **根因**: PowerShell 对 `\"` 与 `$` 的预处理 + wsl.exe 参数再分片，多层叠加后 bash 收到的已经不是原文本。
+- **处理**: **跨层传复杂脚本 = 写文件**。补丁类脚本落 `py/patch_*.py`（还白得幂等可重放与 git 留痕），一次性检查写临时 .py 或用 grep/sed 单行（无嵌套引号的简单命令可直传）。本次 `check_torch_cuda_0919.py` 即临时验证脚本落盘先例。
+- **教训**: ① 三层引号转义不可调试也不可复现，**凡是带引号嵌套的 WSL 命令一律落文件**；② 与 #257（单引号失守）同家族，合并记忆：WSL 命令复杂度上限 = 无嵌套引号的单行。
+- **关联**: #257（单引号失守扩展，同族）
+
+#### #277 pip 装 CUDA 全家桶 45 分钟 0 进展卡死 (09-19 重建踩) — ✅ 已修（kill 重装 + --default-timeout=60）
+
+- **状态**: ✅ 已修（重装 ~25 分钟装完 torch 2.14.0+cu130 全家桶）
+- **现象**: `pip install torch onnxruntime numpy -i aliyun` 后台跑 45 分钟，pip 进程活着（Sl+ 状态），但 `pip list` 无 torch、`/tmp/pip-install-*` 全部 4KB——**零下载进展**。
+- **根因**: 网络切换/360 重启窗口期建立的 HTTP 连接僵死，pip 无超时默认无限等。
+- **处理**: kill 后 systemd-run 重跑 + `--default-timeout=60`；aliyun 源实测 ~720KB/s 稳定（triton 248MB、cublas 423MB 等大件逐个过）。torch CUDA 版必须装：训练 `DEVICE = "cuda" if available else "cpu"`，且 WSL GPU 直通验证 `/dev/dxg` + `/usr/lib/wsl/lib/libcuda.so` 存在 → RTX 3060 Laptop 识别成功。
+- **教训**: ① **长下载挂后台必须验下载进展**（/tmp/pip-install-* 体积），进程存活 ≠ 在干活；② venv 重建后 torch 版本会漂移（本次 2.14.0+cu130 vs 原环境未知），checkpoint 的 state_dict 跨版本兼容没问题，但首次 resume 后要盯一个 batch 的 loss 量级是否正常。
+- **关联**: #275（systemd-run 托管）/ #269（venv 丢失重建）
+
+#### #277b 补记：keepalive 缺位期训练 unit 反复"Shutdown→冷启动"的日志形态识别 (09-19) — ✅ 识别（非故障）
+
+- **状态**: ✅ 已识别；解法 = keepalive 手工拉起（#267 拍板纪律）
+- **现象**: 重建收尾期 train_loop.log 连续 4 组 `Loaded train state (step=770300)` + `Shutdown signal received`——训练"反复重启"。
+- **根因**: 重建期间无 keepalive 常驻：每条 wsl 命令会话结束 → VM idle shutdown → systemd 给 unit 发 SIGTERM（训练优雅存盘，**checkpoint 零损失**）→ 下条命令 VM 冷启动，unit disabled（restart 脚本只 start 不 enable）不自动拉起。
+- **处理**: 保持手工纪律：先 `wsl.exe -d Ubuntu sleep infinity`（keepalive 常驻）再 `systemctl start homm3-train-v5`。**不要**为此把 unit 改 enabled（用户已拍板 VM 生命周期由 keepalive 控制）。
+- **教训**: 日志形态学："Loaded+Shutdown 成对反复" = VM 生命周期问题，不是训练崩溃；训练崩溃的特征是 traceback/segfault 无 Shutdown 行。
+- **关联**: #267（keepalive 纪律）/ #275（会话回收）/ #269

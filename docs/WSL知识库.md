@@ -79,6 +79,41 @@
 
 **指针**：踩坑 #269（本事故）/ #201（keepalive+systemd 双层存活架构，本次丢的就是它的 unit）/ #168（unit 消失 + is-active 骗人）/ #267（keepalive 360 拦截，改手工）/ `D:\wsl\Ubuntu\ext4.vhdx`（rootfs 实体）/ `D:\Bigdata\hero3_fresh\wsl2_model{,_state}.pt`（step=770300 checkpoint）。
 
+### 09-19 WSL 重建收尾全链路（rootfs 重置后 0→1 恢复实录，训练已 resume step=770300）
+
+**结论先行**：`homm3-train-v5` 已恢复 active，checkpoint 零损失（`Loaded train state (model+optimizer, step=770300)`），device=cuda（RTX 3060 Laptop 识别成功），图池 sync --check 全绿。重建全程踩坑 #270-#277b，4 个补丁脚本全部幂等落 py/ 可重放。
+
+**重建链路总览（依赖顺序）**：
+1. **网络**（用户配置 .wslconfig：`firewall=false` + `dnsTunneling=false` + `autoProxy=false` + memory/swap 12GB/8核 + vmIdleTimeout 极大）：出站 OK，WSL 自动切到非冲突子网 172.26.192.0/20（原 172.23.32.0/20 与系统保留段冲突，踩坑见 #269 关联窗口记录）。
+2. **apt 依赖**：build-essential/cmake/ninja/boost 全家/sdl2 全家（含 image/mixer/ttf）/ffmpeg 全家/libsquish/lua5.4/等（此前窗口已装齐）。
+3. **源码**：`D:\Bigdata\hero3_fresh\vcmi\` 整树拷到 `/home/administrator/vcmi-native/`；passable 补丁重放（py/patch_passable_0917.py，"两处补丁应用成功"）。
+4. **cmake configure**（最终生效参数，**必须进重建脚本**）：
+   `cmake -S . -B rel -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_LAUNCHER=OFF -DENABLE_EDITOR=OFF -DENABLE_TEST=OFF -DENABLE_MMAI=OFF -DENABLE_DISCORD=OFF -DENABLE_ML=ON`
+   ——`ENABLE_ML=ON` 是 mlclient 目标存在的唯一开关（默认 OFF，踩坑 #270）；`ENABLE_DISCORD=OFF` 绕开空 submodule（#271）。
+5. **编译**（systemd-run 托管，#275；先后补 3 个源码补丁才编过）：VCMIDirs（#272）→ GameEngine 平台 guard（#273）→ v13 schema BATTLE_ROUND（#274）。产物 `rel/bin/libmlclient.so`（321MB，RelWithDebInfo）**正好落在训练脚本 `STRATEGIC_STATE_LIB` 预期路径，零搬移**。
+6. **connector**：`vcmi_gym/connectors`（含 pybind11 子模块，D 盘完整）拷 `/home/administrator/vcmi-workspace/vcmi_gym/`，cmake Release 编出 connector_v13/v14/v15.so cp 进 `connectors/rel/`（pyconnector `from ...connectors.rel import connector_v13`）。
+7. **venv**：`pip install torch onnxruntime numpy -i aliyun`（systemd-run + `--default-timeout=60`，#277）→ torch 2.14.0+cu130 / onnxruntime 1.30 / numpy 2.5.3；CUDA 验证脚本 `py/check_torch_cuda_0919.py`。
+8. **地图**：`vcmi-native/data/`（引擎数据树：DATA/Mp3/Maps/config）随源码树拷贝自动就位；`sync_maps_to_runtime.py --check` 全绿（10 张 MAPS 清单图一致，"可以训练"）。**注意**：引擎 init 时 `MLClient.cpp` L478-481 会 `chdir(VCMI_BIN_DIR)`，即运行树 = `vcmi-native/rel/bin/{config,data,Mods}`（cmake 自建 symlink）——数据树在 vcmi-native/data 而非 D 盘根。
+9. **训练**：`py/restart_train_v5_sys.sh`（unit 内容同 #201 架构，脚本自带重写+start）→ resume step=770300。
+
+**运行时手册（重启标准动作，手工纪律）**：
+```powershell
+# ① Windows 侧手工拉 keepalive（VM 常驻，防 idle shutdown）
+wsl.exe -d Ubuntu sleep infinity
+# ② 起训练
+wsl -u root bash /mnt/d/Bigdata/hero3_fresh/py/restart_train_v5_sys.sh start
+# ③ 验证
+wsl bash -c "systemctl is-active homm3-train-v5; tail -5 /mnt/d/Bigdata/hero3_fresh/train_loop.log"
+```
+
+**已知差异/风险登记**：
+- torch 版本漂移（2.14.0+cu130 vs 原环境未知）：state_dict 跨版本兼容，但首个 batch 的 loss 量级需盯一眼；numpy 2.5.3 同理（decoder 老代码若有 np 1.x API 会在首局炸）。
+- **D 盘副本缺补丁排查未完结**（#272）：VCMIDirs/GameEngine/schema 是编译期拦下的，**运行期才能暴露的本地改动可能仍有残留**（如 strategic_state.cpp 编译过了但语义是否同原树，靠首局 obs 行为对比验证）。
+- Mp3 是跨盘软链（→ /mnt/d/GAMES/Heroes3/Mp3）原样恢复；音频对训练无影响。
+- cmake 残留 build 目录：拷贝 connectors 到 WSL 后必须 `rm -rf build` 重配（D 盘可能带 Windows cmake 的 CMakeCache，目录不匹配直接炸）。
+
+**指针**：踩坑 #270-#277b（重建全坑）/ `py/patch_vcmidirs_0919.py` / `py/patch_gameengine_0919.py` / `py/patch_schema13_battleround_0919.py` / `py/check_torch_cuda_0919.py` / `py/restart_train_v5_sys.sh`（unit 源）/ `py/sync_maps_to_runtime.py --check`（训前必跑）。
+
 ### 09-19 凌晨：passable 闸门 4 判据全绿 + S2 撤梯子开窗（判据③收官 + A6 定谳 + 自动收口监控）
 
 **判据③达成（BHERO_KILL 首次全链路记账）**：09-19 00:17 的 72_02 局——攻击步下发（[BHERO_ATTACK] step=95 dir=5）→ 战斗 → 局尾补记账修正版命中：`[BHERO_SLAIN] blue_hero_id=3 at step 96 +40.0 (end-of-ep attack-step credit)` → `BHERO_GRAD slain=[3]` 非空。**passable 闸门 4 判据全绿，WIN-1 收口条件达成**。
