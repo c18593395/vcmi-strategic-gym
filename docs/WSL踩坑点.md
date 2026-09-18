@@ -1102,4 +1102,13 @@
 - **教训**: ① 多进程写同一日志时，任何"按内容分窗"的 grep/awk 都要先画行序模型，确认锚点行真的在窗内；② hermes_ep 单局日志是局级归因的第一证据源，主日志只用于跨局统计；③ "条件全满足但没触发"类死循环推理，第二优先级永远是"怀疑观测工具本身"。
 - **关联**: #255（同日 PowerShell 插值坑，观测链第二坑）/ `py/a2_contact_probe.py` / `py/passable_gate_watch.py`（看板按"最后 WIN1_BATCH 行"切窗不受本坑影响）/ 知识库 09-18 T7.6 冒烟章
 
+#### #258 GitHub 建仓认证链断：gh device flow 端点 POST 被掐 + keyring token 失效 → 建仓只能"浏览器手建/用户 PAT + SSH push" (2026-09-18, 开源仓首推踩) — 🔄 已绕过
+
+- **状态**: 🔄 已绕过（建仓走浏览器手建；push 走 SSH 443 代理已通；gh API 认证待用户出 PAT 一次性修复）
+- **现象**: ① `gh auth status` 报 keyring token 失效（401，旧 token 过期）；② `gh auth login -s web`（device flow）POST `https://github.com/login/device/code` 报 `wsarecv: A connection attempt failed`；③ 手动 curl 复现：GET github.com / api.github.com / raw 全 200，唯独 POST /login/device/code 连接超时（curl 28）；④ gh-proxy.com 代理该端点返回 404（只代理 raw/release/clone 路径，不代理 /login）。
+- **根因**: 大陆网络环境对 github.com 的 **POST** 端点间歇性掐断（GET 通、POST 不稳，GFW SNI 干预特征）；gh 的 OAuth device flow 强依赖该 POST 端点；gh-proxy 系加速站覆盖不到 /login 认证端点。三个认证通道独立性实锤：**SSH push（443 代理 ssh.github.com，走 `ssh -T git@github.com` 已通，账号 c18593395）≠ gh API（需有效 token）≠ 浏览器 OAuth**——SSH 通不等于 gh 通。
+- **正确处理（建仓三条路）**: ① **浏览器手建空仓（30 秒，本次采用）**: 用户浏览器登 github.com → + → New repository → 建空仓（不勾 README，首次 push 用 git push 全量）→ 我侧 `git remote add github git@github.com:<user>/<repo>.git && git push`；② 用户浏览器生成 PAT（Settings → Developer settings → Tokens，scope 勾选 repo）→ 发给我一次性 `echo <pat> | gh auth login --with-token` 修好 gh（后续建仓/PR 全自动）；③ 浏览器登录态自动化（browser tool 驱动用户已登的浏览器建仓）。
+- **教训**: ① 大陆网络下 gh device flow 默认不可用，别在它上面烧轮次——第一步直接试 `gh auth status` 确认 token 有效性，无效就走 PAT/浏览器路线；② 认证通道分层评估（SSH/API/浏览器），push 能通就先把本地仓 commit 做好，建仓动作留给浏览器 30 秒；③ gh-proxy.com 能力边界记牢：raw/release/clone 加速可用，POST /login（device flow）与 api.github.com 写操作不可用。
+- **关联**: #184（gh auth 401 子 agent 认证坑，gh token 失效同源）/ vcmi_gym 仓首推（本坑触发场景）/ 知识库 09-18 开源立项章
+
 

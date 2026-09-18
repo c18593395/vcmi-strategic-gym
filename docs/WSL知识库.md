@@ -59,6 +59,28 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-18 上游侦察 + 开源立项可行性评估（VCMI develop 增量 + GitHub 核查 + 独立项目定案）
+
+**上游增量（vcmi develop @2026-09-18，09-11 以来）**：
+- 无 stable 新发布（1.7.5 仍 latest），活跃全在 develop。战略层/AI 玩法改动 = **0 条**（master 冻结 @1.7.5）。摘取候选复验：`a1ea3f4d2d`（NKAI 并发 race，C4 第一摘取）仍 MISSING；`9b18469eb6`（Pandora mana overflow #7837）、`682e1dead7`（capture-all-mines 编辑器 #7810）均 MISSING。
+- **capture-all-mines（#7810）编辑器 UI 已进 develop**：印证任务清单 A7 备料成立——`.vmap` 文本直接写 `["controlCurrent", {"objectType":"mine"}]` 替换 `specialVictory.condition`（攒 100 金）+ `victoryIconIndex` 2→9 + `victoryMessage`→`core.vcdesc.10`。地图轴择窗实施无需再等上游。
+- **官方 MMAI 现状核对（smanolloff PR #4788）**：官方 ML AI 只到**战斗层**（MMAI BAI v13/v15）；PR 原话 "an ML-powered adventure AI... These are just concepts and nothing particular is planned at this point"。→ **战略层 RL 在官方/fork 全空白**，无人做 = 用户判断实锤。
+- fork 侧（smanolloff/vcmi mmai 分支）09-14 活跃：HARBot 战斗层脚本 bot 迭代 + ML neutrals bank + CalculateValue 更新——全战斗层，对战略层训练栈零直接价值。
+
+**开源立项定案（用户拍板"独立项目 + 官方只提小 PR"）**：
+- **结论：单独开项目为主，官方仓只提干净小 PR**。理由根因：① 战略层 ML 千行级周迭代，官方 CI/sonar/GPL header 全卡、评审以月计；② 官方无战略层训练设施（gym/地图池/PPO 全无）；③ 爱好者入口 = 能自己 clone 训练 + 下载模型即玩，引擎 PR 不是产品。
+- **3 仓结构**：
+  1. `strategic-gym`（MIT）：训练栈 env/reward/connector/PPO/地图池/h3m2vmap + 英文 quickstart。本仓 `vcmi_gym` 是雏形（单 commit 90d6d2e，132M 含 `connectors/build` 122M + 93 个 pyc 构建产物，已 `git rm --cached` 清出，`.gitignore` 已立）。
+  2. `engine-plugin`（GPL-2.0+）：vcmi-native diff（SRV-DIAG/passable/strategic_state/ML ServerPlugin）。**基线 = 官方 develop 干净 commit，不继承老 fork 脏分支（ahead11/behind8）**；CI 只跑 base+patch。迁移=重编验证一轮（08-29 已有 upstream diff report，半天~一天，进自然停训窗做）。
+  3. `models-release` + mod：onnx 周更 release（仿 mmai 的 `vcmi-1.8-latest` 节奏），进 vcmi-mods 官方 launcher 自动下载 = 引流主钩子。
+- **官方小 PR 清单（3 类，每个 2~30 行低风险换好感）**：NKAI race `a1ea3f4d2d` / #205 恶意包 try/catch（已修）/ JSON map seek 误报 `01f741713c`（3 行）。
+- **钩子排序**：可即玩模型（mod）> 能自训 gym > 1v7 人机对战 demo（终极目标反过来=最强 showcase）。
+- **最大 gap = 包装非代码**：英文文档 3 篇（quickstart / model card / architecture 一页图）+ CI daily build + 环境依赖文档（WSL2 keepalive/RTX 写成 setup 反而成卖点）。
+- **风险**：公开维护税（issue/PR 量×3，reasonix 子 agent + sdlc-review 扛）；激励配方可只发结果不发配方；跟 smanolloff 是**扩展生态**（他 vision 原话 adventure AI），动手前建议 Discord 打招呼。
+- **触发条件（任一→开"开源周"）**：① passable 闸门 4 判据达标 ② 首个可展示 milestone（真实击杀实锤 / 1v7 录屏）③ 下次大改图/改激励的自然停训窗。当前 WIN-1 错窗纪律下只登记不执行。
+
+**指针**：`vcmi_gym/`（git 仓，已清理待推 GitHub，账号 c18593395）/ MMAI PR #4788（战斗层 ML 模板）/ 任务清单八「开源立项」拍板 / 技能 `vcmi-gym/references/vcmi-upstream-20260906.md`（09-18 增量已追进）。
+
 ### 09-18 T7.6 A2 攻击步旁路单局冒烟（5 轮窗，三缺陷修复 + 自然激活不可行实锤）
 
 **冒烟过程**：v1(原 elif 版) → v2(BFS 前置块) → v3(实时坐标) → v4(ATK_DBG 埋点) → v5(调试强攻 HOMM3_ATK_DEBUG_FORCE)，每轮 72_01/72_02 贴脸局复现但 `[BHERO_ATTACK]` 恒零，逐层定位出三处前置缺陷（已修复入库，commit `8c5b5e1`）：
