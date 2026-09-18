@@ -59,6 +59,21 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-19 凌晨：passable 闸门 4 判据全绿 + S2 撤梯子开窗（判据③收官 + A6 定谳 + 自动收口监控）
+
+**判据③达成（BHERO_KILL 首次全链路记账）**：09-19 00:17 的 72_02 局——攻击步下发（[BHERO_ATTACK] step=95 dir=5）→ 战斗 → 局尾补记账修正版命中：`[BHERO_SLAIN] blue_hero_id=3 at step 96 +40.0 (end-of-ep attack-step credit)` → `BHERO_GRAD slain=[3]` 非空。**passable 闸门 4 判据全绿，WIN-1 收口条件达成**。
+- 补记账两版教训：初版依赖 `_kill_pending` 挂账 → 战斗瞬态 HEROSEG_EMPTY 使 `_bnow` 空集、挂账流程整块跳过 → 恒不触发；修正版口径 = **"攻击步已下发 (_attack_tried) + 该 id 从末帧 obs 蓝英雄段消失"即补记账**（不依赖挂账；id 仍在段中=攻击被拒不补，保守正确）。
+
+**A6/A9 定谳：BUILD_2"零触发"纯观测假象**：`py/build2_probe.py` 统计全历史 6166 局——act20（BUILD_2）出现 **4864 局（79%）共 22919 次**，`first BUILD_2 +15` 一直在发。假象源头 = train_wsl2_ppo_v2.py **highlights 白名单缺标签**：[ECON]/[BHERO_ATTACK]/[BHERO_KILL]/[ATK_DBG] 只写 /tmp 旁路文件、主日志永远不可见。已补四标签进白名单（重启窗生效，`[ECON] first BUILD_2` 已实测进主日志）。
+
+**S2 撤梯子开窗（用户拍板首选，T7.5 顺序表 WIN-1 达标后第一顺位）**：ep_runner 四处数值——RECRUIT +0.5→**+0.25**（L1496）、BUILD_2 +0.75→**+0.375**（L1515）、兵力系数 0.02→**0.03**（L1469）、**低档巢建成 +3** 新增（BUILD_NEW 观测点升级，mask 低两位=T1/T2 巢穴假设）；同窗 `HOMM3_ATK_DEBUG_FORCE` 调试件退出（BYPASS+F_MIN 保留）。**生效验证**：[ECON] recruit +0.25 / build2 +0.375 已见主日志。初期读数（4 局小样本）：招兵 19.5/局、建设 3.25/局、first BUILD_2 100%——**频率全面上升**；avg_r 形式下跌全为 duel 底噪（非 duel 全正）。
+
+**S2 自动收口监控**：`py/s2_auto_review.py`（Windows 侧后台，不受 WSL 重启影响）——每 5 分钟查局数，**≥40 局自动执行收口复查**（4 判据 + S2 三判据：非 duel avg_r≥S1×0.8 / 招兵≥0.8x / 建设≥0.8x，剔 duel 底噪口径），报告写 `s2_review_report.txt`；FAIL 则 80 局二次复查后结束。窗对比工具 `py/s2_gate_check.py <行号> <名>`。
+
+**运维提醒**：keepalive 手工拉起纪律（#267，360 拦截根因）；keepalive 4 进程在岗时 WSL 冷启动风险极低。
+
+**指针**：commit `ea441df`（补记账初版+白名单+build2_probe）/ `562f72e`（判据③达成）/ `ab93213`（S2 数值）/ `6f335ce`（T7.5 登记）/ `c0ece8a`（自动监控）/ 踩坑 #256（交织）/#257（假阳性）/#267（360 拦截）/ 任务清单 T7.5+WIN-1+AA11。
+
 ### 09-19 官方 H3M 全量批转管线 + R2v2 智能重配定稿（截至 2026-09-19）
 
 **目标（用户指令主线，任务清单 WIN-4）**：159 张官方 H3M 逐张转 VMAP → **每张 250 步真实训练环境验证**（与主训练完全同构，非冒烟）→ PASS 才改名 `<safe>_h3m.vmap` 入 `maps/training/h3m_pool/` 备训练用。双方英雄同层作战，**无地下层最优**（strip_underground_vmap 去地下，非挑有地下图关闭）。

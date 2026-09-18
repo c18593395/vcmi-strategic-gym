@@ -1213,3 +1213,12 @@
 - **处理**: ① **用户拍板放弃自动启动**——删除/不再重建任何计划任务，keepalive 改为**每次启动训练后手工拉起**：`Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden`（或双击 `py/homm3_wsl_keepalive.vbs`）② 手工拉起后用产物检查验证：`(Get-CimInstance Win32_Process -Filter "Name='wsl.exe'" | ? { $_.CommandLine -like '*sleep*infinity*' }).Count` ≥1 ③ 如后续想加白：360 界面 → 信任区添加 `d:\Bigdata\hero3_fresh\py\homm3_wsl_keepalive.vbs` / `py\homm3_keepalive_guard.ps1`（360 无 CLI 加白接口，须界面操作）。
 - **教训**: ① "部署成功"≠"长期生效"——安全软件会事后静默清理，**存活类部署必须定期产物验证**（进程计数/文件存在），不能只看注册时返回 SUCCESS；② Windows 侧环境的对抗性（360 等）是 WSL 训练存活问题的隐藏维度，排障顺序应加上"查安全软件拦截记录"；③ enabled unit 的 systemd 自动拉起是可靠的最终兜底（02:25:42 自动恢复零损失实证），keepalive 只是减少冷启动次数。
 - **关联**: #114（keepalive 首次引入）/ #201（容器空闲关停）/ #257（假阳性检测法——产物检查思想同源）/ 知识库 09-18 keepalive 章 / `py/homm3_keepalive_guard.ps1`（保留文件但不再注册任务）/ `py/homm3_wsl_keepalive.vbs`
+
+#### #268 highlights 白名单缺标签 → [ECON]/[BHERO_ATTACK]/[BHERO_KILL] 等事件行主日志永不可见，造成"零触发"假象 (2026-09-19, A6 排查踩) — ✅ 已修已固化
+
+- **状态**: ✅ 已修（补 [ECON]/[BHERO_ATTACK]/[BHERO_KILL]/[ATK_DBG] 四标签进白名单，重启窗生效实测可见）
+- **现象**: 任务清单 A6 遗留"[ECON] first BUILD_2 全窗 0 条（BUILD 动作无效嫌疑）"挂了两天；排查用 act 序列统计实锤 act20 历史 79% 局在发——**动作一直在发生，只是日志看不见**。同理 [BHERO_ATTACK]（T7.6 冒烟）在主日志 grep 恒空也含此因（当时归因于"未触发"部分正确、部分为本坑）。
+- **根因**: train_wsl2_ppo_v2.py 主进程在 ep_runner 退出后按 **highlights 关键词白名单**过滤 stdout 转储进主日志（L258-270）；新增埋点若忘记同步加白名单，事件行就永远只存在于 /tmp/hermes_ep_*.log（且单文件每局覆盖，见 #256 姊妹坑）。
+- **处理**: ① 白名单补 [ECON]/[BHERO_ATTACK]/[BHERO_KILL]/[ATK_DBG]（重启窗生效）；② 新增埋点时的 checklist 加一项"highlights 白名单同步"。
+- **教训**: ① 判据统计类标签（如 [BHERO_SLAIN]）与诊断标签要分开管理，新增奖励/埋点必须同步白名单，否则判据永远读零——与 #254（参数静默零行为）同属"静默不生效"家族；② 观测不到 ≠ 没发生：先用旁路数据（act 序列/BHERO_EV_LOG/hermes log）反证，再下"零触发"结论；③ 主日志是**过滤视图**不是全量日志，全量在 /tmp/hermes_ep_*.log。
+- **关联**: #256（交织误归属，同为观测链坑）/#257（假阳性检测）/ #254（静默零行为家族）/ `py/build2_probe.py`（act20 统计探针）/ 知识库 09-19 凌晨章 A6/A9 定谳
