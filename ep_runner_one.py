@@ -1644,6 +1644,25 @@ except Exception as e:
             json.dump(traj, f); f.flush(); os.fsync(f.fileno())
     except: pass
 
+# 局尾攻击步击杀补记账 (09-18 B+C 窗): 攻击步落格战斗发生在局尾 1-2 拍时, P-H3 双帧确认
+# 来不及完成 (第二帧缺失即局终止) → 引擎侧 notifyObjectAboutRemoval(objType=hero) 已实证
+# 击杀链路真实发生, 此处对 "攻击步已下发 + 挂账未确认" 的 id 直接视为确认, 补发阶梯奖
+# (与上方 death_penalty 同款修最后一帧 traj["rew"], 必须先于最终 traj 写入)。
+if _attack_tried and _kill_pending and args.kill_r_first > 0:
+    for _gid4 in sorted((set(_kill_pending) & set(_attack_tried)) - _kill_paid):
+        _kr4 = args.kill_r_first if not _kill_paid else args.kill_r_next
+        _kill_paid.add(_gid4)
+        traj["rew"][-1] += _kr4
+        traj["total_rew"] += _kr4
+        _ks4 = (f"[BHERO_SLAIN] map={args.mapname} blue_hero_id={_gid4} "
+                f"at step {traj['steps']} +{_kr4} (end-of-ep attack-step credit)")
+        print(_ks4, flush=True)
+        try:
+            with open(BHERO_EV_LOG, "a") as _bf5:
+                _bf5.write(_ks4 + "\n")
+        except Exception:
+            pass
+
 # 最终写入（正常退出时覆盖，确保完整数据）
 with open(args.outfile, "w") as f:
     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
