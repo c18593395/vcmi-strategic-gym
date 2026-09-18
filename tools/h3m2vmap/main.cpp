@@ -115,6 +115,9 @@ namespace
 		"randomArtifactMinor",
 		"randomArtifactMajor",
 		"creatureGeneratorCommon", // Obj::CREATURE_GENERATOR1/2 招募点
+		"randomTown",              // 随机城 (官方图主城常用, 游戏开始定型为 TOWN)
+		"randomHero",              // 随机英雄占位 (定型为 HERO)
+		"randomDwelling",          // 随机巢穴 (定型为 CREATURE_GENERATOR)
 		// --- 静态地形装饰 (blocked 通道, 不可移除) ---
 		"mountain",
 		"rock",
@@ -185,35 +188,72 @@ namespace
 
 		if(o.r2)
 		{
-			// R2: 玩家重配 → 1v1 训练形状 (设计稿 §5 R2)
-			//   red(0)=human only, blue(1)=ai only, 其余 6 家 canAnyonePlay()=false
-			// 保存侧 serializePlayerInfo: canAnyonePlay()==false 的槽位整个不写出;
-			// 读取侧 readTeams: 无 teams 段时按可玩玩家自动各分一队 → 1v1 单队闭环,
-			// 无需写 teams (writeTeams 还会剔除单成员队).
-			// hero/town tempOwner 不动: Knee Deep 天然 red/blue 对置
-			//   (hero_45=red christian/castle, hero_202=blue sandro/necropolis),
-			//   town 由 R1 归中立; 仅对游离 owner 的 hero 做兜底重指派.
+			// R2v2: 智能玩家重配 → 1v1 训练形状 (2026-09-18, 官方图全量适配)
+			// 旧 R2 硬编码 red=human/blue=ai/其余 6 家禁用, 官方图实战两个死因:
+			//   ① 官方 2p 图对手色不一定是 blue (Faeries=pink / Hatchet=green):
+			//      被禁槽位有城/英雄实体时, 引擎 NEW_GAME 报
+			//      "Cannot find player N info!" 段错误 (rc=139 实证);
+			//   ② 3p/4p 图第三家起实体更多 (Ready or Not 的 tan), 同款崩。
+			// 新逻辑:
+			//   a. 扫描全对象收集"有实体"的色集合 (tempOwner 0..7);
+			//   b. slot0 (red) = human;
+			//   c. aiSlot = blue(1) 若 blue 有实体, 否则取最小编号有实体色;
+			//      (全图无非 red 实体时回退 blue, 无实体槽位禁用不崩)
+			//   d. 其余有实体色: 非 hero 对象 tempOwner→NEUTRAL (城/矿/资源变中立
+			//      = 地图资源, King_of_Pain 先例语义); hero 引擎不允许无主 →
+			//      removeObject 删除 (降序删, #247 口径);
+			//   e. 8 槽: canHumanPlay=(i==0), canComputerPlay=(i==aiSlot), 其余双 false。
+			// 保存/读取闭环同旧 R2: canAnyonePlay()==false 槽整个不写出;
+			// readTeams 无 teams 段按可玩玩家自动单队, 无需写 teams。
+			std::set<int> ownedColors;
+			for(const auto & objPtr : map.getObjects())
+			{
+				const auto * obj = objPtr;
+				if(!obj) continue;
+				int own = obj->tempOwner.getNum();
+				if(own >= 0 && own < PlayerColor::PLAYER_LIMIT_I)
+					ownedColors.insert(own);
+			}
+			int aiSlot = 1;
+			ownedColors.erase(0);            // 排除 red 自己 (否则 red 既 human 又 ai, 无对手)
+			if(ownedColors.count(1))
+				aiSlot = 1;
+			else if(!ownedColors.empty())
+				aiSlot = *ownedColors.begin();
+
+			long long r2_neutralized = 0;
+			std::vector<ObjectInstanceID> r2_heroDrop;
+			for(const auto & objPtr : map.getObjects())
+			{
+				const auto * obj = objPtr;
+				if(!obj) continue;
+				int own = obj->tempOwner.getNum();
+				if(own < 0 || own >= PlayerColor::PLAYER_LIMIT_I) continue;
+				if(own == 0 || own == aiSlot) continue;
+				if(dynamic_cast<const CGHeroInstance *>(obj))
+					r2_heroDrop.push_back(obj->id);          // 无主英雄不允许 → 删
+				else
+				{
+					const_cast<CGObjectInstance *>(obj)->tempOwner = NEUTRAL;
+					r2_neutralized++;
+				}
+			}
+			std::sort(r2_heroDrop.begin(), r2_heroDrop.end(),
+				[](const ObjectInstanceID & a, const ObjectInstanceID & b)
+				{ return a.getNum() > b.getNum(); });
+			for(const auto & id : r2_heroDrop)
+				map.removeObject(id);
+
 			for(int i = 0; i < PlayerColor::PLAYER_LIMIT_I; i++)
 			{
 				PlayerInfo & info = map.players[i];
-				info.canHumanPlay    = (i == 0); // red: human only
-				info.canComputerPlay = (i == 1); // blue: ai only
+				info.canHumanPlay    = (i == 0);
+				info.canComputerPlay = (i == aiSlot);
 			}
-			long long r2_heroes = 0;
-			for(const auto * hPtr : map.getObjects<CGHeroInstance>())
-			{
-				if(!hPtr) continue;
-				auto * h = const_cast<CGHeroInstance *>(hPtr);
-				int own = h->tempOwner.getNum();
-				if(own != 0 && own != 1)
-				{
-					// 游离英雄 (中立/非法槽位) 归 red, 保证 human 侧有英雄可操作
-					h->tempOwner = PlayerColor(0);
-					r2_heroes++;
-				}
-			}
-			o.report["R2_players_configured"] = 2;
-			o.report["R2_heroes_reassigned"] = r2_heroes;
+			o.report["R2v2_ai_slot"] = aiSlot;
+			o.report["R2v2_owned_colors"] = (long long)ownedColors.size();
+			o.report["R2v2_neutralized_objects"] = r2_neutralized;
+			o.report["R2v2_heroes_removed"] = (long long)r2_heroDrop.size();
 		}
 
 		if(o.rules && o.r4)
