@@ -59,6 +59,34 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-19 官方 H3M 全量批转管线 + R2v2 智能重配定稿（截至 2026-09-19）
+
+**目标（用户指令主线，任务清单 WIN-4）**：159 张官方 H3M 逐张转 VMAP → **每张 250 步真实训练环境验证**（与主训练完全同构，非冒烟）→ PASS 才改名 `<safe>_h3m.vmap` 入 `maps/training/h3m_pool/` 备训练用。双方英雄同层作战，**无地下层最优**（strip_underground_vmap 去地下，非挑有地下图关闭）。
+
+**R2v2 智能重配定稿（`tools/h3m2vmap/main.cpp`，Windows 树改 → `py/run_b4_build.sh` 同步重编）**：
+- aiSlot 恒 = blue(1)：StrategicEnv 硬假设 AI 对手=blue 槽，不可让渡（Faeries 教训：换 aiSlot 走不通）
+- 他色（pink/green/tan…）英雄 removeObject 降序删除；他色非英雄实体 tempOwner=NEUTRAL（城记入 neutralTowns）
+- blue 无城保底：从被中立化城中挑"离 red mainTown 曼哈顿最远"的归还 blue 作出生城（hasMainTown / generateHeroAtMainTown / posOfMainTown 三同步）
+- blue `allowedFactions` 空 → 补全 9 种族 + isFactionRandom=true（否则被引擎剔出非中立计数拒启）
+- 官方图 R1 必须 `--no-r1`：官方图无地图英雄实体，英雄靠 mainTown 开局生成，R1 归零 owner 后无英雄 3 步死（#260）
+- 转换命令口径：`h3m2vmap --save <in.h3m> <out.vmap> --no-r1`（开关在位置参数**之后**，#261）
+
+**官方图系统兼容三大根因（定谳）**：① R1 英雄生成断链（--no-r1 根除）；② R2 对手色（他色实体 vs 硬编码 blue → "Cannot find player N info!" rc=139；blue factions 空 → "Expected at least 2 non-neutral players, got 1"）（R2v2 根除）；③ 出生点地形围死（wdc 地下孤岛 / Gorlam 沼泽 8 邻全堵）（strip 去地下 + 逐图验证兜底）。
+
+**批量管线 `py/h3m_batch_pipeline.py`（断点续跑）**：
+- 流程：断点跳过（PASS 且终件在且 verify_steps≥250，老 100 步 PASS 自动重验）→ h3m2vmap --save --no-r1（3 试，偶发引擎 segfault）→ has_underground（su.load_json 剥注释）→ strip 去地下 → 部署 rel/bin/data/Maps → train_verify（250 步训练同款参数，实抄主训练 cmdline：MMAI_RANDOM 蓝方 + WIN1 全套激励）→ PASS 改名入 h3m_pool，FAIL 清 rel 副本
+- 判据：steps≥125（50%）且 traj 无 error 且 runner rc∈{0,124}（139 段错误必须查 rc，stderr 不进日志）
+- 报告：`maps/h3m_to_vmap/_pipeline_report.json`；cwd 必须 vcmi-native（#248，run() setdefault 兜底）
+
+**批跑进度（09-19 00:22 时点）**：8/159 处理——PASS 3（A Viking We Shall Go Allied r=-1626.75 / A Viking We Shall Go r=-429.7 / All for One r=-315.0）、FAIL 4（A Warm and Familiar Place 30 步 / Adventures of Jared Haret 1 步 / And One for All 1 步 / Arrogance Allied 72 步，全早期死亡待归因）、进行中 Arrogance。预计全程 13-18h，后台 nohup PID 6363。
+
+**运维**：
+- PowerShell 长期看批跑日志：`Get-Content D:\Bigdata\hero3_fresh\tmp\h3m_pipeline\run_all.log -Tail 20 -Wait`（数据落 D 盘 `tmp/h3m_pipeline/`，WSL /tmp 下入口软链；#265 rm -rf 误删运行中日志已 `/proc/PID/fd/1` 全量抢救）
+- 险情：`pkill -f 'ep_runner_one.py.*h3m'` 险些误杀主训练 ep_runner（图名含 h3m）；杀前 ps 查 ppid 区分（#264）
+- 存量：ep_runner_one.py L1614 `traj["rewards"]`→`traj["rew"]` 待停训窗修（#266）
+
+**指针**：踩坑 #260-#266 / 任务清单 WIN-4 / `tools/h3m2vmap/main.cpp` / `py/h3m_batch_pipeline.py` / `py/strip_underground_vmap.py` / `maps/h3m_to_vmap/_pipeline_report.json`
+
 ### 09-18 晚 B+C 窗：红蓝英雄真实战斗链路首次全线打通（OBS-3 历史性闭环）
 
 **背景**：passable 闸门方案甲部署后恢复窗 31 局——①不炸✅ ④实质✅（duel 底噪剔除后 0/22）但 ②🟡 ③❌：贴脸 7 局全 d=2 而 slain 恒空、BHERO_KILL=0。深挖定位**真卡点**：恢复窗 `destination tile is blocked` **0 条** → 红方从未尝试落敌格 → 卡点不是引擎拒绝而是**引导层自绕**：`bfs_full_dir` 调用点喂的 `dyn_blocked` 动态障碍集合（#143 时代加入，含敌方英雄格）使 BFS 恒返回邻格方向，hero 贴脸后原地打转永远差最后一格（方案甲只改了 C++ 观测掩码/C++ next_dir，Python BFS 引导的 blocked 喂食没跟着变）。

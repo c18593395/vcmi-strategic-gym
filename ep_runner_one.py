@@ -1645,11 +1645,17 @@ except Exception as e:
     except: pass
 
 # 局尾攻击步击杀补记账 (09-18 B+C 窗): 攻击步落格战斗发生在局尾 1-2 拍时, P-H3 双帧确认
-# 来不及完成 (第二帧缺失即局终止) → 引擎侧 notifyObjectAboutRemoval(objType=hero) 已实证
-# 击杀链路真实发生, 此处对 "攻击步已下发 + 挂账未确认" 的 id 直接视为确认, 补发阶梯奖
-# (与上方 death_penalty 同款修最后一帧 traj["rew"], 必须先于最终 traj 写入)。
-if _attack_tried and _kill_pending and args.kill_r_first > 0:
-    for _gid4 in sorted((set(_kill_pending) & set(_attack_tried)) - _kill_paid):
+# 来不及完成, 且战斗瞬态 HEROSEG_EMPTY 会使 _bnow 空集 → 挂账流程整块跳过 (_kill_pending 恒
+# None) → 补记账不能依赖挂账。口径: 攻击步已下发 (_attack_tried) + 该 id 已从末帧 obs 蓝英雄
+# 段消失 (被歼) → 直接视为确认, 补发阶梯奖 (与上方 death_penalty 同款修最后一帧 traj["rew"],
+# 必须先于最终 traj 写入)。id 仍在段中 = 攻击被拒/未打死 → 不补 (保守正确)。
+if _attack_tried and args.kill_r_first > 0:
+    _alive5 = set()
+    for _hi5 in range(8):
+        _bid5 = int(obs[128 + _hi5 * 26])
+        if _bid5 > 0:
+            _alive5.add(_bid5)
+    for _gid4 in sorted(set(_attack_tried) - _kill_paid - _alive5):
         _kr4 = args.kill_r_first if not _kill_paid else args.kill_r_next
         _kill_paid.add(_gid4)
         traj["rew"][-1] += _kr4

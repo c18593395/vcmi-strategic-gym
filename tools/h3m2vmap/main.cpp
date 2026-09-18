@@ -214,27 +214,31 @@ namespace
 				if(own >= 0 && own < PlayerColor::PLAYER_LIMIT_I)
 					ownedColors.insert(own);
 			}
+			// aiSlot 恒 = blue(1): 训练环境 (StrategicEnv) 硬性假设 AI 对手 = blue 槽,
+			// 官方图对手色多样 (pink/green/tan) 不能沿用 — 全部中立化, blue 空手
+			// 开局由引擎 mainTown.generateHero 生成对手英雄。
+			// 可玩槽官方配置 (allowedFactions 等) 在 players 数组 8 槽固有存在。
 			int aiSlot = 1;
-			ownedColors.erase(0);            // 排除 red 自己 (否则 red 既 human 又 ai, 无对手)
-			if(ownedColors.count(1))
-				aiSlot = 1;
-			else if(!ownedColors.empty())
-				aiSlot = *ownedColors.begin();
 
 			long long r2_neutralized = 0;
 			std::vector<ObjectInstanceID> r2_heroDrop;
+			std::vector<CGTownInstance *> r2_neutralTowns; // 被中立化的城 (blue 无城时挑一座还给它)
 			for(const auto & objPtr : map.getObjects())
 			{
 				const auto * obj = objPtr;
 				if(!obj) continue;
 				int own = obj->tempOwner.getNum();
 				if(own < 0 || own >= PlayerColor::PLAYER_LIMIT_I) continue;
-				if(own == 0 || own == aiSlot) continue;
+				if(own <= 1) continue; // red(human)/blue(ai) 实体保留
 				if(dynamic_cast<const CGHeroInstance *>(obj))
 					r2_heroDrop.push_back(obj->id);          // 无主英雄不允许 → 删
 				else
 				{
-					const_cast<CGObjectInstance *>(obj)->tempOwner = NEUTRAL;
+					auto * mut = const_cast<CGObjectInstance *>(obj);
+					auto * tw = dynamic_cast<CGTownInstance *>(mut);
+					if(tw)
+						r2_neutralTowns.push_back(tw);
+					mut->tempOwner = NEUTRAL;
 					r2_neutralized++;
 				}
 			}
@@ -250,10 +254,47 @@ namespace
 				info.canHumanPlay    = (i == 0);
 				info.canComputerPlay = (i == aiSlot);
 			}
+			// blue 槽保底: 官方图对手色多样, blue 槽可能从未被官方配置
+			// (allowedFactions 空 → 引擎剔除 → "Expected at least 2 non-neutral
+			// players, got 1")。补全 factions 全开 + 若 blue 无城实体, 从被中立化
+			// 的城里挑离 red mainTown 最远的一座归还 (AI 对手出生城 + 开局英雄)。
+			PlayerInfo & bi = map.players[1];
+			bi.canHumanPlay = false;
+			bi.canComputerPlay = true;
+			if(bi.allowedFactions.empty())
+			{
+				for(int f = 0; f < 9; f++) // H3 全部城邦种族 (castle..conflux)
+					bi.allowedFactions.insert(FactionID(f));
+				bi.isFactionRandom = true;
+			}
+			bool blueHasTown = false;
+			for(const auto * tPtr : map.getObjects<CGTownInstance>())
+				if(tPtr && tPtr->tempOwner == PlayerColor(1)) { blueHasTown = true; break; }
+			long long r2_blue_town = 0;
+			if(!blueHasTown && !r2_neutralTowns.empty())
+			{
+				int3 redPos = map.players[0].posOfMainTown;
+				CGTownInstance * pick = nullptr;
+				long long bestD = -1;
+				for(auto * t : r2_neutralTowns)
+				{
+					long long d = std::abs(t->pos.x - redPos.x) + std::abs(t->pos.y - redPos.y);
+					if(d > bestD) { bestD = d; pick = t; }
+				}
+				if(pick)
+				{
+					pick->tempOwner = PlayerColor(1);
+					bi.hasMainTown = true;
+					bi.generateHeroAtMainTown = true;
+					bi.posOfMainTown = pick->pos;
+					r2_blue_town = 1;
+				}
+			}
 			o.report["R2v2_ai_slot"] = aiSlot;
 			o.report["R2v2_owned_colors"] = (long long)ownedColors.size();
 			o.report["R2v2_neutralized_objects"] = r2_neutralized;
 			o.report["R2v2_heroes_removed"] = (long long)r2_heroDrop.size();
+			o.report["R2v2_blue_town_assigned"] = r2_blue_town;
 		}
 
 		if(o.rules && o.r4)

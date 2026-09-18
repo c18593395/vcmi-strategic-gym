@@ -263,7 +263,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #204，下一条为 #205…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #266，下一条为 #267…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1129,5 +1129,69 @@
 - **附带坑（同轮）**: `git worktree add /d/.../vcmi_pr205` 在 MSYS 下把 `/d/` 当字面量，worktree 实际落到 `D:/d/...`（native git 不转 MSYS 路径）；`git worktree list` 能看到真实落点，后续 `cd` 用 native `D:/d/...` 路径。
 - **教训**: ① 上游跟踪型清单（MISSING/候选）一律视为"待复核"快照，不是结论——提 PR/摘取前逐条对 `upstream/develop` 重验；② "我方已修"≠"官方需我提"，判据永远是对上游的 `is-ancestor`；③ fork 基线 diff 进官方走 worktree 手工重建，不走 cherry-pick。
 - **关联**: #258（gh API 认证断，推 PR 需浏览器手建 fork 或用户出 PAT）/ 知识库 09-18「官方小 PR 清单（09-18 复核后收窄）」/ worktree `vcmi_pr205` 分支 `pr205-server-pack-guard`
+
+#### #260 官方 H3M 图 R1 城镇归零 → 引擎不生成英雄 → 3 步 zombie 崩局 (09-18/19, 官方图转换链验证踩) — ✅ 已修（官方图一律 --no-r1）
+
+- **状态**: ✅ 已修
+- **现象**: wdc/ui 首版官方图转换后训练验证 3 步即死，obs 无英雄，zombie。
+- **根因**: R1"城镇归零"针对自制图设计，但官方图**地图上无英雄实体**——英雄全靠 mainTown `generateHeroAtMainTown` 开局生成；R1 把城 owner 归 NEUTRAL 后引擎开局不生成任何英雄 → obs heroes 段空 → 3 步死。
+- **处理**: 官方图转换命令统一 `h3m2vmap --save <in.h3m> <out.vmap> --no-r1`。
+- **教训**: 改写层每条 R 规则都有隐含前提（"图上有英雄实体"）；对陌生地图族启用前先用最小验证局探行为，不能默认规则正交可组合。
+- **关联**: #261（参数顺序）/ 知识库 09-19 章（官方图兼容三大根因）
+
+#### #261 h3m2vmap 开关参数放位置参数前 → 被当文件名 "cannot open or empty" (09-18, 官方图转换踩) — ✅ 已固化
+
+- **状态**: ✅ 已固化
+- **现象**: `h3m2vmap --no-r1 --save a.h3m b.vmap` 报 `cannot open or empty: --no-r1`。
+- **根因**: 工具按位置顺序解析 argv，`--no-r1` 出现在第一个文件参数之前被当作输入文件名。
+- **处理/口径**: 开关一律放位置参数**之后**：`h3m2vmap --save <in> <out> --no-r1`。
+- **教训**: 自研 CLI 开关解析多为顺序实现，与 GNU 习惯（开关任意位置）不同；报 "cannot open" 先查参数顺序。
+- **关联**: #260
+
+#### #262 R2 硬编码 aiSlot 遇他色实体 segfault rc=139 + blue 槽 factions 空 → "Expected at least 2 non-neutral players" (09-18, R2v2 立项踩) — ✅ 已修（R2v2 智能重配定稿）
+
+- **状态**: ✅ 已修（R2v2 上线后 72×72 有地下 2p 图池对手色限制解除，159 张官方图全量可转）
+- **现象**: ① Ready or Not（3p tan）转换后验证 segfault rc=139，stderr "Cannot find player 2 info!"；② Faeries 转换后 "Expected at least 2 non-neutral players, got 1" 拒启；③ 曾试"从官方 playable 槽选 aiSlot"仍败——blue 槽 factions 空被引擎剔除。
+- **根因**: ① R2 旧版只认 red/blue 两色，官方图 pink(7)/green(3)/tan 等槽位有实体 → 引擎按槽位查 PlayerInfo 缺失崩；② blue 槽 `allowedFactions` 为空被引擎剔出"非中立玩家"计数，只剩 red 1 家拒启（blue 是 StrategicEnv 硬假设 AI 槽，不可让渡给其他色）。
+- **处理（R2v2 终版，`tools/h3m2vmap/main.cpp`）**: **aiSlot 恒=blue(1)**；他色英雄 removeObject（降序）、他色非英雄实体 tempOwner=NEUTRAL（城记入 neutralTowns）；blue 无城时从被中立化城中挑"离 red mainTown 曼哈顿最远"的归还 blue 作出生城（hasMainTown/generateHeroAtMainTown/posOfMainTown 三同步）；blue `allowedFactions` 空则补全 9 种族 + isFactionRandom=true。report 键 `R2v2_*` 可审计。
+- **教训**: ① "Cannot find player N info" 类 segfault 必须查 rc（bash 段错误打 stderr 不进日志），rc=139 优先怀疑玩家槽位与实体色不齐；② 玩家重配的不变量是"每个有实体的色必须有 PlayerInfo 且 factions 非空"，补齐不变量比逐图打补丁可扩展。
+- **关联**: #218/#219（批量转换 segfault 前科）/ 知识库 09-19 章 / `py/probe_r2v2.sh`（report 键探针）
+
+#### #263 管线 subprocess 转换全失败：#248 cwd 坑换皮重踩 + header 带 `// game` 注释 json.loads 炸 (09-18, h3m_batch_pipeline 首跑踩) — ✅ 已修
+
+- **状态**: ✅ 已修
+- **现象**: ① 管线跑起来 h3m2vmap 转换 100% 失败，手动同命令成功；② strip 阶段 `json.loads(header)` 撞注释解析错（Faeries header 带 `// game` 注释）。
+- **根因**: ① #248 老坑换皮：subprocess 未设 `cwd=/home/administrator/vcmi-native`，config/Mods 数据依赖缺失 → 引擎起不来；② #220 已知 vmap JSON 含 C++ 注释，管线新代码绕过公共工具直接 json.loads。
+- **处理**: ① 管线 `run()` 内 `kw.setdefault("cwd", vcmi-native)` 全局兜底（不靠调用点记忆）；② 全部 vmap JSON 解析统一走 `strip_underground_vmap.load_json`（剥注释）。
+- **教训**: ① "手动成功、脚本失败"第一嫌疑是 cwd/env 差异（#248 同源）；② 已知解析坑要在公共工具函数里根治，新代码不允许绕过公共入口裸 json.loads。
+- **关联**: #248（cwd 首踩）/ #220（注释 JSON 首踩）/ `py/h3m_batch_pipeline.py`
+
+#### #264 `pkill -f 'ep_runner_one.py.*h3m'` 险些误杀主训练：图名含 h3m 跨进程误伤 (09-19, 管线残留清理踩) — ✅ 已固化（pkill -f 家族第四坑）
+
+- **状态**: ✅ 已固化（杀前进程树核查躲过一劫）
+- **现象**: 清理管线残留 ep_runner 时拟用 `pkill -f 'ep_runner_one.py.*h3m'`；核查发现主训练 ep_runner 命令行同样含 `h3m`（图池 King_of_Pain_h3m 等）→ 该模式会**把主训练 worker 一起杀**。
+- **根因**: `-f` 全命令行匹配 + 主训练图名天然含 `h3m`，"按图名选进程"的模式串无法区分管线验证局与主训练局。
+- **处理/口径**: ① 杀前必查 `ps -o pid,ppid,lstart,cmd` 用 **ppid/启动时间** 区分（主训练 ep_runner ppid=主训练主进程，管线残留 ppid=1/nohup）；② 只 kill 实锤 PID，禁模式串批量杀；③ 当轮实锤 5497=主训练、6049=残留，仅 kill 6049。
+- **教训**: pkill -f 家族四连坑（自匹配 #27/#155、`||` 短路假阳性 #257、跨进程误伤本条）——共同解是"脚本化 + 特征过滤 + 杀前人工核对 PID 清单"；训练在线期间任何 pkill 先画进程树。
+- **关联**: #27/#155/#257 / 主训练 PID 163（train_wsl2_ppo_v2.py）/ `py/h3m_batch_pipeline.py`
+
+#### #265 `rm -rf` 删掉运行中进程正写的日志 → `/proc/PID/fd/1` 抢救 + WSL /tmp 日志打通 Get-Content (09-19, 批跑日志运维踩) — ✅ 已修
+
+- **状态**: ✅ 已修（日志全量抢救回 D 盘，批跑无中断）
+- **现象**: ① 想把 `/tmp/h3m_pipeline` 挪到 D 盘，`rm -rf` 后重建软链，`run_all.log` 从此"消失"；② 先 `ln -sfn` 把 /tmp/h3m_pipeline 指到 D 盘后，再 `cp /tmp/h3m_pipeline/ /mnt/d/...` 复制 0 文件。
+- **根因**: ① 批跑进程（PID 6363）持有已打开 fd → `rm -rf` 后文件标记 deleted 但进程继续往里写（目录里不可见）；② 软链已把两端指成同一路径，`cp` 源=目标，复制自身失败。
+- **处理**: ① `ls -la /proc/6363/fd/1` 确认 `(deleted)` → `cat /proc/6363/fd/1` 全量读出日志内容写回 D 盘（无需重启批跑）；② Windows 侧长期 `Get-Content -Tail 20 -Wait` 的正确姿势：**数据落 D 盘**（`/mnt/d/Bigdata/hero3_fresh/tmp/h3m_pipeline`），WSL 侧建入口软链 `ln -sfn /mnt/d/... /tmp/h3m_pipeline`（链建在 WSL /tmp 下，方向 WSL→D 盘）；③ `ln -sfn` 对已存在的**真实目录**不会替换——先删旧目录再建链。
+- **教训**: ① 进程正写的文件 rm 后并未消失，`/proc/PID/fd/N` 是唯一抢救口；② 对运行中服务的输出路径做迁移，正确顺序是"软链替换 + 重启服务指向新路径"，不能先 rm；③ WSL 日志要给 PowerShell 用，一律数据落 /mnt/d、/tmp 只放链。
+- **关联**: #28（/tmp 清空丢日志前科）/ `py/h3m_batch_pipeline.py` / 知识库 09-19 章运维节
+
+#### #266 ep_runner_one.py L1614 `traj["rewards"]` 键名存量 bug：死亡局 KeyError (09-19 盘点发现) — ⚠️ 待修（等停训窗合批）
+
+- **状态**: ⚠️ 待修（训练在线，不单独停启）
+- **现象**: 管线独立验证（--model 驱动）死亡局（steps<50% FAIL）时 runner 侧 KeyError: 'rewards'；主训练无感。
+- **根因**: `ep_runner_one.py` L1614 轨迹键实为 `traj["rew"]`；主训练路径靠"丢弃 error 局"兜底从未暴露。
+- **影响**: 独立验证死亡局轨迹解析中断，FAIL 只剩 steps 数，吞掉死亡局诊断信息。
+- **处理**: 改 `traj["rewards"]` → `traj["rew"]`；建议下次停训窗随其他改动合批部署（改 Python 后清 `__pycache__`）。
+- **教训**: "主训练没报错"≠"代码没 bug"，只说明错误路径没走到；共享 runner 的旁路用法（独立验证）是 bug 的天然探测器。
+- **关联**: `py/ep_runner_one.py` / `py/h3m_batch_pipeline.py` train_verify
 
 
