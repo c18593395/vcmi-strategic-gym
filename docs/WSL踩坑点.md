@@ -1204,3 +1204,12 @@
 - **关联**: `py/ep_runner_one.py` / `py/h3m_batch_pipeline.py` train_verify
 
 
+
+#### #267 360 安全卫士拦截 keepalive：计划任务被删 + `wsl.exe sleep infinity` 进程被杀 → idle shutdown 反复发生 (2026-09-19 定性) — ✅ 已定性（用户拍板：不做自动启动，每次手工启动）
+
+- **状态**: ✅ 已定性；**拍板：取消全部自动启动机制，keepalive 每次手工拉起**
+- **现象**: ① 09-18 22:31 与 09-19 02:24 两次 WSL idle shutdown（keepalive 明明部署过）② 09-19 深夜排查发现 `homm3-wsl-keepalive`/`homm3-wsl-keepalive-guard` 两个计划任务**整个消失**（schtasks 报"找不到指定的文件"）、`wsl.exe sleep infinity` 进程 **0 个**（Get-CimInstance 实测）——360 安全卫士主动防御（ZhuDongFangYu）把"隐藏窗口脚本 + 计划任务持久化 + 常驻 wsl.exe"识别为可疑行为链清理。
+- **根因**: 360 主动防御对"计划任务持久化 + Hidden 窗口脚本（VBS/PowerShell -WindowStyle Hidden）+ 非交互常驻进程"组合的典型拦截；重注册后也可能被再次静默删除（第一次 Register-ScheduledTask 成功但任务后来消失）。
+- **处理**: ① **用户拍板放弃自动启动**——删除/不再重建任何计划任务，keepalive 改为**每次启动训练后手工拉起**：`Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden`（或双击 `py/homm3_wsl_keepalive.vbs`）② 手工拉起后用产物检查验证：`(Get-CimInstance Win32_Process -Filter "Name='wsl.exe'" | ? { $_.CommandLine -like '*sleep*infinity*' }).Count` ≥1 ③ 如后续想加白：360 界面 → 信任区添加 `d:\Bigdata\hero3_fresh\py\homm3_wsl_keepalive.vbs` / `py\homm3_keepalive_guard.ps1`（360 无 CLI 加白接口，须界面操作）。
+- **教训**: ① "部署成功"≠"长期生效"——安全软件会事后静默清理，**存活类部署必须定期产物验证**（进程计数/文件存在），不能只看注册时返回 SUCCESS；② Windows 侧环境的对抗性（360 等）是 WSL 训练存活问题的隐藏维度，排障顺序应加上"查安全软件拦截记录"；③ enabled unit 的 systemd 自动拉起是可靠的最终兜底（02:25:42 自动恢复零损失实证），keepalive 只是减少冷启动次数。
+- **关联**: #114（keepalive 首次引入）/ #201（容器空闲关停）/ #257（假阳性检测法——产物检查思想同源）/ 知识库 09-18 keepalive 章 / `py/homm3_keepalive_guard.ps1`（保留文件但不再注册任务）/ `py/homm3_wsl_keepalive.vbs`

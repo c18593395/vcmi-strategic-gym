@@ -110,7 +110,7 @@ CBattleQuery::battleFinished RETURN qid=106 winner=0                     ← 红
 **唯一残留（记账时序，非链路）**：该局 BHERO_GRAD `slain=[]`、BHERO_KILL 未发——双帧确认需连续两拍蓝英雄从 obs 消失，而攻击步发生在 step 95/96 步局尾，局截断时确认来不及。候选修复（待拍板）：ep 终局对"攻击步已下发 + 蓝英雄从末帧 obs 消失"的 id 补记账 + 补发阶梯奖。
 
 **运维配套（同窗落地）**：
-- 22:31 再发一次 WSL idle shutdown（11:30 手动 keepalive 已丢、LogOn 计划任务未覆盖）→ **keepalive 守护** `py/homm3_keepalive_guard.ps1` + 计划任务 `homm3-wsl-keepalive-guard`（每 5 分钟检测 `wsl.exe ...sleep infinity` 进程，丢失自愈拉起）。
+- 22:31 / 02:24 两次 WSL idle shutdown 根因 = **360 安全卫士拦截**（踩坑 #267：计划任务被删 + keepalive 进程被杀）→ **拍板：不做自动启动，每次手工拉起**（置顶纪律）。快照器为 WSL 内 nohup 进程不受 360 影响。
 - hermes log 单文件每局覆盖 → **贴脸局日志快照器** `py/contact_log_snapshot.py`（主日志 BHERO_CONTACT 触发即时快照 + 环形 5 槽×240s≈20 分钟覆盖）+ `py/restart_snapshotter.sh` 重启入口。
 
 **指针**：commit `69bab3d`（B+C+快照器+守护）/ `7e8491d`（C 豁免+restart 三行，并行会话入库）/ 踩坑 #256（交织误归属）/#257（pgrep 假阳性）/ 任务清单 T7.6+WIN-1 / 方案_攻击步旁路_20260917.md（§2 语义改版建议已被 C 方案部分替代）。
@@ -173,9 +173,10 @@ CBattleQuery::battleFinished RETURN qid=106 winner=0                     ← 红
 ```powershell
 Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden
 ```
-**置顶纪律（已写入当前任务清单顶部）**：每次启动训练后**必须立即**拉起 keepalive，否则 ~60s 后训练被带走。keepalive 是隐藏进程，Windows 重启后丢失 → **加入 Windows 开机自启（09-18 已配）**：
-- 落地方式：`Register-ScheduledTask -TaskName "homm3-wsl-keepalive" -Action (New-ScheduledTaskAction -Execute "wsl.exe" -ArgumentList "-d","Ubuntu","sleep","infinity") -Trigger (New-ScheduledTaskTrigger -AtLogOn)`（LogOn 触发；`schtasks` 无 -Hidden，隐藏窗口需 VBS 包装）。
-- 验证：`Get-ScheduledTask -TaskName "homm3-wsl-keepalive" | Select TaskName,State`。
+**置顶纪律（已写入当前任务清单顶部）**：每次启动训练后**必须立即**拉起 keepalive，否则 ~60s 后训练被带走。keepalive 是隐藏进程，Windows 重启后丢失 → **每次手工启动**：
+- 落地方式：`Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden`（或双击 `py/homm3_wsl_keepalive.vbs`）。
+- 验证：`Get-CimInstance Win32_Process -Filter "Name='wsl.exe'" | ? { $_.CommandLine -like '*sleep*infinity*' }` 计数 ≥1。
+- **09-19 更新**：自动启动方案（LogOn 任务 + 5 分钟守护）被 **360 安全卫士拦截废弃**（任务被删/进程被杀，踩坑 #267）——用户拍板**不做任何自动启动，每次手工拉起**；enabled unit 的 systemd 自动恢复为最终兜底（02:25 实证零损失）。
 
 **指针**：踩坑 #114（keepalive 首次引入）/ #201（容器空闲关停双层修复）/ #255（PowerShell 双引号 for 循环插值坑，排查时复踩）/ 当前任务清单顶部置顶块。
 
