@@ -114,6 +114,20 @@ wsl bash -c "systemctl is-active homm3-train-v5; tail -5 /mnt/d/Bigdata/hero3_fr
 
 **指针**：踩坑 #270-#277b（重建全坑）/ `py/patch_vcmidirs_0919.py` / `py/patch_gameengine_0919.py` / `py/patch_schema13_battleround_0919.py` / `py/check_torch_cuda_0919.py` / `py/restart_train_v5_sys.sh`（unit 源）/ `py/sync_maps_to_runtime.py --check`（训前必跑）。
 
+### 09-19 追加：MMAI 库编译修复（STATIC_AI 机制）+ 训练运行期终验全绿
+
+**结论**：libmlclient.so 带 MMAI 静态 AI 重新链接成功，冒烟 3 步全绿（`[EP_TIME] steps=3 r=+3.4 err=no`，traj 183KB），训练恢复后首局 `r=151.8`、step 770300→770467 正常累加、[ECON]/[RECRUITED]/obs_nz 全部正常——**BATTLE_ROUND 补丁运行期终验通过，OBS_DIM=3464 契约成立**。
+
+**ML 模式静态 AI 机制（本节核心知识）**：
+- 原始错误 `Cannot open dynamic library './AI/libMMAI.so'` 的正解**不是找 .so 文件**，而是 `STATIC_AI` 编译宏：CDynLibHandler 走静态分支按名字直接 `new MMAI::AAI::AAI`（AAI=adventure ML AI）/ `new MMAI::BAI::Router`（battle AI），完全免 dlopen。原 WSL 构建即此机制（cmake 无此宏定义处，系构建命令注入，随 rootfs 丢失，见 #280）。
+- cmake 互斥：`ENABLE_ML=ON` 强制 `ENABLE_MMAI=OFF` → 必须删除该 set 行让 MMAI OBJECT 库编出（提供 AAI/Router 符号给 facade 链接）。
+- MMAI 编译依赖 onnxruntime C++（`/opt/onnxruntime`，1.30.0；其 release 包 cmake config 有 lib64/include 路径 bug，`mv lib/cmake{,.bak}` 走 MMAI 的手工查找 fallback 分支绕开）。
+- MMAI fork 源码为未编译半成品，8 处机械修复（签名漂移/ASSERT 隐式转换/笔误/嵌套命名空间全限定），详见踩坑 #280 与 `py/patch_mmai_build_0919.py`。
+
+**根目录 .py 迁移适配**：并行会话已将根目录全部 .py `git mv` 到 `py/`（提交 ab7518a，落实"代码文件保存到 /py"规则），并同步更新 `train_wsl2_ppo_v2.py` 的 `RUNNER` 绝对路径（指向 `py/ep_runner_one.py`）与 unit `ExecStart`（`python py/train_wsl2_ppo_v2.py`）。`restart_train_v5_sys.sh` 现行版本即含此修正。
+
+**踩坑新增**：#278（export 锁定发行版）/ #279（git mv 虚惊 + drvfs 假象）/ #280（STATIC_AI 大坑）/ #281（.ssh+git 元数据修复，513 增量入镜像仓——防再犯#1 实际已完成）。
+
 ### 09-19（白天）网络恢复窗口：WSL git/SSH 修复 + 防再犯三件套①收口
 
 **背景**：用户确认 WSL 出站网络恢复（GitHub HTTPS 通），#269 事故两项遗留（SSH 密钥、vcmi-native 坏 .git）当日收口。

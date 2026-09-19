@@ -263,7 +263,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #277b，下一条为 #278…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #281，下一条为 #282…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1324,7 +1324,45 @@
 - **教训**: 日志形态学："Loaded+Shutdown 成对反复" = VM 生命周期问题，不是训练崩溃；训练崩溃的特征是 traceback/segfault 无 Shutdown 行。
 - **关联**: #267（keepalive 纪律）/ #275（会话回收）/ #269
 
-#### #278 rootfs 重置连带丢 .ssh 与 .git 元数据 — WSL GitHub SSH + vcmi-native git 全修复，513 未入库战略层增量入 git (09-19) — ✅ 已修
+#### #278 `wsl --export` 进行中发行版被锁 → 所有 WSL 命令报 `Wsl/Service/CreateInstance/0x8000000d` (09-19 踩) — ✅ 已识别（等待导完自愈）
+
+- **状态**: ✅ 已识别；处理 = 等导完（或杀 export 进程），**勿 shutdown 折腾**
+- **现象**: WSL 命令全部失败（乱码 + `Wsl/Service/CreateInstance/0x8000000d`），`wsl --shutdown` 后依旧；但注册表 Lxss 项完好。
+- **根因**: 另一进程在跑 `wsl.exe --export Ubuntu <tar>`（本例为 MeterSphere 相关脚本，08:19-08:23，tar 写到 17.8GB）——**export 期间发行版被锁定**，任何 CreateInstance（含新开 bash）被拒。
+- **识别法**: `wsl -l -v` 看 STATE 列 = **`Exporting`** 即此坑；再 `Get-CimInstance Win32_Process -Filter "Name='wsl.exe'"` 看 `--export` 进程与目标路径确认来源。
+- **教训**: ① WSL 全命令报错的排查顺序：`wsl -l -v` 看状态 → 注册表 → 服务重启，**Exporting/Converting 等过渡态先等再动**；② export 期间训练被 SIGTERM 优雅存盘（checkpoint 无损），但 unit 不会自动重启（disabled，见 #277b）。
+- **关联**: #269（rootfs 事故）/ #277b（unit 不自启）/ #267（keepalive）
+
+#### #279 根目录脚本"集体消失"虚惊：并行会话 `git mv` 到 py/ + export 锁定期的读取假象 (09-19 踩) — ✅ 已识别（零损失）
+
+- **状态**: ✅ 已识别；文件从未丢失（git mv 保留 + WSL 侧读取假象）
+- **现象**: 冒烟报 `can't open file '/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py': No such file or directory`；WSL 侧 `ls` 该目录只见部分文件；一度误判"Windows 侧文件被删"，险些启动大规模恢复。
+- **根因（两层叠加）**:
+  1. **真因**: 并行会话执行了 `git mv`——提交 `ab7518a`（09:18:38 "openspec 收口"）把根目录全部 .py **重命名到 py/**（`ep_runner_one.py => py/ep_runner_one.py | 0` 纯改名），且同步更新了 `train_wsl2_ppo_v2.py` 的 `RUNNER` 绝对路径与 unit ExecStart——**是规范落实（"代码文件保存到 /py"规则）不是丢失**；
+  2. **放大器**: export 锁定期（#278）对 /mnt/d（drvfs 9p 缓存）的枚举/stat 结果不一致，造成"目录半空"的假象，误导排查方向。
+- **识别法（对账三件套）**: ① Windows 侧 `Test-Path` 直接验证（绕开 WSL）② `git log --all --oneline -- <file>` 查该文件的全部历史提交 ③ `git status -s` 统计 D/deleted——若 status 无 D 而 Test-Path False → 文件是 untracked 或已被 mv，**先查 git log 再动手**。
+- **教训**: ① 多会话并行操作同一仓库时，**任何"文件消失"先查 git log --all**——mv/改名在 log 里一眼可见（`=> py/xxx` 语法）；② drvfs 9p 缓存在系统繁忙时会给出不一致视图，单次 ls/stat 不可信，重挂载或换 Windows 侧验证；③ 本项目 git 仓库**未跟踪文件极多**（?? 数百个），"不在 git 里"≠"丢了"，git status 无 D 只说明丢的不是 tracked 文件。
+- **关联**: #278（export 锁定）/ ab7518a（openspec 收口提交，含 mv）/ 用户规则"代码文件保存到 /py"
+
+#### #280 ML 模式静态 AI 机制：STATIC_AI 隐藏宏 + ENABLE_ML/MMAI 互斥死锁 + MMAI 源码 8 处半成品修复 (09-19 重建踩，最大单坑) — ✅ 已修（patch_static_ai_0919.py + patch_mmai_build_0919.py）
+
+- **状态**: ✅ 已修（冒烟全绿：3 步 r=+3.4 err=no → 训练恢复 step 累加正常）
+- **现象链（按暴露顺序）**:
+  1. 引擎报 `Cannot open dynamic library './AI/libMMAI.so'` → runNetwork 线程 THREW（blue=MMAI_RANDOM 无 AI 可用）；
+  2. 补 `#define STATIC_AI` 后又暴露 AAI.h 声明的 `onNewSystemMessageReceived` 无实现 → `libvcmi.so: undefined symbol`；
+  3. `static_assert(EI(GA::_count) == 10)` whistleblower（v13 global_stats 期望旧 10 项 schema）；
+  4. AAI.cpp showGarrisonDialog 旧 4 参签名 vs AAI.h 新 6 参（customTitle）；
+  5. router.cpp/BAI.cpp 多处 `ASSERT(shared_ptr)` 隐式转 bool 编译错 + `"...": = std::to_string()` 笔误；
+  6. `MMAI::AAI::AAI` 嵌套命名空间全限定名修正（类在 namespace MMAI::AAI 内）。
+- **根因（三层）**:
+  1. **机制**: ENABLE_ML=ON 时 cmake 强制 `set(ENABLE_MMAI OFF)`（CMakeLists L352）→ MMAI 目标不编 → `libMMAI.so` 永不存在 → 但引擎仍按 dynlib 机制 dlopen → **死锁**。原 WSL 的解法是 `STATIC_AI` 宏（CDynLibHandler 走静态分支，按名字直接 `new MMAI::AAI::AAI`，免 dlopen）——此宏在 cmake 里无任何定义处，属**纯编译期隐藏配置**（原 WSL 构建命令注入，随 rootfs 丢失）；
+  2. **互斥**: 解除 `set(ENABLE_MMAI OFF)` 让 MMAI OBJECT 库编出来（提供 AAI/Router 符号进 facade）；MMAI 需要 onnxruntime C++（装 /opt/onnxruntime 1.30.0；其 cmake config 有 lib64/include 打包 bug，`mv cmake cmake.bak` 走手工查找分支绕开）；
+  3. **源码质量**: D 盘副本的 AI/MMAI 源码是**从未编译过的半成品**（原 WSL 运行时用的 `libMMAI.so` 是更早版本产物、09 月"同步"进 vcmi-native-build 的老 .so，与新源码不配套，且从未入 git，随 rootfs 丢失）。8 处修复全是签名漂移/隐式转换/笔误级。
+- **修复清单（全部幂等脚本化）**: `py/patch_static_ai_0919.py`（#define STATIC_AI + 解除互斥）+ `py/patch_mmai_build_0919.py`（AAI 签名对齐 / router+BAI ASSERT / global_stats 11 项适配含 BATTLE_ROUND 动态 round / AAI+Router 补 onNewSystemMessageReceived 实现）。
+- **教训**: ① **"libMMAI.so 文件"是旧机制残影，STATIC_AI 才是 ML 模式正解**——重建时优先恢复机制而非找文件；② cmake 互斥逻辑（ML→MMAI OFF）本身是 D 盘副本带的"上游态"，原 WSL 必然改过——#272 家族第 5 例；③ fork 的 MMAI 源码与引擎头长期漂移，**第一次编译它必然连续爆错**，按 error 逐个对齐签名即可，都是机械修复；④ static_assert whistleblower 是好事——它拦住了 global_stats 与 schema 的静默不一致。
+- **关联**: #272-#274（副本缺补丁家族）/ #270（ENABLE_ML）/ #37（BATTLE_ROUND 初代）/ `py/patch_mmai_build_0919.py` / `/opt/onnxruntime`（ORT C++ 库，1.30.0）
+
+#### #281 rootfs 重置连带丢 .ssh 与 .git 元数据 — WSL GitHub SSH + vcmi-native git 全修复，513 未入库战略层增量入 git (09-19) — ✅ 已修
 
 - **状态**: ✅ 已修（SSH key 恢复 + vcmi-native git 重建 + 513 未跟踪增量 commit d62071da8a 并推 D 盘镜像仓；训练进程全程零影响）
 - **现象**: ① `/home/administrator/.ssh` 整个被 rootfs 重置丢掉 → WSL 内所有 GitHub SSH 操作 `Permission denied (publickey)`，gym 仓 fetch/push 不可用（HTTPS 通但 origin 配的是 SSH）；② `/home/administrator/vcmi-native/.git` 是坏 submodule 指针（`gitdir: ../.git/modules/vcmi`，父 `.git/modules` 随重置消失）→ `fatal: not a git repository`，工作区文件在但 git 历史断了。
