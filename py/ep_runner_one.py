@@ -215,14 +215,26 @@ def _anchor_to_visitable(o):
 
 # 守卫在矿 8 邻, 从英雄视角常比矿更近 → 先走向守卫 → 触发战斗 (T03 课程目标)
 _GUARD_CACHE = {}
+# A3 (09-19) 战力闸: H3 兵种 AIValue (T06/T05 图怪只有这 3 种; 未知兵种回退 150 保守中值)
+_AI_VALUE = {"peasant": 20, "archer": 67, "swordsman": 119}
 def get_guards(mapname):
+    """返回 [(x, y, z, level, power), ...] — A3 起带真实战力 power = AIValue(subtype) × amount.
+    前 3 位 (x,y,z) 与旧 4 元组兼容 (旧调用 gx,gy,gz 解构不受影响)."""
     if mapname not in _GUARD_CACHE:
         try:
             p = f"/mnt/d/Bigdata/hero3_fresh/maps/training/{mapname}"
             with zipfile.ZipFile(p) as z:
                 objs = json.loads(z.read("objects.json"))
-            _GUARD_CACHE[mapname] = [(*_anchor_to_visitable(o), int(o.get("l", 0)))
-                                     for k, o in objs.items() if k.startswith("monster_")]
+            _out = []
+            for k, o in objs.items():
+                if not k.startswith("monster_"):
+                    continue
+                _x, _y, _z = _anchor_to_visitable(o)
+                _sub = str(o.get("subtype", "")).split(":")[-1]
+                _amt = int(o.get("options", {}).get("amount", 1) or 1)
+                _pw = float(_AI_VALUE.get(_sub, 150.0)) * _amt
+                _out.append((_x, _y, _z, int(o.get("l", 0)), _pw))
+            _GUARD_CACHE[mapname] = _out
         except Exception as e:
             _GUARD_CACHE[mapname] = []
     return _GUARD_CACHE[mapname]
@@ -1049,7 +1061,19 @@ try:
                                         a = d
                                         break
                                 if a == 24:
-                                    a = _cand9[0]  # 直线 d=2 等情形: 先朝目标走一步, 下拍 d=1 再攻
+                                    # 直线 d=2 等情形: 先朝目标走一步, 下拍 d=1 再攻
+                                    a = _cand9[0]
+                                    # d=0 绕行 (09-19 根因C 方案B): 同格 moveHero 被引擎拒 (areNeighbours 不过),
+                                    # 下发方向码无效 → 不置 _atk_skip_nav, 走 BFS 段 (L1081, 已有 L1087 蓝英雄格豁免),
+                                    # passable 不全 0 防 zombie, 走开后 d=1 再攻 (onHeroVisit 自动 startBattle)
+                                    if _d_bh == 0:
+                                        _atk_skip_nav = False  # d=0 不跳 nav, 让 BFS 绕行
+                                        a = 10  # 本拍先 END_TURN, BFS 下拍引导走开
+                                        print(f"[BHERO_ATK_DETOUR] d=0 same-cell, detour via BFS "
+                                              f"(skip_nav=False, will reach d=1 next steps)", flush=True)
+                                # 落格豁免 (09-19): 蓝英雄格若被 dyn_blocked 拦, 剔除让 moveHero 落格可触发 startBattle
+                                # (对齐 L1074 passable 新口径, BHERO_ATTACK 段独立未走 BFS 故需显式剔除)
+                                dyn_blocked.discard((_rtx, _rty))
                                 _attack_tried.add(blue_hero_id_target)
                                 _atk_skip_nav = True
                                 print(f"[BHERO_ATTACK] map={args.mapname} blue_hero_id={blue_hero_id_target} "
@@ -1070,6 +1094,12 @@ try:
                     # 2026-09-01 改法一: 城镇目标 (nd<0 非守卫) 先走全图 BFS 绕岩石, 失败再退 15×15 局部 BFS → 贪心
                     if not move_guard_target and not _atk_skip_nav:
                         _blk9 = (dyn_blocked | guard_blacklist) - {(hx, hy)}
+                        # A3 踩怪防 (09-19): 战死 60% (72/120 局) 实锤 = BFS 穿怪格路过误踩
+                        # (passable 新口径怪格 blocked&&visitable=可走 → 导航规划踩怪 → onHeroVisit startBattle 战败)。
+                        # 非守卫目标时 vmap 静态怪格入 blocked → 导航绕行;
+                        # 目标格本身豁免 (资源堆自带守卫时仍可进, 由 score 层 F 硬闸兜底)。
+                        if not move_guard_target:
+                            _blk9 = (_blk9 | {(gg[0], gg[1]) for gg in get_guards(args.mapname) if gg[2] == hz}) - {(tx, ty)}
                         if move_blue_hero_target:
                             # passable 新口径 (09-18 方案甲): 敌英雄格为合法落格目标 (moveHero 落格 →
                             # onHeroVisit startBattle), 从动态障碍豁免 — 否则 BFS 恒返回邻格方向, hero
@@ -1591,6 +1621,15 @@ try:
                         dirs = [d for d in range(8) if bool(_p8[d])]
                         if dirs:
                             force_dir = random.choice(dirs)
+        # 09-19 根因C' 修复: ah=-1 = 红英雄已消失 (中立怪战败/引擎移除), 立即终局。
+        # 实锤链 (09-19 冒烟 EP1): 踩中立怪 battleFinished winner=1 战败 → heroes 段重排 (蓝英雄顶 slot0)
+        # → 旧逻辑 fallback ah=0 → hx,hy 读蓝英雄坐标 (66,66) → 假贴脸 d=0 → 假 BHERO_ATTACK ×2
+        # → zombie pas 全0 假判定 → 垃圾帧污染 buffer。区分语义: ah=-1=战死终局 / ah>=0+pas全0x2=真困死。
+        if int(nobs[3203]) < 0 and not (done or trunc):
+            r += args.death_penalty  # 与 T7.4 死亡确认同档
+            done = True
+            print(f"[RED_DEAD] ah=-1 hero gone (battle loss / engine removal), "
+                  f"end ep at step {traj['steps']}", flush=True)
         traj["obs"].append(obs.tolist())
         traj["act"].append(a)
         traj["rew"].append(float(r))

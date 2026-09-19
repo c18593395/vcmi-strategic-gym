@@ -1390,6 +1390,35 @@
 - **教训**: ① **评估"死亡率"必须先看结束原因分布**——HERO_DEATH 行带 [ZOMBIE] all-blocked 标签就是困死而非战死，配 BHERO_* 战斗事件计数交叉验证（本例全 0 = 未进战斗）；② **观察项的触发条件要带"根因匹配"约束**——#282 观察项"死亡率>50% 才议降级"是必要条件非充分条件，需确认根因是"蓝方过强"才议降级，"蓝方围堵"则议红方突围能力，对策完全不同；③ **环境副作用定性要先于对策选择**——先定性（困死 vs 战死），再决定降级/接受/改训练信号，避免拿错对策。
 - **关联**: #282（环境变更登记 + 观察项出处）/ #280（STATIC_AI 修复，根因）/ 工具 `py/death_by_segment_0919.py` / `py/eval_new_baseline_0919.py`
 
+#### #284 attack_bypass 开 1 仍 0 触发 — 根因 B：蓝英雄 obs 外时 move_blue_hero_target 恒 False，贴脸强攻旁路从未进入 (09-19 冒烟实锤) — 🔄 绕过中
+
+- **状态**: 🔄 绕过中（开 bypass 无效，需改 SCORE 选择器识别 obs 外蓝英雄，或改旁路触发条件不依赖 move_blue_hero_target）
+- **现象**: 用户拍板"开 `--blue_hero_attack_bypass 1` + `--blue_hero_contact_d 2` + `--attack_f_min -1.0`"（L179 已改），停训跑冒烟 3 局 T06_72_02_duel 看 `[BHERO_ATTACK]` 触发率。结果 grep `[BHERO_ATTACK]`=0、`[ATK_DBG]`=0——开 bypass 后贴脸强攻旁路**从未进入**，`[HERO_DEATH]`=1（仍困死）。
+- **根因**: attack_bypass 触发条件 L990 要 `move_blue_hero_target=True`（来自 SCORE pick 蓝英雄，L786），但困死局 SCORE `pick=blue_hero plen=0`（蓝英雄不在 obs 8 槽内 → plen=0），`move_blue_hero_target` 恒 False，旁路从未进入。开 bypass 对"蓝英雄 obs 外"的困死**完全无效**。三层根因中，战斗触发层（根因 A）只是表象，真正的阻塞在**目标选择层**（SCORE 选不出 obs 外蓝英雄）。
+- **处理**: 冒烟实锤后停训（当前 inactive），keepalive 常驻。下一步需重新评估修复方向：① 改 SCORE 选择器，让它能识别 15×15 视野外的蓝英雄（需 obs 增强或旁路）；② 改攻击旁路触发条件，不依赖 `move_blue_hero_target`（直接按"贴脸蓝英雄坐标"判定，蓝英雄坐标从 blue_hero_id_target 或 live_slots 取，而非 SCORE pick）；③ 接受困死率现状，先恢复主训练攒局。
+- **教训**: ① **开一个参数开关≠旁路真正被触发**——必须验证触发条件链最末端是否满足（本例 bypass=1 但 move_blue_hero_target=False，旁路 0 进入）；② **冒烟要带触发链路诊断**——`[ATK_DBG]` 全 0 说明连诊断行都没打印（旁路代码段根本没进），比 `[BHERO_ATTACK]`=0 信息更强；③ **obs 冻结约束下的目标选择盲区**——3464 obs 只编码 8 槽英雄，蓝英雄在视野外时 SCORE 自然选不到，这是 OBS 冻结的铁律副作用，扩展只能走预留位或旁路（terrain 走 terrain_grid.bin 同理）。
+- **关联**: #283（困死定性，本条是其修复尝试失败）/ #282（环境变更，根因）/ `py/train_wsl2_ppo_v2.py` L179 / `py/smoke_attack_bypass_3ep.py` / `py/ep_runner_one.py` L990/L786
+
+#### #285 战死 → ah=-1 → fallback=0 坐标错位连锁：假贴脸 d=0 / 假 BHERO_ATTACK / zombie 假判定 — **#283 困死定性推翻** (09-19 冒烟 traj 逐帧实锤) — ✅ 已修（ah=-1 立即终局）
+
+- **状态**: ✅ 已修（`ep_runner_one.py` 记录段前插 ah=-1 立即终局 `[RED_DEAD]`+death_penalty+done；修复后 120 局 ZOMBIE=0）
+- **现象**: FORCE 冒烟 3 局 `[BHERO_ATTACK]`=4 条（"133% 触发率"）但 3 局全 `[HERO_DEATH]` all-blocked。逐帧 dump traj obs（`/tmp/smoke_force_traj*.json`）实锤：step 33 红英雄 (8,8) 走 act=3 → **踩中立怪 → `BattleProcessor::startBattle bid=0` → `CGCreature::battleFinished winner=1` 战败被歼** → step 34 起 obs 英雄段重排（蓝英雄顶 slot0、ah=-1、passable 全 0）→ Python `ah = obs[3203] if obs[3203]>=0 else 0` fallback=0 → hx,hy 读到蓝英雄坐标 (66,66) → FORCE 段算出**假贴脸 d=0**（pw_self=pw_blue=1 同字段实锤）→ 连发假 BHERO_ATTACK → pas 全 0 → zombie_streak×2 → "all-blocked 困死"假象。
+- **根因**: 战死不是终局信号——旧逻辑红英雄死后还跑 2+ 拍错位决策，把"战死"伪装成"困死"。**BHERO_ATTACK 冒烟"133% 触发率"全是假阳性**（含 pw_self=pw_blue 相等的铁证：同一 slot 字段读两次）。
+- **#283 推翻（09-19 修复后 120 局重统计）**: 困死(HERO_DEATH/ZOMBIE)=**0/120**、战死(RED_DEAD)=**72/120=60%**——旧"62% all-blocked 困死"全部是战死误判（62%↔60% 完美互证），"蓝方围堵"叙事不成立，**核心问题从来是打不过中立怪乱踩**。
+- **修复（`ep_runner_one.py` 记录段前）**: `if int(nobs[3203])<0 and not (done or trunc): r+=death_penalty; done=True; print([RED_DEAD])`——语义分干净：ah=-1=战死终局 / ah>=0+pas 全0×2=真困死（zombie 保留给后者）。修复后冒烟：假 HERO_DEATH 3/3→0/3、假攻击 4→0、RED_DEAD 3/3 正确。
+- **教训**: ① **死亡必须立即终局**——英雄死后 obs 编码重排（heroes 段稳定排序，蓝英雄顶 slot0），继续采样全是错位垃圾帧污染 buffer；② **冒烟"触发率"要先验真**——d=0 且 pw_self=pw_blue 是"读到自己人"的指纹；③ **traj JSON 逐帧 dump 是 obs 疑云的终极手段**（np.asarray(obs,dtype=float32).astype(int32) 按偏移切片，比 grep 日志快准）；④ **结局对了不代表链路对**——HERO_DEATH -50 罚了但过程全是假攻击垃圾帧。
+- **关联**: #283（被本条推翻）/ #284（假贴脸的表层）/ `py/ep_runner_one.py` L1607-1614（RED_DEAD）/ `py/smoke_attack_bypass_3ep.py` / 知识库 09-19「根因C'」章
+
+#### #286 守卫战力 half-self 拍脑袋近似 → F 恒正 → 打不过也踩 → 战死 60% (09-19 A3 战力闸根治) — ✅ 已修
+
+- **状态**: ✅ 已修（A3 四改动：真实战力 + BFS 避怪 + t[6] 反解 + F 硬闸，09-19 部署攒局）
+- **现象**: 修复后 120 局战死 60%（duel 图 65%），英雄 act=3 走格踩中立怪 `MapObjectVisitQuery → startBattle` 战败即死（#285）。
+- **根因（双层）**: ① **target_scorer `candidate_power_c` half-self 近似**——守卫 pc = power_self×0.5（"无静态读值"注释实为拍脑袋）→ F 恒正 → SCORE 认为怪都能打；② **passable 新口径（#247 方案甲）副作用**——怪格 blocked&&visitable=可走（为了能打守卫），BFS 导航会规划**穿怪格路径** → 路过误踩。
+- **数据可用性讽刺**: 真实战力数据一直都在——`target_list[i][6]`=资源目标附带守卫战力 log2（C++ `fill_target_list` guardingCreatures×calc_army_power，strategic_state.cpp L226-238）、`local_tiles[2]`=15×15 邻域怪战力 log2、vmap objects.json monster 带 subtype+amount——Python 侧从没用过。
+- **修复（A3 四改动，全 Python 旁路零重编）**: ① `get_guards` 5 元组带真实战力 AIValue×amount（peasant=20/archer=67/swordsman=119，训练图怪仅此 3 种，未知回退 150）；② SCORE BFS 避怪（非守卫目标时怪格入 blocked，目标格豁免）；③ `candidate_power_c` 重写（守卫直读 + 资源堆 t[6] 反解 2^gp-1，half-self 废弃）；④ F 硬闸 F<-0.3 不入池（蓝英雄/蓝城豁免）。自测：守卫400 vs 英雄100 → F=-0.95 剔除 ✓。
+- **教训**: ① **拍脑袋近似要标注到期日**——half-self 上了线就没人记得它是猜的；② **战力类近似先查 C++ 侧有没有真值**——t[6]/local_tiles ch2 都是现成的；③ **开一扇门（passable 放开怪格）要查谁会从门里走进来**（BFS 穿怪）；④ **判据设计**：战死率 <35% / duel 净胜率 >0% / 守卫胜率不塌（T7.8）。
+- **关联**: #285（战死终局链）/ #283（被推翻的旧定性）/ `py/ep_runner_one.py` L218-237/L1098-1102 / `py/target_scorer.py` L106-125/L294-297 / T7.8 观察窗
+
 #### #281 rootfs 重置连带丢 .ssh 与 .git 元数据 — WSL GitHub SSH + vcmi-native git 全修复，513 未入库战略层增量入 git (09-19) — ✅ 已修
 
 - **状态**: ✅ 已修（SSH key 恢复 + vcmi-native git 重建 + 513 未跟踪增量 commit d62071da8a 并推 D 盘镜像仓；训练进程全程零影响）

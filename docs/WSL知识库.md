@@ -59,6 +59,58 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-19 startBattle 引擎层直调（D 方案技术储备，用户拍板"以后要用"）
+
+**由来**：d=0 同格困死根因 C 调研引出"不走 moveHero 直调 startBattle"方案。当前走 B 方案（d=0 时 `_atk_skip_nav=False` 让 BFS 绕行，ep_runner_one.py L1054-1062）不阻塞训练，本储备留后用。任务登记：当前任务清单七-远期。
+
+**英雄战触发链（C++ 实锤，2026-09-19 源码调研）**：
+- `CGHeroInstance::onHeroVisit`（vcmi/lib/mapObjects/CGHeroInstance.cpp:545-597）：敌方英雄落格 → `gameEvents.startBattle(h, this)`；同玩家则 heroExchange
+- `IGameEventCallback::startBattle`（vcmi/lib/callback/IGameEventCallback.h:104-105）：纯虚接口（army1, army2 及 7 参重载）
+- `CGameHandler::startBattle`（vcmi/server/CGameHandler.h:164-168 / .cpp:4550-4557）：转调 `battles->startBattle`
+- `BattleProcessor::startBattle`（vcmi/server/battles/BattleProcessor.cpp:106-166）：内含 ML 钩子 `mlplugin->startBattleHook(army1, army2, hero1, hero2)`
+- 攻城战入口：`CGTownInstance::onHeroVisit`（CGTownInstance.cpp:323）；守卫/怪物战：`CRewardableObject::doStartBattle`（CRewardableObject.cpp:106-109）
+
+**moveHero 被拒判定（CGameHandler::moveHero, CGameHandler.cpp:868-1138）**：
+- L978-981：terrain 不可通行 || movingOntoObstacle(且不能飞) → 拒
+- L990：`!h->pos.areNeighbours(dst)` → **单格版只允许相邻格**——d=0 时 dst==h->pos 被拒（同格困死机械根因）
+- L996：movementPointsRemaining < cost → 拒
+- **关键结论：d=1 相邻敌英雄格 terrain 可通行 → moveHero 成功 → onHeroVisit → startBattle 自动触发**。战斗由"站上敌格"触发，不是"走向敌格"——同格（d=0）时目标格即自身格，areNeighbours 必败。
+
+**Python 侧调用入口**：
+- connectors：`/home/administrator/vcmi-workspace/vcmi_gym/connectors/`（pybind11 → connector_v13/14/15.so）
+- 现有动作映射：OBS_DIM=3464 / 方向码 0-7 / ECON 16-21 / END_TURN=10 / MOVE_TO=24 → C++ 侧 GameActions
+- 直调路径评估：需在 connector C++ 侧加 Python 可调的 startBattle API（走 IGameEventCallback → CGameHandler），涉及 **connector .so 重编（不是 libvcmi.so，符合铁律）**
+- 风险：OBS 3464/动作空间冻结——直调 API 走"旁路动作码"或专用 env 方法（如 `env.force_battle()`），不占动作空间维度
+
+**触发条件（以后启用）**：① B 方案 BFS 绕行实测失效（d=0 后 BFS 也引导不出去/困死率不降）；② T05 对抗接战成战略瓶颈需强制战斗。启用时先冒烟 1 局验证 connector 新 API + 战斗结算 R6 正常，再全局。
+
+**指针**：任务清单七-远期 D 方案条 / ep_runner_one.py L1054-1062（B 方案）/ 踩坑 #143（事实3 敌英雄格 moveHero 拒绝）/ 方案_攻击步旁路_20260917.md（A2 旁路背景）。
+
+### 09-19 深夜窗：根因C'实锤（战死伪装成困死，#283 推翻）+ A3 战力闸部署
+
+**一句话**：红英雄踩中立怪战败被歼 → obs 英雄段重排（ah=-1、蓝英雄顶 slot0）→ Python fallback=0 读到蓝英雄坐标 → 假贴脸 d=0 → 假 BHERO_ATTACK → zombie 假判定 →"62% 困死"假象。**真相：0 困死，60% 战死**——核心问题从来是打不过怪乱踩，不是蓝方围堵。
+
+**obs 英雄段编码知识（本次逐帧 dump 实锤，防再猜）**：
+- 英雄段 8 槽 × 26 int32（base=128+slot×26）：id(0)/owner(1)/pos_x(2)/pos_y(3)/pos_z(4)/movement(5)/max(6)/.../power(10)；stride 26 与 C++ StrategicHero 序列化对齐
+- `heroes[]` 含**所有玩家英雄**（H.4 全知），C++ `active_hero` = 红英雄在 heroes[] 的索引，**强制校验 owner==0，red 无英雄置 -1**（strategic_state.cpp L81-90）
+- **红英雄战死后 heroes 段稳定排序重排**：蓝英雄顶到 slot0（原 slot1），红英雄消失——ah=-1 + slot0.owner=1 是"红英雄已死"的指纹
+- `target_list[i][6]` = 资源目标附带守卫战力 **log2(guard+1)**（guardingCreatures 求和 × calc_army_power，strategic_state.cpp L226-238）；`local_tiles[2]` = 15×15 邻域怪战力 log2——两处真值 Python 侧长期未用（#286）
+- vmap objects.json monster：subtype（core:peasant/archer/swordsman）+ options.amount → 真实战力 = AIValue×amount（20/67/119），训练图怪仅此 3 种
+
+**根因 C' 修复（[RED_DEAD] 立即终局，ep_runner_one.py 记录段前）**：
+```python
+if int(nobs[3203]) < 0 and not (done or trunc):
+    r += args.death_penalty; done = True
+    print("[RED_DEAD] ah=-1 hero gone ...")
+```
+语义分：ah=-1=战死终局 / ah>=0+pas 全0×2=真困死（zombie 保留）。修复后 120 局：ZOMBIE=0、RED_DEAD=72（60%）、假 BHERO_ATTACK=0。
+
+**A3 战力闸（四改动，防"打不过也踩"）**：① `get_guards` 5 元组带 AIValue×amount 真实战力；② SCORE BFS 避怪（非守卫目标时怪格入 blocked，导航绕行不路过误踩）；③ `candidate_power_c` 重写（守卫直读真实战力 + 资源堆 t[6] 反解 2^gp-1，half-self 废弃）；④ F 硬闸 F<-0.3 不入池（蓝英雄/蓝城豁免，有专门攻击链）。自测：守卫400 vs 英雄100 → F=-0.95 剔除。
+
+**评估口径变更（eval_new_baseline_0919.py）**：死亡拆分 困死(HERO_DEATH)+战死(RED_DEAD)，duel 净胜率 = 守卫胜-(困死+战死)。**干净基线：duel 净 -23%**（31 局守卫 42%/战死 65%），旧"+21%"为污染口径不可比。T7.8 判据：战死<35% / duel 净>0% / 守卫胜不塌 / avg_r 抬升。
+
+**指针**：踩坑 #285（根因C'全链）/ #286（half-self 教训）/ 任务清单 T7.7（✅ 收口）/ T7.8（🔄 观察窗）/ `py/smoke_attack_bypass_3ep.py`（冒烟器，FORCE=1 env）。
+
 ### 09-19 WSL rootfs 重置事故 + 防再犯三件套（数据分层盘点 + 备份纪律）
 
 **事故链（截至 09-19 03:20，定性）**：02:47 `homm3-train-v5` 正常跑（PID 160→2083→163，T05/T06 图池）→ 02:50:10 触发 WSL 侧 shutdown 信号，训练优雅存盘 `Saved STATE_PATH (step=770300)`，checkpoint 双写 D 盘（`wsl2_model.pt` + `wsl2_model_state.pt`，mtime 02:50:10）→ WSL 引擎（2.7.10.0，HKLM Lxss\MSI）自更新窗口内 `wsl -l -v` 的 distro 注册表条目（`HKCU\...\WSL` 键 + per-distro GUID）丢失，cold-start 时 `D:\wsl\Ubuntu\ext4.vhdx` 被重建为 **1.2G 全新 Ubuntu**（03:13 mtime）→ `/home/administrator/vcmi-workspace/venv`、`/etc/systemd/system/homm3-train-v5.service`、C 扩展全部丢失 → 03:13 起 `systemctl` 报 "Unit could not be found"，训练中断。

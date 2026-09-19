@@ -105,13 +105,19 @@ def type_value(phase, ttype, mine_taken, c):
 
 def candidate_power_c(c, power_self):
     """候选目标战力近似 (方案 §3.2 可打性项).
-    资源/矿/城 power_c=0 (全可打); 蓝英雄取 total_power 直读 (H.4 全知);
-    守卫无静态读值 — target_list 的 log2(guard+1) 只限 8 格近邻, 远守卫/蓝城近似 half-self.
-    """
+    A3 (09-19) 战力闸: 守卫直读 vmap 真实战力 (AIValue×amount, get_guards g[4]);
+    资源堆附带守卫 t[6] log2 反解 (2^gp - 1 = guardingCreatures 总战力, C++ fill_target_list 实锤);
+    half-self 近似废弃 (实锤: pc=self*0.5 → F 恒正 → 打不过也踩 → 战死 60%/120 局)."""
     if c.get("is_blue_hero"):
         return c.get("power_c", 0.0)
-    if c.get("is_guard") or c.get("is_blue_town"):
+    if c.get("is_guard"):
+        _gp = float(c.get("power_c", 0.0) or 0.0)
+        return _gp if _gp > 0 else max(0.0, power_self * 0.5)  # 无读值回退 half-self
+    if c.get("is_blue_town"):
         return max(0.0, power_self * 0.5)
+    _gp6 = int(c.get("guard_pow", 0) or 0)  # 资源堆附带守卫 (target_list t[6])
+    if _gp6 > 0:
+        return float(2.0 ** _gp6 - 1.0)
     return 0.0
 
 
@@ -256,7 +262,8 @@ def score_candidates(obs, hx, hy, hz, power_self,
                 "pos": (gx, gy, gz), "type": "guard", "tl_idx": -1,
                 "man": man, "tl_dist": 0, "guard_pow": 0,
                 "is_blue_hero": False, "is_blue_town": False, "is_guard": True, "is_own_town": False,
-                "power_c": 0.0,
+                # A3 (09-19): vmap 真实战力 (AIValue×amount, get_guards 5 元组第 5 位)
+                "power_c": float(g[4]) if len(g) > 4 else 0.0,
             })
 
     if not cands:
@@ -283,9 +290,13 @@ def score_candidates(obs, hx, hy, hz, power_self,
             V = V * 0.2
         # Δcapture: 1v3 蓝英雄/蓝城 终极目标贡献 (蓝英雄最高, 蓝城 0.8 系数)
         delta_cap = 1.0 if c["is_blue_hero"] else (0.8 if c["is_blue_town"] else 0.0)
-        # F: 可打性 (logistic 战力差) — 蓝英雄直读 total_power; 守卫/蓝城 half-self 近似; 资源类恒 +1
+        # F: 可打性 (logistic 战力差) — 蓝英雄直读 total_power; 守卫/资源堆附带守卫 A3 真实战力; 资源类恒 +1
         pc = candidate_power_c(c, power_self)
         F = power_feasibility(power_self, pc, w) if pc > 0 else 1.0
+        # A3 (09-19) 硬闸: 明显打不过的怪/带守卫资源不入池 (BFS 层已绕行, 打不过别踩;
+        # 实锤战死 60%/120 局 = half-self 近似 F 恒正乱踩). 蓝英雄/蓝城豁免 (专门攻击链 + phase 惩罚管理).
+        if pc > 0 and not (c["is_blue_hero"] or c["is_blue_town"]) and F < -0.3:
+            continue
         # stick: 粘滞 bonus (当前目标未 stall 时强化保持)
         stick = 1.0 if (current_target is not None and
                         (current_target[0] == _cx and current_target[1] == _cy)
