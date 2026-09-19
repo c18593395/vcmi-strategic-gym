@@ -1225,7 +1225,7 @@
 
 #### #269 WSL 引擎自更新到 2.7.10 后 cold-start 重建 distro 元数据 — 训练 venv/systemd unit 全丢，rootfs 被重置为全新 Ubuntu (09-19) — 🔄 用户重装 ext4.vhdx 中（防再犯三件套已固化）
 
-- **状态**: 🔄 事故定性与防再犯措施已固化；数据抢救完成，venv/unit 随用户重装恢复
+- **状态**: ✅ 事故已收口（rootfs 重装 + 训练 resume step=770300 device=cuda）；三件套台账：① vcmi-native 推 D 盘镜像仓 ✅（09-19 白天收口，见 #278）② 定期 wsl --export ⏳ ③ 重建脚本 setup_wsl_train.sh 固化 ⏳
 - **现象**: 09-19 02:47 训练 `homm3-train-v5` 正常运行（PID 160/2083，T05/T06 图池，step=770300）；02:50:10 触发 "Shutdown signal received, saving current state..." 优雅存盘（wsl2_model.pt + wsl2_model_state.pt 双写 D:\Bigdata\hero3_fresh，step=770300）。随后 WSL 引擎 2.7.10 自更新窗口内，`wsl -l -v` 列出的 distro 注册表条目与 `HKCU\...\WSL` 键消失，cold-start 时 `ext4.vhdx` 被重建为 1.2G 全新 Ubuntu（/home 仅 44K，无 venv、无 systemd unit、无 C 扩展），03:13 起 `homm3-train-v5` 服务找不到 unit 文件，训练中断。
 - **根因链（有把握 + 没把握分开说）**:
   - 有把握：ext4.vhdx 03:13 被重建，旧注册表元数据（HKCU\WSL 键 + distro GUID）丢失，rootfs 内容重置为全新 Ubuntu；
@@ -1322,3 +1322,12 @@
 - **处理**: 保持手工纪律：先 `wsl.exe -d Ubuntu sleep infinity`（keepalive 常驻）再 `systemctl start homm3-train-v5`。**不要**为此把 unit 改 enabled（用户已拍板 VM 生命周期由 keepalive 控制）。
 - **教训**: 日志形态学："Loaded+Shutdown 成对反复" = VM 生命周期问题，不是训练崩溃；训练崩溃的特征是 traceback/segfault 无 Shutdown 行。
 - **关联**: #267（keepalive 纪律）/ #275（会话回收）/ #269
+
+#### #278 rootfs 重置连带丢 .ssh 与 .git 元数据 — WSL GitHub SSH + vcmi-native git 全修复，513 未入库战略层增量入 git (09-19) — ✅ 已修
+
+- **状态**: ✅ 已修（SSH key 恢复 + vcmi-native git 重建 + 513 未跟踪增量 commit d62071da8a 并推 D 盘镜像仓；训练进程全程零影响）
+- **现象**: ① `/home/administrator/.ssh` 整个被 rootfs 重置丢掉 → WSL 内所有 GitHub SSH 操作 `Permission denied (publickey)`，gym 仓 fetch/push 不可用（HTTPS 通但 origin 配的是 SSH）；② `/home/administrator/vcmi-native/.git` 是坏 submodule 指针（`gitdir: ../.git/modules/vcmi`，父 `.git/modules` 随重置消失）→ `fatal: not a git repository`，工作区文件在但 git 历史断了。
+- **根因**: .ssh 密钥与 .git 元数据全在 rootfs（易失层）；幸而 #269 当晚已建 D 盘 bare 镜像仓 `D:\Bigdata\git-mirrors\vcmi-native.git`（三件套①），修复材料齐全。
+- **处理（顺序）**: ① 从 Windows `C:\Users\Administrator\.ssh` 拷回 `id_ed25519`(+pub) 到 `/home/administrator/.ssh` 与 `/root/.ssh`（GitHub 注册的是 ed25519，rsa 那把被拒）；写 `~/.ssh/config`（administrator+root 两份：`Host github.com / IdentityFile ~/.ssh/id_ed25519 / IdentitiesOnly yes`）→ `ssh -T git@github.com` 认证通过；② `git clone -b mmai-ml-wsl /mnt/d/Bigdata/git-mirrors/vcmi-native.git` 取健康 .git，旧坏目录改名留底后把新 .git 接回原路径（工作区 6092 文件零丢失），`chown administrator .git`；③ **关键发现**：git 快照 `30f62b8` 只到 BAI/v13，工作树另有 513 个未跟踪文件（BAI/v14 + schema/v14 + agent-v15 战略层增量，08-29 快照后未入库，正是"最大潜在丢失"那块）→ 保护性 commit `d62071da8a` + 推回 D 盘镜像仓；2821 个 `M` 抽样证实全部 CRLF↔LF 行尾噪音（删行尾后 diff 为空），**不提交不污染**；④ 全程只动目录名与 .git 元数据，.so/训练进程（当时 ep_runner_one.py 在跑）零影响。
+- **教训**: ① rootfs 重置丢的不只是"工件"，**.ssh 身份与 .git 元数据同属易失层**——重装后必须逐仓验 git 可用性，不能只看文件在不在；② git status 里 2821 个 `M` 不代表 2821 处内容改动——CRLF 全树噪音先抽样删行尾对比，**别把行尾翻转混进 commit**；③ bare 镜像仓是首选修复材料：WSL git 坏了可离线从 `/mnt/d` 重新克隆；④ .git 属主=administrator 的仓 root 直接跑 git 会 dubious ownership——`safe.directory` 或改用 administrator 身份；⑤ 9p 挂载（/mnt/d）属 root，D 盘镜像仓的 push 要用 root+safe.directory，WSL 仓的操作要用 administrator。
+- **关联**: #269（rootfs 重置事故，本条是其连带修复）/ #277b（keepalive 手工纪律，本窗口期训练存活前提）/ 知识库 09-19「网络恢复窗口」章

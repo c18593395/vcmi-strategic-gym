@@ -114,6 +114,27 @@ wsl bash -c "systemctl is-active homm3-train-v5; tail -5 /mnt/d/Bigdata/hero3_fr
 
 **指针**：踩坑 #270-#277b（重建全坑）/ `py/patch_vcmidirs_0919.py` / `py/patch_gameengine_0919.py` / `py/patch_schema13_battleround_0919.py` / `py/check_torch_cuda_0919.py` / `py/restart_train_v5_sys.sh`（unit 源）/ `py/sync_maps_to_runtime.py --check`（训前必跑）。
 
+### 09-19（白天）网络恢复窗口：WSL git/SSH 修复 + 防再犯三件套①收口
+
+**背景**：用户确认 WSL 出站网络恢复（GitHub HTTPS 通），#269 事故两项遗留（SSH 密钥、vcmi-native 坏 .git）当日收口。
+
+**修复实录**：
+1. **SSH 密钥恢复**：rootfs 重置丢了 `/home/administrator/.ssh` → 从 Windows `C:\Users\Administrator\.ssh` 拷回 `id_ed25519`（GitHub 注册的那把；rsa 被拒），写 `~/.ssh/config`（administrator+root），`ssh -T git@github.com` 通过。gym 仓（c18593395/vcmi-strategic-gym）fetch/push 条件恢复，按"git github"纪律待用户口令再推。
+2. **vcmi-native git 重建**：原 `.git` = 坏 submodule 指针 → 从 D 盘镜像 `/mnt/d/Bigdata/git-mirrors/vcmi-native.git` `git clone -b mmai-ml-wsl` 取健康 .git 接回原路径，工作区 6092 文件零丢失，`.git` chown administrator。
+3. **未入库增量收编（最大潜在损失解除）**：快照 `30f62b8` 只到 BAI/v13，工作树 513 个未跟踪战略层增量（BAI/v14 + schema/v14 + agent-v15）→ 保护性 commit `d62071da8a`，推回 D 盘镜像仓（mmai-ml-wsl HEAD=d62071da8a）。2821 个 `M` 判定为 CRLF↔LF 行尾噪音，不提交。
+4. **训练零影响**：全程仅目录改名 + .git 手术，.so/进程未动（当时 ep_runner_one.py 在跑）。
+
+**三件套状态台账（#269 用户拍板项）**：
+| # | 措施 | 状态 | 说明 |
+|---|------|------|------|
+| ① | vcmi-native 推 D 盘镜像仓 | ✅ 完成（09-19 白天） | `D:\Bigdata\git-mirrors\vcmi-native.git`，mmai-ml-wsl HEAD=`d62071da8a`（含 6 战略层 commit + 513 增量文件），pr205-server-pack-guard 分支也在 |
+| ② | 定期 `wsl --export` rootfs 备份 | ⏳ 未做 | 频率=每周+晋级后；恢复=`wsl --unregister`+`--import`；直接拷 ext4.vhdx 不算备份 |
+| ③ | 重建脚本 `setup_wsl_train.sh` 固化 D 盘 | ⏳ 未做 | 脚本化条件已备：cmake 开关（ENABLE_ML=ON / ENABLE_DISCORD=OFF）+ 4 补丁已落 `py/patch_vcmidirs_0919.py` / `patch_gameengine_0919.py` / `patch_schema13_battleround_0919.py` + unit 源 `py/restart_train_v5_sys.sh` |
+
+**纪律更新**：WSL 内跑 git 的属主问题——.git 属主=administrator 时 root 跑报 dubious ownership（用 `safe.directory` 或 administrator 身份）；/mnt/d 是 9p root 属主，D 盘镜像仓 push 需 root+safe.directory。
+
+**指针**：踩坑 #278（本窗口修复明细）/ #269（事故+三件套定义）/ #277b（keepalive 手工纪律）/ `D:\Bigdata\git-mirrors\vcmi-native.git`（镜像仓，三件套① 实体）/ `~/.ssh/config`（WSL 侧 SSH 修复落点）。
+
 ### 09-19 凌晨：passable 闸门 4 判据全绿 + S2 撤梯子开窗（判据③收官 + A6 定谳 + 自动收口监控）
 
 **判据③达成（BHERO_KILL 首次全链路记账）**：09-19 00:17 的 72_02 局——攻击步下发（[BHERO_ATTACK] step=95 dir=5）→ 战斗 → 局尾补记账修正版命中：`[BHERO_SLAIN] blue_hero_id=3 at step 96 +40.0 (end-of-ep attack-step credit)` → `BHERO_GRAD slain=[3]` 非空。**passable 闸门 4 判据全绿，WIN-1 收口条件达成**。
