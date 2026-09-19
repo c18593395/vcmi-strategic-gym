@@ -1136,6 +1136,7 @@
 - **根因**: 摘取候选清单是某一时点的快照，官方 develop 在 9 月还在滚动合入（09-11 复核时还 MISSING，09-18 已被上游维护者自己修掉）。"能否提 PR"的判据不是"我本地有没有"，而是**"upstream/develop 是否已含等价修复"**——必须每次动手前用 `merge-base --is-ancestor` 对上游实锤，不能信静态记录。
 - **正确处理**: ① 每个摘取候选提 PR 前先 `git fetch upstream && git merge-base --is-ancestor <fix-sha> upstream/develop && echo 已含 || echo 可提`；② fork 基线改的 diff 要进官方，**不 cherry-pick**，而是在 `git worktree add -b <pr-branch> <path> upstream/develop` 干净 worktree 上**手工重建**（只摘该修的段，剔掉本地混入的诊断脚手架，如 #205 剔 `[SRV-DIAG]`/`TOWNAVAIL` fprintf）；③ 重建后做符号级实锤（异常类定义位置/成员、被调函数返回类型、既有同构代码块），不裸信"改了能编译"。
 - **附带坑（同轮）**: `git worktree add /d/.../vcmi_pr205` 在 MSYS 下把 `/d/` 当字面量，worktree 实际落到 `D:/d/...`（native git 不转 MSYS 路径）；`git worktree list` 能看到真实落点，后续 `cd` 用 native `D:/d/...` 路径。
+  - **09-19 已收口**: worktree 已 `git worktree move` 迁回正路 `D:/Bigdata/hero3_fresh/vcmi_pr205`（HEAD 20ba315945 不变），`D:\d` 整树误建残留（含 7-15 旧版 strategic_state.cpp/threadconnector.cpp 快照，正路 git 已有新版覆盖）已全清。后续引用一律用 `D:/Bigdata/hero3_fresh/vcmi_pr205`。
 - **教训**: ① 上游跟踪型清单（MISSING/候选）一律视为"待复核"快照，不是结论——提 PR/摘取前逐条对 `upstream/develop` 重验；② "我方已修"≠"官方需我提"，判据永远是对上游的 `is-ancestor`；③ fork 基线 diff 进官方走 worktree 手工重建，不走 cherry-pick。
 - **关联**: #258（gh API 认证断，推 PR 需浏览器手建 fork 或用户出 PAT）/ 知识库 09-18「官方小 PR 清单（09-18 复核后收窄）」/ worktree `vcmi_pr205` 分支 `pr205-server-pack-guard`
 
