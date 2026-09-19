@@ -41,7 +41,7 @@ WORK = "/tmp/h3m_pipeline"
 REPORT = f"{ROOT}/maps/h3m_to_vmap/_pipeline_report.json"
 CKPT_DIR = f"{ROOT}/checkpoints"
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = f"{ROOT}/ep_runner_one.py"
+RUNNER = f"{ROOT}/py/ep_runner_one.py"
 
 
 def newest_ckpt():
@@ -130,6 +130,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="", help="只处理名字含该关键词的 h3m")
     ap.add_argument("--steps", type=int, default=250, help="验证局步数 (默认 250 = 训练 STEPS_PER_EP 同款)")
+    ap.add_argument("--resume-fail", action="store_true",
+                    help="重新验收 report 中 verify_fail/convert_fail 且无池文件的条目 "
+                         "(PASS 仍 skip; 旧 100 步 PASS 不受影响)")
     args = ap.parse_args()
 
     os.makedirs(POOL, exist_ok=True)
@@ -158,8 +161,12 @@ def main():
         final_name = f"{safe}_h3m.vmap"
         final_path = os.path.join(POOL, final_name)
         st = report.get(h3m.name, {})
-        if (st.get("status") == "PASS" and os.path.exists(final_path)
-                and st.get("verify_steps", 0) >= args.steps):
+        pass_cond = (st.get("status") == "PASS" and os.path.exists(final_path)
+                     and (st.get("verify_steps", 0) >= args.steps
+                          or (st.get("verify_steps") is None and not args.resume_fail)))
+        # 09-19: 旧条目无 verify_steps 字段 (100步时代) → 默认信任;
+        # resume-fail 时只重验 verify_fail/convert_fail/strip_fail, 不动旧 PASS
+        if pass_cond:
             n_skip += 1
             continue
 
@@ -219,7 +226,7 @@ def main():
         ok, detail = train_verify(final_name, args.steps, ckpt,
                                   f"{WORK}/verify_{safe}.log")
         entry["verify"] = detail
-        entry["verify_steps"] = steps_done if (steps_done := _extract_steps(detail)) else 0
+        entry["verify_steps"] = _extract_steps(detail)
         if not ok:
             entry["status"] = "verify_fail"
             report[h3m.name] = entry
