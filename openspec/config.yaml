@@ -6,6 +6,7 @@ context: |
   语言: zh-CN。所有 artifacts 用中文撰写，OpenSpec 结构性标题与 SHALL/MUST 关键词保留英文。
   真相源划分:
   - openspec/specs = 行为与契约（协议、判据口径、模块边界）——改行为先改 spec
+    (vcmi-protocol=外挂协议 / training-criteria=WIN判据 / obs-contract=obs双端对齐 OBS_DIM=3464)
   - docs/当前任务清单.md = 窗口焦点与任务状态（指针到 spec，不重复契约细节）
   - docs/已完成任务.md + WSL知识库/踩坑点 = 过程记录与经验
   - fact_store = 跨会话经验记忆
@@ -13,24 +14,20 @@ context: |
   硬约束: 训练后台跑不中断；rel/.so 部署与 eval 抢 GPU 需停训窗口（C 档谨慎）；契约变更须过 openspec change 流程。
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
-
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+# 本仓已启用 rules/operations (09-19, 固化踩坑纪律):
+#   rules = 写 artifact 时的强制格式约束; operations = apply/archive 执行时的纪律。
+rules:
+  proposal:
+    - 必须含 Non-goals 段
+    - 必须列出受影响的 spec（无契约变更则写 "无"）
+  tasks:
+    - 每块任务 ≤ 2h
+    - 需停训窗口的任务必须标注 [C档]
+operations:
+  apply:
+    guidance:
+      - 训练后台跑不中断；[C档] 任务先写明停训窗口再动手
+      - obs/协议 双端代码改动先跑 py/_schema_check.py（冒烟 #16）过再部署
+  archive:
+    guidance:
+      - 归档前同步 docs 四件套（总任务/当前任务清单/知识库/踩坑点），提交后验 git status -s docs/ 干净
