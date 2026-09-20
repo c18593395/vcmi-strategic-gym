@@ -151,13 +151,37 @@ class TemplateLib:
 
 
 # ── vmap 读取 ─────────────────────────────────────────────────────────────────
+def _strip_json_comments(text):
+    """VCMI saveMap 输出 JSON 带 `// game` 行注释, 非合法 JSON; 逐行剥离 (字符串内 // 保留)"""
+    out = []
+    for line in text.split('\n'):
+        i, in_str, buf = 0, False, []
+        while i < len(line):
+            ch = line[i]
+            if ch == '"' and (i == 0 or line[i - 1] != '\\'):
+                in_str = not in_str
+            if not in_str and ch == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                break
+            buf.append(ch)
+            i += 1
+        out.append(''.join(buf))
+    return '\n'.join(out)
+
+
+def _loads_permissive(s):
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        return json.loads(_strip_json_comments(s))
+
+
 def read_vmap(path):
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
-        header = json.loads(z.read('header.json'))
+        header = _loads_permissive(z.read('header.json').decode())
         tfiles = sorted(n for n in names if n.endswith('_terrain.json'))
-        terrains = [json.loads(z.read(n)) for n in tfiles]
-        objs_raw = json.loads(z.read('objects.json'))
+        terrains = [_loads_permissive(z.read(n).decode()) for n in tfiles]
+        objs_raw = _loads_permissive(z.read('objects.json').decode())
     objects = list(objs_raw.values()) if isinstance(objs_raw, dict) else objs_raw
     return header, terrains, objects
 

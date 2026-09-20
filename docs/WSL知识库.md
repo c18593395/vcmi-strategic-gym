@@ -2796,3 +2796,32 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 关联：踩坑 #294（处理计划全文）/ #285 / `py/sanitize_vmap_players_0920.py`
 
 关联：踩坑 #289/#290/#291 / `py/sanitize_vmap_players_0920.py` / `py/h3m_batch_pipeline.py` / `py/lowercase_h3m_names.sh` / vcmi-native `41a99cd52c` / 主仓 `afdb414`
+
+---
+
+## VMAP→H3M 反转工具链 + 引擎侧可读性验证 (09-21)
+
+**背景**：用户指令"vmap2h3m.py 转一张，用 VCMI 测试下"，首次实锤反转工具链的 4 个坑（#295）+ 引擎侧 `query -1` 的结论（#296）。引擎侧验证停在"地图加载+对象读回一致"层，30 步 rollout 适配需改 mlclient C++（违反铁律评估），用户拍板搁置。
+
+### 工具链
+
+- **正向 H3M→VMAP**：`py/h3m2vmap.py convert`（调 C++ 引擎 `tools/h3m2vmap/build/h3m2vmap --save`，带 ROUNDTRIP 自检；`batch` 批量落 `_report.json`）
+- **反向 VMAP→H3M**：`py/vmap2h3m.py`（纯 Python，按 h3m_tool reader 字节镜像写回 SOD；支持 hero/town/mine/resource/monster 5 类 + 全地形，其余对象进 `report.missing`；地图须正方形；`read_vmap` 须有 JSON 注释容错——#220 同源，本工具独立未继承，已补）
+- **引擎侧验证**：`py/_test_v2h3m_engine_load.py`（StrategicEnv libmlclient.so 载入反转 .h3m，回读对象与 h3m_tool 对账；`random_heroes=1` + 图名小写）
+
+### 引擎侧验证结论（#296）
+
+- **通过层**：地图加载成功 + 7 座城 1 英雄坐标逐项一致（`HERO OI=55 pos=(6 6 0)`、`TOWN OI=67 pos=(28 27 1)`）→ **字节镜像正确，VCMI 能解析**
+- **未过层**：`runNetwork` 线程 `Cannot answer the query -1!`（mlclient 网络层，`libvcmi.so` 二进制内，Python 够不到）→ `reset()` 内 `assert_state(AWAITING_STATE)` + `cond1.wait` 永久阻塞，30 步跑不完
+- **与玩家数无关**：单玩家（Faeries）+ 双玩家（All for One）都复现，推翻"≥2 非中立玩家"假设
+- **与 #294 同源不同层**：#294 = vmap 侧（sanitize 未清 `header.players` 结构 → 引擎拒绝 END_TURN）；本条 = h3m 侧（mlclient 开局状态注册/查询）。两者表面都是 `Cannot answer the query -1`，机制不同，别混归因
+- **未走路径**：改 `client/CServerHandler.cpp` runNetwork 查询容错（mlclient 不在"不重编 libvcmi.so"铁律内，但属 C++ 改动）——用户拍板搁置
+
+### SOP 固化
+
+1. 反转测试图优先选 ≥2 非中立玩家的双玩家图（141 张），单玩家图（18 张）需 `random_heroes=1`
+2. 读 vmap 的 Python 工具必须有 JSON 注释容错层（`_strip_json_comments` + `_loads_permissive`），新增独立工具不能漏（#295 坑 1 = 独立工具未继承 #220 修复）
+3. 同名函数引入 patch 前 `grep` 确认目标文件是否已有同名定义，避免静默覆盖（#295 坑 2）
+4. `query -1` 归因看上下文：vmap 侧 `Can not end turn` vs h3m 侧开局 reset 阻塞，别混（#294 vs #296）
+
+关联：踩坑 #295（工具链 4 坑）/ #296（引擎侧结论）/ #294（同表面不同层）/ #220（JSON 注释容错同源）/ `py/vmap2h3m.py` / `py/_test_v2h3m_engine_load.py` / `py/_fix_vmap2h3m_strip_comments.py` / `client/CServerHandler.cpp` / `vcmi_gym/connectors/v13/threadconnector.cpp` L322

@@ -1537,3 +1537,41 @@
 - **处理计划**: ① 批转跑完统计 timeout 图占比与命名规律（allied/normal 混合 vs 集中）；② 对比 timeout 图 vs PASS 图的 `header.players` JSON diff（canPlay/team/turnOrder 三字段）；③ 验证后扩 `sanitize_vmap_players_0920.py`：非红蓝玩家槽位 `canComputerPlay=false + canHumanPlay=false` 或直接从 turnOrder 剔除（以 diff 实证为准）；④ 重跑 timeout 图复验。
 - **教训**: ① sanitize 类清洗工具的覆盖面要以"引擎实际消费的所有字段"为准逐项核对（本条=第 4 类字段首次暴露）；② `HEROSEG_EMPTY [0/0×8]`（英雄段全空）≠ 开局共享内存慢（#285 BOOT_EMPTY_FAIL 场景，4/5 拍判据），**300s 后仍全空 = 引擎层没跑起来**，两者日志长相相似但根因不同层；③ timeout 图取证（_fail_triage/verify_tail.log 尾 32KB）是批转运行期间唯一引擎侧证据源，归因全靠它。
 - **关联**: 知识库 09-21 章（五钉表钉1/钉2 的未覆盖面）/ #285（HEROSEG_EMPTY 区分）/ `py/sanitize_vmap_players_0920.py` / `maps/h3m_to_vmap/_fail_triage/a_viking_we_shall_go_allied/verify_tail.log`
+
+#### #295 vmap2h3m 反转工具 4 个坑 (09-21 实锤) — ✅ 已修/已定位
+
+- **状态**: ✅ 已修（Python 侧注释容错）/ 已定位（3 个非 bug 坑 + 1 个引擎侧结论）
+- **背景**: 首次用 `vmap2h3m.py` 将 `Faeries.vmap` 反转为 `.h3m` 并用引擎侧验证，暴露 4 个连续问题。
+- **坑 1 — vmap 读 JSON 撞 `// game` 注释 (#220 同源，Python 侧未同步修)**:
+  - VCMI saveMap 输出 JSON 带 `// game` 行注释，**非合法 JSON**，引擎自身解析器容错，但 Python `json.loads` 严格模式报错 `Expecting property name enclosed in double quotes`。#220 已在 `py/h3m_batch_to_vmap.py` 修过 `_strip_c_comments` + `_loads_permissive`，但 **`py/vmap2h3m.py` 的 `read_vmap` 漏了同一套容错**（独立工具，未继承）。
+  - 修复：`vmap2h3m.py` 引入 `_strip_json_comments`（按字符串，逐行剥离）+ `_loads_permissive`（先严格后容错），替换 `read_vmap` 里 3 处 `json.loads`。**patch 脚本 `py/_fix_vmap2h3m_strip_comments.py`**。
+- **坑 2 — 同名函数冲突**:
+  - `vmap2h3m.py` 顶层**已有一个** `strip_json_comments`（用于 `load_engine_indexes` 读 h3m_tool 的索引 JSON，签名 `path→json.loads`，与 h3m2vmap.py 的同名函数不同）。我 patch 新引入的 `strip_json_comments`（按字符串，签名 `text→string`）**覆盖**了旧版，导致 `load_engine_indexes` 拿到字符串当 dict 用 → `'str' object has no attribute 'keys'`。
+  - 修复：新版重命名为 `_strip_json_comments`（前缀 `_` 表私有），避开旧版。
+- **坑 3 — h3m 非 randomHeroes 局需 ≥2 非中立玩家**:
+  - 引擎侧 `Expected at least 2 non-neutral players in the game`。`Faeries` 是 1 非中立玩家（red）→ 引擎降级/拒绝完整开局。141 张有 ≥2 非中立玩家，18 张单玩家（Faeries 这类）。测试脚本改 `random_heroes=1`（随机英雄模式跳过此检查）。
+  - **注意**: 双玩家图（All for One, red+blue）也复现 `query -1` → 此坑**非** `query -1` 的根因（误判已推翻），仅为测试时需 `random_heroes=1`。
+- **坑 4 — 图名大小写**:
+  - `data/Maps/` 目录里 `Faeries.vmap` 是首字母大写，`faeries_test_v2h3.h3m` 是小写。引擎按精确大小写匹配 → 测试脚本 `--map` 默认值用小写文件名，否则 `Bad value for map`。
+- **教训**: ① VCMI saveMap 输出 JSON 带 `// game` 注释是**引擎特性**，凡读 vmap 的 Python 工具（`vmap2h3m.py`/`h3m_batch_to_vmap.py`/`sync_maps_to_runtime.py`）都必须有容错层，新增工具不能漏（#220 只修了批转管线，`vmap2h3m.py` 是独立工具未继承）；② 同名函数引入 patch 前必须 `grep` 确认目标文件是否已有同名定义，避免静默覆盖；③ 反转测试图优先选 ≥2 非中立玩家的双玩家图（141 张）作储备，单玩家图（18 张）需 `random_heroes=1` 绕开。
+- **复现/验证**: `python py/vmap2h3m.py maps/h3m_to_vmap/Faeries.vmap /tmp/out.h3m --engine-root ... --report ...` → 修复前 `JSONDecodeError`，修复后成功输出 75790B；`py/_test_v2h3m_engine_load.py` → 引擎侧回读 `HERO OI=55 pos=(6 6 0)`、`TOWN OI=67 pos=(28 27 1)` 与 h3m_tool 逐项一致。
+- **关联**: #220（JSON 注释容错，同源不同工具）/ #294（`query -1` 另一侧——sanitize players 残留）/ `py/vmap2h3m.py` L152-172 / `py/_fix_vmap2h3m_strip_comments.py` / `py/_test_v2h3m_engine_load.py`
+
+#### #296 h3m 反转图引擎侧 `query -1` 非致命但卡 reset()——引擎侧问题，Python 够不到 (09-21 实锤) — ⏸ 已定位/搁置
+
+- **状态**: ⏸ 已定位（引擎侧，需改 mlclient 源码容错才彻底），用户拍板"引擎可读性结论已足够，停止 30 步适配"
+- **现象**: `vmap2h3m.py` 反转出的 `.h3m` 放 `data/Maps/`，`_test_v2h3m_engine_load.py`（StrategicEnv libmlclient.so）开局后：
+  - 地图加载成功，引擎回读对象完整（`HERO OI=55 pos=(6 6 0)`、`TOWN OI=67 pos=(28 27 1)` 等，与 h3m_tool 逐项一致）→ **字节镜像正确，VCMI 能解析**
+  - 但 `runNetwork` 线程 2 次 `ERROR Cannot answer the query -1!`，随后 `reset()` 内部 `assert_state(AWAITING_STATE)` + `cond1.wait` **永远阻塞**，30 步跑不完
+- **根因（引擎侧）**:
+  - `Cannot answer` 文本在 `libvcmi.so` 二进制内（源码树 `grep -rn` 无源码匹配），**Python/Pybind 层改不动**
+  - 发出方 `[runNetwork]` = [CServerHandler.cpp](file:///home/administrator/vcmi-native/client/CServerHandler.cpp) 的 mlclient 网络线程，开局后做一次同步状态查询（query id 1），回复失败 → `query -1`
+  - 真正卡 `reset()` 的根因不是 `query -1`，而是 **h3m 反转图在 mlclient `runNetwork` 开局初始化阶段，地图/玩家状态未被正常注册到 game state**，connector 永远等不到 `AWAITING_STATE`。`query -1` 是症状，非病因
+  - **与玩家数无关**：单玩家图（Faeries）和双玩家图（All for One, red+blue）都复现 → 推翻"≥2 非中立玩家"假设
+  - **与 #294 同源不同层**：#294 是 vmap 侧（sanitize 未清 `header.players` 结构 → 引擎拒绝 END_TURN）；本条是 h3m 侧（mlclient 开局状态注册/查询问题）。两者表面都是 `Cannot answer the query -1`，但机制不同
+- **未走路径（引擎侧，违反铁律，需评估）**:
+  - 改 `libmlclient.so` 源码（`client/CServerHandler.cpp` `runNetwork` 查询容错：失败不阻塞/重试/跳过），重编 mlclient——**mlclient 不在"不重编 libvcmi.so"铁律内**（铁律只禁 libvcmi.so），但属 C++ 改动，需 WSL 重编
+  - 或定位 `query -1` 具体查什么（mlclient `client/` 源码），确认是开局初始化时序还是 h3m 玩家结构注册缺失，再决定容错 vs 补数据
+- **教训**: ① h3m 反转图的引擎可读性验证**到"地图加载+对象读回一致"层已足够**，30 步 rollout 需 mlclient 开局状态注册适配，是独立 C++ 工作，不值得为反转验证去碰；② `Cannot answer the query -1` 在 h3m 侧与 vmap 侧（#294）是**两种不同机制**的同表面现象，归因要看上下文（vmap 是 `Can not end turn`，h3m 是开局 reset 阻塞），别混为一谈；③ pybind connector（v13 `threadconnector.cpp`）的 `reset()` 是 C++ 函数，Python 够不到，适配要改 C++ 重编。
+- **复现/验证**: `python py/_test_v2h3m_engine_load.py --steps 30` → `[ok] reset, obs shape=(1024,)` 不返回（卡死）；`grep -E 'Cannot answer|HERO OI|TOWN OI' /tmp/v2h3m_allforone.log` → 对象读回一致 + 2 次 query -1。
+- **关联**: #294（同表面不同层）/ #295（vmap2h3m 工具链坑）/ `py/_test_v2h3m_engine_load.py` / `client/CServerHandler.cpp` L156 `runNetwork` / `vcmi_gym/connectors/v13/threadconnector.cpp` L322 `reset()`
