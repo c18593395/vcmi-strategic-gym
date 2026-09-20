@@ -1251,10 +1251,19 @@ try:
                                     except Exception:
                                         pass
                         else:
+                            # A3 踩怪防 (09-20 BUG②): 贪心回退也避怪 — BFS 全图不可达时 pas[d] 直选
+                            # 会穿怪格 (实锤战死主路径之一); 优先选非怪格方向, 全怪才穿 (死路兜底)。
+                            _gset_greedy = {(gg[0], gg[1]) for gg in get_guards(args.mapname) if gg[2] == hz}
                             for d in cand:
-                                if pas[d]:
+                                nx2, ny2 = hx + [0,1,1,1,0,-1,-1,-1][d], hy + [-1,-1,0,1,1,1,0,-1][d]
+                                if pas[d] and (nx2, ny2) not in _gset_greedy:
                                     a = d
                                     break
+                            if a == 24:
+                                for d in cand:
+                                    if pas[d]:
+                                        a = d
+                                        break
                 # 卡住检测: 连续 6 步进度不减小 → 放弃换目标 (被堵/绕路)
                 # 2026-09-01 改法二: BFS 引导的城镇目标 (blue城/回城取兵) 改用 BFS 剩余路径长度判进度 —
                 # 绕岩路径前段曼哈顿不降反升, 旧判定 6 步即误判 TOWN_BLOCKED (重启后 6/10 局误触发 →
@@ -1548,15 +1557,21 @@ try:
         # 且假设 id+count 交错布局 — 全错位, 导致 [RECRUITED]/兵力增量奖励恒失效。
         # 权重沿用 VCMI AI value 阶梯 (T1-T5), T6/T7 外推
         _slot_weights = [10, 40, 120, 350, 900, 1600, 2500]
-        _army_now = 0.0
-        for _si in range(7):
-            try:
-                _cnt = int(nobs[b_e + 15 + _si])
-                if _cnt > 0:
-                    _army_now += _cnt * _slot_weights[_si]
-            except:
-                pass
-        if econ_prev_army_power is not None:
+        # BUG修复 (09-20): ah=-1 (红英雄死亡帧) 时 heroes 段重排蓝英雄顶 slot0 → 军队读数跳变
+        # → 假 [RECRUITED] + 假招兵奖励 0.03×dp 污染 (实锤: 死局 RED_DEAD 前一帧恒现 RECRUITED+3500)。
+        # 死亡帧跳过军队计算, econ_prev 不更新 (死亡帧后立即终局, 无后续帧)。
+        if int(nobs[3203]) < 0:
+            _army_now = econ_prev_army_power if econ_prev_army_power is not None else 0.0
+        else:
+            _army_now = 0.0
+            for _si in range(7):
+                try:
+                    _cnt = int(nobs[b_e + 15 + _si])
+                    if _cnt > 0:
+                        _army_now += _cnt * _slot_weights[_si]
+                except:
+                    pass
+        if econ_prev_army_power is not None and int(nobs[3203]) >= 0:
             _dp = _army_now - econ_prev_army_power
             if _dp > 0:
                 r += 0.03 * _dp  # T7.5 S2 (09-19 部署): 兵力系数 0.02→0.03
