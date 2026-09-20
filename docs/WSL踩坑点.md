@@ -1529,14 +1529,17 @@
 - **教训**: ① 错误判据要挂**事实源头**（日志/返回码/状态字），不要挂下游转述（detail 字符串拼接）；② "零触发的防御机制"要主动演习一次（本轮 timeout 重试上线多日首次实战才确认能跑）；③ 断点索引（_pool_index.json）是管线与训练器之间的解耦契约，格式变更需双侧同步。
 - **关联**: 知识库 09-21 章 / `py/h3m_batch_pipeline.py`（train_verify + pool_index_update）/ `py/train_wsl2_ppo_v2.py`（_refresh_pool_blue_ai）/ 主仓 `afdb414`/`cfe5941`
 
-#### #294 adventure timeout 图引擎特征：`Can not end turn for player that is not in game!` + 英雄段全空 [0/0×8] —— header.players canPlay/team 结构残留（第 7 钉候选）(09-21 批转实锤) — 🔄 待查（批转跑完统计占比后立项）
+#### #294 adventure timeout 图双根因：teams 红蓝同队 + mainTown 指向无城 —— sanitize v2 造城方案根治 (09-21 定谳) — ✅ 已修（双冒烟验证：700s 超时 → 33s/35s 正常跑）
 
-- **状态**: 🔄 待查（不阻塞批转：管线 timeout→StupidAI 重试 + 取证旁路 + 断点续跑健康推进）
+- **状态**: ✅ 已修（sanitize_v2 + A2 管线提前终止，下轮 resume-fail 生效）；v1→v2 演进含一次证伪教训
 - **现象**: 批转 [1/160] a viking we shall go **allied**（MMAI+StupidAI 双超 700s）与 [3/160] a warm and familiar place（普通图）同模式 FAIL：引擎日志 `Cannot answer the query -1!` → `Can not end turn for player that is not in game!` → `Got false in applying 7EndTurn` 循环刷屏 → adventure 300s 超时；`[HEROSEG_EMPTY] slots=[0/0 ×8]`（英雄槽全空 = 红蓝英雄均未 spawn）。
-- **根因**（候选定性）: sanitize 只清了 `events[].players` / `predefinedHeroes[].availableFor` / objects owner 三类，**未动 `header.players` 结构**（canPlay/canHumanPlay/canComputerPlay/team 结盟/turnOrder）。若某玩家槽位全 canPlay=false 但 turnOrder 仍轮转 → 轮到它时 "not in game" → END_TURN 拒绝 → 当前玩家永不切换 → adventure 卡死。allied 图 team 字段与非 allied 图共同命中，指向 players 槽位结构而非结盟本身。
-- **处理计划**: ① 批转跑完统计 timeout 图占比与命名规律（allied/normal 混合 vs 集中）；② 对比 timeout 图 vs PASS 图的 `header.players` JSON diff（canPlay/team/turnOrder 三字段）；③ 验证后扩 `sanitize_vmap_players_0920.py`：非红蓝玩家槽位 `canComputerPlay=false + canHumanPlay=false` 或直接从 turnOrder 剔除（以 diff 实证为准）；④ 重跑 timeout 图复验。
-- **教训**: ① sanitize 类清洗工具的覆盖面要以"引擎实际消费的所有字段"为准逐项核对（本条=第 4 类字段首次暴露）；② `HEROSEG_EMPTY [0/0×8]`（英雄段全空）≠ 开局共享内存慢（#285 BOOT_EMPTY_FAIL 场景，4/5 拍判据），**300s 后仍全空 = 引擎层没跑起来**，两者日志长相相似但根因不同层；③ timeout 图取证（_fail_triage/verify_tail.log 尾 32KB）是批转运行期间唯一引擎侧证据源，归因全靠它。
-- **关联**: 知识库 09-21 章（五钉表钉1/钉2 的未覆盖面）/ #285（HEROSEG_EMPTY 区分）/ `py/sanitize_vmap_players_0920.py` / `maps/h3m_to_vmap/_fail_triage/a_viking_we_shall_go_allied/verify_tail.log`
+- **归因过程**（三轮 diff 反转）: ① header.players 逐键 diff（timeout vs PASS 同图变体）——players 结构**完全一致**，候选根因 1 证伪；② objects 全量对比——allied 与 PASS 图 2488 对象完全相同（同图变体），objects 层证伪；③ 整 header 逐键 diff → **唯一差异键 `teams: [["red","blue"]]`**——红蓝同队 = 引擎无敌人 → 轮转/胜负逻辑崩。但 warm 图 teams=ABSENT 仍 timeout → 第二根因：`blue.mainTown` 指向 (17,16) **全图仅 1 城（red 的）** → blue 英雄无法生成。
+- **v1 教训（先证伪后定谳）**: mainTown 无效 → 删键 → 冒烟实锤 `Failed to launch game: Expected at least 2 non-neutral players for non-randomHeroes mode, got 1`——**每个参战玩家必须有英雄**，删出生点不解决问题。
+- **v2 修复（sanitize_vmap_players_0920.sanitize_v2）**: ① `teams` 键删除（VCMI 缺省 = 各自敌对 = 1v1 标准态）；② mainTown 指向无城 → **造城**：copy 现有城对象模板（deepcopy 保全部字段）改 owner/坐标/instanceName，generateHero=true 在城处生成英雄。全图 0 城极端情况回退删键。
+- **验证**: allied 图 teams 删除 → 700s 双超 → **33s 正常 40 步**（r=-183.5）；warm 图造城 → 700s 双超 → **35s 正常 40 步**（r=-184.5）。
+- **A2 配套（h3m_batch_pipeline.train_verify）**: subprocess.run → Popen + 10s log 轮询——`Failed to launch game` 或 `not in game` 计数≥50 → 提前 kill（700s → ~90s），detail 不含 "timeout" 不触发 StupidAI 重试（图本身坏，换蓝方 AI 无意义）。
+- **教训**: ① "同症状 ≠ 同根因"——timeout 图有两型（结盟/无出生城），对照 diff 只能定性一张，第二张要独立找同图变体或逐键全 diff；② diff 归因三段式：候选字段 diff → 全量 objects diff → 整 header 逐键 diff，逐层排除最省力；③ 清洗类工具的"删"要配合引擎的**存在性约束**（非 neutral 玩家≥2 有英雄），删之前想清楚引擎少了它会怎样；④ 造城模板 deepcopy 现有城是零结构风险方案（字段全集天然合法）。
+- **关联**: #285（HEROSEG_EMPTY 区分）/ #293（timeout 重试链路）/ `py/sanitize_vmap_players_0920.py`（sanitize_v2）/ `py/h3m_batch_pipeline.py`（train_verify 轮询）/ 知识库 09-21 章第 7 钉小节
 
 #### #295 vmap2h3m 反转工具 4 个坑 (09-21 实锤) — ✅ 已修/已定位
 

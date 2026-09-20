@@ -109,12 +109,37 @@ def train_verify(vmap_name, steps, ckpt, log_path, blue_ai="MMAI_RANDOM"):
            "--use_nk2_shaping", "--nk2_shaping_scale", "0.45",
            "--target_chain", "scorer"]
     with open(log_path, "w") as lf:
+        # 09-21 A2 (#294 配套): Popen + log 轮询提前终止 — 引擎死信号
+        # ("Failed to launch game" / "not in game" 刷屏≥50) = 图无法开局,
+        # 等 timeout 白烧 700s → 10s 轮询 log 提前 kill
         try:
-            p = subprocess.run(cmd, stdout=lf, stderr=subprocess.STDOUT,
-                               env=env, timeout=steps * 12 + 300)
-        except subprocess.TimeoutExpired:
-            return False, "runner timeout"  # #293: 超时 → 上层换 StupidAI 重试
-    rc = p.returncode
+            p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
+                                 env=env)
+        except Exception:
+            return False, "runner 启动失败"
+        deadline = time.time() + steps * 12 + 300
+        timed_out = False
+        while p.poll() is None:
+            time.sleep(10)
+            if time.time() > deadline:
+                p.kill()
+                timed_out = True
+                break
+            try:
+                with open(log_path, errors="replace") as f:
+                    tail = f.read()[-65536:]
+            except OSError:
+                continue
+            if "Failed to launch game" in tail:
+                p.kill()
+                return False, "engine launch fail (early kill)"
+            n_nig = tail.count("not in game")
+            if n_nig >= 50:
+                p.kill()
+                return False, f"engine not-in-game spam x{n_nig} (early kill)"
+        rc = p.wait() if timed_out else p.returncode
+    if timed_out:
+        return False, "runner timeout"
     if rc not in (0, 124):
         return False, f"runner rc={rc} (139=segfault)"
     if not os.path.exists(traj):
@@ -215,6 +240,20 @@ def main():
         return 1
     print(f"checkpoint: {os.path.basename(ckpt)}")
 
+    # #295: 读取 _pool_index 中 blue_ai="skip" 的图 (地下城等结构性无出生点), 直接跳过
+    _skip_names = set()
+    _idx = {}
+    if os.path.exists(POOL_INDEX):
+        try:
+            _idx = json.load(open(POOL_INDEX, encoding="utf-8"))
+            for _vn, _e in _idx.items():
+                if isinstance(_e, dict) and _e.get("blue_ai") == "skip":
+                    _skip_names.add(_vn)
+        except Exception:
+            pass
+    if _skip_names:
+        print(f"[SKIP] {len(_skip_names)} 张结构性 skip (地下城等): {sorted(_skip_names)}")
+
     h3ms = sorted(Path(H3M_DIR).glob("*.h3m"))
     if args.only:
         h3ms = [h for h in h3ms if args.only.lower() in h.name.lower()]
@@ -233,6 +272,11 @@ def main():
         # resume-fail 时只重验 verify_fail/convert_fail/strip_fail, 不动旧 PASS
         if pass_cond:
             n_skip += 1
+            continue
+        # #295: 结构性 skip (地下城/无出生点) — pool_index blue_ai="skip"
+        if final_name in _skip_names:
+            n_skip += 1
+            print(f"  [STRUCTURAL_SKIP] {h3m.name} — {json.dumps(_idx.get(final_name, {}), ensure_ascii=False)[:120]}", flush=True)
             continue
 
         print(f"\n[{i}/{len(h3ms)}] {h3m.name} → {final_name}", flush=True)

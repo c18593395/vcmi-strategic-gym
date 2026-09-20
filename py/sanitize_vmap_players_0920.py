@@ -18,6 +18,7 @@
 """
 import sys
 import json
+import copy
 import zipfile
 import shutil
 import tempfile
@@ -53,6 +54,58 @@ def sanitize(header: dict, verbose=True):
 
     _prune(header, "header")
     return changes
+
+
+def sanitize_v2(header: dict, objects: list, changes: list) -> bool:
+    """09-21 #294 第 7 钉: teams 结盟 + mainTown 无效指向 — adventure timeout 根因对.
+
+    实锤 (09-21 批转取证 diff):
+      - a viking we shall go allied: teams=[["red","blue"]] 红蓝同队 → 引擎无敌人
+        → "Can not end turn for player that is not in game!" → adventure 300s 卡死
+        (PASS 对照图唯一 header diff 即此键; VCMI 缺省无 teams = 各自敌对 = 1v1 标准态)
+      - a warm and familiar place: blue.mainTown 指向 (17,16) 但全图仅 1 城 (red 的,
+        (14,15)) → blue 英雄无法生成 → 英雄段全空 [0/0×8] → 同症状卡死
+
+    冒烟教训 (09-21 v2 首版): 直接删 mainTown → blue 无英雄 → 引擎
+    "Expected at least 2 non-neutral players for non-randomHeroes mode, got 1"
+    → Failed to launch。故改为**造城**: copy 现有城模板改 owner/坐标,
+    generateHero=true 在城处生成英雄, 保住 2 non-neutral players。
+    """
+    modified_objects = False
+
+    # 1) teams: 红蓝同队违反 1v1 对战结构 → 删键 (allied 图冒烟 700s 超时 → 33s 过 ✓)
+    if "teams" in header:
+        changes.append(f"teams 删除: {json.dumps(header['teams'], ensure_ascii=False)}")
+        del header["teams"]
+
+    # 2) mainTown 校验: 坐标处无城对象 → 造一座 (用清洗后 objects — 被删城不能当出生点)
+    town_objs = [ob for ob in objects
+                 if isinstance(ob, dict) and "town" in str(ob.get("type", "")).lower()]
+    town_pos = {(ob.get("l"), ob.get("x"), ob.get("y")) for ob in town_objs}
+    players = header.get("players")
+    if isinstance(players, dict):
+        for pid, p in players.items():
+            if not isinstance(p, dict) or "mainTown" not in p:
+                continue
+            mt = p["mainTown"]
+            key = (mt.get("l"), mt.get("x"), mt.get("y"))
+            if key in town_pos:
+                continue
+            if not town_objs:
+                changes.append(f"players.{pid}.mainTown 删除 (全图无城可参照造城)")
+                del p["mainTown"]
+                continue
+            template = copy.deepcopy(town_objs[0])
+            template["x"] = mt.get("x")
+            template["y"] = mt.get("y")
+            template["l"] = mt.get("l", 0)
+            template["instanceName"] = f"town_main_{pid}"
+            template.setdefault("options", {})["owner"] = pid
+            objects.append(template)
+            town_pos.add(key)
+            modified_objects = True
+            changes.append(f"players.{pid}.mainTown 造城 @({mt.get('x')},{mt.get('y')}) owner={pid}")
+    return modified_objects
 
 
 def sanitize_objects(objects: list, verbose=True):
@@ -107,13 +160,21 @@ def sanitize_and_save(path, dry=False):
     header = _loads_permissive(payload["header.json"].decode("utf-8"))
     changes = sanitize(header)
 
+    objects_final = []
+    objects_dirty = False
     if "objects.json" in payload:
         objects = _loads_permissive(payload["objects.json"].decode("utf-8"))
         if isinstance(objects, list):
             keep, obj_changes = sanitize_objects(objects)
             changes.extend(obj_changes)
+            objects_final = keep
             if len(keep) != len(objects):
-                payload["objects.json"] = json.dumps(keep, ensure_ascii=False, indent=1).encode("utf-8")
+                objects_dirty = True
+            # 09-21 v2: teams 结盟 + mainTown 造城 (#294 第 7 钉, adventure timeout 根因对)
+            if sanitize_v2(header, objects_final, changes):
+                objects_dirty = True
+            if objects_dirty:
+                payload["objects.json"] = json.dumps(objects_final, ensure_ascii=False, indent=1).encode("utf-8")
 
     if not changes:
         return None
