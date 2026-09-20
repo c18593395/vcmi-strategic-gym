@@ -510,6 +510,7 @@ try:
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     _move_reject_streak = 0  # 卡死强制 END_TURN (09-20): 连续位置不变拍数, >=3 触发 stuck_endturn
+    _boot_empty_cnt = 0  # 开局空集计数 (09-20): 官方 h3m 图 adventure 层卡死时共享内存持续未填充
     for _ in range(args.max_turns):
         cycle_penalty = 0.0
         force_dir = None
@@ -1363,6 +1364,18 @@ try:
                     _bf.write(_diag + "\n")
             except Exception:
                 pass
+            # 开局空集快速失败 (09-20): 官方 h3m 图 adventure 层卡死时共享内存持续未填充,
+            # 旧逻辑等 adventure_wait 300s 超时才强制结束 (13 FAIL 中 5 张各白等 300s)。
+            # 前 5 拍连续 4 拍全空 = 引擎没起来 → 提前终局; 正常局第 1 拍即有数据不误伤;
+            # 中后期战斗/visit 瞬态空拍 (steps>=5) 不受此计数影响。
+            if traj["steps"] < 5:
+                _boot_empty_cnt += 1
+                if _boot_empty_cnt >= 4:
+                    done = True
+                    trunc = True
+                    _raud("boot_empty_fail", 0.0)
+                    print(f"[BOOT_EMPTY_FAIL] map={args.mapname} boot frames all empty, "
+                          f"fail fast at step {traj['steps']} (engine adventure stuck, skip 300s wait)", flush=True)
         # C 方案 (09-11, 同日扩展全图): 蓝英雄死亡 = capture proxy (任意图)
         # duel(1v1) 蓝英雄一死 → game_over 当步 end → 英雄不可能再走到城格,
         # 原 TOWN_CAPTURE (owner 翻转 L1012) 结构性死信 → 蓝英雄击杀事件替代
