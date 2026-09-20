@@ -98,15 +98,13 @@
   },
   "Battle of the Sexes Allied.h3m": {
     "final": "battle_of_the_sexes_allied_h3m.vmap",
-    "verify": "steps=1<50% (早期死亡/异常)",
-    "verify_steps": 1,
-    "status": "verify_fail"
+    "status": "convert_fail",
+    "err": " /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes allied.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3298\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
   },
   "Battle of the Sexes.h3m": {
     "final": "battle_of_the_sexes_h3m.vmap",
-    "verify": "steps=1<50% (早期死亡/异常)",
-    "verify_steps": 1,
-    "status": "verify_fail"
+    "status": "convert_fail",
+    "err": "tch map /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3297\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
   },
   "Brave New World(Allies).h3m": {
     "final": "brave_new_world_allies_h3m.vmap",
@@ -959,5 +957,34 @@
     "verify": "steps=250/250 rew=-361.65",
     "verify_steps": 250,
     "status": "PASS"
+  },
+  "Warmongers.h3m": {
+    "final": "warmongers_h3m.vmap",
+    "verify": "steps=30/60 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS"
+  },
+  "battle of the sexes allied.h3m": {
+    "final": "battle_of_the_sexes_allied_h3m.vmap",
+    "status": "convert_fail",
+    "err": " /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes allied.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3298\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
+  },
+  "battle of the sexes.h3m": {
+    "final": "battle_of_the_sexes_h3m.vmap",
+    "status": "convert_fail",
+    "err": "tch map /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3297\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
+  },
+  "a viking we shall go allied.h3m": {
+    "final": "a_viking_we_shall_go_allied_h3m.vmap",
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "a viking we shall go.h3m": {
+    "final": "a_viking_we_shall_go_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
   }
 }

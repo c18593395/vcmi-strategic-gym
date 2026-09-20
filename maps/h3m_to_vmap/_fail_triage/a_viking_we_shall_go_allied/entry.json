@@ -1,0 +1,22 @@
+{
+  "h3m": "a viking we shall go allied.h3m",
+  "safe": "a_viking_we_shall_go_allied",
+  "entry": {
+    "final": "a_viking_we_shall_go_allied_h3m.vmap",
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 05:02:04",
+  "traj_summary": {
+    "steps": 1,
+    "total_rew": 12.25,
+    "error": null,
+    "last_acts": [
+      16
+    ],
+    "last_rews": [
+      12.25
+    ]
+  }
+}

@@ -1493,11 +1493,20 @@
 - **教训**: ① convert_fail 的 err 若**全部相同** = 系统性问题（工具/环境），不是图的问题——归因脚本 `py/h3m_fail_triage.py` 已内置同 err 去重（一次 JEV 调用定性全组）；② `ls -la --time-style=+%F_%T` 对比二进制与 .so 时间戳是脱钩问题的一行定位法；③ libvcmi.so 重编的 SOP 应追加"重链 h3m2vmap"步骤（与 VCMI 铁律"vcmi-native 双目录 cp 同步"同列）。
 - **关联**: #290（重链暴露的段错误，衍生坑）/ 知识库 09-20/21 章 / `py/h3m_batch_pipeline.py`（convert_fail 记录）
 
-#### #290 h3m2vmap 重链后新暴露：B3 规则应用阶段段错误，原 convert_fail 图群全军覆没 (09-21 冒烟实锤) — 🔄 待 gdb 排查
+#### #290 h3m2vmap 重链后新暴露：B3 规则应用阶段段错误，原 convert_fail 图群全军覆没 (09-21 冒烟实锤) — ✅ 已修（pool 英雄 null 槽，vcmi-native 41a99cd52c）
 
-- **状态**: 🔄 待查（修复 #289 后暴露的**独立深层 bug**，与符号问题正交）
+- **状态**: ✅ 已修（09-21 深夜 gdb 定位 + main.cpp 修复 + Battle of the Sexes 全链验证 667s 卡死 → 24s 正常跑）
 - **现象**: 重链后冒烟对照：Faeries（原 PASS，72x72/1545 对象）转换成功 `ROUNDTRIP OK`；**Dragon Orb（72x72/2923 对象）与 Back For Revenge（144x144/5318 对象）均在 `applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1` 后 `dumped core`**——解析正常、规则参数打印正常，死在规则应用中途。
-- **根因**: 待 gdb。非尺寸问题（72/144 都炸）；非普遍回归（Faeries 正常）；为原 convert_fail 图群共性内容特征触发（h3m2vmap C++ 侧 bug，源码 `~/vcmi-native/tools/h3m2vmap/`）。
-- **处理计划**: ① `ulimit -c unlimited` 复现抓 core；② `gdb h3m2vmap core -ex bt` 定位崩溃帧；③ 检查炸图共性（对象类型组合/特殊地形）；④ 修复后 `--resume-fail` 全量重验。排查期间批转 `--resume-fail` 对这 17 张图会 3 试全炸记 convert_fail（无害但浪费 ~10 分钟），可等修复后一并跑。
-- **教训**: ① 修好"启动即死"的表层 bug 后**必须立即冒烟深路径**——底层 bug 会被表层 bug 完全遮蔽（本条在 #289 修复前不可见）；② 对照冒烟（原 PASS 图 + 原 FAIL 图各一）是区分"回归 vs 遗留"的最快手段。
-- **关联**: #289（前置修复，本条因其暴露）/ 知识库 09-20/21 章 / 任务清单 WIN-4 状态栏
+- **根因**（09-21 gdb 实锤）: R2v2 重配的 compactNullSlots 压缩后，hero pool 占位英雄走**虚拟 ID**（objects 向量之外），但 main.cpp 尾部又 `map.objects.push_back(nullptr)` 把 null 塞回向量 → 规则应用阶段 R2v2 调 `CMap::removeObject` → 重编号循环 `(*iter)->id` 解引用 null 槽（CMap.cpp:691）→ segfault。非尺寸/非图内容问题——**任何带多余英雄（>2）的官方图必炸**。
+- **处理**: main.cpp 删 push_back(nullptr)，pool 英雄只分配虚拟 ID 不进 objects 向量（`h->id = ObjectInstanceID(map.objects.size() + poolCount)`）。修复后 Battle of the Sexes（108x108/3297 对象，此前 3 连败）转换 + sanitize + 250 步 verify 全链通过。
+- **教训**: ① 修好"启动即死"的表层 bug 后**必须立即冒烟深路径**——底层 bug 会被表层 bug 完全遮蔽（本条在 #289 修复前不可见）；② 对照冒烟（原 PASS 图 + 原 FAIL 图各一）是区分"回归 vs 遗留"的最快手段；③ **并行会话改同一文件必先对齐**——本条修复时曾与并行 compactNullSlots 方案冲突（我加的 null 压缩块 vs 对方虚拟 ID 方案），回滚我方块后修对方方案的 push_back 漏洞收口。
+- **关联**: #289（前置修复，本条因其暴露）/ #291（批转重启续跑）/ vcmi-native commit `41a99cd52c` / 知识库 09-20/21 章 / 任务清单 WIN-4 状态栏
+
+#### #291 批转进程目录快照失效：启动后源文件被重命名 → 持有失效名列表逐张 cannot open 白跑 (09-21 实锤) — ✅ 已修（杀进程重启断点续跑）
+
+- **状态**: ✅ 已修（04:50 杀 177204/177222 → run_h3m_batch.sh 重启，新枚举全小写名，PASS 38 skip + fail 重验）
+- **现象**: 批转 03:53 启动后推进到 [52/159] 起连续 `convert: cannot open or empty: .../data/Maps/Golems Aplenty Allied.h3m`——但目录里该文件实际存在（小写名 `golems aplenty allied.h3m`）。3 试重试全秒败，每张浪费 ~6s 且 report 记 convert_fail 污染。
+- **根因**: 管线 `main()` 开头一次性 `sorted(Path(H3M_DIR).glob("*.h3m"))` 枚举**目录快照**；03:53 启动时目录还有大写名，小写化（`py/lowercase_h3m_names.sh`，VFS 大小写钉 #285 系）在批转启动**之后**生效 → 进程持有已消失的旧名 → `cannot open`。**长跑批处理的目录快照与运行时文件系统脱节**。
+- **处理**: kill wrapper+python（**先杀 wrapper** run_h3m_batch.sh 再杀 python，顺序反了 wrapper 会走 [3/3] 自动拉起训练）→ 直接重跑 `run_h3m_batch.sh 250`：新进程重新枚举小写名；PASS 判定 `status==PASS and exists(final_path)` 不受旧名 convert_fail 污染（旧名键是垃圾数据但无害），resume-fail 自动重验。
+- **教训**: ① **文件系统重命名类操作必须排在长跑批处理启动之前**，或在批处理每张图处理前重新 `os.path.exists(h3m)` 快速失败（ENOENT 类不可重试错误不该吃 3 试重试）；② 批转 FAIL err 全相同（cannot open）= 系统性问题（#289 同款判据：同 err 去重定性）；③ "cannot open or empty" 且 `ls | grep -i <名>` 能命中 = 名字对不上而非文件缺失，先 diff 枚举名 vs 目录实况。
+- **关联**: #289（同 err 定性法）/ #290（本轮一并重验）/ `py/h3m_batch_pipeline.py`（L218 枚举点）/ `py/lowercase_h3m_names.sh` / `py/run_h3m_batch.sh`

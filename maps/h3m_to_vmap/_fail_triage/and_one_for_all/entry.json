@@ -1,14 +1,13 @@
 {
-  "h3m": "A Warm and Familiar Place.h3m",
-  "safe": "a_warm_and_familiar_place",
+  "h3m": "And One for All.h3m",
+  "safe": "and_one_for_all",
   "entry": {
-    "final": "a_warm_and_familiar_place_h3m.vmap",
-    "stripped": 253,
+    "final": "and_one_for_all_h3m.vmap",
     "verify": "steps=1<50% (早期死亡/异常)",
     "verify_steps": 1,
     "status": "verify_fail"
   },
-  "preserved_at": "2026-09-21 03:54:09",
+  "preserved_at": "2026-09-21 04:16:33",
   "traj_summary": {
     "steps": 1,
     "total_rew": 12.25,

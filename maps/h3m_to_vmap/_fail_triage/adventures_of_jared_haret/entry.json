@@ -1,14 +1,14 @@
 {
-  "h3m": "A Warm and Familiar Place.h3m",
-  "safe": "a_warm_and_familiar_place",
+  "h3m": "Adventures of Jared Haret.h3m",
+  "safe": "adventures_of_jared_haret",
   "entry": {
-    "final": "a_warm_and_familiar_place_h3m.vmap",
-    "stripped": 253,
+    "final": "adventures_of_jared_haret_h3m.vmap",
+    "stripped": 129,
     "verify": "steps=1<50% (早期死亡/异常)",
     "verify_steps": 1,
     "status": "verify_fail"
   },
-  "preserved_at": "2026-09-21 03:54:09",
+  "preserved_at": "2026-09-21 04:05:25",
   "traj_summary": {
     "steps": 1,
     "total_rew": 12.25,

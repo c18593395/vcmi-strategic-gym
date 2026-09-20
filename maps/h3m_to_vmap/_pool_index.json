@@ -1,0 +1,7 @@
+{
+  "a_viking_we_shall_go_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:02:33"
+  }
+}

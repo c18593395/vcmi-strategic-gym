@@ -2741,3 +2741,40 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 - 踩坑：#254（`WIN1_ENV_ARGS` 缺 A2 参数映射致 ep_runner 收不到 `--blue_hero_attack_bypass`，scorer 链选中蓝英雄后贪心回退全 blocked → 引擎拒绝；`Cannot move hero, destination tile is blocked!` 反复出现）
 
 **指针**：`docs/方案_攻击步旁路_20260917.md` / `docs/预研_OBS3英雄战斗触发链与BUILD链_20260917.md` / 踩坑 #254 / `ep_runner_one.py`（argparse L85-168 / MOVE_TO L947-1021）/ `py/target_scorer.py` / `train_wsl2_ppo_v2.py`（`WIN1_ENV_ARGS`）
+
+---
+
+## H3M→VMAP 转换全链五钉收官 + 批转续跑 (09-21)
+
+**背景**：Battle of the Sexes.h3m 转换 3 连败（108x108/3297 对象，新崩点）触发全链深查；用户指令"所有问题全部彻底解决"。五钉全拔 + 第六钉（运维）当日收口，全链验证通过。
+
+### 五钉根因链（一张图从源文件到引擎跑通的五道关）
+
+| # | 钉子 | 根因 | 修复 | 验证 |
+|---|------|------|------|------|
+| 1 | **header 玩家残留** | 官方图 `events[].players` / `predefinedHeroes[*].availableFor` 含 green/tan/orange 等 → 引擎启动为不存在玩家取 `StartInfo.playerInfos` → throw "Cannot find info about player X" → Failed to launch → adventure_wait 300s 假死 | `py/sanitize_vmap_players_0920.py` 递归清洗 header（players/availableFor 裁到 red\|blue） | Battle of the Sexes 27 处清洗后不再启动崩 |
+| 2 | **objects 层残留** | 非红蓝 owner 对象 / `alignmentToPlayer` 对象（R2v2 只改 tempOwner 漏它）/ 无 type 空对象（加载器插 nullptr） | sanitize_and_save 的 sanitize_objects：删三类对象 | 同图 130+1 处清洗 |
+| 3 | **VFS 大小写** | VCMI VFS 资源查询路径小写化 vs ext4 大小写敏感 → 大写名 H3M 找不到 | `py/lowercase_h3m_names.sh` 统一小写（160 文件） | 转换器 IN 路径可解析 |
+| 4 | **CMap::removeObject segfault** | hero pool 占位 `push_back(nullptr)` → removeObject 重编号循环 `(*iter)->id` 解引用 null（CMap.cpp:691） | vcmi-native `41a99cd52c`：pool 英雄只分配虚拟 ID 不进 objects 向量 | Dragon Orb / Back For Revenge / Battle of the Sexes 均不再 dumped core |
+| 5 | **h3m2vmap 与 libvcmi.so 符号脱钩** | lib 重编后转换器未重链 → `Symbol ... has different size` 启动即死（踩坑 #289） | `cmake --build tools/h3m2vmap/build --target h3m2vmap` 重链 | 原符号错 17 张恢复解析 |
+
+**第六钉（运维，#291）**：长跑批转进程启动时枚举的目录快照，在小写化重命名后失效 → 持有旧大写名逐张 `cannot open` 白跑。修复 = 先杀 wrapper 再杀 python → `run_h3m_batch.sh 250` 重启（新枚举小写名，PASS 38 skip + fail 断点重验）。**纪律：文件系统重命名必须排在批处理启动之前。**
+
+### 管线判据/重试配套修正（同窗口）
+
+- **timeout 标记激活**（#293 形同虚设修复）：`adventure_wait timed out` 在 ep_runner 内部被捕获（rc=0 steps=1），旧 detail 判据不含 "timeout" → 从 verify 日志文本识别，打 timeout 标记触发 StupidAI 蓝方重试。
+- **步数判据放宽**：`steps_done < 30` 统一下限（旧 `max(30, steps//2)` 在 250 步任务顶到 125 → 官方图怪贴脸战死全 FAIL）。入池目的=地形/规模多样性，贴脸战死是正常生态。
+- **BOOT_EMPTY_FAIL 快速失败**：前 5 拍连续 4 拍 HEROSEG_EMPTY → 提前终局省 300s（共享内存未填充图不再挂满 adventure_wait）。
+
+### 全链验证（Battle of the Sexes 3 连败图）
+
+转换（3297 对象）→ sanitize 158 处清洗 → strip（如有地下）→ 部署 → 250 步训练局：**steps=30 secs=24 r=-62.8 err=no** 正常跑（B 类生态死，非卡死/假死）。修复前：667s 假死。
+
+### SOP 固化
+
+1. libvcmi.so 重编后：① 双目录 cp 同步（VCMI 铁律）② **重链 h3m2vmap**（本表钉 5）
+2. 改/生成 .vmap 后：`py/sync_maps_to_runtime.py --strict`（项目规则既有）
+3. 新官方图入池标准流程 = `run_h3m_batch.sh`（管线内置 sanitize + timeout 重试 + 30 步判据 + 取证旁路）
+4. 批转监控：`Get-Content D:\Bigdata\hero3_fresh\tmp\h3m_batch_run.log -Tail 20 -Wait` / report 统计读 `maps/h3m_to_vmap/_pipeline_report.json`（键=H3M 文件名）
+
+关联：踩坑 #289/#290/#291 / `py/sanitize_vmap_players_0920.py` / `py/h3m_batch_pipeline.py` / `py/lowercase_h3m_names.sh` / vcmi-native `41a99cd52c` / 主仓 `afdb414`

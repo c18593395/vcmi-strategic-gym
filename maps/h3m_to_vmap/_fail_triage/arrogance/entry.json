@@ -1,0 +1,51 @@
+{
+  "h3m": "Arrogance.h3m",
+  "safe": "arrogance",
+  "entry": {
+    "final": "arrogance_h3m.vmap",
+    "stripped": 193,
+    "verify": "steps=30<50% (早期死亡/异常)",
+    "verify_steps": 30,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 04:17:30",
+  "traj_summary": {
+    "steps": 30,
+    "total_rew": -62.75,
+    "error": null,
+    "last_acts": [
+      18,
+      19,
+      20,
+      21,
+      16,
+      17,
+      18,
+      19,
+      10,
+      10
+    ],
+    "last_rews": [
+      -2.725,
+      -3.1,
+      -2.85,
+      -2.85,
+      -2.85,
+      -3.1,
+      -2.725,
+      -3.1,
+      -2.85,
+      -2.85,
+      -2.85,
+      -3.1,
+      -2.725,
+      -3.1,
+      -2.85,
+      -2.85,
+      -2.85,
+      -3.1,
+      -3.1,
+      -53.1
+    ]
+  }
+}

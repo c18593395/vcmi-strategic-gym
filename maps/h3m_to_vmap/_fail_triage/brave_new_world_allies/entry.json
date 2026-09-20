@@ -1,14 +1,13 @@
 {
-  "h3m": "A Warm and Familiar Place.h3m",
-  "safe": "a_warm_and_familiar_place",
+  "h3m": "Brave New World(Allies).h3m",
+  "safe": "brave_new_world_allies",
   "entry": {
-    "final": "a_warm_and_familiar_place_h3m.vmap",
-    "stripped": 253,
+    "final": "brave_new_world_allies_h3m.vmap",
     "verify": "steps=1<50% (早期死亡/异常)",
     "verify_steps": 1,
     "status": "verify_fail"
   },
-  "preserved_at": "2026-09-21 03:54:09",
+  "preserved_at": "2026-09-21 04:30:53",
   "traj_summary": {
     "steps": 1,
     "total_rew": 12.25,
