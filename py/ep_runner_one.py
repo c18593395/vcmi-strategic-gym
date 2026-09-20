@@ -510,6 +510,7 @@ try:
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
     _move_reject_streak = 0  # 卡死强制 END_TURN (09-20): 连续位置不变拍数, >=3 触发 stuck_endturn
+    _stuck_osc_streak = 0  # #292 横跳熔断 (09-21): zigzag 连续命中拍数, >=6 触发 stuck_osc_endturn
     _boot_empty_cnt = 0  # 开局空集计数 (09-20): 官方 h3m 图 adventure 层卡死时共享内存持续未填充
     for _ in range(args.max_turns):
         cycle_penalty = 0.0
@@ -657,6 +658,13 @@ try:
                         elif _move_reject_streak >= 3:
                             a = 10
                             _raud("stuck_endturn", 0.0)
+                        elif _stuck_osc_streak >= 6:
+                            # #292 横跳熔断 (09-21): [3,7] 两格往返位置每步都在变, move_reject_streak
+                            # 抓不住 → zigzag(-2.0) 连续 6 拍命中 = 确认横跳死循环 → 强制 END_TURN
+                            # 推进回合 (移动点恢复解卡); 触发后清零防连发, a=10 不进 act_hist 无自激
+                            a = 10
+                            _raud("stuck_osc_endturn", 0.0)
+                            _stuck_osc_streak = 0
                 else:
                     zombie = True  # 2026-08-28: 8方向全堵 = 英雄已死(无活动英雄) → 僵尸段
                     a = 10  # 全堵→END_TURN
@@ -1719,6 +1727,8 @@ try:
                 if cur_pos == prev2_pos:
                     r -= 2.0
                     _raud("zigzag", -2.0)
+                else:
+                    _stuck_osc_streak = 0
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
             # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致

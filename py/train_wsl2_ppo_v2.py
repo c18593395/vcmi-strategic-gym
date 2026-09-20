@@ -161,7 +161,26 @@ class Net(nn.Module):
 
 EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
 
-def run_episode(mapname, blue_model=None):
+# === #293: 入池图蓝方 AI 标签 (h3m_batch_pipeline 写 _pool_index.json, 此处读) ===
+_POOL_INDEX_PATH = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
+_POOL_BLUE_AI = {}
+_POOL_IDX_AT = 0.0
+
+
+def _refresh_pool_blue_ai(force=False):
+    global _POOL_BLUE_AI, _POOL_IDX_AT
+    if not force and time.time() - _POOL_IDX_AT < 600:
+        return
+    try:
+        with open(_POOL_INDEX_PATH, encoding="utf-8") as f:
+            _POOL_BLUE_AI = {k: (v or {}).get("blue_ai", "MMAI_RANDOM")
+                             for k, v in json.load(f).items()}
+    except Exception:
+        pass  # 索引缺失/损坏 = 全部默认 MMAI_RANDOM, 零行为变化
+    _POOL_IDX_AT = time.time()
+
+
+def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
     """Run one episode using current model policy (not random).
     Saves model to temp file, spawns isolated subprocess."""
     # 09-14 防残留污染 (4 张新图 segfault 秒退实证): 开局先删上一局 traj,
@@ -176,7 +195,7 @@ def run_episode(mapname, blue_model=None):
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
     cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
-    cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
+    cmd.extend(["--blue_ai", blue_ai, "--blue_adventure_ai", "MMAI"])
     # A2 贴脸强攻 (09-17): bypass=1 开贴脸强攻总开关 + contact_d=2 八邻域贴脸判定
     # f_min (09-19 三修): -0.2 → 0.0 — 死局实录: pick F=-0.20 蓝英雄直奔被主动进攻战败 (10/10 同构),
     # -0.2 阈值卡边界全放行。F 真实化后正 F 才攻 (打有把握的仗), 负 F 先攒兵。
@@ -464,7 +483,10 @@ for ep in range(N_EPISODES):
             blue_model = random.choice(opponent_pool)  # 随机旧版
     # 对手池为空时 blue_model 保持 None，用当前模型自对弈
 
-    traj = run_episode(random.choice(MAPS), blue_model=blue_model)
+    _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签
+    _map = random.choice(MAPS)
+    _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
+    traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai)
     ep_count += 1
     if traj is None: continue
     for i in range(traj["steps"]):
