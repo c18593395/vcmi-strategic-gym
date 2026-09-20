@@ -1,0 +1,6088 @@
+{
+  "A Viking We Shall Go Allied.h3m": {
+    "input": "A Viking We Shall Go Allied.h3m",
+    "output": "A Viking We Shall Go Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.89,
+    "file_size": 102541,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 3092,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3092 out=3054)",
+    "status": "warn_mismatch"
+  },
+  "A Viking We Shall Go.h3m": {
+    "input": "A Viking We Shall Go.h3m",
+    "output": "A Viking We Shall Go.vmap",
+    "exit_code": 0,
+    "duration_s": 1.34,
+    "file_size": 102516,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 3092,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3092 out=3054)",
+    "status": "warn_mismatch"
+  },
+  "A Warm and Familiar Place.h3m": {
+    "input": "A Warm and Familiar Place.h3m",
+    "output": "A Warm and Familiar Place.vmap",
+    "exit_code": 0,
+    "duration_s": 1.7,
+    "file_size": 26884,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "green",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 730,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Adventures of Jared Haret.h3m": {
+    "input": "Adventures of Jared Haret.h3m",
+    "output": "Adventures of Jared Haret.vmap",
+    "exit_code": 0,
+    "duration_s": 1.01,
+    "file_size": 27606,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 514,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "All for One.h3m": {
+    "input": "All for One.h3m",
+    "output": "All for One.vmap",
+    "exit_code": 0,
+    "duration_s": 1.89,
+    "file_size": 64631,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2027,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "And One for All.h3m": {
+    "input": "And One for All.h3m",
+    "output": "And One for All.vmap",
+    "exit_code": 0,
+    "duration_s": 1.13,
+    "file_size": 28142,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 687,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Arrogance Allied.h3m": {
+    "input": "Arrogance Allied.h3m",
+    "output": "Arrogance Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.6,
+    "file_size": 26453,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 605,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Arrogance.h3m": {
+    "input": "Arrogance.h3m",
+    "output": "Arrogance.vmap",
+    "exit_code": 0,
+    "duration_s": 1.25,
+    "file_size": 26406,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 605,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Ascension.h3m": {
+    "input": "Ascension.h3m",
+    "output": "Ascension.vmap",
+    "exit_code": 0,
+    "duration_s": 1.59,
+    "file_size": 35893,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1246,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Barbarian Breakout.h3m": {
+    "input": "Barbarian Breakout.h3m",
+    "output": "Barbarian Breakout.vmap",
+    "exit_code": 0,
+    "duration_s": 1.92,
+    "file_size": 25549,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 733,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Barbarian BreakoutA.h3m": {
+    "input": "Barbarian BreakoutA.h3m",
+    "output": "Barbarian BreakoutA.vmap",
+    "exit_code": 0,
+    "duration_s": 0.95,
+    "file_size": 25657,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 733,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Battle of the Sexes Allied.h3m": {
+    "input": "Battle of the Sexes Allied.h3m",
+    "output": "Battle of the Sexes Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.88,
+    "file_size": 87181,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3298,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3298 out=3168)",
+    "status": "warn_mismatch"
+  },
+  "Battle of the Sexes.h3m": {
+    "input": "Battle of the Sexes.h3m",
+    "output": "Battle of the Sexes.vmap",
+    "exit_code": 0,
+    "duration_s": 1.19,
+    "file_size": 87113,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3297,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3297 out=3167)",
+    "status": "warn_mismatch"
+  },
+  "Brave New World(Allies).h3m": {
+    "input": "Brave New World(Allies).h3m",
+    "output": "Brave New World(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.55,
+    "file_size": 97783,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3252,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Brave New World.h3m": {
+    "input": "Brave New World.h3m",
+    "output": "Brave New World.vmap",
+    "exit_code": 0,
+    "duration_s": 1.49,
+    "file_size": 97784,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3253,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Buried Treasure.h3m": {
+    "input": "Buried Treasure.h3m",
+    "output": "Buried Treasure.vmap",
+    "exit_code": 0,
+    "duration_s": 1.32,
+    "file_size": 57581,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1930,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Carpe Diem - Allied.h3m": {
+    "input": "Carpe Diem - Allied.h3m",
+    "output": "Carpe Diem - Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 0.83,
+    "file_size": 75673,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2239,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Carpe Diem.h3m": {
+    "input": "Carpe Diem.h3m",
+    "output": "Carpe Diem.vmap",
+    "exit_code": 0,
+    "duration_s": 1.72,
+    "file_size": 75627,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2239,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Back For Revenge - Allied.h3m": {
+    "input": "Back For Revenge - Allied.h3m",
+    "output": "Back For Revenge - Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.5,
+    "file_size": 156330,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 5319,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=5318 out=5317)",
+    "status": "warn_mismatch"
+  },
+  "Back For Revenge.h3m": {
+    "input": "Back For Revenge.h3m",
+    "output": "Back For Revenge.vmap",
+    "exit_code": 0,
+    "duration_s": 2.09,
+    "file_size": 156283,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 5319,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=5318 out=5317)",
+    "status": "warn_mismatch"
+  },
+  "Caught in the Middle.h3m": {
+    "input": "Caught in the Middle.h3m",
+    "output": "Caught in the Middle.vmap",
+    "exit_code": 0,
+    "duration_s": 1.13,
+    "file_size": 55949,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1517,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Chasing a Dream.h3m": {
+    "input": "Chasing a Dream.h3m",
+    "output": "Chasing a Dream.vmap",
+    "exit_code": 0,
+    "duration_s": 1.82,
+    "file_size": 20258,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 462,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Crimson and Clover.h3m": {
+    "input": "Crimson and Clover.h3m",
+    "output": "Crimson and Clover.vmap",
+    "exit_code": 0,
+    "duration_s": 0.86,
+    "file_size": 45465,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1563,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Crimson and CloverA.h3m": {
+    "input": "Crimson and CloverA.h3m",
+    "output": "Crimson and CloverA.vmap",
+    "exit_code": 0,
+    "duration_s": 1.75,
+    "file_size": 45621,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1563,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Darwin's Prize(Allies).h3m": {
+    "input": "Darwin's Prize(Allies).h3m",
+    "output": "Darwin's Prize(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 0.92,
+    "file_size": 49002,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1860,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Darwin's Prize.h3m": {
+    "input": "Darwin's Prize.h3m",
+    "output": "Darwin's Prize.vmap",
+    "exit_code": 0,
+    "duration_s": 1.77,
+    "file_size": 44921,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1854,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dawn of War.h3m": {
+    "input": "Dawn of War.h3m",
+    "output": "Dawn of War.vmap",
+    "exit_code": 0,
+    "duration_s": 1.15,
+    "file_size": 44567,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1593,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dead and Buried.h3m": {
+    "input": "Dead and Buried.h3m",
+    "output": "Dead and Buried.vmap",
+    "exit_code": 0,
+    "duration_s": 1.74,
+    "file_size": 23550,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 755,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Deluge.h3m": {
+    "input": "Deluge.h3m",
+    "output": "Deluge.vmap",
+    "exit_code": 0,
+    "duration_s": 1.23,
+    "file_size": 22539,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 501,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Divided Loyalties.h3m": {
+    "input": "Divided Loyalties.h3m",
+    "output": "Divided Loyalties.vmap",
+    "exit_code": 0,
+    "duration_s": 1.76,
+    "file_size": 87204,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3752,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Divided LoyaltiesA.h3m": {
+    "input": "Divided LoyaltiesA.h3m",
+    "output": "Divided LoyaltiesA.vmap",
+    "exit_code": 0,
+    "duration_s": 1.52,
+    "file_size": 87325,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3752,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dragon Orb.h3m": {
+    "input": "Dragon Orb.h3m",
+    "output": "Dragon Orb.vmap",
+    "exit_code": 0,
+    "duration_s": 1.58,
+    "file_size": 71771,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2924,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2923 out=2922)",
+    "status": "warn_mismatch"
+  },
+  "Dragon Pass (Allies).h3m": {
+    "input": "Dragon Pass (Allies).h3m",
+    "output": "Dragon Pass (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.65,
+    "file_size": 65900,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2463,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2462 out=2461)",
+    "status": "warn_mismatch"
+  },
+  "Dragon Pass.h3m": {
+    "input": "Dragon Pass.h3m",
+    "output": "Dragon Pass.vmap",
+    "exit_code": 0,
+    "duration_s": 1.03,
+    "file_size": 65973,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2467,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2466 out=2465)",
+    "status": "warn_mismatch"
+  },
+  "Dungeon Keeper.h3m": {
+    "input": "Dungeon Keeper.h3m",
+    "output": "Dungeon Keeper.vmap",
+    "exit_code": 0,
+    "duration_s": 1.72,
+    "file_size": 28228,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 954,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dwarven Gold.h3m": {
+    "input": "Dwarven Gold.h3m",
+    "output": "Dwarven Gold.vmap",
+    "exit_code": 0,
+    "duration_s": 0.85,
+    "file_size": 30734,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 990,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dwarven Tunnels(Allies).h3m": {
+    "input": "Dwarven Tunnels(Allies).h3m",
+    "output": "Dwarven Tunnels(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.49,
+    "file_size": 68127,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2508,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Dwarven Tunnels.h3m": {
+    "input": "Dwarven Tunnels.h3m",
+    "output": "Dwarven Tunnels.vmap",
+    "exit_code": 0,
+    "duration_s": 2.02,
+    "file_size": 68087,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2508,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Elbow Room(Allies).h3m": {
+    "input": "Elbow Room(Allies).h3m",
+    "output": "Elbow Room(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.81,
+    "file_size": 19677,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 473,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Elbow Room.h3m": {
+    "input": "Elbow Room.h3m",
+    "output": "Elbow Room.vmap",
+    "exit_code": 0,
+    "duration_s": 1.74,
+    "file_size": 19632,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 473,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Emerald Isles.h3m": {
+    "input": "Emerald Isles.h3m",
+    "output": "Emerald Isles.vmap",
+    "exit_code": 0,
+    "duration_s": 1.29,
+    "file_size": 31613,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 904,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Emerald IslesA.h3m": {
+    "input": "Emerald IslesA.h3m",
+    "output": "Emerald IslesA.vmap",
+    "exit_code": 0,
+    "duration_s": 0.91,
+    "file_size": 31655,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 904,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Faeries.h3m": {
+    "input": "Faeries.h3m",
+    "output": "Faeries.vmap",
+    "exit_code": 0,
+    "duration_s": 1.65,
+    "file_size": 68129,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "pink",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2095,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "For Sale.h3m": {
+    "input": "For Sale.h3m",
+    "output": "For Sale.vmap",
+    "exit_code": 0,
+    "duration_s": 0.98,
+    "file_size": 22019,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 514,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Fort Noxis.h3m": {
+    "input": "Fort Noxis.h3m",
+    "output": "Fort Noxis.vmap",
+    "exit_code": 0,
+    "duration_s": 1.51,
+    "file_size": 30247,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 1011,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Free for All.h3m": {
+    "input": "Free for All.h3m",
+    "output": "Free for All.vmap",
+    "exit_code": 0,
+    "duration_s": 1.4,
+    "file_size": 100166,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 4198,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Freedom.h3m": {
+    "input": "Freedom.h3m",
+    "output": "Freedom.vmap",
+    "exit_code": 0,
+    "duration_s": 1.61,
+    "file_size": 24686,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "green",
+      "purple",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 704,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Gelea's Champions (Allies).h3m": {
+    "input": "Gelea's Champions (Allies).h3m",
+    "output": "Gelea's Champions (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 0.88,
+    "file_size": 80124,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2726,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Gelea's Champions.h3m": {
+    "input": "Gelea's Champions.h3m",
+    "output": "Gelea's Champions.vmap",
+    "exit_code": 0,
+    "duration_s": 1.07,
+    "file_size": 80050,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2724,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Goblins in the Pantry.h3m": {
+    "input": "Goblins in the Pantry.h3m",
+    "output": "Goblins in the Pantry.vmap",
+    "exit_code": 0,
+    "duration_s": 1.13,
+    "file_size": 49638,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "orange",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1660,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Golems Aplenty Allied.h3m": {
+    "input": "Golems Aplenty Allied.h3m",
+    "output": "Golems Aplenty Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.38,
+    "file_size": 62673,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2099,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2098 out=2097)",
+    "status": "warn_mismatch"
+  },
+  "Golems Aplenty.h3m": {
+    "input": "Golems Aplenty.h3m",
+    "output": "Golems Aplenty.vmap",
+    "exit_code": 0,
+    "duration_s": 1.46,
+    "file_size": 62642,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2099,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2098 out=2097)",
+    "status": "warn_mismatch"
+  },
+  "Good Witch, Bad Witch.h3m": {
+    "input": "Good Witch, Bad Witch.h3m",
+    "output": "Good Witch, Bad Witch.vmap",
+    "exit_code": 0,
+    "duration_s": 1.57,
+    "file_size": 80324,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2831,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Good to Go.h3m": {
+    "input": "Good to Go.h3m",
+    "output": "Good to Go.vmap",
+    "exit_code": 0,
+    "duration_s": 1.04,
+    "file_size": 14577,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 413,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Gorlam's Tentacle Swampland.h3m": {
+    "input": "Gorlam's Tentacle Swampland.h3m",
+    "output": "Gorlam's Tentacle Swampland.vmap",
+    "exit_code": 0,
+    "duration_s": 1.24,
+    "file_size": 43719,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1193,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Hatchet Axe and Saw.h3m": {
+    "input": "Hatchet Axe and Saw.h3m",
+    "output": "Hatchet Axe and Saw.vmap",
+    "exit_code": 0,
+    "duration_s": 1.66,
+    "file_size": 43577,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "green",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1521,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Heroes of Might not Magic Allied.h3m": {
+    "input": "Heroes of Might not Magic Allied.h3m",
+    "output": "Heroes of Might not Magic Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 0.96,
+    "file_size": 78928,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2770,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Heroes of Might not Magic.h3m": {
+    "input": "Heroes of Might not Magic.h3m",
+    "output": "Heroes of Might not Magic.vmap",
+    "exit_code": 0,
+    "duration_s": 1.83,
+    "file_size": 78879,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2770,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Hoard(Allies).h3m": {
+    "input": "Hoard(Allies).h3m",
+    "output": "Hoard(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.09,
+    "file_size": 69876,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2549,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Hoard.h3m": {
+    "input": "Hoard.h3m",
+    "output": "Hoard.vmap",
+    "exit_code": 0,
+    "duration_s": 1.8,
+    "file_size": 69978,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2549,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Hold the middle.h3m": {
+    "input": "Hold the middle.h3m",
+    "output": "Hold the middle.vmap",
+    "exit_code": 0,
+    "duration_s": 1.14,
+    "file_size": 54649,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1967,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=1966 out=1965)",
+    "status": "warn_mismatch"
+  },
+  "Irrational Hostility.h3m": {
+    "input": "Irrational Hostility.h3m",
+    "output": "Irrational Hostility.vmap",
+    "exit_code": 0,
+    "duration_s": 1.55,
+    "file_size": 25158,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 839,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Island King Allied.h3m": {
+    "input": "Island King Allied.h3m",
+    "output": "Island King Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.25,
+    "file_size": 90207,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2937,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Island King.h3m": {
+    "input": "Island King.h3m",
+    "output": "Island King.vmap",
+    "exit_code": 0,
+    "duration_s": 1.77,
+    "file_size": 90104,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2937,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Island of Fire.h3m": {
+    "input": "Island of Fire.h3m",
+    "output": "Island of Fire.vmap",
+    "exit_code": 0,
+    "duration_s": 0.94,
+    "file_size": 55614,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2106,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Islands and Caves.h3m": {
+    "input": "Islands and Caves.h3m",
+    "output": "Islands and Caves.vmap",
+    "exit_code": 0,
+    "duration_s": 1.92,
+    "file_size": 81314,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2885,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Jihad.h3m": {
+    "input": "Jihad.h3m",
+    "output": "Jihad.vmap",
+    "exit_code": 0,
+    "duration_s": 0.74,
+    "file_size": 25962,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 842,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Judgement Day.h3m": {
+    "input": "Judgement Day.h3m",
+    "output": "Judgement Day.vmap",
+    "exit_code": 0,
+    "duration_s": 1.79,
+    "file_size": 13364,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 303,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Just A Visit.h3m": {
+    "input": "Just A Visit.h3m",
+    "output": "Just A Visit.vmap",
+    "exit_code": 0,
+    "duration_s": 1.24,
+    "file_size": 41258,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "orange",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1113,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Key to Victory.h3m": {
+    "input": "Key to Victory.h3m",
+    "output": "Key to Victory.vmap",
+    "exit_code": 0,
+    "duration_s": 1.58,
+    "file_size": 22208,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 740,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=739 out=738)",
+    "status": "warn_mismatch"
+  },
+  "King of Pain.h3m": {
+    "input": "King of Pain.h3m",
+    "output": "King of Pain.vmap",
+    "exit_code": 0,
+    "duration_s": 1.49,
+    "file_size": 50807,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1657,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Kingdom for sale(allies).h3m": {
+    "input": "Kingdom for sale(allies).h3m",
+    "output": "Kingdom for sale(allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.67,
+    "file_size": 97523,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3700,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Kingdom for sale.h3m": {
+    "input": "Kingdom for sale.h3m",
+    "output": "Kingdom for sale.vmap",
+    "exit_code": 0,
+    "duration_s": 1.11,
+    "file_size": 97485,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3700,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Knee Deep in the Dead.h3m": {
+    "input": "Knee Deep in the Dead.h3m",
+    "output": "Knee Deep in the Dead.vmap",
+    "exit_code": 0,
+    "duration_s": 1.55,
+    "file_size": 18326,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 413,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Knight of Darkness.h3m": {
+    "input": "Knight of Darkness.h3m",
+    "output": "Knight of Darkness.vmap",
+    "exit_code": 0,
+    "duration_s": 1.02,
+    "file_size": 59254,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "orange",
+      "pink",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2073,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Land of Titans (Allied).h3m": {
+    "input": "Land of Titans (Allied).h3m",
+    "output": "Land of Titans (Allied).vmap",
+    "exit_code": 0,
+    "duration_s": 1.79,
+    "file_size": 114727,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 4032,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=4031 out=4030)",
+    "status": "warn_mismatch"
+  },
+  "Land of Titans.h3m": {
+    "input": "Land of Titans.h3m",
+    "output": "Land of Titans.vmap",
+    "exit_code": 0,
+    "duration_s": 1.27,
+    "file_size": 114649,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 4032,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=4031 out=4030)",
+    "status": "warn_mismatch"
+  },
+  "Last Chance Allies.h3m": {
+    "input": "Last Chance Allies.h3m",
+    "output": "Last Chance Allies.vmap",
+    "exit_code": 0,
+    "duration_s": 1.04,
+    "file_size": 17841,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 397,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=397 out=301)",
+    "status": "warn_mismatch"
+  },
+  "Last Chance.h3m": {
+    "input": "Last Chance.h3m",
+    "output": "Last Chance.vmap",
+    "exit_code": 0,
+    "duration_s": 0.97,
+    "file_size": 17773,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 397,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=397 out=301)",
+    "status": "warn_mismatch"
+  },
+  "Loss of Innocence(Allies).h3m": {
+    "input": "Loss of Innocence(Allies).h3m",
+    "output": "Loss of Innocence(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.69,
+    "file_size": 84618,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3414,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Loss of Innocence.h3m": {
+    "input": "Loss of Innocence.h3m",
+    "output": "Loss of Innocence.vmap",
+    "exit_code": 0,
+    "duration_s": 1.29,
+    "file_size": 84560,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3416,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Manifest Destiny.h3m": {
+    "input": "Manifest Destiny.h3m",
+    "output": "Manifest Destiny.vmap",
+    "exit_code": 0,
+    "duration_s": 1.62,
+    "file_size": 27105,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 869,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Marshland Menace.h3m": {
+    "input": "Marshland Menace.h3m",
+    "output": "Marshland Menace.vmap",
+    "exit_code": 0,
+    "duration_s": 0.93,
+    "file_size": 48440,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1220,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=1220 out=1108)",
+    "status": "warn_mismatch"
+  },
+  "Meeting in Muzgob(Allies).h3m": {
+    "input": "Meeting in Muzgob(Allies).h3m",
+    "output": "Meeting in Muzgob(Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.97,
+    "file_size": 87332,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3269,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Meeting in Muzgob.h3m": {
+    "input": "Meeting in Muzgob.h3m",
+    "output": "Meeting in Muzgob.vmap",
+    "exit_code": 0,
+    "duration_s": 0.94,
+    "file_size": 87464,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3271,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Merchant Princes Allied.h3m": {
+    "input": "Merchant Princes Allied.h3m",
+    "output": "Merchant Princes Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.54,
+    "file_size": 37193,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1156,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Merchant Princes.h3m": {
+    "input": "Merchant Princes.h3m",
+    "output": "Merchant Princes.vmap",
+    "exit_code": 0,
+    "duration_s": 0.93,
+    "file_size": 37148,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1156,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Middletown.h3m": {
+    "input": "Middletown.h3m",
+    "output": "Middletown.vmap",
+    "exit_code": 0,
+    "duration_s": 1.76,
+    "file_size": 87486,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2739,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2738 out=2737)",
+    "status": "warn_mismatch"
+  },
+  "Monk's Retreat Allied.h3m": {
+    "input": "Monk's Retreat Allied.h3m",
+    "output": "Monk's Retreat Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.49,
+    "file_size": 118989,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3968,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Monk's Retreat.h3m": {
+    "input": "Monk's Retreat.h3m",
+    "output": "Monk's Retreat.vmap",
+    "exit_code": 0,
+    "duration_s": 1.4,
+    "file_size": 118945,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3968,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Noahs Ark.h3m": {
+    "input": "Noahs Ark.h3m",
+    "output": "Noahs Ark.vmap",
+    "exit_code": 0,
+    "duration_s": 0.97,
+    "file_size": 81050,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2627,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "One Bad Day - Allied.h3m": {
+    "input": "One Bad Day - Allied.h3m",
+    "output": "One Bad Day - Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.85,
+    "file_size": 50201,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "orange",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1393,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Overthrow Thy Neighbors.h3m": {
+    "input": "Overthrow Thy Neighbors.h3m",
+    "output": "Overthrow Thy Neighbors.vmap",
+    "exit_code": 0,
+    "duration_s": 0.9,
+    "file_size": 56753,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1676,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Pandora's Box .h3m": {
+    "input": "Pandora's Box .h3m",
+    "output": "Pandora's Box .vmap",
+    "exit_code": 0,
+    "duration_s": 1.69,
+    "file_size": 243385,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "pink",
+      "purple",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 6479,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Peaceful Ending - Allied.h3m": {
+    "input": "Peaceful Ending - Allied.h3m",
+    "output": "Peaceful Ending - Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 0.91,
+    "file_size": 99304,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3299,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Peaceful Ending.h3m": {
+    "input": "Peaceful Ending.h3m",
+    "output": "Peaceful Ending.vmap",
+    "exit_code": 0,
+    "duration_s": 1.54,
+    "file_size": 99351,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3299,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Peacemaker.h3m": {
+    "input": "Peacemaker.h3m",
+    "output": "Peacemaker.vmap",
+    "exit_code": 0,
+    "duration_s": 2.15,
+    "file_size": 37688,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1228,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Pestilence Lake Allies.h3m": {
+    "input": "Pestilence Lake Allies.h3m",
+    "output": "Pestilence Lake Allies.vmap",
+    "exit_code": 0,
+    "duration_s": 0.91,
+    "file_size": 68994,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "purple",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2216,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Pestilence Lake.h3m": {
+    "input": "Pestilence Lake.h3m",
+    "output": "Pestilence Lake.vmap",
+    "exit_code": 0,
+    "duration_s": 1.14,
+    "file_size": 69044,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "purple",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2216,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Pirates.h3m": {
+    "input": "Pirates.h3m",
+    "output": "Pirates.vmap",
+    "exit_code": 0,
+    "duration_s": 1.78,
+    "file_size": 31404,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 855,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Race for Ardintinny.h3m": {
+    "input": "Race for Ardintinny.h3m",
+    "output": "Race for Ardintinny.vmap",
+    "exit_code": 0,
+    "duration_s": 1.47,
+    "file_size": 128587,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 3631,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Race for the Town.h3m": {
+    "input": "Race for the Town.h3m",
+    "output": "Race for the Town.vmap",
+    "exit_code": 0,
+    "duration_s": 1.04,
+    "file_size": 47982,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1615,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Ready or Not.h3m": {
+    "input": "Ready or Not.h3m",
+    "output": "Ready or Not.vmap",
+    "exit_code": 0,
+    "duration_s": 0.91,
+    "file_size": 51220,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1679,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Realm of Chaos.h3m": {
+    "input": "Realm of Chaos.h3m",
+    "output": "Realm of Chaos.vmap",
+    "exit_code": 0,
+    "duration_s": 1.72,
+    "file_size": 87225,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3030,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Realm of ChaosA.h3m": {
+    "input": "Realm of ChaosA.h3m",
+    "output": "Realm of ChaosA.vmap",
+    "exit_code": 0,
+    "duration_s": 1.63,
+    "file_size": 87358,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3030,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Rebellion.h3m": {
+    "input": "Rebellion.h3m",
+    "output": "Rebellion.vmap",
+    "exit_code": 0,
+    "duration_s": 0.97,
+    "file_size": 40475,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1336,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Reclamation Allied.h3m": {
+    "input": "Reclamation Allied.h3m",
+    "output": "Reclamation Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.35,
+    "file_size": 125316,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4686,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Reclamation.h3m": {
+    "input": "Reclamation.h3m",
+    "output": "Reclamation.vmap",
+    "exit_code": 0,
+    "duration_s": 1.32,
+    "file_size": 125275,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4686,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Rediscovery.h3m": {
+    "input": "Rediscovery.h3m",
+    "output": "Rediscovery.vmap",
+    "exit_code": 0,
+    "duration_s": 1.15,
+    "file_size": 90367,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3464,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Resource War Allies.h3m": {
+    "input": "Resource War Allies.h3m",
+    "output": "Resource War Allies.vmap",
+    "exit_code": 0,
+    "duration_s": 1.63,
+    "file_size": 42845,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1266,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=1266 out=1170)",
+    "status": "warn_mismatch"
+  },
+  "Resource War.h3m": {
+    "input": "Resource War.h3m",
+    "output": "Resource War.vmap",
+    "exit_code": 0,
+    "duration_s": 1.09,
+    "file_size": 42809,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1266,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=1266 out=1170)",
+    "status": "warn_mismatch"
+  },
+  "Rise of the Phoenix Allied.h3m": {
+    "input": "Rise of the Phoenix Allied.h3m",
+    "output": "Rise of the Phoenix Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.6,
+    "file_size": 116906,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3811,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Rise of the Phoenix.h3m": {
+    "input": "Rise of the Phoenix.h3m",
+    "output": "Rise of the Phoenix.vmap",
+    "exit_code": 0,
+    "duration_s": 1.13,
+    "file_size": 116855,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3811,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Rumble in the Bogs.h3m": {
+    "input": "Rumble in the Bogs.h3m",
+    "output": "Rumble in the Bogs.vmap",
+    "exit_code": 0,
+    "duration_s": 1.04,
+    "file_size": 45325,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1603,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Rumble in the BogsA.h3m": {
+    "input": "Rumble in the BogsA.h3m",
+    "output": "Rumble in the BogsA.vmap",
+    "exit_code": 0,
+    "duration_s": 1.0,
+    "file_size": 45339,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1603,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Sands of Blood.h3m": {
+    "input": "Sands of Blood.h3m",
+    "output": "Sands of Blood.vmap",
+    "exit_code": 0,
+    "duration_s": 1.61,
+    "file_size": 19949,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 575,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Sangraal's Thief Allied.h3m": {
+    "input": "Sangraal's Thief Allied.h3m",
+    "output": "Sangraal's Thief Allied.vmap",
+    "exit_code": 0,
+    "duration_s": 1.3,
+    "file_size": 78967,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2787,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Sangraal's Thief.h3m": {
+    "input": "Sangraal's Thief.h3m",
+    "output": "Sangraal's Thief.vmap",
+    "exit_code": 0,
+    "duration_s": 2.14,
+    "file_size": 78918,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2787,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Search for the Grail.h3m": {
+    "input": "Search for the Grail.h3m",
+    "output": "Search for the Grail.vmap",
+    "exit_code": 0,
+    "duration_s": 0.85,
+    "file_size": 41813,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1277,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Serpents Treasure.h3m": {
+    "input": "Serpents Treasure.h3m",
+    "output": "Serpents Treasure.vmap",
+    "exit_code": 0,
+    "duration_s": 1.67,
+    "file_size": 119632,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 3415,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Shadow Valleys.h3m": {
+    "input": "Shadow Valleys.h3m",
+    "output": "Shadow Valleys.vmap",
+    "exit_code": 0,
+    "duration_s": 1.27,
+    "file_size": 43782,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1090,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "South of Hell (Allies).h3m": {
+    "input": "South of Hell (Allies).h3m",
+    "output": "South of Hell (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.35,
+    "file_size": 93978,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3294,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3293 out=3292)",
+    "status": "warn_mismatch"
+  },
+  "South of Hell.h3m": {
+    "input": "South of Hell.h3m",
+    "output": "South of Hell.vmap",
+    "exit_code": 0,
+    "duration_s": 1.16,
+    "file_size": 94244,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3316,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3315 out=3314)",
+    "status": "warn_mismatch"
+  },
+  "Southern Cross.h3m": {
+    "input": "Southern Cross.h3m",
+    "output": "Southern Cross.vmap",
+    "exit_code": 0,
+    "duration_s": 1.36,
+    "file_size": 78463,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "pink",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2820,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Step by Step (Allies).h3m": {
+    "input": "Step by Step (Allies).h3m",
+    "output": "Step by Step (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.42,
+    "file_size": 73991,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2655,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Step by Step.h3m": {
+    "input": "Step by Step.h3m",
+    "output": "Step by Step.vmap",
+    "exit_code": 0,
+    "duration_s": 1.5,
+    "file_size": 73966,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2656,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Tale of two lands (Allies).h3m": {
+    "input": "Tale of two lands (Allies).h3m",
+    "output": "Tale of two lands (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.18,
+    "file_size": 158422,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 5340,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=5339 out=5338)",
+    "status": "warn_mismatch"
+  },
+  "Tale of two lands.h3m": {
+    "input": "Tale of two lands.h3m",
+    "output": "Tale of two lands.vmap",
+    "exit_code": 0,
+    "duration_s": 1.68,
+    "file_size": 158368,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 5340,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=5339 out=5338)",
+    "status": "warn_mismatch"
+  },
+  "Terrible Rumor.h3m": {
+    "input": "Terrible Rumor.h3m",
+    "output": "Terrible Rumor.vmap",
+    "exit_code": 0,
+    "duration_s": 1.03,
+    "file_size": 29391,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 792,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "The Battle of Daeyan's Ford.h3m": {
+    "input": "The Battle of Daeyan's Ford.h3m",
+    "output": "The Battle of Daeyan's Ford.vmap",
+    "exit_code": 0,
+    "duration_s": 1.34,
+    "file_size": 114642,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3642,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "The Challenge.h3m": {
+    "input": "The Challenge.h3m",
+    "output": "The Challenge.vmap",
+    "exit_code": 0,
+    "duration_s": 1.06,
+    "file_size": 56379,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "orange",
+      "pink",
+      "purple"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2150,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "The Five Rings.h3m": {
+    "input": "The Five Rings.h3m",
+    "output": "The Five Rings.vmap",
+    "exit_code": 0,
+    "duration_s": 1.29,
+    "file_size": 104264,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3591,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "The Gauntlet.h3m": {
+    "input": "The Gauntlet.h3m",
+    "output": "The Gauntlet.vmap",
+    "exit_code": 0,
+    "duration_s": 1.32,
+    "file_size": 105376,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3483,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=3482 out=3481)",
+    "status": "warn_mismatch"
+  },
+  "The Great Race.h3m": {
+    "input": "The Great Race.h3m",
+    "output": "The Great Race.vmap",
+    "exit_code": 0,
+    "duration_s": 1.3,
+    "file_size": 59629,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1935,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "The Mandate of Heaven.h3m": {
+    "input": "The Mandate of Heaven.h3m",
+    "output": "The Mandate of Heaven.vmap",
+    "exit_code": 0,
+    "duration_s": 1.1,
+    "file_size": 142853,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "pink",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4483,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=4482 out=4481)",
+    "status": "warn_mismatch"
+  },
+  "The Newcomers.h3m": {
+    "input": "The Newcomers.h3m",
+    "output": "The Newcomers.vmap",
+    "exit_code": 0,
+    "duration_s": 1.79,
+    "file_size": 42107,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 1258,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Thousand Islands (allies).h3m": {
+    "input": "Thousand Islands (allies).h3m",
+    "output": "Thousand Islands (allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.15,
+    "file_size": 133887,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4490,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Thousand Islands.h3m": {
+    "input": "Thousand Islands.h3m",
+    "output": "Thousand Islands.vmap",
+    "exit_code": 0,
+    "duration_s": 1.44,
+    "file_size": 133802,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4492,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Time's Up.h3m": {
+    "input": "Time's Up.h3m",
+    "output": "Time's Up.vmap",
+    "exit_code": 0,
+    "duration_s": 1.24,
+    "file_size": 30668,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 1193,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Titans Winter.h3m": {
+    "input": "Titans Winter.h3m",
+    "output": "Titans Winter.vmap",
+    "exit_code": 0,
+    "duration_s": 1.28,
+    "file_size": 78274,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3387,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Too Many Monsters.h3m": {
+    "input": "Too Many Monsters.h3m",
+    "output": "Too Many Monsters.vmap",
+    "exit_code": 0,
+    "duration_s": 1.34,
+    "file_size": 20282,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 605,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Tovar's Fortress (Allies).h3m": {
+    "input": "Tovar's Fortress (Allies).h3m",
+    "output": "Tovar's Fortress (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.11,
+    "file_size": 68417,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2433,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2432 out=2431)",
+    "status": "warn_mismatch"
+  },
+  "Tovar's Fortress.h3m": {
+    "input": "Tovar's Fortress.h3m",
+    "output": "Tovar's Fortress.vmap",
+    "exit_code": 0,
+    "duration_s": 1.46,
+    "file_size": 68358,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "tan"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2433,
+    "terrain_present": true,
+    "roundtrip": "mismatch(in=2432 out=2431)",
+    "status": "warn_mismatch"
+  },
+  "Treasure Hunt.h3m": {
+    "input": "Treasure Hunt.h3m",
+    "output": "Treasure Hunt.vmap",
+    "exit_code": 0,
+    "duration_s": 1.24,
+    "file_size": 53780,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2088,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Twins.h3m": {
+    "input": "Twins.h3m",
+    "output": "Twins.vmap",
+    "exit_code": 0,
+    "duration_s": 1.43,
+    "file_size": 29143,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 803,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Twins_water.h3m": {
+    "input": "Twins_water.h3m",
+    "output": "Twins_water.vmap",
+    "exit_code": 0,
+    "duration_s": 1.5,
+    "file_size": 29195,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 36,
+    "height": 36,
+    "objects": 803,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Undead Unrest.h3m": {
+    "input": "Undead Unrest.h3m",
+    "output": "Undead Unrest.vmap",
+    "exit_code": 0,
+    "duration_s": 1.51,
+    "file_size": 62543,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 2182,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Unexpected Inheritance.h3m": {
+    "input": "Unexpected Inheritance.h3m",
+    "output": "Unexpected Inheritance.vmap",
+    "exit_code": 0,
+    "duration_s": 1.52,
+    "file_size": 60496,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1917,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Unholy Quest.h3m": {
+    "input": "Unholy Quest.h3m",
+    "output": "Unholy Quest.vmap",
+    "exit_code": 0,
+    "duration_s": 1.34,
+    "file_size": 91400,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 2327,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Valleys of War.h3m": {
+    "input": "Valleys of War.h3m",
+    "output": "Valleys of War.vmap",
+    "exit_code": 0,
+    "duration_s": 1.07,
+    "file_size": 88860,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "orange",
+      "purple",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 3071,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Vial of Life.h3m": {
+    "input": "Vial of Life.h3m",
+    "output": "Vial of Life.vmap",
+    "exit_code": 0,
+    "duration_s": 1.88,
+    "file_size": 74655,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "red"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3090,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "War of the Mighty (Allies).h3m": {
+    "input": "War of the Mighty (Allies).h3m",
+    "output": "War of the Mighty (Allies).vmap",
+    "exit_code": 0,
+    "duration_s": 1.18,
+    "file_size": 179248,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 6944,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "War of the Mighty.h3m": {
+    "input": "War of the Mighty.h3m",
+    "output": "War of the Mighty.vmap",
+    "exit_code": 0,
+    "duration_s": 1.09,
+    "file_size": 179194,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 6944,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Warlords.h3m": {
+    "input": "Warlords.h3m",
+    "output": "Warlords.vmap",
+    "exit_code": 0,
+    "duration_s": 1.84,
+    "file_size": 61598,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2698,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "WarlordsA.h3m": {
+    "input": "WarlordsA.h3m",
+    "output": "WarlordsA.vmap",
+    "exit_code": 0,
+    "duration_s": 1.75,
+    "file_size": 61865,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "pink",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 2698,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Warmongers.h3m": {
+    "input": "Warmongers.h3m",
+    "output": "Warmongers.vmap",
+    "exit_code": 0,
+    "duration_s": 1.12,
+    "file_size": 118560,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan"
+    ],
+    "width": 144,
+    "height": 144,
+    "objects": 4513,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "When Dragons Clash.h3m": {
+    "input": "When Dragons Clash.h3m",
+    "output": "When Dragons Clash.vmap",
+    "exit_code": 0,
+    "duration_s": 1.79,
+    "file_size": 54285,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "red"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 1813,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Wings of War.h3m": {
+    "input": "Wings of War.h3m",
+    "output": "Wings of War.vmap",
+    "exit_code": 0,
+    "duration_s": 1.19,
+    "file_size": 34179,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": false,
+    "players": [
+      "orange",
+      "pink",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 72,
+    "height": 72,
+    "objects": 877,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  },
+  "Xathras Prize.h3m": {
+    "input": "Xathras Prize.h3m",
+    "output": "Xathras Prize.vmap",
+    "exit_code": 0,
+    "duration_s": 1.71,
+    "file_size": 100013,
+    "zip_entries": [
+      "english.json",
+      "header.json",
+      "objects.json",
+      "surface_terrain.json",
+      "underground_terrain.json"
+    ],
+    "name": {
+      "exactStrings": null,
+      "localStrings": null,
+      "message": [
+        2
+      ],
+      "numbers": null,
+      "stringsTextID": [
+        "header.name"
+      ]
+    },
+    "has_underground": true,
+    "players": [
+      "blue",
+      "green",
+      "orange",
+      "purple",
+      "red",
+      "tan",
+      "teal"
+    ],
+    "width": 108,
+    "height": 108,
+    "objects": 3330,
+    "terrain_present": true,
+    "roundtrip": "ok",
+    "status": "ok"
+  }
+}

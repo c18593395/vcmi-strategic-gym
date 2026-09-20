@@ -1,0 +1,5 @@
+docs: WIN-4 批转第四次重启 — sanitize v2 + A2 当轮生效
+
+- 05:41 用户指令中断重跑: 杀 04:52 旧轮 (v1 sanitize) → 新进程携 teams 删键 +
+  mainTown 造城 + 提前终止, timeout 图当轮转 PASS (重启日志实锤 teams 删除首秀)
+- 任务清单 WIN-4 状态更新 (第四次重启 + v2 当轮生效)

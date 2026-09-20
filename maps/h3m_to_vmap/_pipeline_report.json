@@ -976,13 +976,43 @@
   },
   "a viking we shall go allied.h3m": {
     "final": "a_viking_we_shall_go_allied_h3m.vmap",
-    "verify": "adventure timeout (engine stuck, steps=1)",
-    "verify_steps": 1,
-    "status": "verify_fail"
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
   },
   "a viking we shall go.h3m": {
     "final": "a_viking_we_shall_go_h3m.vmap",
     "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "a warm and familiar place.h3m": {
+    "final": "a_warm_and_familiar_place_h3m.vmap",
+    "stripped": 253,
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "adventures of jared haret.h3m": {
+    "final": "adventures_of_jared_haret_h3m.vmap",
+    "stripped": 129,
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "all for one.h3m": {
+    "final": "all_for_one_h3m.vmap",
+    "stripped": 344,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "and one for all.h3m": {
+    "final": "and_one_for_all_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
     "verify_steps": 30,
     "status": "PASS",
     "blue_ai": "MMAI_RANDOM"

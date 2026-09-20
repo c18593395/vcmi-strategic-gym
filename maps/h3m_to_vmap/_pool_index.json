@@ -3,5 +3,26 @@
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
     "ts": "2026-09-21 05:02:33"
+  },
+  "a_warm_and_familiar_place_h3m.vmap": {
+    "blue_ai": "skip",
+    "reason": "地下城",
+    "detail": "blue.mainTown 锚点是地下层 town_404(l=1,17,16)，去地下层删城后蓝方无任何 mainTown，generateHero 无锚点 → HEROSEG_EMPTY → engine stuck",
+    "ts": "2026-09-21"
+  },
+  "all_for_one_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:37:12"
+  },
+  "and_one_for_all_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:37:38"
+  },
+  "a_viking_we_shall_go_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:41:58"
   }
 }
