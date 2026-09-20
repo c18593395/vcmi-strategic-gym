@@ -1510,3 +1510,30 @@
 - **处理**: kill wrapper+python（**先杀 wrapper** run_h3m_batch.sh 再杀 python，顺序反了 wrapper 会走 [3/3] 自动拉起训练）→ 直接重跑 `run_h3m_batch.sh 250`：新进程重新枚举小写名；PASS 判定 `status==PASS and exists(final_path)` 不受旧名 convert_fail 污染（旧名键是垃圾数据但无害），resume-fail 自动重验。
 - **教训**: ① **文件系统重命名类操作必须排在长跑批处理启动之前**，或在批处理每张图处理前重新 `os.path.exists(h3m)` 快速失败（ENOENT 类不可重试错误不该吃 3 试重试）；② 批转 FAIL err 全相同（cannot open）= 系统性问题（#289 同款判据：同 err 去重定性）；③ "cannot open or empty" 且 `ls | grep -i <名>` 能命中 = 名字对不上而非文件缺失，先 diff 枚举名 vs 目录实况。
 - **关联**: #289（同 err 定性法）/ #290（本轮一并重验）/ `py/h3m_batch_pipeline.py`（L218 枚举点）/ `py/lowercase_h3m_names.sh` / `py/run_h3m_batch.sh`
+
+#### #292 横跳振荡（两格往返）move_reject_streak 抓不住：位置每步都在变，卡死计数永不命中 → zigzag 惩罚刷分死循环 (09-21 修复) — ✅ 已修（主仓 cfe5941）
+
+- **状态**: ✅ 已修上线（ep_runner_one.py，批转 verify 与主训练共用，待观测窗复验）
+- **现象**: T7.8 大负局形态之一：英雄在 [A,B] 两格往返（act 方向对拍），每步位置都在变 → `move_reject_streak`（09-20 卡死熔断，判据=位置 3 拍不变）永不触发；每步吃 zigzag -2.0 + act_loop/cycle 位置类惩罚三连击 → 150 步刷到 -700 量级（neg_ep_anatomy 归因主源）。
+- **根因**: 两格往返是**运动学上的死循环但字节层面位置在变**——现有熔断器全部以"位置不变"为前提（stuck_endturn/cycle 检测窗），对"高频振荡"这类**动态卡死**盲区。zigzag -2.0 惩罚被 NK2 邻域探索奖励（3x3 ×0.2）部分对冲（净 -0.5），不足以让策略跳出。
+- **处理**: 新增 `_stuck_osc_streak`——zigzag 惩罚命中（cur_pos==prev2_pos）连续 ≥6 拍 → 强制 a=10（END_TURN 推进回合，移动点恢复解卡），触发后清零防连发；位置正常变化时清零。a=10 不进 act_hist 无自激。与 stuck_endturn（move_reject ≥3）并列同级熔断器。
+- **教训**: ① 卡死检测要有**两条正交轴**：时间轴（位置不变）+ 频率轴（位置振荡），单轴熔断必有盲区；② 惩罚对冲（-2.0 vs +0.2×邻域）下惩罚失去行为矫正力，只剩熔断兜底——大负局归因（neg_ep_anatomy）是发现这类"惩罚失效"的唯一窗口；③ 新熔断器上线前先在归因工具里统计预期触发频率（zigzag 连击 ≥6 的局数），避免误伤合法绕行。
+- **关联**: #287/#288（同卡死家族）/ 知识库 09-21 章（neg_ep_anatomy）/ 主仓 `cfe5941` / `py/neg_ep_anatomy.py`
+
+#### #293 timeout 判据形同虚设：adventure_wait 超时被 ep_runner 内部捕获 (rc=0 steps=1)，管线 detail 判据不含 "timeout" → StupidAI 重试机制上线以来零触发 (09-21 定性修复) — ✅ 已修（主仓 afdb414 + cfe5941）
+
+- **状态**: ✅ 已修上线（批转实战首触发：[1/160] MMAI_RANDOM timeout → 自动 StupidAI 重试）
+- **现象**: `train_verify()` 的 timeout 判据读 traj detail 字符串，但 adventure 300s 超时被 ep_runner 捕获后**正常收局**（rc=0，steps=1，detail="steps=1<30"）→ 上层 `[RETRY] timeout → blue=StupidAI` 分支从未命中，#293（原设计）自上线即死代码。
+- **根因**: 判据放在**错误的信号面**——超时事实只存在于 verify 日志文本（`adventure_wait timed out`），traj/detail 是被捕获后的"体面收局"假象。**跨进程错误传递链上每一层都会改写错误的表现形式**，判据必须挂在事实发生的层面。
+- **处理**: ① 管线读 verify 日志文本识别 `adventure_wait timed out` → detail 打 timeout 标记（afdb414）；② 配套 `train_wsl2_ppo_v2.py` 读 `_pool_index.json` 蓝方 AI 标签（管线 pool_index_update 写入 StupidAI/timeout 图），训练期采样到 timeout 图自动用 StupidAI 蓝（cfe5941，10min 缓存刷新，索引缺失=全默认零行为变化）。
+- **教训**: ① 错误判据要挂**事实源头**（日志/返回码/状态字），不要挂下游转述（detail 字符串拼接）；② "零触发的防御机制"要主动演习一次（本轮 timeout 重试上线多日首次实战才确认能跑）；③ 断点索引（_pool_index.json）是管线与训练器之间的解耦契约，格式变更需双侧同步。
+- **关联**: 知识库 09-21 章 / `py/h3m_batch_pipeline.py`（train_verify + pool_index_update）/ `py/train_wsl2_ppo_v2.py`（_refresh_pool_blue_ai）/ 主仓 `afdb414`/`cfe5941`
+
+#### #294 adventure timeout 图引擎特征：`Can not end turn for player that is not in game!` + 英雄段全空 [0/0×8] —— header.players canPlay/team 结构残留（第 7 钉候选）(09-21 批转实锤) — 🔄 待查（批转跑完统计占比后立项）
+
+- **状态**: 🔄 待查（不阻塞批转：管线 timeout→StupidAI 重试 + 取证旁路 + 断点续跑健康推进）
+- **现象**: 批转 [1/160] a viking we shall go **allied**（MMAI+StupidAI 双超 700s）与 [3/160] a warm and familiar place（普通图）同模式 FAIL：引擎日志 `Cannot answer the query -1!` → `Can not end turn for player that is not in game!` → `Got false in applying 7EndTurn` 循环刷屏 → adventure 300s 超时；`[HEROSEG_EMPTY] slots=[0/0 ×8]`（英雄槽全空 = 红蓝英雄均未 spawn）。
+- **根因**（候选定性）: sanitize 只清了 `events[].players` / `predefinedHeroes[].availableFor` / objects owner 三类，**未动 `header.players` 结构**（canPlay/canHumanPlay/canComputerPlay/team 结盟/turnOrder）。若某玩家槽位全 canPlay=false 但 turnOrder 仍轮转 → 轮到它时 "not in game" → END_TURN 拒绝 → 当前玩家永不切换 → adventure 卡死。allied 图 team 字段与非 allied 图共同命中，指向 players 槽位结构而非结盟本身。
+- **处理计划**: ① 批转跑完统计 timeout 图占比与命名规律（allied/normal 混合 vs 集中）；② 对比 timeout 图 vs PASS 图的 `header.players` JSON diff（canPlay/team/turnOrder 三字段）；③ 验证后扩 `sanitize_vmap_players_0920.py`：非红蓝玩家槽位 `canComputerPlay=false + canHumanPlay=false` 或直接从 turnOrder 剔除（以 diff 实证为准）；④ 重跑 timeout 图复验。
+- **教训**: ① sanitize 类清洗工具的覆盖面要以"引擎实际消费的所有字段"为准逐项核对（本条=第 4 类字段首次暴露）；② `HEROSEG_EMPTY [0/0×8]`（英雄段全空）≠ 开局共享内存慢（#285 BOOT_EMPTY_FAIL 场景，4/5 拍判据），**300s 后仍全空 = 引擎层没跑起来**，两者日志长相相似但根因不同层；③ timeout 图取证（_fail_triage/verify_tail.log 尾 32KB）是批转运行期间唯一引擎侧证据源，归因全靠它。
+- **关联**: 知识库 09-21 章（五钉表钉1/钉2 的未覆盖面）/ #285（HEROSEG_EMPTY 区分）/ `py/sanitize_vmap_players_0920.py` / `maps/h3m_to_vmap/_fail_triage/a_viking_we_shall_go_allied/verify_tail.log`

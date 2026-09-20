@@ -2777,4 +2777,22 @@ T_F_ID, T_F_OWNER, T_F_X, T_F_Y = 0, 1, 2, 3
 3. 新官方图入池标准流程 = `run_h3m_batch.sh`（管线内置 sanitize + timeout 重试 + 30 步判据 + 取证旁路）
 4. 批转监控：`Get-Content D:\Bigdata\hero3_fresh\tmp\h3m_batch_run.log -Tail 20 -Wait` / report 统计读 `maps/h3m_to_vmap/_pipeline_report.json`（键=H3M 文件名）
 
+### 第 7 钉候选：adventure timeout 图 not-in-game（09-21 批转进行时发现，🔄 待查）
+
+批转重启后首批实锤：timeout 图（[1/160] a viking we shall go allied / [3/160] a warm and familiar place）引擎日志共同特征：
+
+```
+ERROR Cannot answer the query -1!
+ERROR Can not end turn for player that is not in game!
+ERROR Got false in applying 7EndTurn... that request must have been fishy!
+（循环刷屏 → adventure_wait timed out after 300s）
+[HEROSEG_EMPTY] slots(id/owner)=[0/0 ×8]   ← 英雄槽全空 = 红蓝英雄均未 spawn
+```
+
+- **候选根因**：`header.players` 结构残留（canPlay/canHumanPlay/canComputerPlay/team/turnOrder）——sanitize 钉 1/2 只清 events[].players / availableFor / objects owner 三类，players 槽位结构未动；某玩家全 canPlay=false 但 turnOrder 仍轮转 → "not in game" → END_TURN 拒绝 → 当前玩家永不切换。
+- **与 #285 BOOT_EMPTY_FAIL 区分**：开局 4/5 拍 HEROSEG_EMPTY = 共享内存慢（快速失败省 300s）；300s 后仍全空 = 引擎层没跑起来（本条）。
+- **处理计划**：批转跑完统计 timeout 占比 → timeout vs PASS 图 header.players JSON diff → 扩 sanitize 第 4 类清洗 → 重跑复验。归因证据源 = `_fail_triage/<safe>/verify_tail.log`。
+
+关联：踩坑 #294（处理计划全文）/ #285 / `py/sanitize_vmap_players_0920.py`
+
 关联：踩坑 #289/#290/#291 / `py/sanitize_vmap_players_0920.py` / `py/h3m_batch_pipeline.py` / `py/lowercase_h3m_names.sh` / vcmi-native `41a99cd52c` / 主仓 `afdb414`
