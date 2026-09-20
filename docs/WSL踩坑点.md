@@ -1579,3 +1579,21 @@
 - **复现/验证**: `python py/_test_v2h3m_engine_load.py --steps 30` → `[ok] reset, obs shape=(1024,)` 不返回（卡死）；`grep -E 'Cannot answer|HERO OI|TOWN OI' /tmp/v2h3m_allforone.log` → 对象读回一致 + 2 次 query -1。
 - **09-21 实测复现（all_for_one_h3m.vmap）**：`vmap2h3m.py` 反转 `all_for_one_h3m.vmap`（h3m_pool）→ `allforone_test.h3m`（42574B，6 城+47 怪，donor=`all for one.h3m`）；`_test_v2h3m_engine_load.py --map allforone_test.h3m --steps 30` 实测：引擎日志 `SRV-DIAG TOWN OI=0..5` 六座城坐标与 h3m_tool 读回逐项一致（地图加载层通过），`runNetwork` 线程 `Cannot answer the query -1!` 复现，`reset()` 永久阻塞（30s 无 obs 返回，kill -9 强停）。**结论与 #296 定性完全一致：引擎可读性结论已足够，30 步 rollout 属 mlclient C++ 侧 h3m 开局初始化问题，Python 层改不动，维持搁置**。
 - **关联**: #294（同表面不同层）/ #295（vmap2h3m 工具链坑）/ `py/_test_v2h3m_engine_load.py` / `client/CServerHandler.cpp` L156 `runNetwork` / `vcmi_gym/connectors/v13/threadconnector.cpp` L322 `reset()`
+
+#### #297 地下城图（mainTown 锚点在地下层）去层后蓝方无出生点 → HEROSEG_EMPTY 开局卡死——结构性不可修，`_pool_index` skip 机制封档 (09-21 实锤)
+
+- **状态**: ✅ 已定性 + skip 机制落地（pipeline 结构性 SKIP，非代码 bug）
+- **现象**: 批转 `--resume-fail` 跑到 `[3/160] a warm and familiar place.h3m`：转换成功（2 处玩家痕迹清洗 + 253 对象 strip 去地下层），但 250 步验收 `[FAIL] adventure timeout (engine stuck, steps=1) (682s)`；`blue_ai=StupidAI` 重试仍同败。取证 `verify_tail.log`：`[HEROSEG_EMPTY] slots(id/owner)=[0/0×8]` + `adventure_wait timed out: after 300s` → 开局即死。
+- **根因链（本图专属，非共性 bug）**:
+  - raw vmap 中蓝方**唯一城** `town_404`(blue) 位于**地下层** `l=1, (17,16)`；`blue.mainTown={"l":1,"x":17,"y":16}` 即指向它
+  - `strip_underground_vmap.py` 删除全部 `z>=1` 对象（253 个）→ 该城被删；`strip` 本身不动 `header.players`
+  - 下一环节 `sanitize_vmap_players_0920.py` sanitize_v2 校验 mainTown 锚点：`(17,16)` 处已无城 → 删 `blue.mainTown` 键
+  - 蓝方最终无任何 mainTown → `generateHero=true` 无锚点 → `HEROSEG_EMPTY slots=[0/0×8]` → 引擎 300s adventure_wait 超时强停 → `steps=1 engine stuck`
+  - 属"地下城"结构性问题（同 09-19 普查 UNDERGROUND=98 风险标签一类），**不可修复入池**
+- **修复（#295 方案）**: 结构性 skip 标记机制——
+  1. `maps/h3m_to_vmap/_pool_index.json` 加条目：`"a_warm_and_familiar_place_h3m.vmap": {"blue_ai": "skip", "reason": "地下城", "detail": "...", "ts": "2026-09-21"}`
+  2. `py/h3m_batch_pipeline.py` main() 启动读入 `_pool_index`，收集 `blue_ai=="skip"` 的 `_skip_names`；循环体命中则打印 `[STRUCTURAL_SKIP] ...` 并 continue（`_idx` 必须预置 `{}` 防 NameError，已修）
+  3. 验证：`py/_verify_skip_marker.py` 确认标记生效；`py/_syntax_check.py` ast 语法 OK
+- **教训**: ① `engine stuck steps=1` + `HEROSEG_EMPTY` 组合 = 出生点缺失类结构性死因，先查 mainTown 锚点是否被 strip/sanitize 删光，**别在 AI 强度上重试**（StupidAI 重试对结构性死因零作用）；② 普查 UNDERGROUND=98 图里有"主城镇在地下层"的极端子集（去层即死），这类图应提前识别入 skip 列表而非逐张试错；③ skip 条目格式固定 `{"blue_ai":"skip","reason":...,"detail":...,"ts":...}`，后续同类图（含 #294 双根因中无城可造城的）直接照格式补条目。
+- **复现/验证**: `wsl bash -c "python py/_verify_skip_marker.py"` → `[OK] 标记生效`；重跑管线命中 `[STRUCTURAL_SKIP] a_warm_and_familiar_place`。
+- **关联**: #294（adventure timeout 双根因 sanitize v2）/ #289/#290（批转工具链）/ `py/h3m_batch_pipeline.py` L244-L280 / `py/_probe_warm_mainTown.py` / `py/_verify_skip_marker.py` / `maps/h3m_to_vmap/_pool_index.json`

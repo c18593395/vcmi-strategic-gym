@@ -103,6 +103,28 @@ python py\jev_eval_regress.py           # 退出码非 0 = 行为漂移
 
 **关联**: 踩坑 #288（ps1 BOM）/ #289（h3m2vmap 符号）/ #290（段错误）/ 任务清单 WIN-4 状态栏 + A13 / jev CLI 本体 `jev --help`（0.6.2 无 doctor/setup-key 子命令，用 `jev auth status/test --provider openrouter`）
 
+### 09-21 a_warm_and_familiar_place 地下城 skip 机制 + 批转 4 张新 PASS（blue_ai 标记体系成型）
+
+**背景**（截至 09-21）：`--resume-fail` 断点续跑至 `[3/160] a warm and familiar place.h3m` 暴露第 3 类死因——"地下城"结构性无出生点（详踩坑 #297）。同时前 2 张图 + allied 变体共 4 张新 PASS 入池，`_pool_index.json` 的 `blue_ai` 标记体系成型（MMAI_RANDOM=PASS 默认 / StupidAI=弱 AI 兜底 / skip=结构性剔除）。
+
+**根因速记**（探针 `py/_probe_warm_mainTown.py`）：
+- raw vmap：`blue.mainTown={"l":1,"x":17,"y":16}`，该坐标处仅 `town_404`(blue, **l=1 地下层**)
+- strip 去地下层删 253 对象（含该城）→ sanitize_v2 校验锚点无城 → 删 `blue.mainTown` → 蓝方无出生点 → `generateHero` 无锚点 → `HEROSEG_EMPTY` → 300s adventure_wait 超时强停（steps=1 engine stuck）
+- 对照：清洗后仅剩 red 的 `town_11`(l=0,14,15)；蓝方无城无英雄
+
+**结构性 skip 机制（定稿，#295 方案落地）**：
+1. `_pool_index.json` 条目格式：`{"blue_ai":"skip","reason":"地下城","detail":"<根因一句话>","ts":"..."}`
+2. `h3m_batch_pipeline.py` main() 启动读入，收集 `blue_ai=="skip"` 入 `_skip_names`；循环命中打印 `[STRUCTURAL_SKIP] <name> — <条目>` 并 continue（计入 SKIP 汇总）
+3. 后续同类"去层后无出生点"图（普查 UNDERGROUND=98 子集）**直接补 skip 条目，不重跑验收**；识别方法：probe 确认 mainTown 锚点 l≥1 且该层对象全被 strip
+4. 防坑：`_idx` 必须 try 块前初始化为 `{}`（JSON 解析失败时循环体 `_idx.get` 防 NameError，本轮实踩已修）
+
+**批转新 PASS（09-21 05:02-05:41，blue_ai=MMAI_RANDOM，verify=30/250 rew≈-60）**：
+`a_viking_we_shall_go` / `all_for_one` / `and_one_for_all` / `a_viking_we_shall_go_allied`（allied 变体证明同盟图 2 玩家也能 30 步通过验收）。h3m_pool 从 37 张 → **41 张**；a_warm 第 3 张标记 skip。
+
+**批转中断处置记录**：`run_h3m_batch.sh` 串行器被杀后**训练处于停止状态**（脚本未走到自动重启步骤）——重跑批转必须重新 `wsl -u root bash py/run_h3m_batch.sh 250`，且启动训练后需手工拉 Windows keepalive（`wsl.exe sleep infinity`，踩坑 #114/#201）。杀进程时 `pgrep -f` 自匹配陷阱：`pgrep -af 'run_h3m_batch'` 会匹配到自身 bash -c 命令行，须看 PID 是否真属目标树。
+
+**关联**: 踩坑 #294/#297 / 任务清单 WIN-4 / `py/_probe_warm_mainTown.py` / `py/_verify_skip_marker.py` / `maps/h3m_to_vmap/_pool_index.json`
+
 ### 09-19 官方 H3M 全量转换批跑（159 图 + 类型普查器 + 串行停训/批跑/重启脚本）
 
 **背景**（截至 09-20）：WIN-4 主线 = 159 张官方 H3M 逐张转换 → 250 步真实训练环境验收 → PASS 入 `maps/training/h3m_pool/`。09-19 全量批跑启动（用户拍板打断 A3 观察窗）。

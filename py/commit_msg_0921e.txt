@@ -1,5 +1,10 @@
-docs: WIN-4 批转第四次重启 — sanitize v2 + A2 当轮生效
+docs: #297 地下城 skip 机制收口 — a_warm 根因封档 + pool_index skip + 4 新 PASS 入池
 
-- 05:41 用户指令中断重跑: 杀 04:52 旧轮 (v1 sanitize) → 新进程携 teams 删键 +
-  mainTown 造城 + 提前终止, timeout 图当轮转 PASS (重启日志实锤 teams 删除首秀)
-- 任务清单 WIN-4 状态更新 (第四次重启 + v2 当轮生效)
+- 踩坑 #297: a_warm_and_familiar_place 蓝方唯一城在地下层, strip 删城后
+  sanitize_v2 删 mainTown → HEROSEG_EMPTY → engine stuck; 定性"地下城"
+  结构性不可修, 入 _pool_index.json skip 列表 (blue_ai=skip, reason=地下城)
+- 知识库 09-21 章: 根因速记 + skip 机制定稿 + 批转 4 张新 PASS
+  (h3m_pool 37→41) + 中断处置 (训练停止, 重跑需拉 keepalive)
+- 任务清单 WIN-4: 追加 09-21 批转进展 + skip 机制说明
+- _pool_index.json: a_warm skip 条目 + 4 张 PASS 条目 (blue_ai 标记体系)
+- 工具: _probe_warm_mainTown.py (raw/部署 vmap 探针) / _verify_skip_marker.py / _syntax_check.py

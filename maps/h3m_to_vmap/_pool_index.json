@@ -2,7 +2,7 @@
   "a_viking_we_shall_go_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
-    "ts": "2026-09-21 05:02:33"
+    "ts": "2026-09-21 05:42:32"
   },
   "a_warm_and_familiar_place_h3m.vmap": {
     "blue_ai": "skip",
@@ -13,16 +13,26 @@
   "all_for_one_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
-    "ts": "2026-09-21 05:37:12"
+    "ts": "2026-09-21 05:43:21"
   },
   "and_one_for_all_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 05:37:38"
+    "ts": "2026-09-21 05:44:07"
   },
   "a_viking_we_shall_go_allied_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
     "ts": "2026-09-21 05:41:58"
+  },
+  "arrogance_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:44:41"
+  },
+  "arrogance_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:45:15"
   }
 }
