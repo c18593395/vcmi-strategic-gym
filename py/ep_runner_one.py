@@ -398,6 +398,13 @@ if args.model and os.path.exists(args.model):
 
 traj = {"obs": [], "act": [], "rew": [], "nobs": [], "done": [], "terrain_grid": [], "steps": 0, "total_rew": 0.0,
         "mapname": args.mapname}  # 09-14: 身份字段, 主进程据此识别子进程崩溃后的上一局残留 traj
+# 大负局归因审计 (09-20 neg_ep_anatomy 前置): HOMM3_REWARD_AUDIT=1 时逐笔记录大额 reward 变动
+# [step, tag, delta] — 默认关零开销。工具: py/neg_ep_anatomy.py 聚合输出各 tag 占比。
+_RAUD_ON = os.environ.get("HOMM3_REWARD_AUDIT", "0") == "1"
+traj["rew_audit"] = [] if _RAUD_ON else None
+def _raud(tag, delta):
+    if _RAUD_ON:
+        traj["rew_audit"].append([traj["steps"], tag, round(float(delta), 3)])
 _ep_t0 = time.time()  # 0910: 局耗时打点 — 间歇性慢速 (4-8s/步局) 定量画像数据源 (历史样本已丢失, 从此积累)
 try:
     env = StrategicEnv(
@@ -628,6 +635,7 @@ try:
                             hist.append((a2, int(o[b2+2]), int(o[b2+3])))
                         if hist.count(cur_sign) >= args.cycle_detect:
                             cycle_penalty = -3.0
+                            _raud("cycle", -3.0)
                             dirs = [d for d in range(8) if bool(passable[d])]
                             if dirs:
                                 force_dir = random.choice(dirs)
@@ -1368,6 +1376,7 @@ try:
                         _kr = args.kill_r_first if not _kill_paid else args.kill_r_next
                         r += _kr
                         _kill_paid.add(_gid2)
+                        _raud("slain", _kr)
                         _ks_msg = (f"[BHERO_SLAIN] map={args.mapname} blue_hero_id={_gid2} "
                                    f"at step {traj['steps']} +{_kr} (kill ladder, confirmed 2 frames)")
                         print(_ks_msg, flush=True)
@@ -1379,6 +1388,7 @@ try:
                 if _still == _kill_pending:
                     _t06_hero_kill_capture = True
                     r += 100.0
+                    _raud("kill_proxy", 100.0)
                     if guard_done_countdown is not None:
                         guard_done_countdown = args.guard_done_steps
                     _tc_msg = (f"[TOWN_CAPTURE] map={args.mapname} blue_hero_killed={sorted(_still)} "
@@ -1517,6 +1527,7 @@ try:
                                 # (占城后引导模型继续下一目标); 检测滞后 1 step (obs=上轮 nobs, L1085 同步)
                                 if args.mapname.startswith('T06'):
                                     r += 100.0
+                                    _raud("town_capture", 100.0)
                                     if guard_done_countdown is not None:
                                         guard_done_countdown = args.guard_done_steps
                                     _msg = (f"[TOWN_CAPTURE] map={args.mapname} blue town id={_tid9} owner 1->0 "
@@ -1642,10 +1653,12 @@ try:
         if args.act_loop_penalty > 0 and traj["steps"] >= _al_from:
             if len(act_hist) >= args.act_loop_repeat and len(set(act_hist[-args.act_loop_repeat:])) == 1:
                 r -= abs(args.act_loop_penalty)
+                _raud("act_loop_rep", -abs(args.act_loop_penalty))
             elif len(act_hist) >= args.act_loop_alt:
                 tail = act_hist[-args.act_loop_alt:]
                 if len(set(tail[::2])) == 1 and len(set(tail[1::2])) == 1 and tail[0] != tail[1]:
                     r -= abs(args.act_loop_penalty)
+                    _raud("act_loop_alt", -abs(args.act_loop_penalty))
             # P3: 三阶周期 [a,b,c,a,b,c,a,b,c]
             elif len(act_hist) >= args.act_loop_p3:
                 tail = act_hist[-args.act_loop_p3:]
@@ -1653,6 +1666,7 @@ try:
                         and len(set(tail[2::3])) == 1
                         and len({tail[0], tail[1], tail[2]}) == 3):
                     r -= abs(args.act_loop_penalty)
+                    _raud("act_loop_p3", -abs(args.act_loop_penalty))
         if args.move_to_test:
             a = 24
         interact_streak = interact_streak + 1 if a == 8 else 0
@@ -1666,6 +1680,7 @@ try:
             cur_pos = (int(nobs[base+2]), int(nobs[base+3]), int(nobs[base+4]))
             if prev_pos == cur_pos:
                 r += -0.5  # 0915: 改为累加, 原 r = -0.5 赋值会覆盖同帧其他正 reward
+                _raud("move_reject", -0.5)
             # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
             if len(traj["obs"]) >= 2:
                 prev2 = traj["obs"][-2]
@@ -1674,6 +1689,7 @@ try:
                 prev2_pos = (int(prev2[base2+2]), int(prev2[base2+3]), int(prev2[base2+4]))
                 if cur_pos == prev2_pos:
                     r -= 2.0
+                    _raud("zigzag", -2.0)
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
             # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致
@@ -1687,6 +1703,7 @@ try:
                     recent.append((int(o[b2+2]), int(o[b2+3])))
                 if len(set(recent)) <= 2:
                     r -= 3.0
+                    _raud("roundtrip", -3.0)
                     if force_dir is None:
                         # 09-14 修: passable 仅在 red_model 分支(L435)定义, 无模型探针横跳时 NameError
                         # 直接用同源 obs[3211:3219] (8方向可通行性), 带模型路径行为不变
@@ -1701,6 +1718,7 @@ try:
         if int(nobs[3203]) < 0 and not (done or trunc):
             r += args.death_penalty  # 与 T7.4 死亡确认同档
             done = True
+            _raud("red_dead", args.death_penalty)
             print(f"[RED_DEAD] ah=-1 hero gone (battle loss / engine removal), "
                   f"end ep at step {traj['steps']}", flush=True)
         traj["obs"].append(obs.tolist())
@@ -1766,19 +1784,23 @@ except Exception as e:
 # None) → 补记账不能依赖挂账。口径: 攻击步已下发 (_attack_tried) + 该 id 已从末帧 obs 蓝英雄
 # 段消失 (被歼) → 直接视为确认, 补发阶梯奖 (与上方 death_penalty 同款修最后一帧 traj["rew"],
 # 必须先于最终 traj 写入)。id 仍在段中 = 攻击被拒/未打死 → 不补 (保守正确)。
-if _attack_tried and args.kill_r_first > 0:
+# 09-20 扩展 (T7.6 残留闭环): 候选集并入 _kill_pending (非攻击步自然击杀的双帧挂账在局尾
+# 截断时同样来不及确认 — 单帧补认, 战斗瞬态假阳性概率极低且仅终局一次)。
+if args.kill_r_first > 0 and (_attack_tried or _kill_pending is not None):
     _alive5 = set()
     for _hi5 in range(8):
         _bid5 = int(obs[128 + _hi5 * 26])
         if _bid5 > 0:
             _alive5.add(_bid5)
-    for _gid4 in sorted(set(_attack_tried) - _kill_paid - _alive5):
+    _epilog_cands = (set(_attack_tried) | set(_kill_pending or ())) - _kill_paid - _alive5
+    for _gid4 in sorted(_epilog_cands):
         _kr4 = args.kill_r_first if not _kill_paid else args.kill_r_next
         _kill_paid.add(_gid4)
         traj["rew"][-1] += _kr4
         traj["total_rew"] += _kr4
+        _raud("slain_epilog", _kr4)
         _ks4 = (f"[BHERO_SLAIN] map={args.mapname} blue_hero_id={_gid4} "
-                f"at step {traj['steps']} +{_kr4} (end-of-ep attack-step credit)")
+                f"at step {traj['steps']} +{_kr4} (end-of-ep credit)")
         print(_ks4, flush=True)
         try:
             with open(BHERO_EV_LOG, "a") as _bf5:
