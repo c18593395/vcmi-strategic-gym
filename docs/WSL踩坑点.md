@@ -1474,3 +1474,30 @@
 - **处理**: 暂不修（普查器已把这 9 图列入 parse_fail 清单跳过，不影响其余 150 图统计；批跑管线走的是 R2v2 智能重配——重配时 aiSlot 恒 blue + 他色中立化 + 英雄删除，**不依赖** 自定义英雄头段解析，9 张图转换验证正常进行）。修的话：在 parse_header 自定义英雄分支读 156 槽位（每槽位 80 字节，含 name/class/level 等），约 30 行。
 - **教训**: ① 普查器（只读统计）与批跑管线（转换+验收）对解析器的依赖程度不同——统计器挂 9/159 只丢统计维度，管线挂才丢图；② 失败清单要进产物 JSON（parse_fail 字段）留档，别静默吞异常；③ SOD 9 张全在 C 盘源 `vcmi/data/Maps`，D 盘批跑用的同名文件转换无问题（管线不读该头段）。
 - **关联**: 知识库 09-19「H3M 全量批跑」章（parse_fail 9 张清单）/ `scripts/h3m_tool.py` / `py/h3m_type_survey.json`
+
+#### #288 ps1 被 AI 编辑工具保存后 UTF-8 BOM 丢失 → PS 5.1 按 ANSI 解析 → 中文注释字节错位破坏代码结构 → RED 阈值条件意外为真 (09-21 实锤) — ✅ 已修（补 BOM + 纪律固化）
+
+- **状态**: ✅ 已修（补回 BOM 后复测通过）；**纪律：任何工具编辑含中文的 ps1 后必须验证首 3 字节 = 239,187,191（EF BB BF）**
+- **现象**: `py/train_health_monitor.ps1` 被 SearchReplace 编辑后运行，`log_age=19s`（训练健康）却触发 `TRAIN RED "0.3 分钟无更新"`——`if ($age.TotalMinutes -ge 20)` 条件单独实测恒 False，逻辑本身没坏。
+- **根因**: 原文件带 UTF-8 BOM，编辑工具保存时**静默丢弃 BOM**。Windows PowerShell 5.1 对无 BOM 文件按 ANSI/GBK 解析：UTF-8 中文（3 字节/字）被按 GBK（2 字节/字）错误配对——不只是字符串乱码，字节流错位传导会**破坏代码解析结构**（本次表现为 stale 红警分支被意外执行）。条件表达式全 ASCII（`-ge 20`）不受影响，单独测试恒 False——**症状与根因分离，极难定位**。
+- **处理**: 读首 3 字节确认无 BOM → `[IO.File]::WriteAllBytes($p, ([byte[]](239,187,191) + $b))` 补回 → 复测 RED 误报消失、中文正常。**注意：每次编辑后 BOM 都可能再丢（本次会话内丢了两次），必须编辑后即验**。
+- **教训**: ① ps1 含中文 = BOM 是文件格式的一部分，不是可有可无的元数据；② "条件为 False 却执行了"这类灵异 bug，先查文件编码再怀疑逻辑；③ 校验命令一行：`$b=[IO.File]::ReadAllBytes('x.ps1'); $b[0] -eq 239`；④ 混合 ASCII/中文的 ps1 里，乱码输出（如 `鍒嗛挓`）本身就是 BOM 丢失的强信号。
+- **关联**: `py/train_health_monitor.ps1` / 知识库 09-20/21 章（JEV 工具链）
+
+#### #289 h3m2vmap 与 libvcmi.so 符号布局脱钩：lib 重编后转换器二进制未重链 → 17 张图全部 convert_fail (09-21 定性修复) — ✅ 已修（cmake --build 重链）
+
+- **状态**: ✅ 已修（`cmake --build tools/h3m2vmap/build --target h3m2vmap` 仅 Linking 步骤秒级完成）；衍生坑见 #290
+- **现象**: 批转 report 里 17 张图 convert_fail，err 全部相同：``Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking``——进程启动即死，转换逻辑一步未跑。
+- **根因**: **时间戳铁证**：`tools/h3m2vmap/build/h3m2vmap` = 09-19 07:44，`rel/bin/libvcmi.so` = 09-19 09:46（#280 STATIC_AI 修复重建）。h3m2vmap 链接的是旧符号布局的 libvcmi，运行时 dlopen 加载新 .so → 符号尺寸校验失败。lib 重编后**必须重链所有链接它的可执行文件**，这与 ".so 多副本部署同步"是同一纪律的链接期版本。
+- **处理**: 重链后冒烟对照——原 PASS 图（Faeries）`ROUNDTRIP OK` 无损 ✅；原 convert_fail 图从"启动即死"变为"解析+规则应用正常"（72x72/2923 对象解析成功）。重链不触发重编译，训练在跑时执行无 CPU 冲击。
+- **教训**: ① convert_fail 的 err 若**全部相同** = 系统性问题（工具/环境），不是图的问题——归因脚本 `py/h3m_fail_triage.py` 已内置同 err 去重（一次 JEV 调用定性全组）；② `ls -la --time-style=+%F_%T` 对比二进制与 .so 时间戳是脱钩问题的一行定位法；③ libvcmi.so 重编的 SOP 应追加"重链 h3m2vmap"步骤（与 VCMI 铁律"vcmi-native 双目录 cp 同步"同列）。
+- **关联**: #290（重链暴露的段错误，衍生坑）/ 知识库 09-20/21 章 / `py/h3m_batch_pipeline.py`（convert_fail 记录）
+
+#### #290 h3m2vmap 重链后新暴露：B3 规则应用阶段段错误，原 convert_fail 图群全军覆没 (09-21 冒烟实锤) — 🔄 待 gdb 排查
+
+- **状态**: 🔄 待查（修复 #289 后暴露的**独立深层 bug**，与符号问题正交）
+- **现象**: 重链后冒烟对照：Faeries（原 PASS，72x72/1545 对象）转换成功 `ROUNDTRIP OK`；**Dragon Orb（72x72/2923 对象）与 Back For Revenge（144x144/5318 对象）均在 `applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1` 后 `dumped core`**——解析正常、规则参数打印正常，死在规则应用中途。
+- **根因**: 待 gdb。非尺寸问题（72/144 都炸）；非普遍回归（Faeries 正常）；为原 convert_fail 图群共性内容特征触发（h3m2vmap C++ 侧 bug，源码 `~/vcmi-native/tools/h3m2vmap/`）。
+- **处理计划**: ① `ulimit -c unlimited` 复现抓 core；② `gdb h3m2vmap core -ex bt` 定位崩溃帧；③ 检查炸图共性（对象类型组合/特殊地形）；④ 修复后 `--resume-fail` 全量重验。排查期间批转 `--resume-fail` 对这 17 张图会 3 试全炸记 convert_fail（无害但浪费 ~10 分钟），可等修复后一并跑。
+- **教训**: ① 修好"启动即死"的表层 bug 后**必须立即冒烟深路径**——底层 bug 会被表层 bug 完全遮蔽（本条在 #289 修复前不可见）；② 对照冒烟（原 PASS 图 + 原 FAIL 图各一）是区分"回归 vs 遗留"的最快手段。
+- **关联**: #289（前置修复，本条因其暴露）/ 知识库 09-20/21 章 / 任务清单 WIN-4 状态栏

@@ -42,6 +42,7 @@ REPORT = f"{ROOT}/maps/h3m_to_vmap/_pipeline_report.json"
 CKPT_DIR = f"{ROOT}/checkpoints"
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = f"{ROOT}/py/ep_runner_one.py"
+FAIL_TRIAGE = f"{ROOT}/maps/h3m_to_vmap/_fail_triage"  # OPS-JEV-02 取证目录 (Windows 侧归因消费)
 
 
 def newest_ckpt():
@@ -124,6 +125,41 @@ def _extract_steps(detail):
     """'steps=198/250 rew=...' → 198"""
     m = re.search(r"steps=(\d+)", detail or "")
     return int(m.group(1)) if m else 0
+
+
+def preserve_fail_evidence(safe, h3m_name, entry, traj_path, log_path):
+    """OPS-JEV-02 (09-21): verify_fail 取证 — verify_traj.json 会被下一张图覆盖,
+    必须在 FAIL 现场同步提取摘要 + 日志尾部, 供 Windows 侧 h3m_fail_triage.py 归因。
+    纯旁路: 任何失败只告警不打断批跑。"""
+    try:
+        d = os.path.join(FAIL_TRIAGE, safe)
+        os.makedirs(d, exist_ok=True)
+        ev = {"h3m": h3m_name, "safe": safe, "entry": entry,
+              "preserved_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+        if os.path.exists(traj_path):
+            try:
+                t = json.load(open(traj_path))
+                ev["traj_summary"] = {
+                    "steps": t.get("steps"),
+                    "total_rew": t.get("total_rew"),
+                    "error": t.get("error"),
+                    "last_acts": (t.get("act") or [])[-10:],
+                    "last_rews": (t.get("rew") or [])[-20:],
+                }
+            except Exception as e:
+                ev["traj_summary"] = {"parse_error": str(e)[:120]}
+        with open(os.path.join(d, "entry.json"), "w", encoding="utf-8") as f:
+            json.dump(ev, f, indent=2, ensure_ascii=False)
+        if os.path.exists(log_path):
+            size = os.path.getsize(log_path)
+            with open(log_path, "rb") as f:
+                f.seek(max(0, size - 32768))
+                tail = f.read()
+            with open(os.path.join(d, "verify_tail.log"), "wb") as f:
+                f.write(tail)
+        print(f"  [EVIDENCE] 已取证 → _fail_triage/{safe}/", flush=True)
+    except Exception as e:
+        print(f"  [WARN] 取证失败(不影响批跑): {e}", flush=True)
 
 
 def main():
@@ -232,6 +268,9 @@ def main():
             report[h3m.name] = entry
             n_fail += 1
             print(f"  [FAIL] 训练验证: {detail} ({time.time()-t0:.0f}s)", flush=True)
+            preserve_fail_evidence(safe, h3m.name, entry,
+                                   traj_path=f"{WORK}/verify_traj.json",
+                                   log_path=f"{WORK}/verify_{safe}.log")
             try:
                 os.remove(dst)  # 不合格图清出运行时
             except OSError:

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   OPS-20260828-02 训练日志健康监控脚本
 .DESCRIPTION
@@ -19,6 +19,7 @@
 param(
     [int]$IntervalSec = 120,
     [bool]$Loop = $true,
+    [bool]$Triage = $true,
     [string]$LogPath   = "D:\Bigdata\hero3_fresh\train_loop.log",
     [string]$AlertPath = "D:\Bigdata\hero3_fresh\py\monitor_alerts.log"
 )
@@ -52,6 +53,14 @@ function Write-AlertLine {
         Add-Content -Path $AlertPath -Value $line -Encoding UTF8
     } catch {
         Write-Warning "无法写入告警日志 $AlertPath : $_"
+    }
+    # OPS-JEV-01 (09-20, 09-21 扩黄警): 告警触发 JEV 根因分诊旁路 (后台, 失败静默, 防抖在 triage 内部)
+    if ($Triage -and ($Level -eq "TRAIN RED" -or $Level -eq "TRAIN YELLOW")) {
+        try {
+            $lv = if ($Level -eq "TRAIN RED") { "RED" } else { "YELLOW" }
+            $py = (Get-Command python -ErrorAction Stop).Source
+            Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList @("`"$PSScriptRoot\train_alert_triage.py`"", "--alert", "`"$Msg`"", "--level", $lv) -ErrorAction Stop | Out-Null
+        } catch { }
     }
 }
 
@@ -132,7 +141,6 @@ function Do-OneRound {
             Write-AlertLine -Level "TRAIN YELLOW" -Msg "连续 3 局大负 r=[$rs]"
         }
     }
-
     # C2 L0: 崩溃计数监控 (09-15) — [FILTER] 行含 SIGSEGV/SIGABRT，近 100 局 ≥3 次即红警
     $filterLines = @()
     $fi2 = Get-Item -LiteralPath $LogPath

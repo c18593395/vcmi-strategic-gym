@@ -1,0 +1,963 @@
+{
+  "Ready or Not.h3m": {
+    "final": "ready_or_not_h3m.vmap",
+    "stripped": 59,
+    "verify": "steps=250/250 rew=-1202.0",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Faeries.h3m": {
+    "final": "faeries_h3m.vmap",
+    "stripped": 223,
+    "verify": "steps=72<50% (早期死亡/异常)",
+    "verify_steps": 72,
+    "status": "verify_fail"
+  },
+  "A Viking We Shall Go Allied.h3m": {
+    "final": "a_viking_we_shall_go_allied_h3m.vmap",
+    "verify": "steps=250/250 rew=-1626.75",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "A Viking We Shall Go.h3m": {
+    "final": "a_viking_we_shall_go_h3m.vmap",
+    "verify": "steps=250/250 rew=-429.7310712160809",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "A Warm and Familiar Place.h3m": {
+    "final": "a_warm_and_familiar_place_h3m.vmap",
+    "stripped": 253,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Adventures of Jared Haret.h3m": {
+    "final": "adventures_of_jared_haret_h3m.vmap",
+    "stripped": 129,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "All for One.h3m": {
+    "final": "all_for_one_h3m.vmap",
+    "stripped": 344,
+    "verify": "steps=250/250 rew=-315.03602499858175",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "And One for All.h3m": {
+    "final": "and_one_for_all_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Arrogance Allied.h3m": {
+    "final": "arrogance_allied_h3m.vmap",
+    "stripped": 193,
+    "verify": "steps=64<50% (早期死亡/异常)",
+    "verify_steps": 64,
+    "status": "verify_fail"
+  },
+  "Arrogance.h3m": {
+    "final": "arrogance_h3m.vmap",
+    "stripped": 193,
+    "verify": "steps=63<50% (早期死亡/异常)",
+    "verify_steps": 63,
+    "status": "verify_fail"
+  },
+  "Ascension.h3m": {
+    "final": "ascension_h3m.vmap",
+    "verify": "steps=89<50% (早期死亡/异常)",
+    "verify_steps": 89,
+    "status": "verify_fail"
+  },
+  "Back For Revenge - Allied.h3m": {
+    "final": "back_for_revenge_allied_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Back For Revenge.h3m": {
+    "final": "back_for_revenge_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Barbarian Breakout.h3m": {
+    "final": "barbarian_breakout_h3m.vmap",
+    "stripped": 312,
+    "verify": "steps=71<50% (早期死亡/异常)",
+    "verify_steps": 71,
+    "status": "verify_fail"
+  },
+  "Barbarian BreakoutA.h3m": {
+    "final": "barbarian_breakouta_h3m.vmap",
+    "stripped": 312,
+    "verify": "steps=64<50% (早期死亡/异常)",
+    "verify_steps": 64,
+    "status": "verify_fail"
+  },
+  "Battle of the Sexes Allied.h3m": {
+    "final": "battle_of_the_sexes_allied_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Battle of the Sexes.h3m": {
+    "final": "battle_of_the_sexes_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Brave New World(Allies).h3m": {
+    "final": "brave_new_world_allies_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Brave New World.h3m": {
+    "final": "brave_new_world_h3m.vmap",
+    "verify": "steps=250/250 rew=-474.2",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Buried Treasure.h3m": {
+    "final": "buried_treasure_h3m.vmap",
+    "stripped": 486,
+    "verify": "steps=250/250 rew=-644.7",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Carpe Diem - Allied.h3m": {
+    "final": "carpe_diem_allied_h3m.vmap",
+    "stripped": 600,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Carpe Diem.h3m": {
+    "final": "carpe_diem_h3m.vmap",
+    "stripped": 600,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Caught in the Middle.h3m": {
+    "final": "caught_in_the_middle_h3m.vmap",
+    "stripped": 222,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Chasing a Dream.h3m": {
+    "final": "chasing_a_dream_h3m.vmap",
+    "stripped": 102,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Crimson and Clover.h3m": {
+    "final": "crimson_and_clover_h3m.vmap",
+    "stripped": 450,
+    "verify": "steps=250/250 rew=-1058.55",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Crimson and CloverA.h3m": {
+    "final": "crimson_and_clovera_h3m.vmap",
+    "stripped": 450,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Darwin's Prize(Allies).h3m": {
+    "final": "darwin_s_prize_allies_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=250/250 rew=-636.35",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Darwin's Prize.h3m": {
+    "final": "darwin_s_prize_h3m.vmap",
+    "verify": "steps=250/250 rew=-616.75",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Dawn of War.h3m": {
+    "final": "dawn_of_war_h3m.vmap",
+    "verify": "steps=86<50% (早期死亡/异常)",
+    "verify_steps": 86,
+    "status": "verify_fail"
+  },
+  "Dead and Buried.h3m": {
+    "final": "dead_and_buried_h3m.vmap",
+    "stripped": 105,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Deluge.h3m": {
+    "final": "deluge_h3m.vmap",
+    "stripped": 122,
+    "verify": "steps=89<50% (早期死亡/异常)",
+    "verify_steps": 89,
+    "status": "verify_fail"
+  },
+  "Divided Loyalties.h3m": {
+    "final": "divided_loyalties_h3m.vmap",
+    "stripped": 1581,
+    "verify": "steps=91<50% (早期死亡/异常)",
+    "verify_steps": 91,
+    "status": "verify_fail"
+  },
+  "Divided LoyaltiesA.h3m": {
+    "final": "divided_loyaltiesa_h3m.vmap",
+    "stripped": 1581,
+    "verify": "steps=84<50% (早期死亡/异常)",
+    "verify_steps": 84,
+    "status": "verify_fail"
+  },
+  "Dragon Orb.h3m": {
+    "final": "dragon_orb_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Dragon Pass (Allies).h3m": {
+    "final": "dragon_pass_allies_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Dragon Pass.h3m": {
+    "final": "dragon_pass_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Dungeon Keeper.h3m": {
+    "final": "dungeon_keeper_h3m.vmap",
+    "stripped": 334,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Dwarven Gold.h3m": {
+    "final": "dwarven_gold_h3m.vmap",
+    "stripped": 211,
+    "verify": "steps=170/250 rew=-170.47670250896059",
+    "verify_steps": 170,
+    "status": "PASS"
+  },
+  "Dwarven Tunnels(Allies).h3m": {
+    "final": "dwarven_tunnels_allies_h3m.vmap",
+    "stripped": 497,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Dwarven Tunnels.h3m": {
+    "final": "dwarven_tunnels_h3m.vmap",
+    "stripped": 497,
+    "verify": "steps=63<50% (早期死亡/异常)",
+    "verify_steps": 63,
+    "status": "verify_fail"
+  },
+  "Elbow Room(Allies).h3m": {
+    "final": "elbow_room_allies_h3m.vmap",
+    "verify": "steps=250/250 rew=-280.75",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Elbow Room.h3m": {
+    "final": "elbow_room_h3m.vmap",
+    "verify": "steps=229/250 rew=-263.95",
+    "verify_steps": 229,
+    "status": "PASS"
+  },
+  "Emerald Isles.h3m": {
+    "final": "emerald_isles_h3m.vmap",
+    "verify": "steps=250/250 rew=-486.625",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Emerald IslesA.h3m": {
+    "final": "emerald_islesa_h3m.vmap",
+    "verify": "steps=250/250 rew=-553.7168551991693",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "For Sale.h3m": {
+    "final": "for_sale_h3m.vmap",
+    "verify": "steps=250/250 rew=-472.775",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Fort Noxis.h3m": {
+    "final": "fort_noxis_h3m.vmap",
+    "stripped": 382,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Free for All.h3m": {
+    "final": "free_for_all_h3m.vmap",
+    "stripped": 528,
+    "verify": "steps=95<50% (早期死亡/异常)",
+    "verify_steps": 95,
+    "status": "verify_fail"
+  },
+  "Freedom.h3m": {
+    "final": "freedom_h3m.vmap",
+    "stripped": 141,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Gelea's Champions (Allies).h3m": {
+    "final": "gelea_s_champions_allies_h3m.vmap",
+    "stripped": 1097,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Gelea's Champions.h3m": {
+    "final": "gelea_s_champions_h3m.vmap",
+    "stripped": 1095,
+    "verify": "steps=84<50% (早期死亡/异常)",
+    "verify_steps": 84,
+    "status": "verify_fail"
+  },
+  "Goblins in the Pantry.h3m": {
+    "final": "goblins_in_the_pantry_h3m.vmap",
+    "verify": "steps=250/250 rew=-875.35",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Golems Aplenty Allied.h3m": {
+    "final": "golems_aplenty_allied_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Golems Aplenty.h3m": {
+    "final": "golems_aplenty_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Good Witch, Bad Witch.h3m": {
+    "final": "good_witch_bad_witch_h3m.vmap",
+    "verify": "steps=250/250 rew=-478.4375",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Good to Go.h3m": {
+    "final": "good_to_go_h3m.vmap",
+    "verify": "steps=250/250 rew=-674.7",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Gorlam's Tentacle Swampland.h3m": {
+    "final": "gorlam_s_tentacle_swampland_h3m.vmap",
+    "stripped": 23,
+    "verify": "steps=79<50% (早期死亡/异常)",
+    "verify_steps": 79,
+    "status": "verify_fail"
+  },
+  "Hatchet Axe and Saw.h3m": {
+    "final": "hatchet_axe_and_saw_h3m.vmap",
+    "verify": "steps=250/250 rew=-328.7",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Heroes of Might not Magic Allied.h3m": {
+    "final": "heroes_of_might_not_magic_allied_h3m.vmap",
+    "stripped": 831,
+    "verify": "steps=97<50% (早期死亡/异常)",
+    "verify_steps": 97,
+    "status": "verify_fail"
+  },
+  "Heroes of Might not Magic.h3m": {
+    "final": "heroes_of_might_not_magic_h3m.vmap",
+    "stripped": 831,
+    "verify": "steps=91<50% (早期死亡/异常)",
+    "verify_steps": 91,
+    "status": "verify_fail"
+  },
+  "Hoard(Allies).h3m": {
+    "final": "hoard_allies_h3m.vmap",
+    "stripped": 492,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Hoard.h3m": {
+    "final": "hoard_h3m.vmap",
+    "stripped": 492,
+    "verify": "steps=155/250 rew=-119.16713006597548",
+    "verify_steps": 155,
+    "status": "PASS"
+  },
+  "Hold the middle.h3m": {
+    "final": "hold_the_middle_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Irrational Hostility.h3m": {
+    "final": "irrational_hostility_h3m.vmap",
+    "stripped": 209,
+    "verify": "steps=61<50% (早期死亡/异常)",
+    "verify_steps": 61,
+    "status": "verify_fail"
+  },
+  "Island King Allied.h3m": {
+    "final": "island_king_allied_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Island King.h3m": {
+    "final": "island_king_h3m.vmap",
+    "verify": "steps=89<50% (早期死亡/异常)",
+    "verify_steps": 89,
+    "status": "verify_fail"
+  },
+  "Island of Fire.h3m": {
+    "final": "island_of_fire_h3m.vmap",
+    "stripped": 71,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Islands and Caves.h3m": {
+    "final": "islands_and_caves_h3m.vmap",
+    "stripped": 873,
+    "verify": "steps=84<50% (早期死亡/异常)",
+    "verify_steps": 84,
+    "status": "verify_fail"
+  },
+  "Jihad.h3m": {
+    "final": "jihad_h3m.vmap",
+    "stripped": 228,
+    "verify": "steps=64<50% (早期死亡/异常)",
+    "verify_steps": 64,
+    "status": "verify_fail"
+  },
+  "Judgement Day.h3m": {
+    "final": "judgement_day_h3m.vmap",
+    "verify": "steps=250/250 rew=-1016.875",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Just A Visit.h3m": {
+    "final": "just_a_visit_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Key to Victory.h3m": {
+    "final": "key_to_victory_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "King of Pain.h3m": {
+    "final": "king_of_pain_h3m.vmap",
+    "verify": "steps=117<50% (早期死亡/异常)",
+    "verify_steps": 117,
+    "status": "verify_fail"
+  },
+  "Kingdom for sale(allies).h3m": {
+    "final": "kingdom_for_sale_allies_h3m.vmap",
+    "verify": "steps=83<50% (早期死亡/异常)",
+    "verify_steps": 83,
+    "status": "verify_fail"
+  },
+  "Kingdom for sale.h3m": {
+    "final": "kingdom_for_sale_h3m.vmap",
+    "verify": "steps=82<50% (早期死亡/异常)",
+    "verify_steps": 82,
+    "status": "verify_fail"
+  },
+  "Knee Deep in the Dead.h3m": {
+    "final": "knee_deep_in_the_dead_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Knight of Darkness.h3m": {
+    "final": "knight_of_darkness_h3m.vmap",
+    "stripped": 604,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Land of Titans (Allied).h3m": {
+    "final": "land_of_titans_allied_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Land of Titans.h3m": {
+    "final": "land_of_titans_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Last Chance Allies.h3m": {
+    "final": "last_chance_allies_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Last Chance.h3m": {
+    "final": "last_chance_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=79<50% (早期死亡/异常)",
+    "verify_steps": 79,
+    "status": "verify_fail"
+  },
+  "Loss of Innocence(Allies).h3m": {
+    "final": "loss_of_innocence_allies_h3m.vmap",
+    "verify": "steps=126/250 rew=-213.2440063931806",
+    "verify_steps": 126,
+    "status": "PASS"
+  },
+  "Loss of Innocence.h3m": {
+    "final": "loss_of_innocence_h3m.vmap",
+    "verify": "steps=183/250 rew=-573.1211113031455",
+    "verify_steps": 183,
+    "status": "PASS"
+  },
+  "Manifest Destiny.h3m": {
+    "final": "manifest_destiny_h3m.vmap",
+    "stripped": 388,
+    "verify": "steps=250/250 rew=-327.85",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Marshland Menace.h3m": {
+    "final": "marshland_menace_h3m.vmap",
+    "stripped": 76,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Meeting in Muzgob(Allies).h3m": {
+    "final": "meeting_in_muzgob_allies_h3m.vmap",
+    "verify": "steps=80<50% (早期死亡/异常)",
+    "verify_steps": 80,
+    "status": "verify_fail"
+  },
+  "Meeting in Muzgob.h3m": {
+    "final": "meeting_in_muzgob_h3m.vmap",
+    "verify": "steps=74<50% (早期死亡/异常)",
+    "verify_steps": 74,
+    "status": "verify_fail"
+  },
+  "Merchant Princes Allied.h3m": {
+    "final": "merchant_princes_allied_h3m.vmap",
+    "verify": "steps=75<50% (早期死亡/异常)",
+    "verify_steps": 75,
+    "status": "verify_fail"
+  },
+  "Merchant Princes.h3m": {
+    "final": "merchant_princes_h3m.vmap",
+    "verify": "steps=79<50% (早期死亡/异常)",
+    "verify_steps": 79,
+    "status": "verify_fail"
+  },
+  "Middletown.h3m": {
+    "final": "middletown_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Monk's Retreat Allied.h3m": {
+    "final": "monk_s_retreat_allied_h3m.vmap",
+    "stripped": 121,
+    "verify": "steps=70<50% (早期死亡/异常)",
+    "verify_steps": 70,
+    "status": "verify_fail"
+  },
+  "Monk's Retreat.h3m": {
+    "final": "monk_s_retreat_h3m.vmap",
+    "stripped": 121,
+    "verify": "steps=70<50% (早期死亡/异常)",
+    "verify_steps": 70,
+    "status": "verify_fail"
+  },
+  "Noahs Ark.h3m": {
+    "final": "noahs_ark_h3m.vmap",
+    "stripped": 400,
+    "verify": "steps=85<50% (早期死亡/异常)",
+    "verify_steps": 85,
+    "status": "verify_fail"
+  },
+  "One Bad Day - Allied.h3m": {
+    "final": "one_bad_day_allied_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Overthrow Thy Neighbors.h3m": {
+    "final": "overthrow_thy_neighbors_h3m.vmap",
+    "stripped": 186,
+    "verify": "steps=93<50% (早期死亡/异常)",
+    "verify_steps": 93,
+    "status": "verify_fail"
+  },
+  "Pandora's Box .h3m": {
+    "final": "pandora_s_box_h3m.vmap",
+    "stripped": 1414,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Peaceful Ending - Allied.h3m": {
+    "final": "peaceful_ending_allied_h3m.vmap",
+    "stripped": 154,
+    "verify": "steps=87<50% (早期死亡/异常)",
+    "verify_steps": 87,
+    "status": "verify_fail"
+  },
+  "Peaceful Ending.h3m": {
+    "final": "peaceful_ending_h3m.vmap",
+    "stripped": 154,
+    "verify": "steps=90<50% (早期死亡/异常)",
+    "verify_steps": 90,
+    "status": "verify_fail"
+  },
+  "Peacemaker.h3m": {
+    "final": "peacemaker_h3m.vmap",
+    "verify": "steps=250/250 rew=-549.825",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Pestilence Lake Allies.h3m": {
+    "final": "pestilence_lake_allies_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Pestilence Lake.h3m": {
+    "final": "pestilence_lake_h3m.vmap",
+    "verify": "steps=202/250 rew=-511.2540119611263",
+    "verify_steps": 202,
+    "status": "PASS"
+  },
+  "Pirates.h3m": {
+    "final": "pirates_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Race for Ardintinny.h3m": {
+    "final": "race_for_ardintinny_h3m.vmap",
+    "stripped": 179,
+    "verify": "steps=73<50% (早期死亡/异常)",
+    "verify_steps": 73,
+    "status": "verify_fail"
+  },
+  "Race for the Town.h3m": {
+    "final": "race_for_the_town_h3m.vmap",
+    "verify": "steps=80<50% (早期死亡/异常)",
+    "verify_steps": 80,
+    "status": "verify_fail"
+  },
+  "Realm of Chaos.h3m": {
+    "final": "realm_of_chaos_h3m.vmap",
+    "stripped": 1261,
+    "verify": "steps=61<50% (早期死亡/异常)",
+    "verify_steps": 61,
+    "status": "verify_fail"
+  },
+  "Realm of ChaosA.h3m": {
+    "final": "realm_of_chaosa_h3m.vmap",
+    "stripped": 1261,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Rebellion.h3m": {
+    "final": "rebellion_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Reclamation Allied.h3m": {
+    "final": "reclamation_allied_h3m.vmap",
+    "verify": "steps=250/250 rew=-639.25",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Reclamation.h3m": {
+    "final": "reclamation_h3m.vmap",
+    "verify": "steps=250/250 rew=-684.1",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Rediscovery.h3m": {
+    "final": "rediscovery_h3m.vmap",
+    "stripped": 1355,
+    "verify": "steps=78<50% (早期死亡/异常)",
+    "verify_steps": 78,
+    "status": "verify_fail"
+  },
+  "Resource War Allies.h3m": {
+    "final": "resource_war_allies_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Resource War.h3m": {
+    "final": "resource_war_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Rise of the Phoenix Allied.h3m": {
+    "final": "rise_of_the_phoenix_allied_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=92<50% (早期死亡/异常)",
+    "verify_steps": 92,
+    "status": "verify_fail"
+  },
+  "Rise of the Phoenix.h3m": {
+    "final": "rise_of_the_phoenix_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=138/250 rew=-203.7706259620318",
+    "verify_steps": 138,
+    "status": "PASS"
+  },
+  "Rumble in the Bogs.h3m": {
+    "final": "rumble_in_the_bogs_h3m.vmap",
+    "stripped": 101,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Rumble in the BogsA.h3m": {
+    "final": "rumble_in_the_bogsa_h3m.vmap",
+    "stripped": 101,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Sands of Blood.h3m": {
+    "final": "sands_of_blood_h3m.vmap",
+    "stripped": 91,
+    "verify": "steps=82<50% (早期死亡/异常)",
+    "verify_steps": 82,
+    "status": "verify_fail"
+  },
+  "Sangraal's Thief Allied.h3m": {
+    "final": "sangraal_s_thief_allied_h3m.vmap",
+    "stripped": 763,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Sangraal's Thief.h3m": {
+    "final": "sangraal_s_thief_h3m.vmap",
+    "stripped": 763,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Search for the Grail.h3m": {
+    "final": "search_for_the_grail_h3m.vmap",
+    "stripped": 278,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Serpents Treasure.h3m": {
+    "final": "serpents_treasure_h3m.vmap",
+    "stripped": 145,
+    "verify": "steps=75<50% (早期死亡/异常)",
+    "verify_steps": 75,
+    "status": "verify_fail"
+  },
+  "Shadow Valleys.h3m": {
+    "final": "shadow_valleys_h3m.vmap",
+    "stripped": 123,
+    "verify": "steps=81<50% (早期死亡/异常)",
+    "verify_steps": 81,
+    "status": "verify_fail"
+  },
+  "South of Hell (Allies).h3m": {
+    "final": "south_of_hell_allies_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "South of Hell.h3m": {
+    "final": "south_of_hell_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Southern Cross.h3m": {
+    "final": "southern_cross_h3m.vmap",
+    "stripped": 540,
+    "verify": "steps=76<50% (早期死亡/异常)",
+    "verify_steps": 76,
+    "status": "verify_fail"
+  },
+  "Step by Step (Allies).h3m": {
+    "final": "step_by_step_allies_h3m.vmap",
+    "stripped": 652,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Step by Step.h3m": {
+    "final": "step_by_step_h3m.vmap",
+    "stripped": 652,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Tale of two lands (Allies).h3m": {
+    "final": "tale_of_two_lands_allies_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Tale of two lands.h3m": {
+    "final": "tale_of_two_lands_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Terrible Rumor.h3m": {
+    "final": "terrible_rumor_h3m.vmap",
+    "stripped": 215,
+    "verify": "steps=87<50% (早期死亡/异常)",
+    "verify_steps": 87,
+    "status": "verify_fail"
+  },
+  "The Battle of Daeyan's Ford.h3m": {
+    "final": "the_battle_of_daeyan_s_ford_h3m.vmap",
+    "stripped": 368,
+    "verify": "steps=98<50% (早期死亡/异常)",
+    "verify_steps": 98,
+    "status": "verify_fail"
+  },
+  "The Challenge.h3m": {
+    "final": "the_challenge_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "The Five Rings.h3m": {
+    "final": "the_five_rings_h3m.vmap",
+    "stripped": 566,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "The Gauntlet.h3m": {
+    "final": "the_gauntlet_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "The Great Race.h3m": {
+    "final": "the_great_race_h3m.vmap",
+    "verify": "steps=69<50% (早期死亡/异常)",
+    "verify_steps": 69,
+    "status": "verify_fail"
+  },
+  "The Mandate of Heaven.h3m": {
+    "final": "the_mandate_of_heaven_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "The Newcomers.h3m": {
+    "final": "the_newcomers_h3m.vmap",
+    "stripped": 396,
+    "verify": "steps=250/250 rew=-490.225",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Thousand Islands (allies).h3m": {
+    "final": "thousand_islands_allies_h3m.vmap",
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Thousand Islands.h3m": {
+    "final": "thousand_islands_h3m.vmap",
+    "verify": "steps=250/250 rew=-651.425",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Time's Up.h3m": {
+    "final": "time_s_up_h3m.vmap",
+    "stripped": 176,
+    "verify": "steps=141/250 rew=-373.875",
+    "verify_steps": 141,
+    "status": "PASS"
+  },
+  "Titans Winter.h3m": {
+    "final": "titans_winter_h3m.vmap",
+    "verify": "steps=61<50% (早期死亡/异常)",
+    "verify_steps": 61,
+    "status": "verify_fail"
+  },
+  "Too Many Monsters.h3m": {
+    "final": "too_many_monsters_h3m.vmap",
+    "verify": "steps=250/250 rew=-376.49409937976156",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Tovar's Fortress (Allies).h3m": {
+    "final": "tovar_s_fortress_allies_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Tovar's Fortress.h3m": {
+    "final": "tovar_s_fortress_h3m.vmap",
+    "status": "convert_fail",
+    "err": "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap: Symbol `_ZN13GameConstants12VCMI_VERSIONE' has different size in shared object, consider re-linking\n"
+  },
+  "Treasure Hunt.h3m": {
+    "final": "treasure_hunt_h3m.vmap",
+    "verify": "steps=250/250 rew=-654.325",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Twins.h3m": {
+    "final": "twins_h3m.vmap",
+    "stripped": 325,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Twins_water.h3m": {
+    "final": "twins_water_h3m.vmap",
+    "stripped": 325,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Undead Unrest.h3m": {
+    "final": "undead_unrest_h3m.vmap",
+    "stripped": 359,
+    "verify": "steps=250/250 rew=-880.7",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Unexpected Inheritance.h3m": {
+    "final": "unexpected_inheritance_h3m.vmap",
+    "stripped": 288,
+    "verify": "steps=250/250 rew=-658.625",
+    "verify_steps": 250,
+    "status": "PASS"
+  },
+  "Unholy Quest.h3m": {
+    "final": "unholy_quest_h3m.vmap",
+    "stripped": 647,
+    "verify": "steps=1<50% (早期死亡/异常)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "Valleys of War.h3m": {
+    "final": "valleys_of_war_h3m.vmap",
+    "stripped": 635,
+    "verify": "steps=250/250 rew=-361.65",
+    "verify_steps": 250,
+    "status": "PASS"
+  }
+}

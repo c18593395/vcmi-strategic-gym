@@ -1,0 +1,372 @@
+{
+  "A Viking We Shall Go Allied.h3m": {
+    "train_value": 0.87,
+    "value_conf": 0.48,
+    "risk_tag": "none",
+    "risk_p": 0.58,
+    "include": 0.27,
+    "cost": 3.1752e-05,
+    "id": "gen-dec-1789926892-M5RC5SmbLr6ON9FxddjT",
+    "ranked_at": "2026-09-21 01:54:47"
+  },
+  "A Viking We Shall Go.h3m": {
+    "train_value": 0.71,
+    "value_conf": 0.4,
+    "risk_tag": "none",
+    "risk_p": 0.77,
+    "include": 0.26,
+    "cost": 3.2046e-05,
+    "id": "gen-dec-1789926893-1XAIdOE8pNqQuhVF5A4C",
+    "ranked_at": "2026-09-21 01:54:48"
+  },
+  "All for One.h3m": {
+    "train_value": 1.35,
+    "value_conf": 0.41,
+    "risk_tag": "unreachable_objective",
+    "risk_p": 0.34,
+    "include": 0.24,
+    "cost": 3.3012e-05,
+    "id": "gen-dec-1789926909-f1NQCcZmvh01mEMFTZm9",
+    "ranked_at": "2026-09-21 01:55:05"
+  },
+  "Brave New World.h3m": {
+    "train_value": 2.11,
+    "value_conf": 0.21,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.48,
+    "include": 0.39,
+    "cost": 3.2382e-05,
+    "id": "gen-dec-1789926911-qDopQWSVyzODM6IFbf85",
+    "ranked_at": "2026-09-21 01:55:06"
+  },
+  "Buried Treasure.h3m": {
+    "train_value": 1.4,
+    "value_conf": 0.45,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.42,
+    "include": 0.27,
+    "cost": 3.2508e-05,
+    "id": "gen-dec-1789926912-5kLIcHQ4BFE1BO0E7jpZ",
+    "ranked_at": "2026-09-21 01:55:07"
+  },
+  "Crimson and Clover.h3m": {
+    "train_value": 1.27,
+    "value_conf": 0.49,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.47,
+    "include": 0.26,
+    "cost": 3.2592e-05,
+    "id": "gen-dec-1789926913-NJzvejcsmEdRebMGNYsr",
+    "ranked_at": "2026-09-21 01:55:09"
+  },
+  "Darwin's Prize(Allies).h3m": {
+    "train_value": 1.37,
+    "value_conf": 0.41,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.39,
+    "include": 0.26,
+    "cost": 3.2676e-05,
+    "id": "gen-dec-1789926915-EMTBGZ0oXTyBfHU8hfls",
+    "ranked_at": "2026-09-21 01:55:10"
+  },
+  "Darwin's Prize.h3m": {
+    "train_value": 1.42,
+    "value_conf": 0.43,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.58,
+    "include": 0.28,
+    "cost": 3.2382e-05,
+    "id": "gen-dec-1789926916-BapzHo5IH8Us071CykxC",
+    "ranked_at": "2026-09-21 01:55:11"
+  },
+  "Dwarven Gold.h3m": {
+    "train_value": 1.09,
+    "value_conf": 0.53,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.43,
+    "include": 0.21,
+    "cost": 3.3012e-05,
+    "id": "gen-dec-1789926917-YDwav0jb7lgoa5Y7brKw",
+    "ranked_at": "2026-09-21 01:55:13"
+  },
+  "Elbow Room(Allies).h3m": {
+    "train_value": 1.61,
+    "value_conf": 0.4,
+    "risk_tag": "ally_chaos",
+    "risk_p": 0.49,
+    "include": 0.45,
+    "cost": 3.2466e-05,
+    "id": "gen-dec-1789926919-lscfjeX8WteqJHywBJXg",
+    "ranked_at": "2026-09-21 01:55:14"
+  },
+  "Elbow Room.h3m": {
+    "train_value": 1.39,
+    "value_conf": 0.52,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.4,
+    "include": 0.33,
+    "cost": 3.2214e-05,
+    "id": "gen-dec-1789926920-Iu7FuPafjY0b2605LSTi",
+    "ranked_at": "2026-09-21 01:55:15"
+  },
+  "Emerald Isles.h3m": {
+    "train_value": 1.94,
+    "value_conf": 0.13,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.71,
+    "include": 0.33,
+    "cost": 3.2424e-05,
+    "id": "gen-dec-1789926921-oYGHRKDJC31xxROHWG3y",
+    "ranked_at": "2026-09-21 01:55:17"
+  },
+  "Emerald IslesA.h3m": {
+    "train_value": 1.88,
+    "value_conf": 0.2,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.73,
+    "include": 0.32,
+    "cost": 3.297e-05,
+    "id": "gen-dec-1789926923-oYUOMZV8loROvO3tUjNe",
+    "ranked_at": "2026-09-21 01:55:18"
+  },
+  "For Sale.h3m": {
+    "train_value": 1.53,
+    "value_conf": 0.45,
+    "risk_tag": "none",
+    "risk_p": 0.32,
+    "include": 0.41,
+    "cost": 3.2256e-05,
+    "id": "gen-dec-1789926924-h8ZBMG2KOH7ZUR804AVO",
+    "ranked_at": "2026-09-21 01:55:19"
+  },
+  "Goblins in the Pantry.h3m": {
+    "train_value": 1.3,
+    "value_conf": 0.5,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.7,
+    "include": 0.35,
+    "cost": 3.2676e-05,
+    "id": "gen-dec-1789926925-Yfppw8trFvhv9e6IBp2U",
+    "ranked_at": "2026-09-21 01:55:21"
+  },
+  "Good Witch, Bad Witch.h3m": {
+    "train_value": 1.82,
+    "value_conf": 0.19,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.52,
+    "include": 0.42,
+    "cost": 3.2886e-05,
+    "id": "gen-dec-1789926927-4KNXS85SKffP6sRCTBi8",
+    "ranked_at": "2026-09-21 01:55:22"
+  },
+  "Good to Go.h3m": {
+    "train_value": 1.25,
+    "value_conf": 0.61,
+    "risk_tag": "none",
+    "risk_p": 0.5,
+    "include": 0.47,
+    "cost": 3.2256e-05,
+    "id": "gen-dec-1789926928-XGuMk0ZznG2vpkwoEaD8",
+    "ranked_at": "2026-09-21 01:55:23"
+  },
+  "Hatchet Axe and Saw.h3m": {
+    "train_value": 1.41,
+    "value_conf": 0.48,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.55,
+    "include": 0.33,
+    "cost": 3.255e-05,
+    "id": "gen-dec-1789926930-mTkaCxBSbsPuzOl0SPzk",
+    "ranked_at": "2026-09-21 01:55:25"
+  },
+  "Hoard.h3m": {
+    "train_value": 1,
+    "value_conf": 0.54,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.5599999999999999,
+    "include": 0.23,
+    "cost": 3.2928e-05,
+    "id": "gen-dec-1789926931-thWRKzPEK8dBRtDHwCY8",
+    "ranked_at": "2026-09-21 01:55:26"
+  },
+  "Judgement Day.h3m": {
+    "train_value": 1.69,
+    "value_conf": 0.28,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.45,
+    "include": 0.34,
+    "cost": 3.2382e-05,
+    "id": "gen-dec-1789926932-da1MeSVkQHS1XX46XvkK",
+    "ranked_at": "2026-09-21 01:55:27"
+  },
+  "Loss of Innocence(Allies).h3m": {
+    "train_value": 1.53,
+    "value_conf": 0.39,
+    "risk_tag": "ally_chaos",
+    "risk_p": 0.51,
+    "include": 0.28,
+    "cost": 3.3264e-05,
+    "id": "gen-dec-1789926933-TGPhH9JMLfVwq0FMs59j",
+    "ranked_at": "2026-09-21 01:55:29"
+  },
+  "Loss of Innocence.h3m": {
+    "train_value": 1.68,
+    "value_conf": 0.31,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.52,
+    "include": 0.3,
+    "cost": 3.3012e-05,
+    "id": "gen-dec-1789926935-LeBWhybBMlWaytuGleqD",
+    "ranked_at": "2026-09-21 01:55:30"
+  },
+  "Manifest Destiny.h3m": {
+    "train_value": 1.44,
+    "value_conf": 0.44,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.55,
+    "include": 0.28,
+    "cost": 3.2424e-05,
+    "id": "gen-dec-1789926936-4UGwUUOwX6tseayVBr1L",
+    "ranked_at": "2026-09-21 01:55:31"
+  },
+  "Peacemaker.h3m": {
+    "train_value": 1.45,
+    "value_conf": 0.44,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.51,
+    "include": 0.26,
+    "cost": 3.2424e-05,
+    "id": "gen-dec-1789926937-NDxZOvrsYemzbO9npEC6",
+    "ranked_at": "2026-09-21 01:55:33"
+  },
+  "Pestilence Lake.h3m": {
+    "train_value": 1.68,
+    "value_conf": 0.32,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.48,
+    "include": 0.29,
+    "cost": 3.297e-05,
+    "id": "gen-dec-1789926939-0oGIXBqUaHQWSWQLC1dH",
+    "ranked_at": "2026-09-21 01:55:34"
+  },
+  "Ready or Not.h3m": {
+    "train_value": 1.22,
+    "value_conf": 0.45,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.38,
+    "include": 0.26,
+    "cost": 3.2466e-05,
+    "id": "gen-dec-1789926940-kthhcBvrx7Zi1SKo2Yha",
+    "ranked_at": "2026-09-21 01:55:35"
+  },
+  "Reclamation Allied.h3m": {
+    "train_value": 2.07,
+    "value_conf": 0.18,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.42,
+    "include": 0.31,
+    "cost": 3.2508e-05,
+    "id": "gen-dec-1789926941-cFDSWIPgRYk3l9wwXs45",
+    "ranked_at": "2026-09-21 01:55:37"
+  },
+  "Reclamation.h3m": {
+    "train_value": 1.88,
+    "value_conf": 0.2,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.45999999999999996,
+    "include": 0.27,
+    "cost": 3.234e-05,
+    "id": "gen-dec-1789926943-mlkL5xeVw6T0bYAdVlol",
+    "ranked_at": "2026-09-21 01:55:38"
+  },
+  "Rise of the Phoenix.h3m": {
+    "train_value": 1.08,
+    "value_conf": 0.48,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.39,
+    "include": 0.25,
+    "cost": 3.3138e-05,
+    "id": "gen-dec-1789926944-aL6Lp9bMLhhg3pJxJUAA",
+    "ranked_at": "2026-09-21 01:55:40"
+  },
+  "The Newcomers.h3m": {
+    "train_value": 1.15,
+    "value_conf": 0.56,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.44,
+    "include": 0.31,
+    "cost": 3.255e-05,
+    "id": "gen-dec-1789926946-8oaJWGYDgk45U7GjtuWz",
+    "ranked_at": "2026-09-21 01:55:41"
+  },
+  "Thousand Islands.h3m": {
+    "train_value": 1.85,
+    "value_conf": 0.11,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.72,
+    "include": 0.29,
+    "cost": 3.2508e-05,
+    "id": "gen-dec-1789926947-6cGuDEXY8fwEpOZIiZoZ",
+    "ranked_at": "2026-09-21 01:55:42"
+  },
+  "Time's Up.h3m": {
+    "train_value": 1.29,
+    "value_conf": 0.53,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.36,
+    "include": 0.24,
+    "cost": 3.2424e-05,
+    "id": "gen-dec-1789926948-zL0d98wzmXsSCeXlc3R3",
+    "ranked_at": "2026-09-21 01:55:44"
+  },
+  "Too Many Monsters.h3m": {
+    "train_value": 1.23,
+    "value_conf": 0.38,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.92,
+    "include": 0.26,
+    "cost": 3.2844e-05,
+    "id": "gen-dec-1789926950-Sq3fgipFiGFsLGgE5vkc",
+    "ranked_at": "2026-09-21 01:55:45"
+  },
+  "Treasure Hunt.h3m": {
+    "train_value": 1.64,
+    "value_conf": 0.29,
+    "risk_tag": "open_water_isolation",
+    "risk_p": 0.62,
+    "include": 0.28,
+    "cost": 3.234e-05,
+    "id": "gen-dec-1789926951-euoVhjorkT1EKUPSeU2K",
+    "ranked_at": "2026-09-21 01:55:47"
+  },
+  "Undead Unrest.h3m": {
+    "train_value": 1.27,
+    "value_conf": 0.52,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.53,
+    "include": 0.25,
+    "cost": 3.2466e-05,
+    "id": "gen-dec-1789926952-YNEw4cf67jEaF4pgUe6K",
+    "ranked_at": "2026-09-21 01:55:48"
+  },
+  "Unexpected Inheritance.h3m": {
+    "train_value": 1.2,
+    "value_conf": 0.43,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.54,
+    "include": 0.22,
+    "cost": 3.2634e-05,
+    "id": "gen-dec-1789926954-BHFBHaIcyuW8YVsHF2JN",
+    "ranked_at": "2026-09-21 01:55:49"
+  },
+  "Valleys of War.h3m": {
+    "train_value": 1.59,
+    "value_conf": 0.34,
+    "risk_tag": "dense_neutral",
+    "risk_p": 0.42,
+    "include": 0.28,
+    "cost": 3.2508e-05,
+    "id": "gen-dec-1789926955-kj00ED1RZKGgHGTCVgxR",
+    "ranked_at": "2026-09-21 01:55:50"
+  }
+}

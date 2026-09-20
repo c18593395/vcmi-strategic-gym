@@ -1,0 +1,47 @@
+{
+  "Dragon Orb.h3m": {
+    "status": "convert_fail",
+    "fail_cause": "convert_defect",
+    "cause_p": 0.54,
+    "cause_conf": 0.47,
+    "fix_worthwhile": 0.62,
+    "fix_difficulty": 2,
+    "cost": 2.8644e-05,
+    "id": "gen-dec-1789924793-nboRxTSFcL3CltIHN3NN",
+    "triaged_at": "2026-09-21 01:19:48"
+  },
+  "Faeries.h3m": {
+    "status": "verify_fail",
+    "fail_cause": "open_trapped",
+    "cause_p": 0.34,
+    "cause_conf": 0.22,
+    "fix_worthwhile": 0.55,
+    "fix_difficulty": 1.79,
+    "cost": 2.7132e-05,
+    "id": "gen-dec-1789924795-b0jyHqJFnrWWuTMzScue",
+    "triaged_at": "2026-09-21 01:19:50"
+  },
+  "Back For Revenge - Allied.h3m": {
+    "status": "convert_fail",
+    "fail_cause": "convert_defect",
+    "cause_p": 0.64,
+    "cause_conf": 0.57,
+    "fix_worthwhile": 0.6,
+    "fix_difficulty": 2.02,
+    "cost": 2.877e-05,
+    "id": "gen-dec-1789924808-OqvpLCacNJ1MsOnbu6sN",
+    "triaged_at": "2026-09-21 01:20:04"
+  },
+  "Back For Revenge.h3m": {
+    "status": "convert_fail",
+    "fail_cause": "convert_defect",
+    "cause_p": 0.64,
+    "cause_conf": 0.57,
+    "fix_worthwhile": 0.6,
+    "fix_difficulty": 2.02,
+    "cost": 2.877e-05,
+    "id": "gen-dec-1789924808-OqvpLCacNJ1MsOnbu6sN",
+    "triaged_at": "2026-09-21 01:20:04",
+    "dedup": true
+  }
+}

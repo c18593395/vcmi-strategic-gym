@@ -59,6 +59,50 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-20/21 JEV 决策模型运维工具链全量上线（OPS-JEV-01~04：告警分诊 / FAIL 归因 / 池排序 / 金标回归）+ jegrep + h3m2vmap 重链与段错误发现
+
+**背景**（截至 09-21）：接 Trae 论坛帖（TypeSafe Jev = System One 决策模型，只判不写，choice/score/noul 三原语带校准概率，$0.042/1M input 输出免费）。评估定调：**训练环境内判定（ZOMBIE/FUSE/reward/done）红线不碰**（热路径 + PPO 可复现性）；JEV 位置 = Windows 监控运维层旁路。jev CLI 0.6.2 已装，key 走 OpenRouter 路由（`typesafe/jev-1.13-20260917`），**key 全程经 jev CLI 凭据库自取，不进脚本不进聊天**。
+
+**四件套（全部 py/ 目录，均纯旁路：失败只记行、永不阻塞主流程）**：
+
+| 编号 | 脚本 | 功能 | 实测 |
+|------|------|------|------|
+| 01 | `train_alert_triage.py` | 监控 RED(4问根因)/YELLOW(3问底噪定性) 告警 → JEV → `[TRIAGE-*]` 行追加 monitor_alerts.log；同签名 10min 防抖；PS `Write-AlertLine` 统一入口后台触发（`-Triage $false` 可关） | 单次 ~$0.00003 / 2-3s |
+| 02 | `h3m_fail_triage.py` | WIN-4 批转 FAIL 归因：读 `_pipeline_report.json` + `_fail_triage/` 取证 → 3 问（根因7选/修复值得/修复难度）→ `_triage_report.json`；**同 err 去重**（17 张 convert_fail 同错只调 1 次）；steps=1 同模式聚类提示 | 全量 < $0.01 |
+| 03 | `h3m_pool_rank.py` | h3m_pool PASS 图训练价值排序：普查特征×verify 表现 → 3 问（价值 score/风险 choice/是否纳入 noul）→ `_pool_rank.json` 入池优先级 | 37 张 $0.0012 |
+| 04 | `jev_eval_regress.py` | **金标回归**：5 条真实判决种子（固定 state + 行为带断言），import 线上脚本问题集常量（criteria 改动自动覆盖）；改任何 criteria 前后必跑，退出码非 0 = 行为漂移 | 5/5 通过 $0.00016 |
+
+**管线取证钩子**（`h3m_batch_pipeline.py` `preserve_fail_evidence`）：verify_fail 现场同步提取 traj 摘要（steps/rew/末10 act/末20 rew）+ 验证日志尾 32KB → `maps/h3m_to_vmap/_fail_triage/<safe>/`。**必须现场取证**：verify_traj.json 会被下一张图覆盖。
+
+**关键方法论（金标回归的血泪）**：JEV 概率输出有固有采样波动，**贴边判决（p≈0.5）的 argmax/advice 天然不稳定**——首轮点值断言 3/5，同输入重放 fail_cause 翻面。修正为**行为带断言**（期望分类概率下限 + noul 上下限 + score 区间），回归抓的是"criteria 改坏 → 概率崩塌"，不是复刻单次采样。advice 是概率的下游派生（阈值穿过即翻面），不直接断言。
+
+**JEV schema 备忘**（CLI `jev run --provider openrouter -`，stdin JSON）：`choice = {type, instructions, criteria: {key: desc}}`（选项在 **criteria record**）；`score = {type, instructions, criteria: [str...]}`（**criteria 数组**，索引即等级）；`noul = {type, instructions}`。多问题一次并行（亚秒级）。输出自带 probabilities 全分布 + confidence。
+
+**jegrep 安装**（Jev 驱动语义 grep，github can1357/jegrep v0.1.0）：Windows `C:\Users\Administrator\Tools\jegrep\`（已入用户 PATH）+ WSL `/usr/local/bin/jegrep`（搜 vcmi C++ 源码主力，弥补 Windows 侧语义索引盲区）。整包 SHA256 校验过（注意：SHA256SUMS 校验的是 release 包，不是解压后二进制）。它读 `OPENROUTER_API_KEY` 环境变量/~/.env，**与 jev-cli 凭据库不互通**，key 用户自行配置。单次搜索 $0.01~0.03。
+
+**h3m2vmap 符号脱钩修复 + 段错误新发现**（详见踩坑 #289/#290）：libvcmi.so（09-19 09:46 STATIC_AI 重建）比 h3m2vmap（07:44）新 2 小时 → 17 张图 convert_fail 全因 `VCMI_VERSION symbol size mismatch`。`cmake --build --target h3m2vmap` 重链秒级修复（仅 Linking 无重编译，训练在跑时可安全执行）。**重链后冒烟暴露 #290**：原 convert_fail 图（Dragon Orb 72x72 / Back For Revenge 144x144）在 B3 规则应用阶段段错误，原 PASS 图（Faeries）无损——独立深层 bug 待 gdb，修复后才值得 `--resume-fail` 全量重验。
+
+**批转真实状态核查（纠文档过时，09-21 实测 report）**：
+- **h3m_pool 实际 37 张 PASS**（任务清单此前记录 5 张过时）——批转已跑过一大轮
+- FAIL 构成：convert_fail ~17 张（同 err，#289 已修工具侧）/ verify_fail ~110 张，其中 **steps=1（开局即死）约 60 张**（同模式系统性概率高，待重验定性）+ steps 61-98 中期死一批
+- **`_pool_rank.json` 排序已产出**：Brave New World 2.11 居首（108 尺寸 8p 水域）；**37 张 include 全部 <0.5**——JEV 校准信号："当前能力阶段（duel/1v3 族）直接上 1v7 官方图过难"，与晋级纪律呼应，入池应走渐进混合
+- 下一步顺序：#290 段错误 gdb → 停训窗 `--resume-fail` 重验（新取证钩子生效）→ `h3m_fail_triage.py` 全量归因 → 参考 `_pool_rank.json` 定入池节奏
+
+**运维操作速查**：
+```powershell
+# 告警分诊手动触发（防抖跳过用 --cooldown-min 0）
+python py\train_alert_triage.py --alert "<告警原文>" --level RED     # 或 YELLOW
+# FAIL 归因 / 池排序（批转完成后）
+python py\h3m_fail_triage.py            # 全量归因（--one 关键词 / --force 重跑）
+python py\h3m_pool_rank.py              # 全池排序（--top N 显示前 N）
+# JEV 行为回归（改 criteria 前后必跑）
+python py\jev_eval_regress.py           # 退出码非 0 = 行为漂移
+```
+
+**成本实据**：全部 JEV 判决会话累计 < $0.01（告警分诊天级个位数 + 归因/排序一次性），验证"便宜到可忽略"。
+
+**关联**: 踩坑 #288（ps1 BOM）/ #289（h3m2vmap 符号）/ #290（段错误）/ 任务清单 WIN-4 状态栏 + A13 / jev CLI 本体 `jev --help`（0.6.2 无 doctor/setup-key 子命令，用 `jev auth status/test --provider openrouter`）
+
 ### 09-19 官方 H3M 全量转换批跑（159 图 + 类型普查器 + 串行停训/批跑/重启脚本）
 
 **背景**（截至 09-20）：WIN-4 主线 = 159 张官方 H3M 逐张转换 → 250 步真实训练环境验收 → PASS 入 `maps/training/h3m_pool/`。09-19 全量批跑启动（用户拍板打断 A3 观察窗）。
