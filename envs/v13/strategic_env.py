@@ -128,8 +128,11 @@ def nk2_state_value(state) -> float:
     
     # --- 3.5 守卫接近梯度 (2026-08-27 方案A) ---
     # target_list 行: [type,idx,x,y,z,dist,power(log2),flags]; power>0 = 目标带守卫
-    # Φ_guard = -0.5 × min_dist → 每接近守卫 1 格势差 +0.5 (净正, 压过 -0.1 步罚)
-    # 守卫清除后该项消失 → 正跳变 (+0.5×d) 与 +100 战斗事件叠加
+    # Φ_guard = -w × min_dist → 每接近守卫 1 格势差 +w (净正, 压过 -0.1 步罚)
+    # 守卫清除后该项消失 → 正跳变 (+w×d) 与 +100 战斗事件叠加
+    # 系数 09-20 降权: -0.5→-0.15 — T7.8 大负局实锤: 绕怪 dist 暂增被 -0.5×dist 重罚
+    # (绕 30 格 = -15 势能坑, 且与 A3 避怪直接对抗: 模型被训练成"宁可踩怪也别绕");
+    # -0.15 保留接近梯度信号但绕怪代价可承受 (30 格 = -4.5, 一次占矿 +30 轻松覆盖)。
     guard_d = None
     for _gi in range(8):
         _row = state.target_list[_gi]
@@ -137,7 +140,7 @@ def nk2_state_value(state) -> float:
             _d = _row[5]
             guard_d = _d if guard_d is None else min(guard_d, _d)
     if guard_d is not None:
-        value += -0.5 * guard_d
+        value += -0.15 * guard_d
 
     # --- 4. 军力价值 (己方英雄) ---
     # NK2: getArmyReward = creature.getAIValue() × count
@@ -749,12 +752,16 @@ class StrategicEnv(gym.Env):
 
         # 计算奖励
         reward = self._calc_reward(state)
+        # potential-based shaping 终结修正 (09-20 BUG修复): shaping = γΦ(s')-Φ(s) 要求 episode
+        # 终止时补 -Φ(s') 终结项 (Φ 终值视为 0), 否则负势残留污染: 绕怪 dist 增大的 -0.5×dist
+        # 坑在死亡/截断时无法被回程正势抵消 (实锤: T7.8 大负局 -735×2/-488, 绕怪越远残留越大)。
+        self._terminated, self._truncated = self._check_done(state)
+        if (self._terminated or self._truncated) and self.use_nk2_shaping:
+            reward -= self._prev_nk2_value * self.nk2_shaping_scale
+            self._prev_nk2_value = 0.0
         # 2026-08-02: 连续 END_TURN 惩罚 — 第 3 次起每次固定 -5 (C8.5 塌缩刷底无成本根因; 固定值避免 n 递增爆炸 -32889)
         if self._consecutive_endturn >= 3:
             reward -= 5.0
-
-        # 检测终止
-        self._terminated, self._truncated = self._check_done(state)
 
         info = {
             "day": state.day if state else 1,
