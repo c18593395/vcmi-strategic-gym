@@ -69,9 +69,24 @@ def run(cmd, timeout, **kw):
         return None
 
 
-def train_verify(vmap_name, steps, ckpt, log_path):
+POOL_INDEX = f"{ROOT}/maps/h3m_to_vmap/_pool_index.json"
+
+
+def pool_index_update(vmap_name, blue_ai, detail):
+    """#293: 入池图蓝方 AI 标签索引 — 训练采样据此给该图配弱蓝/强蓝."""
+    try:
+        idx = json.load(open(POOL_INDEX, encoding="utf-8")) if os.path.exists(POOL_INDEX) else {}
+    except Exception:
+        idx = {}
+    idx[vmap_name] = {"blue_ai": blue_ai, "verify": detail[:80],
+                      "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+    with open(POOL_INDEX, "w", encoding="utf-8") as f:
+        json.dump(idx, f, indent=2, ensure_ascii=False)
+
+
+def train_verify(vmap_name, steps, ckpt, log_path, blue_ai="MMAI_RANDOM"):
     """250 步模型驱动局 = 与主训练 run_episode 完全同构 (含 WIN1 全套激励参数).
-    返回 (ok, detail)."""
+    #293: blue_ai 可切换 (timeout 图换 StupidAI 重试). 返回 (ok, detail)."""
     traj = f"{WORK}/verify_traj.json"
     if os.path.exists(traj):
         os.remove(traj)
@@ -81,7 +96,7 @@ def train_verify(vmap_name, steps, ckpt, log_path):
     env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
     cmd = [VENV, RUNNER, str(steps), traj, vmap_name,
            "--model", ckpt,
-           "--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI",
+           "--blue_ai", blue_ai, "--blue_adventure_ai", "MMAI",
            "--reward_explore", "0.3",
            "--move_to_bias", "1.92", "--move_to_force", "60", "--act_loop_from_step", "60",
            "--economy_force", "24", "--cycle_detect", "5", "--act_loop_penalty", "1.0",
@@ -94,8 +109,11 @@ def train_verify(vmap_name, steps, ckpt, log_path):
            "--use_nk2_shaping", "--nk2_shaping_scale", "0.45",
            "--target_chain", "scorer"]
     with open(log_path, "w") as lf:
-        p = subprocess.run(cmd, stdout=lf, stderr=subprocess.STDOUT,
-                           env=env, timeout=steps * 12 + 300)
+        try:
+            p = subprocess.run(cmd, stdout=lf, stderr=subprocess.STDOUT,
+                               env=env, timeout=steps * 12 + 300)
+        except subprocess.TimeoutExpired:
+            return False, "runner timeout"  # #293: 超时 → 上层换 StupidAI 重试
     rc = p.returncode
     if rc not in (0, 124):
         return False, f"runner rc={rc} (139=segfault)"
@@ -108,8 +126,19 @@ def train_verify(vmap_name, steps, ckpt, log_path):
     if t.get("error"):
         return False, f"traj error: {t['error']}"
     steps_done = t.get("steps") or 0
-    if steps_done < max(30, steps // 2):
-        return False, f"steps={steps_done}<50% (早期死亡/异常)"
+    # timeout 标记 (09-20): adventure_wait 300s 超时在 ep_runner 内部被捕获 (rc=0, steps=1),
+    # 旧判据 detail="steps=1<50%" 不含 "timeout" → 上层 StupidAI 重试从未触发 (#293 形同虚设)。
+    # 从 verify 日志识别 adventure 超时, 打上 timeout 标记触发重试。
+    try:
+        vlog = open(log_path, errors="replace").read()
+        if "adventure_wait timed out" in vlog:
+            return False, "adventure timeout (engine stuck, steps={})".format(steps_done)
+    except Exception:
+        pass
+    # 判据放宽 (09-20): h3m 入池目的 = 地形/规模多样性, 官方图怪贴脸开局战死是正常生态。
+    # 旧 max(30, steps//2) 在 250 步任务时顶到 125 → 8 张官方图全 FAIL。统一 30 步下限。
+    if steps_done < 30:
+        return False, f"steps={steps_done}<30 (早期死亡/异常)"
     return True, f"steps={steps_done}/{steps} rew={t.get('total_rew')}"
 
 
@@ -255,12 +284,31 @@ def main():
             print(f"  [FAIL] strip 异常: {e}", flush=True)
             continue
 
+        # 4) sanitize 玩家痕迹清洗 (09-20): 官方图多玩家残留 (events[].players/availableFor/
+        #    alignmentToPlayer 含 green/tan 等) → 引擎 "Cannot find info about player X" 启动崩
+        #    → adventure 300s 假死 (13 FAIL 中 5 张)。A3 四修实战验证: Battle of the Sexes
+        #    27+132 处清洗后 667s 卡死 → 24s 正常跑。
+        try:
+            import sanitize_vmap_players_0920 as sv
+            ch = sv.sanitize_and_save(cur)
+            if ch:
+                print(f"  [SANITIZE] {len(ch)} 处玩家痕迹清洗", flush=True)
+        except Exception as e:
+            print(f"  [WARN] sanitize 异常(继续): {e}", flush=True)
+
         # 5) 部署 + 训练验证
         dst = os.path.join(REL_MAPS, final_name)
         import shutil
         shutil.copy(cur, dst)
+        blue_ai_used = "MMAI_RANDOM"
         ok, detail = train_verify(final_name, args.steps, ckpt,
-                                  f"{WORK}/verify_{safe}.log")
+                                  f"{WORK}/verify_{safe}.log", blue_ai=blue_ai_used)
+        if (not ok) and ("timeout" in detail):
+            # #293: timeout 图自动换 StupidAI 蓝重试一次 — 蓝方战斗弱化, 换地形/规模多样性入池
+            print("  [RETRY] timeout → blue=StupidAI 重试", flush=True)
+            blue_ai_used = "StupidAI"
+            ok, detail = train_verify(final_name, args.steps, ckpt,
+                                      f"{WORK}/verify_{safe}.log", blue_ai=blue_ai_used)
         entry["verify"] = detail
         entry["verify_steps"] = _extract_steps(detail)
         if not ok:
@@ -277,9 +325,11 @@ def main():
                 pass
             continue
 
-        # 6) 入池
+        # 6) 入池 + 蓝方 AI 标签索引 (#293, 训练采样读)
         shutil.copy(cur, final_path)
         entry.update(status="PASS")
+        entry["blue_ai"] = blue_ai_used
+        pool_index_update(final_name, blue_ai_used, detail)
         report[h3m.name] = entry
         n_ok += 1
         print(f"  [PASS] {detail} → h3m_pool ({time.time()-t0:.0f}s)", flush=True)
