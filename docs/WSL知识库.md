@@ -130,7 +130,26 @@ if int(nobs[3203]) < 0 and not (done or trunc):
 
 **A3 战力闸（四改动，防"打不过也踩"）**：① `get_guards` 5 元组带 AIValue×amount 真实战力；② SCORE BFS 避怪（非守卫目标时怪格入 blocked，导航绕行不路过误踩）；③ `candidate_power_c` 重写（守卫直读真实战力 + 资源堆 t[6] 反解 2^gp-1，half-self 废弃）；④ F 硬闸 F<-0.3 不入池（蓝英雄/蓝城豁免，有专门攻击链）。自测：守卫400 vs 英雄100 → F=-0.95 剔除。
 
-**评估口径变更（eval_new_baseline_0919.py）**：死亡拆分 困死(HERO_DEATH)+战死(RED_DEAD)，duel 净胜率 = 守卫胜-(困死+战死)。**干净基线：duel 净 -23%**（31 局守卫 42%/战死 65%），旧"+21%"为污染口径不可比。T7.8 判据：战死<35% / duel 净>0% / 守卫胜不塌 / avg_r 抬升。
+**A3 二修三修（同日日志分析发现，五处追加）**：
+- **⑤ power_self 军队战力公式**：obs[base+10] 是英雄四维 **Power（法力属性，恒 1）**，非军队战力（旧注释 "total_power" 误导——真实 total_power 在 name[32] 后 26-stride 外，obs 未编码）。F 闸拿法力比军队 → guard_pick=0/守卫胜 0。修复 = 复用 L1492 兵力公式 `Σ army_count[15-21] × [10,40,120,350,900,1600,2500]`（traj 验证 5250=15×tier3 ✓）。
+- **⑥ f_min 三档演进 -1.0→-0.2→0.0**：-1.0 是 F 假值时代无护栏档；F 真实后 -0.2 卡边界（实锤 10/10 死局 pick F=-0.20 蓝英雄直奔被 MMAI 主动进攻战败）；0.0 = 正 F 才攻，负 F 先攒兵。
+- **⑦ 蓝英雄硬闸 -0.3→-0.1**（target_scorer 微负不 pick，空转好过送死）。
+- **⑧ 采样硬 mask `--monster_mask`**（默认 1）：8 邻怪格 logits=-inf（local_tiles **ch2**=obs[930:1155] 守卫战力层），治模型直发 act0-7 裸奔踩怪；豁免 move_guard_target + 8 向全怪不 mask。
+- **⑨ mask 豁免2**：贴脸目标（切比雪夫=1）方向不 mask——**-809 振荡局实锤**：BFS 目标格豁免规划进格（首步邻格是怪），mask 又挡 → 3/7 振荡 150 步，act_loop -1/步 + cycle -3 刷到 -700 量级。
+
+**obs 字段语义纠错表（防再猜，C++ StrategicHero 为准）**：
+| obs 偏移（base=128+slot×26） | 字段 | 语义 |
+|---|---|---|
+| +0/+1 | id/owner | id=0 是红英雄（slot0 恒活跃英雄）；owner 0=red |
+| +2/+3/+4 | pos_x/y/z | anchor 坐标 |
+| +10 | **power** | 英雄四维法力属性（**不是军队战力！**） |
+| +15..21 | army_count[7] | 军队战力 = Σ count×[10,40,120,350,900,1600,2500] |
+| 26 stride 外 | total_power 等 | v3 扩展，obs 未编码 |
+- local_tiles：ch0=通行性(480:705)/ch1=对象类型 Obj 枚举(705:930)/ch2=资源守护怪战力 log2(930:1155)——**ch2 只含 guardingCreatures（资源守护怪），不含独立游荡怪**（游荡怪用 ch1==Obj::MONSTER 或 vmap get_guards 判定）。
+
+**评估口径变更（eval_new_baseline_0919.py）**：死亡拆分 困死(HERO_DEATH)+战死(RED_DEAD)，duel 净胜率 = 守卫胜-(困死+战死)。**干净基线：duel 净 -23%**（31 局守卫 42%/战死 65%），旧"+21%"为污染口径不可比。T7.8 判据：战死<35%（✅ 58 局已达 34%）/ duel 净>0% / 大负局<300 清零（🔄 12 个待治）/ avg_r 抬升。
+
+**已知残留（下一轴候选，满窗后动）**：① act_loop/cycle 惩罚对绕怪合法绕行误杀（惩罚前查 BFS plen 下降则豁免）；② 贪心回退未避怪；③ 游荡怪 ch2 盲区（ch1 补）。
 
 **指针**：踩坑 #285（根因C'全链）/ #286（half-self 教训）/ 任务清单 T7.7（✅ 收口）/ T7.8（🔄 观察窗）/ `py/smoke_attack_bypass_3ep.py`（冒烟器，FORCE=1 env）。
 

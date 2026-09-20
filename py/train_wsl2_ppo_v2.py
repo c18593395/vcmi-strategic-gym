@@ -178,10 +178,9 @@ def run_episode(mapname, blue_model=None):
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
     cmd.extend(["--blue_ai", "MMAI_RANDOM", "--blue_adventure_ai", "MMAI"])
     # A2 贴脸强攻 (09-17): bypass=1 开贴脸强攻总开关 + contact_d=2 八邻域贴脸判定
-    # f_min (09-19 二修): -1.0 → -0.2 — 当初 -1.0 是因 F 读法力恒 -0.32 (护栏形同虚设) 而放全区间;
-    # 现 F 已换真实军队战力 (AIValue×amount), -1.0 = F 真负也送 (实锤战死 3/4: F=-0.2 蓝英雄略强仍攻→战败)。
-    # -0.2 = 打有把握的, 微负不送。零干扰原则: 关窗摘参即 100% 回退。
-    cmd.extend(["--blue_hero_attack_bypass", "1", "--blue_hero_contact_d", "2", "--attack_f_min", "-0.2"])
+    # f_min (09-19 三修): -0.2 → 0.0 — 死局实录: pick F=-0.20 蓝英雄直奔被主动进攻战败 (10/10 同构),
+    # -0.2 阈值卡边界全放行。F 真实化后正 F 才攻 (打有把握的仗), 负 F 先攒兵。
+    cmd.extend(["--blue_hero_attack_bypass", "1", "--blue_hero_contact_d", "2", "--attack_f_min", "0.0"])
     # C8.5: 探索奖励 (新格子 +1)
     # ===== Level 3 II.3 开经济 (2026-08-29): explore 0.3 / economy_force 50 / nk2 0.45 三件套 =====
     # cmd.extend(["--reward_explore", "0.2"])  # 降探索奖励，减少信号冲突

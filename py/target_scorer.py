@@ -294,8 +294,11 @@ def score_candidates(obs, hx, hy, hz, power_self,
         pc = candidate_power_c(c, power_self)
         F = power_feasibility(power_self, pc, w) if pc > 0 else 1.0
         # A3 (09-19) 硬闸: 明显打不过的怪/带守卫资源不入池 (BFS 层已绕行, 打不过别踩;
-        # 实锤战死 60%/120 局 = half-self 近似 F 恒正乱踩). 蓝英雄/蓝城豁免 (专门攻击链 + phase 惩罚管理).
-        if pc > 0 and not (c["is_blue_hero"] or c["is_blue_town"]) and F < -0.3:
+        # 实锤战死 60%/120 局 = half-self 近似 F 恒正乱踩). 
+        # A3 二修 (09-19 深夜): 蓝英雄阈值 -0.1 收紧 — 实锤 10/10 死局全同构:
+        # pick F=-0.20 微负蓝英雄 → 直奔 → 蓝英雄主动进攻 → 战败 (F=-0.2 过 -0.3 闸全放行)。
+        # 微负 = 先攒兵变强再 capture, 空转 250 步好过送死 -50。
+        if pc > 0 and F < (-0.1 if c["is_blue_hero"] else -0.3):
             continue
         # stick: 粘滞 bonus (当前目标未 stall 时强化保持)
         stick = 1.0 if (current_target is not None and

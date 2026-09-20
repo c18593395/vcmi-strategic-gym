@@ -591,14 +591,27 @@ try:
                     # (BFS 避怪只管 MOVE_TO 链; 实锤非duel 72族战死高发 = 模型直发一步踩怪死)。
                     # 怪格判定: local_tiles ch2 (obs[930:1155], 15×15 守卫战力 log2 层, C++ guardingCreatures 实锤)。
                     # 豁免: move_guard_target (攻击守卫需走进守卫格); 8向全怪不 mask (防 softmax 全 -inf)。
+                    # 豁免2 (09-19 -809局): 贴脸目标方向不 mask — BFS 目标格豁免是有意进格 (F 硬闸已保证
+                    # 打得过才 pick), mask 挡 BFS 首步 → 模型 3/7 振荡 150 步刷负分 (实锤 r=-809)。
                     if args.monster_mask and not move_guard_target:
                         _ah_m = int(obs[3203]) if obs[3203] >= 0 else 0
                         _bm = 128 + _ah_m * 26
+                        _hx_m, _hy_m = int(obs[_bm + 2]), int(obs[_bm + 3])
                         _md = []
                         for _d in range(8):
                             _mx, _my = 7 + _DIRS[_d][0], 7 + _DIRS[_d][1]
                             if 0 <= _mx < 15 and 0 <= _my < 15 and float(obs[930 + _my * 15 + _mx]) > 0:
                                 _md.append(_d)
+                        if move_target is not None and 0 < len(_md) < 8:
+                            _mtx, _mty = int(move_target[0]), int(move_target[1])
+                            _ddx, _ddy = _mtx - _hx_m, _mty - _hy_m
+                            if max(abs(_ddx), abs(_ddy)) == 1:  # 目标贴脸 (切比雪夫=1)
+                                for _d in range(8):
+                                    if _DIRS[_d][0] == ((1 if _ddx > 0 else -1) if _ddx else 0) \
+                                            and _DIRS[_d][1] == ((1 if _ddy > 0 else -1) if _ddy else 0):
+                                        if _d in _md:
+                                            _md.remove(_d)  # 朝贴脸目标方向放行
+                                        break
                         if 0 < len(_md) < 8:
                             for _d in _md:
                                 logits[_d] = float("-inf")
