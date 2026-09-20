@@ -2816,6 +2816,7 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - **与玩家数无关**：单玩家（Faeries）+ 双玩家（All for One）都复现，推翻"≥2 非中立玩家"假设
 - **与 #294 同源不同层**：#294 = vmap 侧（sanitize 未清 `header.players` 结构 → 引擎拒绝 END_TURN）；本条 = h3m 侧（mlclient 开局状态注册/查询）。两者表面都是 `Cannot answer the query -1`，机制不同，别混归因
 - **未走路径**：改 `client/CServerHandler.cpp` runNetwork 查询容错（mlclient 不在"不重编 libvcmi.so"铁律内，但属 C++ 改动）——用户拍板搁置
+- **09-21 实测（all_for_one_h3m.vmap）**：`vmap2h3m.py` 反转 `all_for_one_h3m.vmap`（h3m_pool）→ `allforone_test.h3m`（42574B，6 城+47 怪，donor=`all for one.h3m`）；`_test_v2h3m_engine_load.py --map allforone_test.h3m --steps 30` 实测确认：引擎 `SRV-DIAG TOWN OI=0..5` 六座城坐标与 h3m_tool 读回逐项一致（地图加载层通过），`runNetwork` 线程 `Cannot answer the query -1!` 复现，`reset()` 永久阻塞（30s 无 obs，kill -9 强停）。**定性维持：引擎可读性验证到地图加载层已足够，30 步 rollout 属 mlclient C++ 侧 h3m 开局初始化问题，Python 层改不动，搁置**
 
 ### SOP 固化
 
