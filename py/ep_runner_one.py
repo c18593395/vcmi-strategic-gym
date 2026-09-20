@@ -99,6 +99,7 @@ parser.add_argument("--move_to_force", type=int, default=0, help="MOVE_TO(24) �
 parser.add_argument("--economy_force", type=int, default=0,
                     help="经济动作采样强制 (Level 3): 每局前 N 步强制 16-21 轮换 (RECRUIT_1/2/3, BUILD_1/2/3) — 模型从没见过这些码, 需采样强制引导")
 parser.add_argument("--cycle_detect", type=int, default=0, help="状态级循环检测: 8 步窗口内同一 (hero,pos) 出现 >=N 次 → -3 惩罚 + 强制随机方向 (0=关闭)")
+parser.add_argument("--monster_mask", type=int, default=1, help="A3 采样硬 mask (09-19 方案C): 8邻怪格方向 logits=-inf (治模型直发 act0-7 裸奔踩怪, local_tiles ch2 判定), 0=关闭")
 parser.add_argument("--act_loop_penalty", type=float, default=0.0,
                     help="动作级循环惩罚 (第7轮): 连续 N 步重复 / 固定两两交替 → 负 reward (0=关闭)")
 parser.add_argument("--act_loop_repeat", type=int, default=4,
@@ -586,6 +587,21 @@ try:
                     # MOVE_TO 探索偏置 (训练早期引导模型输出 24)
                     if args.move_to_bias > 0:
                         logits[24] += args.move_to_bias
+                    # A3 采样硬 mask (09-19 方案C): 8邻怪格方向屏蔽 — 治模型直发 act0-7 裸奔踩怪
+                    # (BFS 避怪只管 MOVE_TO 链; 实锤非duel 72族战死高发 = 模型直发一步踩怪死)。
+                    # 怪格判定: local_tiles ch2 (obs[930:1155], 15×15 守卫战力 log2 层, C++ guardingCreatures 实锤)。
+                    # 豁免: move_guard_target (攻击守卫需走进守卫格); 8向全怪不 mask (防 softmax 全 -inf)。
+                    if args.monster_mask and not move_guard_target:
+                        _ah_m = int(obs[3203]) if obs[3203] >= 0 else 0
+                        _bm = 128 + _ah_m * 26
+                        _md = []
+                        for _d in range(8):
+                            _mx, _my = 7 + _DIRS[_d][0], 7 + _DIRS[_d][1]
+                            if 0 <= _mx < 15 and 0 <= _my < 15 and float(obs[930 + _my * 15 + _mx]) > 0:
+                                _md.append(_d)
+                        if 0 < len(_md) < 8:
+                            for _d in _md:
+                                logits[_d] = float("-inf")
                     # === 状态级循环检测 (2026-08-19 第5轮): 8 步窗口同一 (hero,pos) >=N 次 → 惩罚+强制随机方向 ===
                     # 治 [8,8,6,2]/[8,3] 类动作循环 — 横跳惩罚(位置级)只能抓 3/7 往返, 抓不到动作级循环
                     if args.cycle_detect > 0 and len(traj["obs"]) >= 8:
@@ -763,7 +779,18 @@ try:
                         if "/mnt/d/Bigdata/hero3_fresh/py" not in sys.path:
                             sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh/py")
                         _target_scorer = importlib.import_module("target_scorer")
-                    power_self = int(obs[base + 10])  # active hero total_power (H_F_POW=10)
+                    # A3 修正 (09-19): obs[base+10] = 英雄四维 Power (法力属性, 初始≈1), **非军队战力**!
+                    # (旧注释 "total_power" 系误导; C++ StrategicHero 真实 total_power 在 name[32] 之后,
+                    #  26-stride 外, obs 未编码) — 法力比军队 → A3 硬闸全剔 (guard_pick=0, 守卫胜 0)。
+                    # 军队战力复用 L1492 兵力公式 (army_count field 15-21 × VCMI AI value 阶梯)
+                    power_self = 0.0
+                    for _si in range(7):
+                        try:
+                            _ac = int(obs[base + 15 + _si])
+                            if _ac > 0:
+                                power_self += _ac * [10, 40, 120, 350, 900, 1600, 2500][_si]
+                        except Exception:
+                            pass
                     _t06_direct_s = args.mapname.startswith('T06')
                     _phase = "capture" if (mine_taken or _t06_direct_s) else "economy"
                     _t06_limit_s = args.mapname.startswith('T06') and own_town_guide_count >= 2
@@ -1031,8 +1058,26 @@ try:
                         _d_atk = int(args.blue_hero_contact_d) if args.blue_hero_contact_d > 0 else 2
                         if _d_bh <= _d_atk:
                             # 战力 F 护栏 (同 target_scorer.power_feasibility 公式)
-                            _pw_self = float(obs[base + 10])  # active hero power (H_F_POW=10)
-                            _pw_blue = float(obs[128 + _slot2 * 26 + 10]) if _slot2 >= 0 else 0.0
+                            # A3 修正 (09-19): pw 读法力属性值已废 — 军队战力公式 (army_count field 15-21 × AI value)
+                            _ARMY_W9 = [10, 40, 120, 350, 900, 1600, 2500]
+                            _pw_self = 0.0
+                            for _si9 in range(7):
+                                try:
+                                    _ac9 = int(obs[base + 15 + _si9])
+                                    if _ac9 > 0:
+                                        _pw_self += _ac9 * _ARMY_W9[_si9]
+                                except Exception:
+                                    pass
+                            _pw_blue = 0.0
+                            if _slot2 >= 0:
+                                _b9 = 128 + _slot2 * 26
+                                for _si9 in range(7):
+                                    try:
+                                        _ac9 = int(obs[_b9 + 15 + _si9])
+                                        if _ac9 > 0:
+                                            _pw_blue += _ac9 * _ARMY_W9[_si9]
+                                    except Exception:
+                                        pass
                             if _pw_blue > 0:
                                 _f_arg = (math.log1p(max(0.0, _pw_self)) - math.log1p(_pw_blue)
                                           - args.ts_margin) / max(1e-6, args.ts_temp)

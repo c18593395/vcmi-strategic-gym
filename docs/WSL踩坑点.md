@@ -1427,3 +1427,30 @@
 - **处理（顺序）**: ① 从 Windows `C:\Users\Administrator\.ssh` 拷回 `id_ed25519`(+pub) 到 `/home/administrator/.ssh` 与 `/root/.ssh`（GitHub 注册的是 ed25519，rsa 那把被拒）；写 `~/.ssh/config`（administrator+root 两份：`Host github.com / IdentityFile ~/.ssh/id_ed25519 / IdentitiesOnly yes`）→ `ssh -T git@github.com` 认证通过；② `git clone -b mmai-ml-wsl /mnt/d/Bigdata/git-mirrors/vcmi-native.git` 取健康 .git，旧坏目录改名留底后把新 .git 接回原路径（工作区 6092 文件零丢失），`chown administrator .git`；③ **关键发现**：git 快照 `30f62b8` 只到 BAI/v13，工作树另有 513 个未跟踪文件（BAI/v14 + schema/v14 + agent-v15 战略层增量，08-29 快照后未入库，正是"最大潜在丢失"那块）→ 保护性 commit `d62071da8a` + 推回 D 盘镜像仓；2821 个 `M` 抽样证实全部 CRLF↔LF 行尾噪音（删行尾后 diff 为空），**不提交不污染**；④ 全程只动目录名与 .git 元数据，.so/训练进程（当时 ep_runner_one.py 在跑）零影响。
 - **教训**: ① rootfs 重置丢的不只是"工件"，**.ssh 身份与 .git 元数据同属易失层**——重装后必须逐仓验 git 可用性，不能只看文件在不在；② git status 里 2821 个 `M` 不代表 2821 处内容改动——CRLF 全树噪音先抽样删行尾对比，**别把行尾翻转混进 commit**；③ bare 镜像仓是首选修复材料：WSL git 坏了可离线从 `/mnt/d` 重新克隆；④ .git 属主=administrator 的仓 root 直接跑 git 会 dubious ownership——`safe.directory` 或改用 administrator 身份；⑤ 9p 挂载（/mnt/d）属 root，D 盘镜像仓的 push 要用 root+safe.directory，WSL 仓的操作要用 administrator。
 - **关联**: #269（rootfs 重置事故，本条是其连带修复）/ #277b（keepalive 手工纪律，本窗口期训练存活前提）/ 知识库 09-19「网络恢复窗口」章
+
+#### #287 批跑管线 walrus 作用域 bug — 验收后 `steps_done` 未定义致 NameError 隐患 (09-19 全量批跑前修复) — ✅ 已修
+
+- **状态**: ✅ 已修（`py/h3m_batch_pipeline.py`：`entry["verify_steps"] = _extract_steps(detail)`，py_compile 全绿）
+- **现象**: 全量批跑启动前复查管线代码，发现验收成功分支 `entry["verify_steps"] = steps_done if (steps_done := _extract_steps(detail)) else 0` 里 `steps_done` 仅在 walrus 表达式内赋值，该表达式之后的代码（skip 判定、resume-fail 逻辑）若引用 `steps_done` 则 NameError；且 walrus 后接 `else 0` 使 0 值被静默吞掉，无法区分"真的 0 步"与"提取失败"。
+- **根因**: walrus `:=` 的作用域就是当前表达式所在语句——赋值在 if 条件里完成，语句结束后变量**并不保证**在后续作用域可见（局部函数/分支场景下直接 NameError）；`steps_done if ... else 0` 写法把提取值与失败兜底混在一起，破坏了"report 条目必须如实记录 verify_steps"的断点续跑语义。
+- **处理**: ① 验收分支改为独立语句 `entry["verify_steps"] = _extract_steps(detail)`（提取失败返回 0 但语义清晰：提取失败 = 早期死亡 = FAIL，不会被误 skip）；② 新增 `--resume-fail` 开关：默认信任旧 PASS 条目（100 步时代产物）不重验，开 `--resume-fail` 时只重验 report 中 fail/convert_fail 且无池文件的条目；③ skip 判定条件改为 `verify_steps is None`（旧条目无此字段）兼容 100 步时代 report。
+- **教训**: ① **walrus 别跨语句引用**——赋值只在表达式内有效，后续代码引用是运行时炸雷；② 断点续跑的 report 字段要有"显式空值"语义（None=历史条目无此字段 vs 0=提取到 0 步），用 is None 判定而非 == 0；③ 旧格式 PASS 条目与新判据（250 步）冲突时，"默认信任 + 显式开关重验"比"全量重验"省十几个小时，但必须把开关写进文档（本条 + 任务清单 WIN-4）。
+- **关联**: 知识库 09-19「H3M 全量批跑」章 / `py/h3m_batch_pipeline.py` / `py/run_h3m_batch.sh`
+
+#### #288 _pipeline_report.json 键值契约不统一 — 键=文件名、值无 "h3m" 字段，外部脚本易 KeyError (09-19 批跑监控实锤) — ✅ 已约定（监控脚本统一读键名）
+
+- **状态**: ✅ 已约定（监控/统计脚本一律 `for h3m_name, st in report.items()` 读键名，勿取 `st["h3m"]`）
+- **现象**: 写批跑进度统计一行式脚本时 `v["h3m"]` 直接 KeyError——report 是 `dict[h3m文件名, {status, verify_steps, ...}]`，条目值里**没有** "h3m" 字段，文件名本身就是键。
+- **根因**: 管线写 report 时 `report[h3m.name] = entry`，entry 内只存 status/verify/verify_steps/convert/strip 结果，没回写文件名；读 report 的脚本若按"值里有名字"的直觉写 `v["h3m"]` 就挂。
+- **处理**: 监控口径固化：① PASS/FAIL 计数 = `sum(1 for v in report.values() if v.get("status")=="PASS")`；② 图名 = 键本身 `report.keys()`；③ 进行中 = `grep "^\[" h3m_batch_run.log | tail`（日志行头 `[N/159] 文件名 → out.vmap`）。
+- **教训**: ① 共享 JSON report 要有**显式键值契约注释**（管线文件 docstring 写明"键=H3M 文件名，值不含 h3m 字段"），否则每个读脚本各猜一次；② `dict` 同时承担"文件名索引 + 条目数据"时，宁可冗余存一份 name 在值里也不省那几十字节——读侧的健壮性远比写侧省空间重要。
+- **关联**: #287（同文件同修复窗）/ 知识库 09-19「H3M 全量批跑」章（跟踪命令）/ `py/h3m_batch_pipeline.py`
+
+#### #289 SOD 自定义英雄头段解析缺失 — 9/159 官方图 parse_header 抛 "自定义英雄 N 暂不支持" (09-19 普查发现) — ⚠️ 待查（不阻塞批跑：失败图转换仍走 R2v2 重配+验收兜底，只是无类型统计）
+
+- **状态**: ⚠️ 待查（h3m_tool 未实现 disposed/custom hero 段；补法明确=读 156 个英雄槽位）
+- **现象**: `py/h3m_type_survey.py` 全量普查 159 图，9 张 SOD 图 parse_header 失败：A Viking We Shall Go(×2) / Battle of the Sexes(×2) / Last Chance(×2) / Marshland Menace / Resource War(×2)，报错 `自定义英雄 N 暂不支持`。
+- **根因**: SOD 的 H3M 头段带"自定义英雄"（disposed hero / custom hero）标志位，英雄数据段从 2 槽（默认红/蓝英雄）膨胀为 156 个英雄槽位（每玩家最多 78 英雄×2），h3m_tool.py 的 parse_header 遇到该标志位直接抛 NotImplementedError 式分支。
+- **处理**: 暂不修（普查器已把这 9 图列入 parse_fail 清单跳过，不影响其余 150 图统计；批跑管线走的是 R2v2 智能重配——重配时 aiSlot 恒 blue + 他色中立化 + 英雄删除，**不依赖** 自定义英雄头段解析，9 张图转换验证正常进行）。修的话：在 parse_header 自定义英雄分支读 156 槽位（每槽位 80 字节，含 name/class/level 等），约 30 行。
+- **教训**: ① 普查器（只读统计）与批跑管线（转换+验收）对解析器的依赖程度不同——统计器挂 9/159 只丢统计维度，管线挂才丢图；② 失败清单要进产物 JSON（parse_fail 字段）留档，别静默吞异常；③ SOD 9 张全在 C 盘源 `vcmi/data/Maps`，D 盘批跑用的同名文件转换无问题（管线不读该头段）。
+- **关联**: 知识库 09-19「H3M 全量批跑」章（parse_fail 9 张清单）/ `scripts/h3m_tool.py` / `py/h3m_type_survey.json`

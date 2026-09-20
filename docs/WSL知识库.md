@@ -59,6 +59,29 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-19 官方 H3M 全量转换批跑（159 图 + 类型普查器 + 串行停训/批跑/重启脚本）
+
+**背景**（截至 09-20）：WIN-4 主线 = 159 张官方 H3M 逐张转换 → 250 步真实训练环境验收 → PASS 入 `maps/training/h3m_pool/`。09-19 全量批跑启动（用户拍板打断 A3 观察窗）。
+
+**H3M 类型普查**（`py/h3m_type_survey.py`，口径复用 pick_flat + h3m_tool，只读统计不淘汰）：
+- **总量 159**（vcmi/data/Maps）；解析成功 150，**9 张 SOD 自定义英雄头失败**（Battle of the Sexes 双版 / Last Chance 双版 / Marshland Menace / Resource War 双版 + 2）：h3m_tool 未实现 disposed/custom hero 段（每英雄 156 槽位），待补
+- **层结构**：单层 42 / 有门（地下层+BORDER_GATE 连通）32 / 纯地下层（无门，物理不可达死区）76；has_underground=98，zmax>0=97
+- **岛屿**（8 邻陆地连通分量）：无岛 106 / 有岛 44；分量数 1:69 · 2-4:38 · 5-13:31 · ≥20:16（重岛图：Thousand Islands 系 / Realm of Chaos 系 / Xathras Prize）
+- **水域语义**（三态，与 pick_flat 同口径）：strict 无水 28 / sealed 岩中封闭水体 0（全量无实例）/ open 需造船 122
+- **玩家**：4p47 · 3p23 · 6p22 · 5p20 · 2p14 · 8p12 · 7p11 · 1p1（Island of Fire）；**同盟图 teams≥2 = 56 张**（基本为各图 "Allies" 姊妹版）
+- **尺寸**：36=30 · 72=68 · 108=36 · 144=16；版本 AB56/ROE47/SOD47，**HOTA=0**（官方图无 HOTA，H3 死因里 HOTA 项实际为空）
+- **玩法标志**：水晶 20 · 事件 67 · 传送(WAGON) 74 · 随机怪物生成全图都有；胜利条件 标准100/占城14/击破怪物7
+- **可入池子集**（无风险标签 且 水域 strict/sealed）= **仅 2 张**（Judgement Day / King of Pain）；其余 158 张必踩 OPEN_WATER(122) / UNDERGROUND(98) / TEAMS(47) 至少一项，PASS 全靠 strip 去地下 + 验收兜底
+
+**H3M 批跑管线三件套**：
+1. `py/h3m_batch_pipeline.py`：转换 R2v2(`--no-r1` 置位置参数后) → strip 去地下 → 250 步 `ep_runner_one.py` 验收 → PASS 才改名入 h3m_pool；断点续跑 = report 里 PASS+pool 文件存在即 skip
+2. 09-19 修复：`steps_done` 变量作用域 bug（原 walrus 赋值仅局部，下游 NameError 隐患）→ 改 `entry["verify_steps"] = _extract_steps(detail)`；新增 `--resume-fail`：旧 100 步 PASS 条目默认信任不重验，只重验 report 中 fail 条目
+3. `py/run_h3m_batch.sh`（停训/批跑/重启串行器）：`systemctl stop homm3-train-v5` → `nohup 批跑 --resume-fail --steps 250` → 等批跑结束 → `systemctl start homm3-train-v5`。**纯串行禁并行**（踩坑 #131 双进程压死）；中断（WSL 重启等）后重跑同一脚本即断点续跑
+- **启动命令**：`wsl -u root bash /mnt/d/Bigdata/hero3_fresh/py/run_h3m_batch.sh 250`（pid=113902 起，09-19 22:xx）
+- **进度**（09-20 00:0x）：18/159，PASS 6 / FAIL 13（steps=1 早期死亡 7 张——多为有岛/水下结构图；中期死亡 63-89 步 4 张；convert_fail 2 张 = Back For Revenge 主图+Allied）；速率 ~18张/h → 全量预计 8-9h
+- **跟踪**：`Get-Content D:\Bigdata\hero3_fresh\tmp\h3m_batch_run.log -Tail 30 -Wait`；PASS/FAIL 计数读 `maps/h3m_to_vmap/_pipeline_report.json`（键 = h3m 文件名，**无 "h3m" 字段**，直接键名）
+- **产物 JSON**：`py/h3m_type_survey.json`（150 图逐图全字段 + 交叉矩阵 + poolable 清单）
+
 ### 09-19 startBattle 引擎层直调（D 方案技术储备，用户拍板"以后要用"）
 
 **由来**：d=0 同格困死根因 C 调研引出"不走 moveHero 直调 startBattle"方案。当前走 B 方案（d=0 时 `_atk_skip_nav=False` 让 BFS 绕行，ep_runner_one.py L1054-1062）不阻塞训练，本储备留后用。任务登记：当前任务清单七-远期。

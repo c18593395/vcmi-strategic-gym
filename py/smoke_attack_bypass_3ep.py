@@ -17,7 +17,7 @@ import subprocess, os, re, sys, time
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 MAP = "T06_adventure_72X72_02_duel.vmap"
-CKPT = "/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_780608.pt"
+CKPT = "/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_818598.pt"
 LOG_BASE = "/tmp/smoke_force_ep_%d.log"
 
 # 3 参数 (A2 贴脸强攻)
