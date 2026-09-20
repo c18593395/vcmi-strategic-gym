@@ -509,6 +509,7 @@ try:
     # (动作合法性由 s2b 掩码保证 — 非法 16-21 根本不会被采样, 所以"尝试动作"≈"动作成功")
     # (被拒交互后 obs 不变 → 一直选 8 → 死循环 → 触发 server bug 崩溃)。连续 8 上限 2 次。
     act_hist = []  # 动作级循环检测: 最近动作序列 (第7轮)
+    _move_reject_streak = 0  # 卡死强制 END_TURN (09-20): 连续位置不变拍数, >=3 触发 stuck_endturn
     for _ in range(args.max_turns):
         cycle_penalty = 0.0
         force_dir = None
@@ -643,6 +644,18 @@ try:
                         a = force_dir
                     else:
                         a = Categorical(logits=logits).sample().item()
+                        # 卡死强制 END_TURN (09-20): movement 字段 C++ 侧未实时维护 (恒 max, dump 实锤)
+                        # → 改用 move_reject 连续计数 (位置连续 3 拍不变 = 引擎持续拒移动)。
+                        # (归因: move_reject ×52-68 = -26~-34, 位置不动连锁 cycle -102/zigzag -82/roundtrip -45,
+                        #  END_TURN 冷却 mask 让模型想结束回合都难 → 250 步刷墙 -700 量级)。
+                        # 绕过采样直接 END_TURN 等下回合; ah<0 (死亡帧) 不触发; 审计记频不计奖。
+                        _ah_mv = int(obs[3203]) if obs[3203] >= 0 else -1
+                        if _ah_mv >= 0 and float(obs[128 + _ah_mv * 26 + 5]) <= 0:
+                            a = 10
+                            _raud("movement_exhausted", 0.0)
+                        elif _move_reject_streak >= 3:
+                            a = 10
+                            _raud("stuck_endturn", 0.0)
                 else:
                     zombie = True  # 2026-08-28: 8方向全堵 = 英雄已死(无活动英雄) → 僵尸段
                     a = 10  # 全堵→END_TURN
@@ -1681,6 +1694,9 @@ try:
             if prev_pos == cur_pos:
                 r += -0.5  # 0915: 改为累加, 原 r = -0.5 赋值会覆盖同帧其他正 reward
                 _raud("move_reject", -0.5)
+                _move_reject_streak += 1
+            else:
+                _move_reject_streak = 0
             # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
             if len(traj["obs"]) >= 2:
                 prev2 = traj["obs"][-2]
