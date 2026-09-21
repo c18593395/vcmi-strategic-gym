@@ -474,6 +474,7 @@ try:
     # A3 (09-17): own_town 衰减/拉黑状态 (局内, 每局随 runner 重启重置; checkpoint resume 无残留)
     own_town_visits = {}     # {town_id: 已完成取兵窗次数} — scorer 衰减用 (窗结束时 +1)
     own_town_blocked = set() # 空撞拉黑: 取兵窗兵力零增量 → 本局整类剔除 (TOWN_EMPTY 打点)
+    ts_blocked = set()       # 09-21 scorer 单目标拉黑: stall/横跳放弃的格子本局不再 pick (-803 局同 pick 50 拍死循环根治)
     visit_town_id = None     # 当前取兵窗的城 id
     visit_army_snap = None   # 窗开启时兵力 power 快照 (空撞判定基线)
     visit_check_pending = False  # 窗已结束待空撞复核 (延迟一帧到 army power 段, 用 nobs 最新兵力)
@@ -853,6 +854,10 @@ try:
                         own_town_visits=own_town_visits, own_town_decay=args.own_town_decay,
                         own_town_blocked=own_town_blocked,
                         own_town_max_visits=int(args.own_town_max_visits))
+                    if ts_blocked:
+                        # 09-21: 单目标拉黑过滤 — stall/横跳放弃过的格子本局不再进 pick
+                        # (scored 元素 = (score, cand_dict, meta), pos 在 [1]["pos"])
+                        _scored = [s for s in _scored if tuple(s[1]["pos"]) not in ts_blocked]
                     _pick, _runner_up = _target_scorer.pick_from_scored(_scored)
                     if _pick is not None:
                         tx, ty, tz = _pick["pos"]
@@ -1320,10 +1325,22 @@ try:
                 else:
                     move_stall = 0
                 move_stall_prev = cur_dist
-                if move_stall >= 6:
+                if _stuck_osc_streak >= 6:
+                    # 09-21 引导路径横跳熔断: [3,7] 对拍两格往返, 距离增/减交替使 move_stall 反复清零,
+                    # 目标永不放弃 → scorer 同 pick 死循环 (-803/-740 局: 同 pick 50 拍, 250 步 -750)。
+                    # 复用 #292 zigzag 计数器 (惩罚段每拍更新, 引导路径同享), 触发 = 放弃 + 单目标拉黑
+                    print(f"[GUIDE_OSC_DROP] tgt=({tx},{ty}) osc={_stuck_osc_streak} step={traj['steps']}", flush=True)
+                    if not (move_town_target or move_town_bfs):
+                        ts_blocked.add((tx, ty, tz))  # 城目标已有 town_blocked 整类兜底, 不单格拉黑防自毁占城
+                    move_target = None
+                    move_stall = 0
+                    _stuck_osc_streak = 0
+                elif move_stall >= 6:
                     if move_town_target and args.objective_reward > 0 and not town_blocked:
                         town_blocked = True  # 城镇 BFS 进度真卡死 → 本局禁用城优先, 防无限卡城循环
                         print(f"[TOWN_BLOCKED] town BFS progress stalled at step {traj['steps']} hero=({hx},{hy}) tgt=({tx},{ty})", flush=True)
+                    if args.target_chain == "scorer" and not (move_town_target or move_town_bfs):
+                        ts_blocked.add((tx, ty, tz))  # 09-21: stall 放弃的 scorer 目标本局拉黑, 防反复 pick 同一死格
                     move_target = None
                     move_stall = 0
             else:
@@ -1706,6 +1723,7 @@ try:
         interact_streak = interact_streak + 1 if a == 8 else 0
         endturn_streak = endturn_streak + 1 if a == 10 else 0
         # 非法方向惩扣：move 后英雄位置没变（服务器拒绝），给 -0.5
+        _cur_pos_all = None  # 09-21: 横跳计数用 (每拍更新, 不再挂 a<8 分支)
         if a < 8 and traj["steps"] > 0:
             # B 态势感知: 用 active_hero (obs[3203]) 定位当前英雄, heroes 段起点 128, 每英雄 26 字段 (OBS v3), pos 在字段 2,3,4
             ah = int(nobs[3203]) if nobs[3203] >= 0 else 0
@@ -1718,17 +1736,24 @@ try:
                 _move_reject_streak += 1
             else:
                 _move_reject_streak = 0
-            # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
-            if len(traj["obs"]) >= 2:
-                prev2 = traj["obs"][-2]
-                ah2 = int(prev2[3203]) if prev2[3203] >= 0 else 0
-                base2 = 128 + ah2 * 26
-                prev2_pos = (int(prev2[base2+2]), int(prev2[base2+3]), int(prev2[base2+4]))
-                if cur_pos == prev2_pos:
+        # 09-21: 横跳计数每拍更新 (原整段挂 a<8 分支内 — 模型输出 MOVE_TO(24) 由引导层展开成
+        # 方向移动时 a=24, zigzag 段整个不执行 → #292 熔断盲区, -803/-1101 局 [3,7] 对拍 250 步
+        # 零干预实锤)。zigzag -2.0 奖励扣分维持原 a<8 口径 (奖励面零变更, 只修行为护栏)。
+        _ah3 = int(nobs[3203]) if nobs[3203] >= 0 else 0
+        _cur_pos_all = (int(nobs[128 + _ah3 * 26 + 2]), int(nobs[128 + _ah3 * 26 + 3]), int(nobs[128 + _ah3 * 26 + 4]))
+        # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
+        if len(traj["obs"]) >= 2:
+            prev2 = traj["obs"][-2]
+            ah2 = int(prev2[3203]) if prev2[3203] >= 0 else 0
+            base2 = 128 + ah2 * 26
+            prev2_pos = (int(prev2[base2+2]), int(prev2[base2+3]), int(prev2[base2+4]))
+            if _cur_pos_all == prev2_pos:
+                if a < 8:
                     r -= 2.0
                     _raud("zigzag", -2.0)
-                else:
-                    _stuck_osc_streak = 0
+                _stuck_osc_streak += 1
+            else:
+                _stuck_osc_streak = 0
             # 两格往返加强 (2026-08-25): 8 步窗英雄位置仅 2 格交替 → 额外 -3.0 + 强制随机方向
             # 背景: 横跳 -2.0 被探索奖励 (NK2 3x3 邻域 ×0.2) 掩盖 (净 -0.5), 模型持续横跳
             # 强制阶段 (MOVE_TO 展开的往返=绕障碍正常行为) 不检测, 与 act_loop 一致
