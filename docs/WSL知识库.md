@@ -125,6 +125,54 @@ python py\jev_eval_regress.py           # 退出码非 0 = 行为漂移
 
 **关联**: 踩坑 #294/#297 / 任务清单 WIN-4 / `py/_probe_warm_mainTown.py` / `py/_verify_skip_marker.py` / `maps/h3m_to_vmap/_pool_index.json`
 
+### 09-21 H3M 入池四批节奏定稿 + `HOMM3_H3M_BATCH` 批次过滤机制
+
+**背景**（截至 09-21）：用户纠正"水/岛图模型从未学过造船，直接入池会大负"——`HOMM3_H3M_MIX` 全池均匀随机（`random.choice(_POOL_MAPS)`）未做批次区分，137 张图混采必然引入未学能力维度（水/岛/地下）。按 `h3m_type_survey.json` 三字段（`water_touched`/`has_island`/`has_underground`）+ `risk_tag` 四批定稿，`HOMM3_H3M_BATCH` env 落地批次过滤。
+
+**四批定义**（`maps/h3m_to_vmap/_pool_batches.json`，生成脚本 `py/_gen_pool_batches2.py`）：
+
+| 批次 | 条件 | 张数 | 启用时点 |
+|------|------|------|---------|
+| batch1 首批 | 无水+无岛+无地下 | 5（include 取前5） | `MIX=0.10 BATCH=1`，T7.8 收口后 |
+| batch2 二批 | batch1 安全图余 + `ally_chaos` | 7 | 首批50局绿后 `MIX=0.15 BATCH=2` |
+| batch3 水/岛 | `water_touched` OR `has_island` OR `open_water_isolation` | 26 | WIN-5 造船激励轴落地后 |
+| batch_ug 地下 | `has_underground=1`（无水无岛） | 14 | `--keep-underground` 转换轴落地后 |
+
+**首批5张定稿**（`_pool_index.json` 已标 `batch:1`）：
+- `good_to_go_h3m.vmap`（include=0.47，risk=none，最干净）
+- `judgement_day_h3m.vmap`（0.34）
+- `elbow_room_h3m.vmap`（0.33）
+- `a_viking_we_shall_go_allied_h3m.vmap`（0.27，survey 未覆盖，后续人工核对）
+- `a_viking_we_shall_go_h3m.vmap`（0.26，同上）
+
+**`HOMM3_H3M_BATCH` 过滤机制（`train_wsl2_ppo_v2.py` L165-L192）**：
+- 默认 `BATCH=0` = 不过滤（全池采，零行为变化）
+- `BATCH>0` 时 `_POOL_MAPS` 只采 `_pool_index.json` 里**显式标了 `batch` 字段且 `<= 阈值`** 的图；没标 `batch` 的（水/岛/地下图未标记）一律不放行
+- 防负数核心：能力维度未学的图必须**显式标 batch 才能入采样**，默认拒绝
+
+**启用 SOP**：
+```
+# T7.8 收口后开首批
+wsl -u root systemctl stop homm3-train-v5
+# 编辑 /etc/systemd/system/homm3-train-v5.service 加两行 Environment:
+#   Environment=HOMM3_H3M_MIX=0.10
+#   Environment=HOMM3_H3M_BATCH=1
+wsl -u root systemctl daemon-reload
+wsl -u root systemctl start homm3-train-v5
+# 50 局后判绿 → 改 MIX=0.15 BATCH=2 → 重启
+# batch3/batch_ug 等各自激励轴落地后再扩
+```
+
+**水/岛图入池前置（WIN-5 造船激励轴，未落地）**：reward 需加 `SHIP_BUILT`/`CROSS_WATER` 项，否则模型遇水全卡岸边直接大负。batch3 26 张图（含 `for_sale`/`goblins_in_the_pantry`/`good_witch_bad_witch` 等高 include 图）必须等该轴落地才能入池。
+
+**踩坑修正记录（`_gen_pool_batches2.py` 迭代）**：
+- v1 bug：`sanitize()` 对已含 `.h3m` 后缀的 key 再拼一次 → `good_to_go.h3m_h3m.vmap`；`good_witch,_bad_witch` 逗号未处理
+- v2 bug：`name2row` key 用 `row["name"].lower()`（空格），查询 key 用 `for_sale`（下划线）→ 匹配失败 `row=None`，`water/island` 全判 False；`for_sale`（0.41）/`goblins_in_the_pantry`（0.35）误入首批
+- v3 修复：统一 `_key()` 函数（`re.sub(r"[\s,'()\-\s]+", "_", s)`），逗号/撇号/括号/空格全转下划线；同时加 `has_underground` 三字段判断；`manifest_destiny`（有地下）正确从首批抽走
+
+**关联**: 踩坑 #298（批次过滤机制落地）/ 任务清单 WIN-5 入池节奏段 / `py/_gen_pool_batches2.py` / `py/_check_pool_flags.py`（pool 37 张逐一 UG/WATER/ISLAND 核查）/ `maps/h3m_to_vmap/_pool_batches.json` / `py/train_wsl2_ppo_v2.py` L165-L192 / commit 62bbc47
+
+
 ### 09-19 官方 H3M 全量转换批跑（159 图 + 类型普查器 + 串行停训/批跑/重启脚本）
 
 **背景**（截至 09-20）：WIN-4 主线 = 159 张官方 H3M 逐张转换 → 250 步真实训练环境验收 → PASS 入 `maps/training/h3m_pool/`。09-19 全量批跑启动（用户拍板打断 A3 观察窗）。

@@ -1599,3 +1599,15 @@
 - **教训**: ① `engine stuck steps=1` + `HEROSEG_EMPTY` 组合 = 出生点缺失类结构性死因，先查 mainTown 锚点是否被 strip/sanitize 删光，**别在 AI 强度上重试**（StupidAI 重试对结构性死因零作用）；② 普查 UNDERGROUND=98 图里有"主城镇在地下层"的极端子集（去层即死），这类图应提前识别入 skip 列表而非逐张试错；③ skip 条目格式固定 `{"blue_ai":"skip","reason":...,"detail":...,"ts":...}`，后续同类图（含 #294 双根因中无城可造城的）直接照格式补条目。
 - **复现/验证**: `wsl bash -c "python py/_verify_skip_marker.py"` → `[OK] 标记生效`；重跑管线命中 `[STRUCTURAL_SKIP] a_warm_and_familiar_place`。
 - **关联**: #294（adventure timeout 双根因 sanitize v2）/ #289/#290（批转工具链）/ `py/h3m_batch_pipeline.py` L244-L280 / `py/_probe_warm_mainTown.py` / `py/_verify_skip_marker.py` / `maps/h3m_to_vmap/_pool_index.json`
+
+#### #298 H3M 入池批次过滤未实现 → 水/岛/地下图全池均匀采样，模型未学造船/跨层直接大负 (09-21 用户纠正后修复) — ✅ 已修（`HOMM3_H3M_BATCH` env + `_pool_index.json` `batch` 字段）
+
+- **状态**: ✅ 已修（`py/train_wsl2_ppo_v2.py` + `maps/h3m_to_vmap/_pool_index.json`，commit 62bbc47）
+- **现象**: `HOMM3_H3M_MIX` 开关全池均匀随机（`random.choice(_POOL_MAPS)`），137 张图无批次区分。h3m_pool 里 26 张水/岛图 + 14 张地下层图与 5 张安全图混在一起采，模型从未学过造船/跨层 → 采到水图直接大负（reward 无 SHIP 项，模型全卡水边不动）。
+- **根因**: WIN-5 设计时 `HOMM3_H3M_MIX` 只控"混入比例"，没控"采哪些图"。用户 09-21 纠正"这里面有好多有水，是岛屿的，我们都还没有训练过，会直接负数"后才意识到需要按能力维度分批。
+- **修复**:
+  1. `_pool_index.json` 给 7 张图标 `batch` 字段：首批 5 张（good_to_go/judgement_day/elbow_room/a_viking_we_shall_go_allied/a_viking_we_shall_go）标 `batch:1`；二批 2 张（too_many_monsters/elbow_room_allies）标 `batch:2`
+  2. `train_wsl2_ppo_v2.py` 新增 `HOMM3_H3M_BATCH` env（默认 0=不过滤）；`>0` 时 `_POOL_MAPS` 只采 `_pool_index.json` 里**显式标了 `batch` 且 `<= 阈值`** 的图，没标 `batch` 的一律不放行（水/岛/地下图未标记 = 不入采样）
+  3. 生成脚本 `py/_gen_pool_batches2.py` 按 `water_touched`/`has_island`/`has_underground` 三字段 + `risk_tag` 四批分类，输出 `maps/h3m_to_vmap/_pool_batches.json`
+- **教训**: ① 全池均匀随机在多能力图混池时必然引入未学能力维度的图 → 大负；任何"入池前未学"的能力维度（水/岛/地下/门）都必须有**显式批次门槛**；② 普查字段（`h3m_type_survey.json` 的 `water_touched`/`has_island`/`has_underground`）是分批的权威依据，不能只看 `risk_tag`（`dense_neutral` 图也可能有水）；③ 水/岛/地下三类能力维度独立，不能合并为"难图"一批——地下跨层与水边卡船是完全不同的失败模式，各自需要独立激励轴。
+- **关联**: WIN-5 任务清单入池节奏段 / `py/_gen_pool_batches2.py` / `maps/h3m_to_vmap/_pool_batches.json` / `maps/h3m_to_vmap/_pool_index.json` / `py/train_wsl2_ppo_v2.py` L165-L192
