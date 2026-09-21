@@ -14,8 +14,8 @@ import re, statistics, collections
 LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
 lines = open(LOG, errors="replace").readlines()
 
-# 评估起点 (行号, 1-based) — 09-19 根因C'修复重启点 (L121686 banner, ah=-1 立即终局生效)
-START = 121686
+# 评估起点 (行号, 1-based) — 09-21 T7.8 终版窗 (#292 三次修复 + pick 拉黑, banner step=848792 重启)
+START = 134517
 seg = lines[START - 1:]
 SEG_END = len(seg)
 print(f"评估窗口: 行 {START}..{START + len(seg)} ({len(seg)} 行)\n")
