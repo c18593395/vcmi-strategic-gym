@@ -475,6 +475,7 @@ try:
     own_town_visits = {}     # {town_id: 已完成取兵窗次数} — scorer 衰减用 (窗结束时 +1)
     own_town_blocked = set() # 空撞拉黑: 取兵窗兵力零增量 → 本局整类剔除 (TOWN_EMPTY 打点)
     ts_blocked = set()       # 09-21 scorer 单目标拉黑: stall/横跳放弃的格子本局不再 pick (-803 局同 pick 50 拍死循环根治)
+    ts_pick_count = {}       # 09-21 同目标 pick 累计计数: >=8 拉黑 (不依赖位置启发式 — 振荡形态多变, prev2/stall 都会漏)
     visit_town_id = None     # 当前取兵窗的城 id
     visit_army_snap = None   # 窗开启时兵力 power 快照 (空撞判定基线)
     visit_check_pending = False  # 窗已结束待空撞复核 (延迟一帧到 army power 段, 用 nobs 最新兵力)
@@ -860,6 +861,13 @@ try:
                         _scored = [s for s in _scored if tuple(s[1]["pos"]) not in ts_blocked]
                     _pick, _runner_up = _target_scorer.pick_from_scored(_scored)
                     if _pick is not None:
+                        # 09-21 同目标 pick 计数拉黑: plen=1 却 100+ 拍完不成 = 引擎拒入该格,
+                        # 位置振荡形态多变 (3 连发+多格晃) prev2/move_stall 都抓不住 → 直接数 pick 次数
+                        _tp = tuple(_pick["pos"])
+                        ts_pick_count[_tp] = ts_pick_count.get(_tp, 0) + 1
+                        if ts_pick_count[_tp] >= 8:
+                            ts_blocked.add(_tp)
+                            print(f"[SCORE_BLACK] tgt={_tp} picks={ts_pick_count[_tp]} step={traj['steps']}", flush=True)
                         tx, ty, tz = _pick["pos"]
                         move_target = (tx, ty, tz)
                         move_stall = 0
