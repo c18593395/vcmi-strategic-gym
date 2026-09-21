@@ -1,0 +1,8 @@
+feat: WIN-5 batch1 上线 — HOMM3_H3M_MIX=0.10 + BATCH=1 (unit 双副本)
+
+- T7.8 85 局收口评估后启用图池混合轴批次制
+- unit: MIX 0.25(无过滤,会放行水/岛图) → 0.10 + HOMM3_H3M_BATCH=1
+  (只采 _pool_index.json batch<=1 的 5 张无水/岛/地下安全图)
+- 四批定稿: batch1(5张安全) → batch2(+ally_chaos 7张, 50局绿后 0.15)
+  → batch3 水/岛 26张(造船轴后) → batch_ug 地下 14张(--keep-underground 后)
+- 任务清单: 85 局收口评估 + batch1 上线记录
