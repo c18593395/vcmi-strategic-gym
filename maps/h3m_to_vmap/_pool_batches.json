@@ -1,0 +1,367 @@
+{
+  "desc": "入池节奏四批（09-21 定稿）",
+  "first5": [
+    {
+      "vmap": "good_to_go_h3m.vmap",
+      "h3m": "Good to Go.h3m",
+      "include": 0.47,
+      "risk": "none",
+      "train_value": 1.25
+    },
+    {
+      "vmap": "judgement_day_h3m.vmap",
+      "h3m": "Judgement Day.h3m",
+      "include": 0.34,
+      "risk": "dense_neutral",
+      "train_value": 1.69
+    },
+    {
+      "vmap": "elbow_room_h3m.vmap",
+      "h3m": "Elbow Room.h3m",
+      "include": 0.33,
+      "risk": "dense_neutral",
+      "train_value": 1.39
+    },
+    {
+      "vmap": "a_viking_we_shall_go_allied_h3m.vmap",
+      "h3m": "A Viking We Shall Go Allied.h3m",
+      "include": 0.27,
+      "risk": "none",
+      "train_value": 0.87
+    },
+    {
+      "vmap": "a_viking_we_shall_go_h3m.vmap",
+      "h3m": "A Viking We Shall Go.h3m",
+      "include": 0.26,
+      "risk": "none",
+      "train_value": 0.71
+    }
+  ],
+  "batch1_rest": [
+    {
+      "vmap": "too_many_monsters_h3m.vmap",
+      "h3m": "Too Many Monsters.h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "train_value": 1.23
+    }
+  ],
+  "batch2_ally": [
+    {
+      "vmap": "elbow_room_allies_h3m.vmap",
+      "h3m": "Elbow Room(Allies).h3m",
+      "include": 0.45,
+      "risk": "ally_chaos"
+    }
+  ],
+  "batch3_water_island": [
+    {
+      "vmap": "all_for_one_h3m.vmap",
+      "h3m": "All for One.h3m",
+      "include": 0.24,
+      "risk": "unreachable_objective",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "brave_new_world_h3m.vmap",
+      "h3m": "Brave New World.h3m",
+      "include": 0.39,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "buried_treasure_h3m.vmap",
+      "h3m": "Buried Treasure.h3m",
+      "include": 0.27,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "crimson_and_clover_h3m.vmap",
+      "h3m": "Crimson and Clover.h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "darwin_s_prize_allies_h3m.vmap",
+      "h3m": "Darwin's Prize(Allies).h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "darwin_s_prize_h3m.vmap",
+      "h3m": "Darwin's Prize.h3m",
+      "include": 0.28,
+      "risk": "dense_neutral",
+      "reason": "water"
+    },
+    {
+      "vmap": "emerald_isles_h3m.vmap",
+      "h3m": "Emerald Isles.h3m",
+      "include": 0.33,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "emerald_islesa_h3m.vmap",
+      "h3m": "Emerald IslesA.h3m",
+      "include": 0.32,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "for_sale_h3m.vmap",
+      "h3m": "For Sale.h3m",
+      "include": 0.41,
+      "risk": "none",
+      "reason": "water"
+    },
+    {
+      "vmap": "goblins_in_the_pantry_h3m.vmap",
+      "h3m": "Goblins in the Pantry.h3m",
+      "include": 0.35,
+      "risk": "dense_neutral",
+      "reason": "water"
+    },
+    {
+      "vmap": "good_witch_bad_witch_h3m.vmap",
+      "h3m": "Good Witch, Bad Witch.h3m",
+      "include": 0.42,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "hatchet_axe_and_saw_h3m.vmap",
+      "h3m": "Hatchet Axe and Saw.h3m",
+      "include": 0.33,
+      "risk": "dense_neutral",
+      "reason": "water"
+    },
+    {
+      "vmap": "hoard_h3m.vmap",
+      "h3m": "Hoard.h3m",
+      "include": 0.23,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "loss_of_innocence_allies_h3m.vmap",
+      "h3m": "Loss of Innocence(Allies).h3m",
+      "include": 0.28,
+      "risk": "ally_chaos",
+      "reason": "water"
+    },
+    {
+      "vmap": "loss_of_innocence_h3m.vmap",
+      "h3m": "Loss of Innocence.h3m",
+      "include": 0.3,
+      "risk": "dense_neutral",
+      "reason": "water"
+    },
+    {
+      "vmap": "peacemaker_h3m.vmap",
+      "h3m": "Peacemaker.h3m",
+      "include": 0.26,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "pestilence_lake_h3m.vmap",
+      "h3m": "Pestilence Lake.h3m",
+      "include": 0.29,
+      "risk": "dense_neutral",
+      "reason": "water"
+    },
+    {
+      "vmap": "ready_or_not_h3m.vmap",
+      "h3m": "Ready or Not.h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "reclamation_allied_h3m.vmap",
+      "h3m": "Reclamation Allied.h3m",
+      "include": 0.31,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "reclamation_h3m.vmap",
+      "h3m": "Reclamation.h3m",
+      "include": 0.27,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "rise_of_the_phoenix_h3m.vmap",
+      "h3m": "Rise of the Phoenix.h3m",
+      "include": 0.25,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "the_newcomers_h3m.vmap",
+      "h3m": "The Newcomers.h3m",
+      "include": 0.31,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "thousand_islands_h3m.vmap",
+      "h3m": "Thousand Islands.h3m",
+      "include": 0.29,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "treasure_hunt_h3m.vmap",
+      "h3m": "Treasure Hunt.h3m",
+      "include": 0.28,
+      "risk": "open_water_isolation",
+      "reason": "water"
+    },
+    {
+      "vmap": "undead_unrest_h3m.vmap",
+      "h3m": "Undead Unrest.h3m",
+      "include": 0.25,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "valleys_of_war_h3m.vmap",
+      "h3m": "Valleys of War.h3m",
+      "include": 0.28,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    }
+  ],
+  "batch_ug_underground": [
+    {
+      "vmap": "all_for_one_h3m.vmap",
+      "h3m": "All for One.h3m",
+      "include": 0.24,
+      "risk": "unreachable_objective",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "buried_treasure_h3m.vmap",
+      "h3m": "Buried Treasure.h3m",
+      "include": 0.27,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "crimson_and_clover_h3m.vmap",
+      "h3m": "Crimson and Clover.h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "darwin_s_prize_allies_h3m.vmap",
+      "h3m": "Darwin's Prize(Allies).h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "dwarven_gold_h3m.vmap",
+      "h3m": "Dwarven Gold.h3m",
+      "include": 0.21,
+      "risk": "dense_neutral",
+      "reason": "underground"
+    },
+    {
+      "vmap": "hoard_h3m.vmap",
+      "h3m": "Hoard.h3m",
+      "include": 0.23,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "manifest_destiny_h3m.vmap",
+      "h3m": "Manifest Destiny.h3m",
+      "include": 0.28,
+      "risk": "dense_neutral",
+      "reason": "underground"
+    },
+    {
+      "vmap": "ready_or_not_h3m.vmap",
+      "h3m": "Ready or Not.h3m",
+      "include": 0.26,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "rise_of_the_phoenix_h3m.vmap",
+      "h3m": "Rise of the Phoenix.h3m",
+      "include": 0.25,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "the_newcomers_h3m.vmap",
+      "h3m": "The Newcomers.h3m",
+      "include": 0.31,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "time_s_up_h3m.vmap",
+      "h3m": "Time's Up.h3m",
+      "include": 0.24,
+      "risk": "dense_neutral",
+      "reason": "underground"
+    },
+    {
+      "vmap": "undead_unrest_h3m.vmap",
+      "h3m": "Undead Unrest.h3m",
+      "include": 0.25,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    },
+    {
+      "vmap": "unexpected_inheritance_h3m.vmap",
+      "h3m": "Unexpected Inheritance.h3m",
+      "include": 0.22,
+      "risk": "dense_neutral",
+      "reason": "underground"
+    },
+    {
+      "vmap": "valleys_of_war_h3m.vmap",
+      "h3m": "Valleys of War.h3m",
+      "include": 0.28,
+      "risk": "dense_neutral",
+      "reason": "water",
+      "ug": true
+    }
+  ],
+  "mix_ratios": {
+    "first5": 0.1,
+    "after_first5_green": 0.15,
+    "batch3": "WIN-5 轴后（需造船激励）",
+    "batch_ug": "地下轴（--keep-underground）落地后"
+  }
+}

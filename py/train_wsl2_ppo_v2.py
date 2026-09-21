@@ -164,9 +164,13 @@ EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
 # === #293: 入池图蓝方 AI 标签 (h3m_batch_pipeline 写 _pool_index.json, 此处读) ===
 # === WIN-5: H3M 池混合采样开关 (09-21 就绪默认关) — HOMM3_H3M_MIX=0.3 → 30% 局采 h3m_pool ===
 # 错窗纪律: T7.8 观测窗内保持 0 (纯课程图), 观测窗收口后下一窗设 0.2-0.3 开混合轴
+# === 入池批次过滤 (09-21): HOMM3_H3M_BATCH=1 → 只采 _pool_index.json 里
+#    "batch" <= 1 的图（首批安全5张）。防负数核心: 设了 BATCH 时, 没标 batch
+#    字段的图一律不放行（水/岛/地下图未标记 = 不入采样），只有显式标 batch 才入。
 _POOL_INDEX_PATH = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
 _POOL_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
 _H3M_MIX = float(os.environ.get("HOMM3_H3M_MIX", "0"))
+_H3M_BATCH = int(os.environ.get("HOMM3_H3M_BATCH", "0"))  # 0=不过滤, 1=只采有batch且<=1的图
 _POOL_BLUE_AI = {}
 _POOL_MAPS = []  # 池内实际存在且非 skip 的图 (混合采样候选)
 _POOL_IDX_AT = 0.0
@@ -181,10 +185,14 @@ def _refresh_pool_blue_ai(force=False):
         _POOL_BLUE_AI = {k: (v or {}).get("blue_ai", "MMAI_RANDOM")
                          for k, v in idx.items()}
         if os.path.isdir(_POOL_DIR):
-            # 只采池内实存 + 非 skip 的图 (skip=地下城等结构性不可用)
             _POOL_MAPS = [f for f in os.listdir(_POOL_DIR)
                           if f.endswith(".vmap")
-                          and _POOL_BLUE_AI.get(f) != "skip"]
+                          and _POOL_BLUE_AI.get(f) != "skip"
+                          # 批次过滤: _H3M_BATCH=0 不过滤; >0 时只采显式标了 batch 且 <=阈值 的图
+                          # (没标 batch 字段的水/岛/地下图一律放行, 防未学能力直接负数)
+                          and (_H3M_BATCH == 0
+                               or (idx.get(f, {}) or {}).get("batch") is not None
+                               and (idx.get(f, {}) or {}).get("batch") <= _H3M_BATCH)]
     except Exception:
         pass  # 索引缺失/损坏 = 全部默认 MMAI_RANDOM + 不混池, 零行为变化
     _POOL_IDX_AT = time.time()

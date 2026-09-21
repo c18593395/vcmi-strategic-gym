@@ -2,7 +2,8 @@
   "a_viking_we_shall_go_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
-    "ts": "2026-09-21 05:42:32"
+    "ts": "2026-09-21 05:42:32",
+    "batch": 1
   },
   "a_warm_and_familiar_place_h3m.vmap": {
     "blue_ai": "skip",
@@ -23,7 +24,8 @@
   "a_viking_we_shall_go_allied_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
-    "ts": "2026-09-21 05:41:58"
+    "ts": "2026-09-21 05:41:58",
+    "batch": 1
   },
   "arrogance_allied_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
@@ -183,12 +185,14 @@
   "elbow_room_allies_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 06:02:39"
+    "ts": "2026-09-21 06:02:39",
+    "batch": 2
   },
   "elbow_room_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 06:03:13"
+    "ts": "2026-09-21 06:03:13",
+    "batch": 1
   },
   "emerald_isles_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
@@ -243,7 +247,8 @@
   "good_to_go_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 06:13:44"
+    "ts": "2026-09-21 06:13:44",
+    "batch": 1
   },
   "good_witch_bad_witch_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
@@ -308,7 +313,8 @@
   "judgement_day_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 06:21:47"
+    "ts": "2026-09-21 06:21:47",
+    "batch": 1
   },
   "just_a_visit_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
@@ -623,7 +629,8 @@
   "too_many_monsters_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-62.75",
-    "ts": "2026-09-21 07:53:35"
+    "ts": "2026-09-21 07:53:35",
+    "batch": 2
   },
   "tovar_s_fortress_allies_h3m.vmap": {
     "blue_ai": "MMAI_RANDOM",
