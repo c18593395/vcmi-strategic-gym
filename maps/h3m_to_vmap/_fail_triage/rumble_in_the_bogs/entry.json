@@ -1,0 +1,12 @@
+{
+  "h3m": "rumble in the bogs.h3m",
+  "safe": "rumble_in_the_bogs",
+  "entry": {
+    "final": "rumble_in_the_bogs_h3m.vmap",
+    "stripped": 101,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 07:25:36"
+}

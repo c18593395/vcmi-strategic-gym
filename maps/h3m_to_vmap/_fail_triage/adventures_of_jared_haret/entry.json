@@ -4,20 +4,9 @@
   "entry": {
     "final": "adventures_of_jared_haret_h3m.vmap",
     "stripped": 129,
-    "verify": "adventure timeout (engine stuck, steps=1)",
-    "verify_steps": 1,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
     "status": "verify_fail"
   },
-  "preserved_at": "2026-09-21 05:36:38",
-  "traj_summary": {
-    "steps": 1,
-    "total_rew": 12.25,
-    "error": null,
-    "last_acts": [
-      16
-    ],
-    "last_rews": [
-      12.25
-    ]
-  }
+  "preserved_at": "2026-09-21 05:42:47"
 }

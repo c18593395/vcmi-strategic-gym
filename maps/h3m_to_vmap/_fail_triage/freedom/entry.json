@@ -1,0 +1,12 @@
+{
+  "h3m": "freedom.h3m",
+  "safe": "freedom",
+  "entry": {
+    "final": "freedom_h3m.vmap",
+    "stripped": 141,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 06:10:21"
+}

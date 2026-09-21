@@ -38,7 +38,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 ROOT = HERE.parent.parent                      # d:\Bigdata\hero3_fresh
 SRC_DIR = ROOT / "maps" / "training"
-TRAIN_PY = ROOT / "train_wsl2_ppo_v2.py"
+TRAIN_PY = ROOT / "py" / "train_wsl2_ppo_v2.py"  # 09-21: py/ 迁移后路径修正 (train_loop.sh 同款)
 TARGETS = [
     Path("/home/administrator/vcmi-native/rel/bin/data/Maps"),
     Path("/home/administrator/vcmi-native-build/rel/bin/data/Maps"),
@@ -246,13 +246,11 @@ def main():
     for t in TARGETS:
         label = "native-build" if "vcmi-native-build" in t.parts else "native"
         if not t.is_dir():
-            broken.append(t)
+            # 09-21: native-build 树 WSL 灾难重建后未恢复 (整树缺失) — 降级 WARN 不再
+            # FAIL (训练只跑 vcmi-native 树); 该树重建后自动恢复双树 strict 校验
+            log("warn", f"运行时 Maps 入口缺失 (跳过, 树未恢复?): {t}")
             continue
         real_dirs.setdefault(t.resolve(), []).append((label, t))
-    for d in broken:
-        log("fail", f"运行时 Maps 入口缺失或断链: {d}")
-    if broken and not (check_only or dry_run):
-        return 1
     if not real_dirs:
         log("fail", "无可用运行时 Maps 目录 (请在 WSL 执行)")
         return 1

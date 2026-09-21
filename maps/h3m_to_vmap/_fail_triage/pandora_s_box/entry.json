@@ -1,0 +1,12 @@
+{
+  "h3m": "pandora's box .h3m",
+  "safe": "pandora_s_box",
+  "entry": {
+    "final": "pandora_s_box_h3m.vmap",
+    "stripped": 1414,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 06:47:35"
+}

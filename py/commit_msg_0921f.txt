@@ -1,0 +1,9 @@
+fix: 批转收官 B3/B4 + sync 脚本 py/ 迁移路径与缺失树降级
+
+- B3: 本轮 FAIL 分类 — launch fail×18 (early kill ~11-14s) / timeout×2 / 早期战死×2
+- B4: sync_maps --strict 通过 (运行时与权威源一致可训练)
+  + TRAIN_PY py/ 迁移遗留路径修正 (train_loop.sh 同款)
+  + native-build 树整树缺失 (WSL 重建遗留) 降级 WARN 不再 FAIL, 训练只跑 native 树
+- 任务清单: 批转收官条目 (PASS=137 FAIL=22 SKIP=1, 池 137 张, PASS 率 85%)
+  + B5 图池接入挂起到 T7.8 观测窗后 (一次一轴纪律)
+- py/batch_stats.py: 批转进度统计工具

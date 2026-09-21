@@ -966,13 +966,17 @@
   },
   "battle of the sexes allied.h3m": {
     "final": "battle_of_the_sexes_allied_h3m.vmap",
-    "status": "convert_fail",
-    "err": " /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes allied.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3298\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
   },
   "battle of the sexes.h3m": {
     "final": "battle_of_the_sexes_h3m.vmap",
-    "status": "convert_fail",
-    "err": "tch map /home/administrator/vcmi-native/rel/bin/data/maps/battle of the sexes.h3m\n\u001b[0m  IN  size=108x108 levels=\u0001 objects=3297\n\u001b[1;32mh3m2vmap: applying B3 rules R1=0 R2=1 R3=1.00 R4=1 R5=0 R6=1 R7=1\n"
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
   },
   "a viking we shall go allied.h3m": {
     "final": "a_viking_we_shall_go_allied_h3m.vmap",
@@ -1027,6 +1031,1135 @@
     "final": "arrogance_allied_h3m.vmap",
     "stripped": 193,
     "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "arrogance.h3m": {
+    "final": "arrogance_h3m.vmap",
+    "stripped": 193,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "ascension.h3m": {
+    "final": "ascension_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "back for revenge - allied.h3m": {
+    "final": "back_for_revenge_allied_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "back for revenge.h3m": {
+    "final": "back_for_revenge_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "barbarian breakout.h3m": {
+    "final": "barbarian_breakout_h3m.vmap",
+    "stripped": 312,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "barbarian breakouta.h3m": {
+    "final": "barbarian_breakouta_h3m.vmap",
+    "stripped": 312,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "brave new world(allies).h3m": {
+    "final": "brave_new_world_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "brave new world.h3m": {
+    "final": "brave_new_world_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "buried treasure.h3m": {
+    "final": "buried_treasure_h3m.vmap",
+    "stripped": 486,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "carpe diem - allied.h3m": {
+    "final": "carpe_diem_allied_h3m.vmap",
+    "stripped": 600,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "carpe diem.h3m": {
+    "final": "carpe_diem_h3m.vmap",
+    "stripped": 600,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "caught in the middle.h3m": {
+    "final": "caught_in_the_middle_h3m.vmap",
+    "stripped": 222,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "chasing a dream.h3m": {
+    "final": "chasing_a_dream_h3m.vmap",
+    "stripped": 102,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "crimson and clover.h3m": {
+    "final": "crimson_and_clover_h3m.vmap",
+    "stripped": 450,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "crimson and clovera.h3m": {
+    "final": "crimson_and_clovera_h3m.vmap",
+    "stripped": 450,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "darwin's prize(allies).h3m": {
+    "final": "darwin_s_prize_allies_h3m.vmap",
+    "stripped": 0,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "darwin's prize.h3m": {
+    "final": "darwin_s_prize_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dawn of war.h3m": {
+    "final": "dawn_of_war_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dead and buried.h3m": {
+    "final": "dead_and_buried_h3m.vmap",
+    "stripped": 105,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "deluge.h3m": {
+    "final": "deluge_h3m.vmap",
+    "stripped": 122,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "divided loyalties.h3m": {
+    "final": "divided_loyalties_h3m.vmap",
+    "stripped": 1581,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "divided loyaltiesa.h3m": {
+    "final": "divided_loyaltiesa_h3m.vmap",
+    "stripped": 1581,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dragon orb.h3m": {
+    "final": "dragon_orb_h3m.vmap",
+    "stripped": 375,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dragon pass (allies).h3m": {
+    "final": "dragon_pass_allies_h3m.vmap",
+    "stripped": 155,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dragon pass.h3m": {
+    "final": "dragon_pass_h3m.vmap",
+    "stripped": 155,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dungeon keeper.h3m": {
+    "final": "dungeon_keeper_h3m.vmap",
+    "stripped": 334,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dwarven gold.h3m": {
+    "final": "dwarven_gold_h3m.vmap",
+    "stripped": 211,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dwarven tunnels(allies).h3m": {
+    "final": "dwarven_tunnels_allies_h3m.vmap",
+    "stripped": 497,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "dwarven tunnels.h3m": {
+    "final": "dwarven_tunnels_h3m.vmap",
+    "stripped": 497,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "elbow room(allies).h3m": {
+    "final": "elbow_room_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "elbow room.h3m": {
+    "final": "elbow_room_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "emerald isles.h3m": {
+    "final": "emerald_isles_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "emerald islesa.h3m": {
+    "final": "emerald_islesa_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "faeries.h3m": {
+    "final": "faeries_h3m.vmap",
+    "stripped": 223,
+    "verify": "steps=30/250 rew=-61.625",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "for sale.h3m": {
+    "final": "for_sale_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "fort noxis.h3m": {
+    "final": "fort_noxis_h3m.vmap",
+    "stripped": 382,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "free for all.h3m": {
+    "final": "free_for_all_h3m.vmap",
+    "stripped": 528,
+    "verify": "steps=164/250 rew=-13.084999999999994",
+    "verify_steps": 164,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "freedom.h3m": {
+    "final": "freedom_h3m.vmap",
+    "stripped": 141,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "gelea's champions (allies).h3m": {
+    "final": "gelea_s_champions_allies_h3m.vmap",
+    "stripped": 1097,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "gelea's champions.h3m": {
+    "final": "gelea_s_champions_h3m.vmap",
+    "stripped": 1095,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "goblins in the pantry.h3m": {
+    "final": "goblins_in_the_pantry_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "golems aplenty allied.h3m": {
+    "final": "golems_aplenty_allied_h3m.vmap",
+    "stripped": 212,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "golems aplenty.h3m": {
+    "final": "golems_aplenty_h3m.vmap",
+    "stripped": 212,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "good to go.h3m": {
+    "final": "good_to_go_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "good witch, bad witch.h3m": {
+    "final": "good_witch_bad_witch_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "gorlam's tentacle swampland.h3m": {
+    "final": "gorlam_s_tentacle_swampland_h3m.vmap",
+    "stripped": 23,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "hatchet axe and saw.h3m": {
+    "final": "hatchet_axe_and_saw_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "heroes of might not magic allied.h3m": {
+    "final": "heroes_of_might_not_magic_allied_h3m.vmap",
+    "stripped": 831,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "heroes of might not magic.h3m": {
+    "final": "heroes_of_might_not_magic_h3m.vmap",
+    "stripped": 831,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "hoard(allies).h3m": {
+    "final": "hoard_allies_h3m.vmap",
+    "stripped": 492,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "hoard.h3m": {
+    "final": "hoard_h3m.vmap",
+    "stripped": 492,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "hold the middle.h3m": {
+    "final": "hold_the_middle_h3m.vmap",
+    "stripped": 213,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "irrational hostility.h3m": {
+    "final": "irrational_hostility_h3m.vmap",
+    "stripped": 209,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "island king allied.h3m": {
+    "final": "island_king_allied_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "island king.h3m": {
+    "final": "island_king_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "island of fire.h3m": {
+    "final": "island_of_fire_h3m.vmap",
+    "stripped": 71,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "islands and caves.h3m": {
+    "final": "islands_and_caves_h3m.vmap",
+    "stripped": 873,
+    "verify": "steps=12<30 (早期死亡/异常)",
+    "verify_steps": 12,
+    "status": "verify_fail"
+  },
+  "jihad.h3m": {
+    "final": "jihad_h3m.vmap",
+    "stripped": 228,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "judgement day.h3m": {
+    "final": "judgement_day_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "just a visit.h3m": {
+    "final": "just_a_visit_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "key to victory.h3m": {
+    "final": "key_to_victory_h3m.vmap",
+    "stripped": 127,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "king of pain.h3m": {
+    "final": "king_of_pain_h3m.vmap",
+    "verify": "steps=57/250 rew=24.677500000000002",
+    "verify_steps": 57,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "kingdom for sale(allies).h3m": {
+    "final": "kingdom_for_sale_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "kingdom for sale.h3m": {
+    "final": "kingdom_for_sale_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "knee deep in the dead.h3m": {
+    "final": "knee_deep_in_the_dead_h3m.vmap",
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "knight of darkness.h3m": {
+    "final": "knight_of_darkness_h3m.vmap",
+    "stripped": 604,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "land of titans (allied).h3m": {
+    "final": "land_of_titans_allied_h3m.vmap",
+    "stripped": 128,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "land of titans.h3m": {
+    "final": "land_of_titans_h3m.vmap",
+    "stripped": 129,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "last chance allies.h3m": {
+    "final": "last_chance_allies_h3m.vmap",
+    "stripped": 42,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "last chance.h3m": {
+    "final": "last_chance_h3m.vmap",
+    "stripped": 42,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "loss of innocence(allies).h3m": {
+    "final": "loss_of_innocence_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "loss of innocence.h3m": {
+    "final": "loss_of_innocence_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "manifest destiny.h3m": {
+    "final": "manifest_destiny_h3m.vmap",
+    "stripped": 388,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "marshland menace.h3m": {
+    "final": "marshland_menace_h3m.vmap",
+    "stripped": 188,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "meeting in muzgob(allies).h3m": {
+    "final": "meeting_in_muzgob_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "meeting in muzgob.h3m": {
+    "final": "meeting_in_muzgob_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "merchant princes allied.h3m": {
+    "final": "merchant_princes_allied_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "merchant princes.h3m": {
+    "final": "merchant_princes_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "middletown.h3m": {
+    "final": "middletown_h3m.vmap",
+    "stripped": 412,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "monk's retreat allied.h3m": {
+    "final": "monk_s_retreat_allied_h3m.vmap",
+    "stripped": 121,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "monk's retreat.h3m": {
+    "final": "monk_s_retreat_h3m.vmap",
+    "stripped": 121,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "noahs ark.h3m": {
+    "final": "noahs_ark_h3m.vmap",
+    "stripped": 400,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "one bad day - allied.h3m": {
+    "final": "one_bad_day_allied_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "overthrow thy neighbors.h3m": {
+    "final": "overthrow_thy_neighbors_h3m.vmap",
+    "stripped": 186,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "pandora's box .h3m": {
+    "final": "pandora_s_box_h3m.vmap",
+    "stripped": 1414,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "peaceful ending - allied.h3m": {
+    "final": "peaceful_ending_allied_h3m.vmap",
+    "stripped": 154,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "peaceful ending.h3m": {
+    "final": "peaceful_ending_h3m.vmap",
+    "stripped": 154,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "peacemaker.h3m": {
+    "final": "peacemaker_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "pestilence lake allies.h3m": {
+    "final": "pestilence_lake_allies_h3m.vmap",
+    "verify": "steps=100/250 rew=-271.8925",
+    "verify_steps": 100,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "pestilence lake.h3m": {
+    "final": "pestilence_lake_h3m.vmap",
+    "verify": "steps=96/250 rew=-273.54327645051194",
+    "verify_steps": 96,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "pirates.h3m": {
+    "final": "pirates_h3m.vmap",
+    "verify": "adventure timeout (engine stuck, steps=1)",
+    "verify_steps": 1,
+    "status": "verify_fail"
+  },
+  "race for ardintinny.h3m": {
+    "final": "race_for_ardintinny_h3m.vmap",
+    "stripped": 179,
+    "verify": "steps=30/250 rew=-62.292500000000004",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "race for the town.h3m": {
+    "final": "race_for_the_town_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "ready or not.h3m": {
+    "final": "ready_or_not_h3m.vmap",
+    "stripped": 59,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "realm of chaos.h3m": {
+    "final": "realm_of_chaos_h3m.vmap",
+    "stripped": 1261,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "realm of chaosa.h3m": {
+    "final": "realm_of_chaosa_h3m.vmap",
+    "stripped": 1261,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "rebellion.h3m": {
+    "final": "rebellion_h3m.vmap",
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "reclamation allied.h3m": {
+    "final": "reclamation_allied_h3m.vmap",
+    "verify": "steps=250/250 rew=-476.8175",
+    "verify_steps": 250,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "reclamation.h3m": {
+    "final": "reclamation_h3m.vmap",
+    "verify": "steps=250/250 rew=-434.495",
+    "verify_steps": 250,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "rediscovery.h3m": {
+    "final": "rediscovery_h3m.vmap",
+    "stripped": 1355,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "resource war allies.h3m": {
+    "final": "resource_war_allies_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "resource war.h3m": {
+    "final": "resource_war_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "rise of the phoenix allied.h3m": {
+    "final": "rise_of_the_phoenix_allied_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "rise of the phoenix.h3m": {
+    "final": "rise_of_the_phoenix_h3m.vmap",
+    "stripped": 51,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "rumble in the bogs.h3m": {
+    "final": "rumble_in_the_bogs_h3m.vmap",
+    "stripped": 101,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "rumble in the bogsa.h3m": {
+    "final": "rumble_in_the_bogsa_h3m.vmap",
+    "stripped": 101,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "sands of blood.h3m": {
+    "final": "sands_of_blood_h3m.vmap",
+    "stripped": 91,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "sangraal's thief allied.h3m": {
+    "final": "sangraal_s_thief_allied_h3m.vmap",
+    "stripped": 763,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "sangraal's thief.h3m": {
+    "final": "sangraal_s_thief_h3m.vmap",
+    "stripped": 763,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "search for the grail.h3m": {
+    "final": "search_for_the_grail_h3m.vmap",
+    "stripped": 278,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "serpents treasure.h3m": {
+    "final": "serpents_treasure_h3m.vmap",
+    "stripped": 145,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "shadow valleys.h3m": {
+    "final": "shadow_valleys_h3m.vmap",
+    "stripped": 123,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "south of hell (allies).h3m": {
+    "final": "south_of_hell_allies_h3m.vmap",
+    "stripped": 55,
+    "verify": "steps=222/250 rew=-490.1620095693779",
+    "verify_steps": 222,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "south of hell.h3m": {
+    "final": "south_of_hell_h3m.vmap",
+    "stripped": 55,
+    "verify": "steps=243/250 rew=-559.5809917873614",
+    "verify_steps": 243,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "southern cross.h3m": {
+    "final": "southern_cross_h3m.vmap",
+    "stripped": 540,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "step by step (allies).h3m": {
+    "final": "step_by_step_allies_h3m.vmap",
+    "stripped": 652,
+    "verify": "steps=30/250 rew=-44.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "step by step.h3m": {
+    "final": "step_by_step_h3m.vmap",
+    "stripped": 652,
+    "verify": "steps=30/250 rew=-44.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "tale of two lands (allies).h3m": {
+    "final": "tale_of_two_lands_allies_h3m.vmap",
+    "stripped": 140,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "tale of two lands.h3m": {
+    "final": "tale_of_two_lands_h3m.vmap",
+    "stripped": 140,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "terrible rumor.h3m": {
+    "final": "terrible_rumor_h3m.vmap",
+    "stripped": 215,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "the battle of daeyan's ford.h3m": {
+    "final": "the_battle_of_daeyan_s_ford_h3m.vmap",
+    "stripped": 368,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "the challenge.h3m": {
+    "final": "the_challenge_h3m.vmap",
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "the five rings.h3m": {
+    "final": "the_five_rings_h3m.vmap",
+    "stripped": 566,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "the gauntlet.h3m": {
+    "final": "the_gauntlet_h3m.vmap",
+    "stripped": 320,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "the great race.h3m": {
+    "final": "the_great_race_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "the mandate of heaven.h3m": {
+    "final": "the_mandate_of_heaven_h3m.vmap",
+    "stripped": 234,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "the newcomers.h3m": {
+    "final": "the_newcomers_h3m.vmap",
+    "stripped": 396,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "thousand islands (allies).h3m": {
+    "final": "thousand_islands_allies_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "thousand islands.h3m": {
+    "final": "thousand_islands_h3m.vmap",
+    "verify": "steps=250/250 rew=-1238.325",
+    "verify_steps": 250,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "time's up.h3m": {
+    "final": "time_s_up_h3m.vmap",
+    "stripped": 176,
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "titans winter.h3m": {
+    "final": "titans_winter_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "too many monsters.h3m": {
+    "final": "too_many_monsters_h3m.vmap",
+    "verify": "steps=30/250 rew=-62.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "tovar's fortress (allies).h3m": {
+    "final": "tovar_s_fortress_allies_h3m.vmap",
+    "stripped": 189,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "tovar's fortress.h3m": {
+    "final": "tovar_s_fortress_h3m.vmap",
+    "stripped": 189,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "treasure hunt.h3m": {
+    "final": "treasure_hunt_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "twins.h3m": {
+    "final": "twins_h3m.vmap",
+    "stripped": 325,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "twins_water.h3m": {
+    "final": "twins_water_h3m.vmap",
+    "stripped": 325,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "undead unrest.h3m": {
+    "final": "undead_unrest_h3m.vmap",
+    "stripped": 359,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "unexpected inheritance.h3m": {
+    "final": "unexpected_inheritance_h3m.vmap",
+    "stripped": 288,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "unholy quest.h3m": {
+    "final": "unholy_quest_h3m.vmap",
+    "stripped": 647,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "valleys of war.h3m": {
+    "final": "valleys_of_war_h3m.vmap",
+    "stripped": 635,
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "vial of life.h3m": {
+    "final": "vial_of_life_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "war of the mighty (allies).h3m": {
+    "final": "war_of_the_mighty_allies_h3m.vmap",
+    "stripped": 398,
+    "verify": "steps=250/250 rew=-449.4098628824013",
+    "verify_steps": 250,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "war of the mighty.h3m": {
+    "final": "war_of_the_mighty_h3m.vmap",
+    "stripped": 398,
+    "verify": "steps=250/250 rew=-546.3",
+    "verify_steps": 250,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "warlords.h3m": {
+    "final": "warlords_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "warlordsa.h3m": {
+    "final": "warlordsa_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "warmongers.h3m": {
+    "final": "warmongers_h3m.vmap",
+    "verify": "steps=30/250 rew=-59.75",
+    "verify_steps": 30,
+    "status": "PASS",
+    "blue_ai": "MMAI_RANDOM"
+  },
+  "when dragons clash.h3m": {
+    "final": "when_dragons_clash_h3m.vmap",
+    "stripped": 490,
+    "verify": "steps=2<30 (早期死亡/异常)",
+    "verify_steps": 2,
+    "status": "verify_fail"
+  },
+  "wings of war.h3m": {
+    "final": "wings_of_war_h3m.vmap",
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "xathras prize.h3m": {
+    "final": "xathras_prize_h3m.vmap",
+    "stripped": 477,
+    "verify": "steps=30/250 rew=-59.75",
     "verify_steps": 30,
     "status": "PASS",
     "blue_ai": "MMAI_RANDOM"

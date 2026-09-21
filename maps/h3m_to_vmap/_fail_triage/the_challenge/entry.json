@@ -1,0 +1,11 @@
+{
+  "h3m": "the challenge.h3m",
+  "safe": "the_challenge",
+  "entry": {
+    "final": "the_challenge_h3m.vmap",
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 07:43:35"
+}

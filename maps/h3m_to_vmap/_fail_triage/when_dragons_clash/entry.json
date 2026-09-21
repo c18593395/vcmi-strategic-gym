@@ -1,0 +1,25 @@
+{
+  "h3m": "when dragons clash.h3m",
+  "safe": "when_dragons_clash",
+  "entry": {
+    "final": "when_dragons_clash_h3m.vmap",
+    "stripped": 490,
+    "verify": "steps=2<30 (早期死亡/异常)",
+    "verify_steps": 2,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 08:09:47",
+  "traj_summary": {
+    "steps": 2,
+    "total_rew": -25.7,
+    "error": null,
+    "last_acts": [
+      16,
+      17
+    ],
+    "last_rews": [
+      12.15,
+      -37.85
+    ]
+  }
+}

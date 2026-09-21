@@ -1,0 +1,12 @@
+{
+  "h3m": "the five rings.h3m",
+  "safe": "the_five_rings",
+  "entry": {
+    "final": "the_five_rings_h3m.vmap",
+    "stripped": 566,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 07:43:46"
+}

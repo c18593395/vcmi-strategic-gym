@@ -1,0 +1,12 @@
+{
+  "h3m": "search for the grail.h3m",
+  "safe": "search_for_the_grail",
+  "entry": {
+    "final": "search_for_the_grail_h3m.vmap",
+    "stripped": 278,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 07:27:22"
+}

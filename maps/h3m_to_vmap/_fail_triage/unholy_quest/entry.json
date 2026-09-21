@@ -1,0 +1,12 @@
+{
+  "h3m": "unholy quest.h3m",
+  "safe": "unholy_quest",
+  "entry": {
+    "final": "unholy_quest_h3m.vmap",
+    "stripped": 647,
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 07:57:00"
+}

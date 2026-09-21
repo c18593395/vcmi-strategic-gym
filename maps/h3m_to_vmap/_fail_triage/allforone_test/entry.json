@@ -1,0 +1,11 @@
+{
+  "h3m": "allforone_test.h3m",
+  "safe": "allforone_test",
+  "entry": {
+    "final": "allforone_test_h3m.vmap",
+    "verify": "engine launch fail (early kill)",
+    "verify_steps": 0,
+    "status": "verify_fail"
+  },
+  "preserved_at": "2026-09-21 05:43:32"
+}
