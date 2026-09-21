@@ -162,21 +162,31 @@ class Net(nn.Module):
 EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
 
 # === #293: 入池图蓝方 AI 标签 (h3m_batch_pipeline 写 _pool_index.json, 此处读) ===
+# === WIN-5: H3M 池混合采样开关 (09-21 就绪默认关) — HOMM3_H3M_MIX=0.3 → 30% 局采 h3m_pool ===
+# 错窗纪律: T7.8 观测窗内保持 0 (纯课程图), 观测窗收口后下一窗设 0.2-0.3 开混合轴
 _POOL_INDEX_PATH = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
+_POOL_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
+_H3M_MIX = float(os.environ.get("HOMM3_H3M_MIX", "0"))
 _POOL_BLUE_AI = {}
+_POOL_MAPS = []  # 池内实际存在且非 skip 的图 (混合采样候选)
 _POOL_IDX_AT = 0.0
 
 
 def _refresh_pool_blue_ai(force=False):
-    global _POOL_BLUE_AI, _POOL_IDX_AT
+    global _POOL_BLUE_AI, _POOL_MAPS, _POOL_IDX_AT
     if not force and time.time() - _POOL_IDX_AT < 600:
         return
     try:
-        with open(_POOL_INDEX_PATH, encoding="utf-8") as f:
-            _POOL_BLUE_AI = {k: (v or {}).get("blue_ai", "MMAI_RANDOM")
-                             for k, v in json.load(f).items()}
+        idx = json.load(open(_POOL_INDEX_PATH, encoding="utf-8"))
+        _POOL_BLUE_AI = {k: (v or {}).get("blue_ai", "MMAI_RANDOM")
+                         for k, v in idx.items()}
+        if os.path.isdir(_POOL_DIR):
+            # 只采池内实存 + 非 skip 的图 (skip=地下城等结构性不可用)
+            _POOL_MAPS = [f for f in os.listdir(_POOL_DIR)
+                          if f.endswith(".vmap")
+                          and _POOL_BLUE_AI.get(f) != "skip"]
     except Exception:
-        pass  # 索引缺失/损坏 = 全部默认 MMAI_RANDOM, 零行为变化
+        pass  # 索引缺失/损坏 = 全部默认 MMAI_RANDOM + 不混池, 零行为变化
     _POOL_IDX_AT = time.time()
 
 
@@ -483,8 +493,12 @@ for ep in range(N_EPISODES):
             blue_model = random.choice(opponent_pool)  # 随机旧版
     # 对手池为空时 blue_model 保持 None，用当前模型自对弈
 
-    _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签
-    _map = random.choice(MAPS)
+    _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签 + WIN-5 池图列表
+    if _H3M_MIX > 0 and _POOL_MAPS and random.random() < _H3M_MIX:
+        # WIN-5 混合轴: 按比例采 h3m_pool (默认 0=纯课程图, 观测窗内不动)
+        _map = random.choice(_POOL_MAPS)
+    else:
+        _map = random.choice(MAPS)
     _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
     traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai)
     ep_count += 1
