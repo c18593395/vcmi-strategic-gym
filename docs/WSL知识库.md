@@ -2969,36 +2969,6 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 
 关联：踩坑 #296（勘误位置）/ #299（降噪细节）/ `py/train_wsl2_ppo_v2.py` L275-298（Popen 管道）/ `lib/callback/CCallback.cpp:53` / `lib/logging/CLogger.cpp` L412
 
-## 09-23 #298 定谳与双层修复：dialog 卡死吞局根治 + boot hang 看门狗兜底（batch1 三图复活）
-
-**背景**：batch1 三图（good_to_go/judgement_day/elbow_room）100+ 局零出现（#298，09-22 挂起）。09-23 停训窗 5 局取证定谳 → 用户拍板 T+S 组合 → S 修复 + 看门狗部署完成，**四图全部恢复运行能力**。
-
-**机制链（定谳，源码+日志双实锤）**：
-- `CGarrisonDialogQuery` 有**两个创建点**：makeGarrisonDialog:3507（已有 08-17/08-27 双层 AI 自动应答 fix）+ **heroExchange:1582 英雄相遇（无任何保护）**
-- 蓝方（MMAI_RANDOM 底层 = NK2 AIGateway）英雄相遇 → ExchangeDialog blocking query 挂 BLUE 栈顶（栈 dump 三层叠压：HeroMovement + MapObjectVisit + GarrisonDialog）→ NK2 应答走 `executeActionAsync` **异步**（AIGateway.cpp:263），主循环卡住时 `answerQuery` 永不下发 → `[ML-wait] q=1` 恒挂 → 蓝方回合不推进 → adventure_wait 300s 强停 → traj=None 静默吞局
-- **"viking 幸存"被推翻**：red=StupidAI 配置下 4/4 图全挂（含 viking 对照），幸存与 red=ML 模型配置相关而非图免疫
-- `Cannot answer the query -1`（#299 降噪对象）= MMAI AAI.cpp:694 对通知型 dialog（askID=-1）直接 selectionMade 的伴随症状，非病因
-
-**双层修复**：
-1. **S 精准修复**（CGameHandler.cpp heroExchange，`py/patch_298_heroexchange.py`，备份 .bak_298_0923）：bothAI 短路——AI 间相遇不弹 dialog 不建查询直接 return（保留 useScholarSkill；放弃 NK2 pickBestCreatures 军队合并，训练语义影响小）。重编 vcmiservercommon+mlclient，`libmlclient.so` md5 c7547f90→36b9769f
-2. **boot hang 看门狗**（ep_runner_one.py，即时生效）：`bootTimeout=120` 只包 cond2，cond1.wait 无超时（#296 实锤）→ boot hang 子进程 600s+ 不死 + 主进程 `proc.wait(15300s)` 停摆 4.25h 风险。daemon 线程滚动看门狗：400s 无 kick → `os._exit(43)`（绕 GIL/C++ 栈——SIGALRM 在 C++ 调用栈中不可靠）；kick 链 = 启动 + reset 后 + 每步后；rc=43 接入现有崩溃局归档（吞局有痕）
-3. **E 打底防静默**：`[EP298_SWALLOW]` 收局检测（secs>250 且 steps<max）+ 白名单，已实战触发
-
-**验证结果（s300×4 + s600×2 + 冒烟×1）**：
-- good_to_go：卡死吞局 → **28 步/340s 自然收局**（qid 23→795 局面大幅推进）✅
-- elbow：1 步即卡 → 31286 行活跃推进 ✅
-- judgement：**30 步/26s 正常跑完**（冒烟 04:18，boot hang 未复现）✅
-- 看门狗零误杀 + `[EP298_SWALLOW]` 实战触发 ✅
-- **四图全部恢复运行能力**
-
-**拆轴定谳（方法论）**：字节增长剖面（`py/_298_stepprofile.sh`）证明"慢速轴"是假象——总 332s 中零增长窗口 305s（92%）+ 活跃期 27s 跑 19 步 = 1.4s/步正常。**"卡死 vs 慢速"必须用增长剖面判别，不能用总耗时÷步数**（同一组数字支持两种相反解释）；rc=124 对两者都成立，不能单独作判据。
-
-**铁律教训**：`cmake --build --target vcmiserver mlclient` 依赖链连带重链了 libvcmi.so（构建日志 `Built target vcmi`，mtime 吻合）——libvcmi 源码集未动、功能等价，但**"target 未含 X"不等于"X 产物不动"，依赖链边界要先确认**。
-
-**下一步**：混合轴 MIX=0 复活验证（下个自然停训窗改 unit 环境变量），判据 = batch1 三图是否出现在 EP_TIME；T 方案（sanitize v3 定型 randomTown/randomHero/清驻军）视复活后实测决定；judgement boot hang 概率性发作由看门狗兜底 + CRASHLOG 取证积累样本。
-
-关联：踩坑 #298（定谳全文）/ #299（降噪）/ #212（reset 竞态同族）/ #285（BOOT_EMPTY_FAIL）/ `py/patch_298_heroexchange.py` / `py/_298_repro.sh` / `py/_298_verify_s600.sh` / `py/_298_stepprofile.sh` / CGameHandler.cpp:1577 heroExchange / AIGateway.cpp:263 / threadconnector.cpp:567
-
 ## 09-23 #298 定谳: h3m 池图开局静默吞局 = NK2 Exchange/Garrison dialog 异步应答卡死查询栈
 
 **背景**：batch1 混合轴上线（`HOMM3_H3M_MIX=0.10` + `HOMM3_H3M_BATCH=1`）后，good_to_go / judgement_day / elbow_room 三图 **100+ 局零出现**（期望 ~8 次，0.9^100 级不可能）。09-22 深挖、09-23 停训窗 5 局复现，定性收口。
