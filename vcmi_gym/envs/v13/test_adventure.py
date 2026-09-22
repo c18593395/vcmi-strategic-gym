@@ -3,9 +3,11 @@
 
 import sys, os, time, ctypes, argparse
 
-VCMI_REL = "/home/administrator/vcmi-workspace/vcmi/rel/bin"
-CONN_REL = "/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
-VCMI_GYM = "/home/administrator/vcmi-workspace/vcmi_gym"
+# 09-23 路径环境化: 可用 VCMI_WORKSPACE_DIR 覆盖 (默认 ~/vcmi-workspace)
+WORKSPACE = os.environ.get("VCMI_WORKSPACE_DIR") or os.path.expanduser("~/vcmi-workspace")
+VCMI_REL = os.path.join(WORKSPACE, "vcmi", "rel", "bin")
+CONN_REL = os.path.join(WORKSPACE, "vcmi_gym", "connectors", "rel")
+VCMI_GYM = os.path.join(WORKSPACE, "vcmi_gym")
 
 os.environ.setdefault("LD_LIBRARY_PATH", f"{VCMI_REL}:{CONN_REL}")
 sys.path.insert(0, VCMI_GYM)

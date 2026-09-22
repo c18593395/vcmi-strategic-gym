@@ -5,14 +5,14 @@ import sys
 import os
 import time
 
-# ---- WSL2 路径设置 ----
-VCMI_REL = "/home/administrator/vcmi-workspace/vcmi/rel/bin"
-CONN_REL = "/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
-VCMI_GYM = "/home/administrator/vcmi-workspace/vcmi_gym"
-VENV_PYTHON = "/home/administrator/vcmi-workspace/venv/bin/python"
+# ---- WSL2 路径设置 (09-23 环境化: 可用 VCMI_WORKSPACE_DIR 覆盖, 默认 ~/vcmi-workspace) ----
+WORKSPACE = os.environ.get("VCMI_WORKSPACE_DIR") or os.path.expanduser("~/vcmi-workspace")
+VCMI_REL = os.path.join(WORKSPACE, "vcmi", "rel", "bin")
+CONN_REL = os.path.join(WORKSPACE, "vcmi_gym", "connectors", "rel")
+VCMI_GYM = os.path.join(WORKSPACE, "vcmi_gym")
+VENV_PYTHON = os.path.join(WORKSPACE, "venv", "bin", "python")
 
 os.environ.setdefault("LD_LIBRARY_PATH", f"{VCMI_REL}:{CONN_REL}")
-WORKSPACE = "/home/administrator/vcmi-workspace"
 sys.path.insert(0, WORKSPACE)
 sys.path.insert(0, CONN_REL)
 
