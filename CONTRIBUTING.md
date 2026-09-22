@@ -16,11 +16,11 @@ tools/        Arena, benchmark, smoke-test scripts.
 
 ```bash
 # 1. VCMI engine (strategic server) — see README for the build path.
-# 2. Connector (produces _rel.so pybind module)
+# 2. pybind11 sources at connectors/pybind11 (git-ignored), then the connector:
 cd connectors
-conan install . -of build --build=missing
+conan install . -of conan-generated --build=missing   # writes conan_toolchain.cmake used by the preset
 cmake --preset vcmigym-rel && cmake --build rel
-# 3. Env smoke test (needs a running vcmi server + connector .so on LD_LIBRARY_PATH)
+# 3. Env smoke test (needs libmlclient.so + connector .so on LD_LIBRARY_PATH)
 python envs/v13/test_strategic_env.py
 ```
 
