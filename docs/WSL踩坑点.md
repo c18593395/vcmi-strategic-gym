@@ -1530,6 +1530,7 @@
 - **定性**: #296 同族（mlclient 网络层开局状态注册缺陷），**概率性发作**。管线验收时 3 试重试掩盖了它（某次成功即 PASS）→ 137 张池图里其他图也可能带此雷。viking 能跑属幸存者。
 - **影响**: h3m 池混合轴阻塞——batch1 无图可混；batch2/3 推进前必须先过此关。
 - **处理**: ① 混合轴挂起 MIX=0（unit 注释留档，BATCH=1 保留）；② 纯课程图训练继续；③ 专项方向 = C++ 侧 mlclient 开局 query 注册（对比 viking[能跑] vs good_to_go[必挂] 的图差异定位触发条件——图尺寸/对象数/玩家配置三轴），或引擎侧 query -1 容错重试。
+- **预研产出（09-22 深夜，零成本文件对比，专项方向已收窄）**: 4 图对比（能跑 viking 144x144/2488 obj vs 必挂 3 张全 36x36/222-366 obj）发现**英雄来源三通道，必挂 3 张命中其中两条脆弱路径**：① good_to_go = **`randomHero` 占位对象 ×2**（subtype="object" 未展开，h3m2vmap 直译 H3M 随机英雄标志，训练环境无 RMG 展开 → 引擎注册悬空）；② elbow = **`randomTown` ×8** 同类占位；③ judgement = mainTown generateHero 双方锚点 (4,34)/(34,33)——需验证锚点处是否有本方城（warm 型同族嫌疑）。viking 能跑 = 英雄走 **predefinedHeroes 显式定义**（sanitize 曾清洗其 50 处 availableFor）+ 无任何 random 占位依赖。**sanitize v3 方向明确**：randomHero 对象替换为具体英雄 subtype（core:heroId）/ randomTown 替换为具体城 / mainTown 锚点无本方城造城（v2 已有）。judgement/elbow 具体死法待引擎日志验证（各跑 1 局取证）。
 - **教训**: ① **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——训练循环 `traj=None continue` 是无痕吞局点，观测脚本只看 EP_TIME 会完全失明；② 概率性失败被"重试机制"掩盖后进入生产，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯；③ 同输入两次运行不同死法（query -1 vs segfault）= 非确定性问题，单次复现无意义，须统计成功率。
 - **关联**: #296（同族定性）/ #294（sanitize v2）/ `py/_watch_b1_rest.sh`（捕获脚本暴露零出现）/ `py/_strip_te_test.py`（dialog 证伪实验）/ 知识库 09-22 章
 

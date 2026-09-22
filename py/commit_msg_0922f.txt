@@ -1,0 +1,8 @@
+docs: #297 预研产出 — 英雄来源三通道定位, sanitize v3 方向明确
+
+- 4 图对比: 必挂 3 张全 36x36 小图, 英雄来源命中脆弱路径
+  · good_to_go: randomHero 占位 ×2 (subtype=object 未展开, RMG 依赖)
+  · elbow: randomTown ×8 同类占位
+  · judgement: mainTown generateHero 双锚点 (待验证锚点本方城)
+- 能跑 viking = predefinedHeroes 显式定义 + 无 random 占位依赖
+- sanitize v3 方向: randomHero→具体英雄 subtype / randomTown→具体城 / v2 造城已有
