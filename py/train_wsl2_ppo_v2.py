@@ -326,6 +326,7 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
                                                       "[EP_TIME]",
                                                       "[SCORE]",
                                                       "[ECON]",
+                                                      "[EP298_SWALLOW]", "adventure_wait timed out",
                                                       "[BHERO_GRAD]", "[BHERO_SLAIN]", "[BHERO_CONTACT]",
                                                       "[BHERO_ATTACK]", "[BHERO_KILL]", "[ATK_DBG]",
                                                       "Assertion",

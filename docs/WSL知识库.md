@@ -2968,3 +2968,58 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 **扩展**：后续发现其他刷屏良性噪声 → 追加 grep -vE 模式（正则 `|` 分隔或多次 -v）。
 
 关联：踩坑 #296（勘误位置）/ #299（降噪细节）/ `py/train_wsl2_ppo_v2.py` L275-298（Popen 管道）/ `lib/callback/CCallback.cpp:53` / `lib/logging/CLogger.cpp` L412
+
+## 09-23 #298 定谳: h3m 池图开局静默吞局 = NK2 Exchange/Garrison dialog 异步应答卡死查询栈
+
+**背景**：batch1 混合轴上线（`HOMM3_H3M_MIX=0.10` + `HOMM3_H3M_BATCH=1`）后，good_to_go / judgement_day / elbow_room 三图 **100+ 局零出现**（期望 ~8 次，0.9^100 级不可能）。09-22 深挖、09-23 停训窗 5 局复现，定性收口。
+
+**观测失明点（为何"零出现"）**: mix 分支选中这三张图时**每局都开局失败**，训练主进程 `traj=None` → **静默 `continue`**，不写 `EP_TIME` → 观测脚本（只看 EP_TIME / map=）完全失明。两种死法概率性发作：`Cannot answer the query -1` 刷屏卡 300s，或直接 segfault。
+
+**09-23 复现（red=StupidAI 隔离 ML 变量，蓝 MMAI_RANDOM）**:
+
+| 图 | 结果 |
+|----|------|
+| good_to_go ×2 | 5-17 步 / 313-327s 全挂 |
+| judgement_day | 3 步 / 311s，`popIfTop FAIL` ×7 |
+| elbow_room | 1 步 / 310s（开局即卡） |
+| a_viking_we_shall_go（原"能跑"对照） | **也挂** — Exchange dialog `q=1` 恒挂 88 次 |
+
+**认知修正**：「viking 幸存」被推翻——**幸存与图无关，与 red 配置相关**（训练配置 red=ML 模型时 viking 实跑过 250 步两局）。因此 09-22 预研的"图结构三轴（尺寸/对象数/玩家配置）"不是主因。
+
+**机制链（源码 + 日志双实锤）**:
+1. 蓝方（MMAI_RANDOM 底层 = NK2 AIGateway）英雄相遇 / visit 城 → 引擎发 Exchange / Garrison **blocking query**
+2. `CGarrisonDialogQuery` 挂 BLUE 栈顶——run1 栈 dump 三层叠压：`HeroMovement qid=21` + `MapObjectVisit qid=22` + **`GarrisonDialog qid=23`**
+3. NK2 应答走 `executeActionAsync` **异步**（`AIGateway.cpp:587/635`）→ 主循环卡住时 `selectionMade` 永不下发 → **`[ML-wait] q=1` 恒挂**（`AIGateway.cpp:1583`）
+4. 蓝方回合永不推进 → `adventure_wait` 300s 强停 → `traj=None` 静默吞局
+
+- **前科**：08-17 已有同形态死锁（`CGameHandler.cpp:3512` ML fix 注释："写锁竞争 → 死锁 → Exchange 查询永不关闭 → AIStatus q=1 永久"）
+- `Cannot answer the query -1`（#299 降噪对象）= MMAI `AAI.cpp:694` 对**通知型 dialog**（`askID=-1`）直接 `selectionMade` 的**伴随症状，非病因**
+
+**已排除项（排查链）**: ① 数据/代码/进程 env/时序四层验证全对（`_POOL_MAPS`=3 张 ✓）② 停训单跑仍卡 → 排除资源竞争 ③ `triggeredEvents` 置空实验 → 原本就是空，dialog 假设证伪 ④ 同图重打包后从 `query -1` 变 segfault → **非确定性 bug，单次复现无意义，须统计成功率**。
+
+**09-22 预研残留（英雄来源三通道，仍有效）**: good_to_go = `randomHero` 占位对象 ×2（h3m2vmap 直译 H3M 随机英雄标志，训练环境无 RMG 展开 → 引擎注册悬空）/ elbow_room = `randomTown` ×8 同类占位 / judgement_day = mainTown `generateHero` 双方锚点 (4,34)/(34,33) / viking = `predefinedHeroes` 显式定义。**这三条是 dialog 触发源候选，但 09-23 复现证明"图无关"（viking 同挂），故降级为修复方向②的输入而非根因**。
+
+**修复方向（按侵入度排序，下窗拍板）**:
+1. **Python 旁路防静默（低成本立即可做）**——ep_runner 对 adventure 300s 吞局加 `[EP298_SWALLOW]` 打点并进主日志白名单；只解决"看不见"，不解决卡死
+2. **转换层 sanitize v3**——清城 garrison 驻军 / 定型 `randomHero`+`randomTown`，消除 dialog 触发源（零 C++）
+3. **引擎 C++（mlclient 不违铁律）**——NK2 `showGarrisonDialog`/`showBlockingDialog` 应答同步化（对齐 AAI 同步 `selectionMade` 模式），或查询栈看门狗强制 `removeQuery`（QueriesProcessor 已有 ML fix 通道）
+
+**影响与现状**: h3m 池混合轴阻塞——`MIX=0` 挂起（unit 注释留档，`BATCH=1` 保留随时可启），纯课程图训练继续。**137 张池图可能都带此雷**（管线验收时 3 试重试掩盖了它，某次成功即 PASS → 概率性失败进生产）。
+
+**残留未知**: 训练配置（red=ML 模型）下 viking 能跑通 dialog 而三图挂——ML connector / 模型路径参与查询结算的具体机制未定位（`[ML-wait]` 打点在 NK2 AIGateway，connector 侧 query 管理逻辑的参与方式待下窗带模型复现分离变量）。
+
+**09-23 修复② 实测失败（heroExchange bothAI 自动关闭，`py/patch_298_heroexchange.py`）**:
+- **补丁内容**: `CGameHandler::heroExchange` 锚点前插 bothAI 短路——AI 间英雄相遇不再建 `CGarrisonDialogQuery`，改为 `useScholarSkill()` 后 `return`（对齐 `makeGarrisonDialog` 08-27 bothAI 同款模式；代价 = AI 间军队/宝物合并放弃）
+- **时间线（三段留痕，故可归因）**: 03:08 补丁写入 `~/vcmi-native/server/CGameHandler.cpp`（备份 `.bak_298_0923`）→ 03:09 **libvcmi.so 重编完成**（551 MB）→ 03:11 起 `py/_298_verify_sfix.sh` 验证（**跑在重编之后，结果有效**）
+- **结果（03:23 实测）**: `good_to_go` **rc=124** ❌ / `judgement_day` **rc=124** ❌ / `elbow_room` 进行中 / `a_viking` 未开始
+- **判据口径**: `rc=124` = 被外层 `timeout 300` 强杀；修好的话 30 步局应 **~40s 内 rc=0**。只要仍在 300s 内部强停窗口打转，就必然被外层杀掉 → **未修好**
+- **两个盲区（下轮必须修）**: ① 验证脚本 `timeout 300` 与被测现象（内部 300s 强停）**同量级** → 判据退化为"修好(rc=0/~40s) / 没修好(rc=124)"二分，量化不了改善；且 `rc=124` 时进程被强杀、**走不到局尾代码 → `[EP298_SWALLOW]` 打点永远拿不到数据**（历史 repro 用 `timeout 400`，应对齐）② 这刀只堵 `heroExchange` 一条通道，而定谳栈顶是 `CGarrisonDialogQuery qid=23` 三层叠压——**Garrison/town 访问路径可能未被覆盖**，单堵一条不够（待归因）
+- **⚠ 铁律例外登记**: 本次为验证补丁**重编了 `libvcmi.so`**，与项目铁律"不重编 libvcmi.so"冲突（CGameHandler.cpp 08-17 已有 ML fix 前科）→ 需拍板是否正式放开该铁律 + 确认 `.so` 多副本同步
+- **下一步**: ① 等 4 图跑完 → 归因 3 局是否卡在**同一** dialog 类型（`py/_298_grep_garrison.sh`）② 第二刀候选 = `makeGarrisonDialog` / 城访问路径同款 bothAI 关闭（与已打补丁同模式，低侵入）③ 仍不通再上修复③（NK2 应答同步化 / 查询栈看门狗）
+
+**教训**:
+1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
+2. **概率性失败被"重试机制"掩盖后进入生产**，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯
+3. **同输入两次运行不同死法（query -1 vs segfault）= 非确定性问题**，单次复现无意义，必须统计成功率
+
+关联：踩坑 #298（权威记录）/ #296 族 / #299（`query -1` 降噪）/ #294（sanitize v2）/ `py/_298_repro.sh` / `py/_298_repro2.sh` / `py/_watch_b1_rest.sh`（捕获脚本暴露零出现）/ `py/_strip_te_test.py`（dialog 证伪实验）/ `AIGateway.cpp` L587/L635/L1583 / `CGameHandler.cpp:3512`

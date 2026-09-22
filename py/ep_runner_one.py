@@ -1887,5 +1887,16 @@ with open(args.outfile, "w") as f:
 if args.blue_hero_grad > 0:
     print(f"[BHERO_GRAD] map={args.mapname} grad_total=+{_bh_grad_paid:.1f} cap={args.blue_hero_grad_cap} "
           f"final_min_d={_bh_prev_d} slain={sorted(_kill_paid)} contact={sorted(_contact_paid)}", flush=True)
+# === #298 吞局打点 (2026-09-23, 方案E 防静默): adventure_wait 300s 超时强停后收局的局,
+# 形态 = 耗时异常长(>250s, 含 300s 卡死) + 步数未跑满(提前终结) — 与自然终局(战死快局 secs 短)
+# 和满步截断(steps=max) 均不重叠, 误判面极小。打点让混轴图吞局从无痕变有痕 (训练期即时生效,
+# ep_runner 子进程每局新读本文件; 主日志可见性待 train_wsl2_ppo_v2.py 白名单下窗重启)。
+try:
+    _swallow_secs = time.time() - _ep_t0
+    if _swallow_secs > 250 and traj["steps"] < args.max_turns:
+        print(f"[EP298_SWALLOW] map={args.mapname} steps={traj['steps']} secs={_swallow_secs:.0f} "
+              f"err={'yes' if 'error' in traj else 'no'} (300s dialog-stall signature)", flush=True)
+except Exception:
+    pass
 print(f"[EP_TIME] map={args.mapname} steps={traj['steps']} secs={time.time()-_ep_t0:.0f} r={traj['total_rew']:.1f} err={'yes' if 'error' in traj else 'no'}", flush=True)
 os._exit(0)
