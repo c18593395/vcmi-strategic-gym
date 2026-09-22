@@ -37,13 +37,10 @@ tools/        arena / benchmarking utilities
 # 1. pybind11 sources — connectors/CMakeLists.txt does add_subdirectory(pybind11)
 git clone --depth 1 https://github.com/pybind/pybind11 connectors/pybind11
 
-# 2. point the build at your engine checkout:
-#    connectors/CMakeLists.txt:11   set(VCMI_DIR "/path/to/vcmi-native")
-
-# 3. configure + build
+# 2. configure + build (VCMI_DIR defaults to $HOME/vcmi-native)
 cd connectors
 conan install . -of conan-generated --build=missing
-cmake --preset vcmigym-rel
+cmake --preset vcmigym-rel -DVCMI_DIR="$HOME/vcmi-native"
 cmake --build rel -j
 ```
 
@@ -57,23 +54,25 @@ Environment variables:
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `STRATEGIC_STATE_LIB` | path to `libmlclient.so` | `${VCMI_DIR}/rel/bin/libmlclient.so` |
+| `VCMI_NATIVE_DIR` | engine checkout (source tree + `rel/bin`) | `~/vcmi-native` |
+| `VCMI_WORKSPACE_DIR` | workspace holding the engine build, the venv and `terrain_grid.bin` | `~/vcmi-workspace` |
+| `STRATEGIC_STATE_LIB` | path to `libmlclient.so` | `$VCMI_NATIVE_DIR/rel/bin/libmlclient.so` |
 | `LD_LIBRARY_PATH` | must include `connectors/rel` and `${VCMI_DIR}/rel/bin` | — |
 | `XDG_DATA_HOME` | VCMI data directory (maps, mods) | `~/.local/share` |
 
 Smoke test:
 
 ```bash
-export LD_LIBRARY_PATH="$PWD/connectors/rel:${VCMI_DIR}/rel/bin:$LD_LIBRARY_PATH"
-export STRATEGIC_STATE_LIB="${VCMI_DIR}/rel/bin/libmlclient.so"
+export VCMI_NATIVE_DIR="$HOME/vcmi-native"        # your engine checkout
+export LD_LIBRARY_PATH="$PWD/connectors/rel:$VCMI_NATIVE_DIR/rel/bin:$LD_LIBRARY_PATH"
+export STRATEGIC_STATE_LIB="$VCMI_NATIVE_DIR/rel/bin/libmlclient.so"
 python envs/v13/test_strategic_env.py
 ```
 
 Two caveats before you run anything:
 
-- The scripts under `envs/v13/` carry the author's WSL2 layout as module-level
-  constants (`VCMI_REL`, `CONN_REL`, `VENV_PYTHON`, ...) — edit them to match
-  your own paths.
+- The scripts under `envs/v13/` build their paths from `VCMI_WORKSPACE_DIR`
+  (default `~/vcmi-workspace`); set that variable if your layout differs.
 - Maps are **not** shipped here (`*.vmap` is git-ignored, as is
   `envs/v13/maps/`). Point the environment at a map that exists in your VCMI
   data directory.

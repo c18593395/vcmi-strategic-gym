@@ -519,7 +519,14 @@ namespace Connector::V13::Thread {
         LOG("call init_vcmi");
         // Workaround: boost::filesystem::create_directories on symlink fails
         // Set XDG_DATA_HOME to a real directory before VCMI init
-        setenv("XDG_DATA_HOME", "/home/administrator/.local/share", 0);
+        // 09-23 路径环境化: 默认取 $HOME/.local/share, 不再硬编码用户名 (已设置则不覆盖)
+        if (getenv("XDG_DATA_HOME") == nullptr) {
+            const char* home = getenv("HOME");
+            if (home != nullptr) {
+                const std::string xdg = std::string(home) + "/.local/share";
+                setenv("XDG_DATA_HOME", xdg.c_str(), 0);
+            }
+        }
         ML::init_vcmi((void*)initargs.get());
         LOG("init_vcmi returned OK");
         connstate = ConnectorState::INITIALIZED;

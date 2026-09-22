@@ -8,7 +8,8 @@ set(Python_VIRTUALENV FIRST)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(VCMI_DIR "${CMAKE_SOURCE_DIR}/../../vcmi")
-set(VCMI_DIR "/home/administrator/vcmi-native")
+# 09-23 路径环境化: 默认 $ENV{HOME}/vcmi-native, 可用 -DVCMI_DIR=<path> 覆盖
+set(VCMI_DIR "$ENV{HOME}/vcmi-native" CACHE PATH "Path to the VCMI engine checkout (must contain rel/bin/libmlclient.so)")
 
 # find_package(pybind11 REQUIRED)
 add_subdirectory(pybind11)

@@ -1,7 +1,9 @@
-# Minimal CI: Python syntax check (zero external deps, no install).
+# Minimal CI: syntax check + engine-free unit tests.
 # Rationale: repo test_* files target a live WSL2 VCMI server (hardcoded paths),
 # so a full test run is not CI-runnable. A compile check catches the common
-# break class (typos, bad indentation, missing imports at parse time).
+# break class (typos, bad indentation, missing imports at parse time); the
+# unittest suite under tests/ covers the pure-Python parts (envs/util wrappers)
+# with only numpy + gymnasium installed.
 name: CI
 
 on:
@@ -23,6 +25,10 @@ jobs:
       - name: List Python packages parsed
         run: |
           python -c "import compileall,sys; print('compileall OK:', sys.version_info[:2])"
+      - name: Install test deps (numpy + gymnasium only)
+        run: pip install numpy gymnasium
+      - name: Engine-free unit tests
+        run: python -m unittest discover -s tests -v
       - name: Show tracked Python files
         run: |
           git ls-files | grep -E '\.py$' | wc -l

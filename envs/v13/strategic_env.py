@@ -16,6 +16,14 @@ from typing import Optional, Dict, Any
 import gymnasium as gym
 import numpy as np
 
+# 09-23 路径环境化: 默认路径由环境变量派生, 不再硬编码用户名/绝对路径。
+# 以 administrator 运行时 expanduser("~") 解析结果与原硬编码值逐字一致;
+# 以 root 运行脚本 (批转/复测) 请显式设置 VCMI_NATIVE_DIR / VCMI_WORKSPACE_DIR。
+VCMI_NATIVE_DIR = os.environ.get("VCMI_NATIVE_DIR") or os.path.expanduser("~/vcmi-native")
+VCMI_WORKSPACE_DIR = os.environ.get("VCMI_WORKSPACE_DIR") or os.path.expanduser("~/vcmi-workspace")
+DEFAULT_MLCLIENT = os.path.join(VCMI_NATIVE_DIR, "rel", "bin", "libmlclient.so")
+DEFAULT_TERRAIN_GRID = os.path.join(VCMI_WORKSPACE_DIR, "terrain_grid.bin")
+
 # Set RTLD_GLOBAL for ALL subsequent dlopen calls
 import sys as _sys
 _ctypes = __import__("ctypes")
@@ -24,7 +32,7 @@ _sys.setdlopenflags(_sys.getdlopenflags() | _ctypes.RTLD_GLOBAL)
 from ..util import log
 # Preload libmlclient.so with RTLD_GLOBAL so dlsym finds our version first
 import os as _os
-_ctypes.CDLL(_os.environ.get("STRATEGIC_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so"), mode=_ctypes.RTLD_GLOBAL)
+_ctypes.CDLL(_os.environ.get("STRATEGIC_STATE_LIB", DEFAULT_MLCLIENT), mode=_ctypes.RTLD_GLOBAL)
 from ...connectors.rel import connector_v13
 
 # 从 strategic_reader.py 导入 ctypes 结构体
@@ -253,15 +261,15 @@ def tracelog(func, maxlen=MAXLEN):
 def _read_strategic_state(lib_path: str = None):
     """从 libmlclient.so 读取 g_strategic_state，返回 StrategicState 实例或 None"""
     if lib_path is None:
-        # 默认 WSL2 路径 — 可通过环境变量覆盖
+        # 默认路径由 VCMI_NATIVE_DIR 派生 — 可通过环境变量 STRATEGIC_STATE_LIB 覆盖
         lib_path = os.environ.get(
             "STRATEGIC_STATE_LIB",
-            "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+            DEFAULT_MLCLIENT
         )
 
     if not os.path.exists(lib_path):
         # 尝试备用路径（直接从 WSL 内部）
-        wsl_path = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+        wsl_path = DEFAULT_MLCLIENT
         lib_path = os.environ.get("STRATEGIC_STATE_LIB") or wsl_path
 
     try:
@@ -924,11 +932,11 @@ class StrategicEnv(gym.Env):
             # 使用 RTLD_NOLOAD 获取已加载的 libmlclient 实例（VCMI 已加载）
             # 避免 ctypes 创建新实例导致静态变量隔离
             import ctypes.util
-            lib_name = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+            lib_name = DEFAULT_MLCLIENT
             try:
                 # 先用 CDLL 加载（如果尚未加载，RTLD_NOLOAD 方式不可靠）
                 lib_path = self.libml_path or os.environ.get("STRATEGIC_STATE_LIB",
-                    "/home/administrator/vcmi-native/rel/bin/libmlclient.so")
+                    DEFAULT_MLCLIENT)
                 if lib_path and os.path.exists(lib_path):
                     self._libml = ctypes.CDLL(lib_path)
                 else:
@@ -954,12 +962,12 @@ class StrategicEnv(gym.Env):
         return _strategic_state_to_obs(state)
 
     def _build_terrain_grid(self, state: Optional[StrategicState]) -> np.ndarray:
-        """从 /home/administrator/vcmi-workspace/terrain_grid.bin 读取 (21x21x4, uint8 -> float32 CHW)"""
+        """从 VCMI_WORKSPACE_DIR/terrain_grid.bin 读取 (21x21x4, uint8 -> float32 CHW)"""
         try:
             import time
             # Wait up to 2s for file to be written (server fills it each turn)
             for attempt in range(20):
-                raw = np.fromfile("/home/administrator/vcmi-workspace/terrain_grid.bin", dtype=np.uint8, count=TERRAIN_GRID_TOTAL)
+                raw = np.fromfile(DEFAULT_TERRAIN_GRID, dtype=np.uint8, count=TERRAIN_GRID_TOTAL)
                 nonz = int(np.count_nonzero(raw)) if raw.shape[0] == TERRAIN_GRID_TOTAL else 0
                 if raw.shape[0] == TERRAIN_GRID_TOTAL and nonz > 0:
                     print(f"[TERRAIN] Python read OK: {nonz} non-zero at attempt {attempt}", flush=True)
