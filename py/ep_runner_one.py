@@ -1,4 +1,4 @@
-import sys, os, json, argparse, random, zipfile, time, importlib, math
+import sys, os, json, argparse, random, zipfile, time, importlib, math, threading
 from collections import deque
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
@@ -407,6 +407,23 @@ def _raud(tag, delta):
     if _RAUD_ON:
         traj["rew_audit"].append([traj["steps"], tag, round(float(delta), 3)])
 _ep_t0 = time.time()  # 0910: 局耗时打点 — 间歇性慢速 (4-8s/步局) 定量画像数据源 (历史样本已丢失, 从此积累)
+# === #298 boot/step 看门狗 (2026-09-23): judgement boot hang 2/2 — reset 内卡在
+# bootTimeout 管辖外的 cond 等待点 (threadconnector 只给 cond2 包了 bootTimeout,
+# #296 实锤 cond1.wait 无超时), 子进程 600s+ 不死 → 主进程 proc.wait(15300s) 停摆风险。
+# daemon 线程滚动看门狗: 400s 无 kick → os._exit(43) (任意线程直接系统调用退出, 绕
+# GIL/C++ 栈 — SIGALRM handler 在 C++ 调用栈中不执行, 不可靠)。400s = adventure_wait
+# 300s 正常内部超时 (它自己会返回) + 100s 余量; C8.5 蓝方回合 15-60s / OBS-1 战斗
+# 300s fuse 均在覆盖内。rc=43 → 主进程 ep_rc!=0 → 崩溃局归档 + return None (吞局有痕)。
+_wd_kick = threading.Event()
+def _wd_loop():
+    while True:
+        if _wd_kick.wait(400):
+            _wd_kick.clear()
+        else:
+            print("[WD_KILL] no progress >400s (boot/step stall), force exit(43)", flush=True)
+            os._exit(43)
+threading.Thread(target=_wd_loop, daemon=True, name="ep_watchdog").start()
+_wd_kick.set()
 try:
     env = StrategicEnv(
         mapname=args.mapname, max_turns=args.max_turns,
@@ -424,6 +441,7 @@ try:
         random_army_max=args.random_army_max,
     )
     obs, _info = env.reset(); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
+    _wd_kick.set()  # WD: reset 完成, 计入步级滚动看门狗
     interact_streak = 0  # ML fix (2026-08-17): INTERACT 冷却
     endturn_streak = 0  # 2026-08-19: END_TURN 冷却 — 连续 3 次屏蔽, 防跳过游戏刷步
     zombie_streak = 0  # 2026-08-28: 全堵(英雄死亡)连续计数, >=2 确认死亡立即终局
@@ -1358,6 +1376,7 @@ try:
         else:
             move_target = None  # 模型输出其他动作 → 放弃 MOVE_TO
         nobs, r, done, trunc, _info = env.step(a); tg = _info.get("terrain_grid"); traj["terrain_grid"].append(tg.tolist() if tg is not None and hasattr(tg, "tolist") else [])
+        _wd_kick.set()  # WD: step 完成
         # 2026-08-26: 守卫战斗检测 — 真战斗 (character=savage 守卫 FIGHT, autofight 必胜)
         # 英雄进入守卫格 = 战斗打赢 = 守卫消失 (矿可占) → 首胜奖励 +100 (每局一次)
         if not guard_first_win:
