@@ -257,7 +257,7 @@
 | 163. 二进制 ≠ 源码树: 08-18 exe 含未提交临时 hack, 行为对不上源码 (09-10) | 构建-编译与部署 |
 | 164. MSYS2 ninja 编译 cc1plus 静默失败 0xC0000135: PATH 缺 mingw64\bin (09-10) | 构建-编译与部署 |
 | 165. GUI 线程边界无 catch-all: 未捕获 C++ 异常 → "Disaster happened" + 僵尸进程 (09-10, 第五崩) | 引擎-VCMI-API |
-| #296 勘误+降噪: `Cannot answer the query -1` 实锤 `lib/callback/CCallback.cpp:53` (lib 非 mlclient) + Popen grep -v 管道降噪 (09-23) | 引擎-VCMI-API |
+| 299. #296 勘误+降噪: `Cannot answer the query -1` 实锤 `lib/callback/CCallback.cpp:53` (lib 非 mlclient) + Popen grep -v 管道降噪 (09-23) | 引擎-VCMI-API |
 
 ---
 
@@ -1534,6 +1534,10 @@
 - **预研产出（09-22 深夜，零成本文件对比，专项方向已收窄）**: 4 图对比（能跑 viking 144x144/2488 obj vs 必挂 3 张全 36x36/222-366 obj）发现**英雄来源三通道，必挂 3 张命中其中两条脆弱路径**：① good_to_go = **`randomHero` 占位对象 ×2**（subtype="object" 未展开，h3m2vmap 直译 H3M 随机英雄标志，训练环境无 RMG 展开 → 引擎注册悬空）；② elbow = **`randomTown` ×8** 同类占位；③ judgement = mainTown generateHero 双方锚点 (4,34)/(34,33)——需验证锚点处是否有本方城（warm 型同族嫌疑）。viking 能跑 = 英雄走 **predefinedHeroes 显式定义**（sanitize 曾清洗其 50 处 availableFor）+ 无任何 random 占位依赖。**sanitize v3 方向明确**：randomHero 对象替换为具体英雄 subtype（core:heroId）/ randomTown 替换为具体城 / mainTown 锚点无本方城造城（v2 已有）。judgement/elbow 具体死法待引擎日志验证（各跑 1 局取证）。
 - **教训**: ① **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——训练循环 `traj=None continue` 是无痕吞局点，观测脚本只看 EP_TIME 会完全失明；② 概率性失败被"重试机制"掩盖后进入生产，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯；③ 同输入两次运行不同死法（query -1 vs segfault）= 非确定性问题，单次复现无意义，须统计成功率。
 - **关联**: #296（同族定性）/ #294（sanitize v2）/ `py/_watch_b1_rest.sh`（捕获脚本暴露零出现）/ `py/_strip_te_test.py`（dialog 证伪实验）/ 知识库 09-22 章
+- **09-23 专项复现定谳（`py/_298_repro.sh`/`_298_repro2.sh`，停训窗 5 局取证）**: red=StupidAI+蓝 MMAI_RANDOM 配置下 **4/4 图全挂 300s**（good_to_go×2: 5-17 步/313-327s；judgement: 3 步/311s popFAIL×7；elbow: 1 步/310s 开局即卡；**viking 对照也挂**——Exchange dialog q=1 恒挂 88 次）。**"viking 幸存"认知被推翻：幸存与图无关，与 red=ML 模型配置相关**（训练配置下 viking 实跑过 250 步两局）。
+- **机制链（源码+日志双实锤）**: 蓝方（MMAI_RANDOM 底层 = NK2 AIGateway）英雄相遇/visit 城 → 引擎发 Exchange/Garrison blocking query（`CGarrisonDialogQuery` 挂 BLUE 栈顶，run1 栈 dump: HeroMovement qid=21 + MapObjectVisit qid=22 + **GarrisonDialog qid=23** 三层叠压）→ NK2 应答走 `executeActionAsync` **异步**（AIGateway.cpp:587/635），主循环卡住时 `selectionMade` 永不下发 → `[ML-wait] q=1` 恒挂（AIGateway.cpp:1583）→ 蓝方回合永不推进 → adventure_wait 300s 强停 → traj=None 静默吞局。同形态死锁 08-17 已有前科（CGameHandler.cpp:3512 ML fix 注释："写锁竞争 → 死锁 → Exchange 查询永不关闭 → AIStatus q=1 永久"）。`Cannot answer the query -1`（#299 降噪对象）= MMAI AAI.cpp:694 对通知型 dialog（askID=-1）直接 selectionMade 的伴随症状，非病因。
+- **修复方向（下窗拍板，按侵入度排序）**: ① Python 旁路防静默——ep_runner 对 adventure 300s 吞局加 `[EP298_SWALLOW]` 打点进白名单（低成本立即可做）；② 转换层——sanitize v3 清城 garrison 驻军/定型 randomTown+randomHero（消除 dialog 触发源，零 C++）；③ 引擎 C++（mlclient 不违铁律）——NK2 showGarrisonDialog/showBlockingDialog 应答同步化（对齐 AAI 同步 selectionMade 模式）或查询栈看门狗强制 removeQuery（QueriesProcessor 已有 ML fix 通道）。
+- **残留未知**: 训练配置（red=ML 模型）下 viking 能跑通 dialog 而三图挂——ML connector/模型路径参与查询结算的具体机制未定位（ML-wait 打点在 NK2 AIGateway，connector 侧 query 管理逻辑参与方式待下窗带模型复现分离变量）。
 
 #### #293 timeout 判据形同虚设：adventure_wait 超时被 ep_runner 内部捕获 (rc=0 steps=1)，管线 detail 判据不含 "timeout" → StupidAI 重试机制上线以来零触发 (09-21 定性修复) — ✅ 已修（主仓 afdb414 + cfe5941）
 

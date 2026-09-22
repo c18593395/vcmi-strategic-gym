@@ -1261,7 +1261,9 @@ ML 强定义优先, 客户端默认空走 settings。
 - **关联**: 主仓 (Python) 侧 reasonix 可用; WSL vcmi-native (C++) 侧一律主会话手动
 - 状态: 知识归档
 
-### 298. 'Cannot answer the query -1!' 实锤: lib CCallback 非 mlclient + Popen 层 grep 降噪 (09-23)
+### 299. 'Cannot answer the query -1!' 实锤: lib CCallback 非 mlclient + Popen 层 grep 降噪 (09-23)
+
+> 编号说明: 本条原编 #298, 与 WSL踩坑点.md 既有 #298 (batch1 三图开局随机失败, 09-22) 冲突, 09-23 改号 #299。
 - **现象**: hermes 日志每局 ~498 行 `ERROR Cannot answer the query -1!` 刷屏 (0.5 行/秒, TBB worker N + runNetwork 线程标签交替), 无连锁报错 (Can not end turn / fishy / Disaster / THREW 全 0), 训练链路不受影响 (主日志 EP_TIME 全 err=no)
 - **#296 勘误**: 原记录归因为 "mlclient 网络层 runNetwork 开局查询注册" — **实际报错点在 `lib/callback/CCallback.cpp:53`** (`CCallback::sendQueryReply` 收到 `QueryID(-1)` 时 `logGlobal->error`)。`runNetwork`/`TBB worker` 只是调用线程标签, 不是报错位置。`CServerHandler.cpp` 的 runNetwork 是 mlclient 网络线程, 但 `CCallback` 在 **libvcmi.so** 内 (lib/callback/), 重编 libmlclient 不影响该报错
 - **方案A 降噪 (Popen 层 grep -v 管道, 零 C++ 重编)**: `train_wsl2_ppo_v2.py` 的 `Popen(cmd, stdout=open(ep_log,"w"))` 改为 `Popen(cmd, stdout=PIPE)` + `Popen(["sh","-c","grep -vE 'Cannot answer the query -1' || true"], stdin=proc.stdout, stdout=open(ep_log,"w"))`。C++ `std::cerr` 经 Popen `stderr=STDOUT` 合入 stdout → 底层 pipe → grep 按行过滤 → 写 ep_log。验证: fd 1/2 由 `hermes_ep.log 文件` 变 `pipe:[inode]`, 日志 Cannot answer 0 行, 其他 14488 行全保留, EP_TIME err=no

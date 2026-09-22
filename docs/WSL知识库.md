@@ -2967,4 +2967,4 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 
 **扩展**：后续发现其他刷屏良性噪声 → 追加 grep -vE 模式（正则 `|` 分隔或多次 -v）。
 
-关联：踩坑 #296（勘误位置）/ #298（降噪细节）/ `py/train_wsl2_ppo_v2.py` L275-298（Popen 管道）/ `lib/callback/CCallback.cpp:53` / `lib/logging/CLogger.cpp` L412
+关联：踩坑 #296（勘误位置）/ #299（降噪细节）/ `py/train_wsl2_ppo_v2.py` L275-298（Popen 管道）/ `lib/callback/CCallback.cpp:53` / `lib/logging/CLogger.cpp` L412
