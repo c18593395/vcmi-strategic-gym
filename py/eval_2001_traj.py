@@ -4,7 +4,7 @@
 import glob, json, os, re, subprocess, sys, time
 
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 ROOT = "/mnt/d/Bigdata/hero3_fresh"
 
 GUARDS = {

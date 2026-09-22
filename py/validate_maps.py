@@ -13,7 +13,7 @@ os.environ["PYTHONPATH"] = "/mnt/d/Bigdata/hero3_fresh"
 MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/Maps/training"
 VCMI_MAPS = "/home/administrator/vcmi-native/rel/bin/data/Maps"
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-EP_RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+EP_RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 OUTFILE = "/home/administrator/validate_map.json"
 
 def load_terrain_grid():

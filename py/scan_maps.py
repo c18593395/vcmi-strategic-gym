@@ -17,7 +17,7 @@ import threading
 
 # === 配置 ===
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 MAPS_DIR = "/home/administrator/vcmi-strategic/vcmi/data/Maps"
 OUTPUT = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 STEPS = 3          # 快速测试只需 3 步

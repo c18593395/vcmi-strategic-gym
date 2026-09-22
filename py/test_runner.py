@@ -1,7 +1,7 @@
 import subprocess, os
 
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 TRAJ = "/tmp/traj_test.json"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt"
 

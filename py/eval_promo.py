@@ -37,7 +37,7 @@ import argparse, glob, json, os, re, signal, subprocess, sys, threading, time
 
 ROOT = "/mnt/d/Bigdata/hero3_fresh"
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = f"{ROOT}/ep_runner_one.py"
+RUNNER = f"{ROOT}/py/ep_runner_one.py"
 HIST = f"{ROOT}/py/eval_history.jsonl"
 
 # --- 基线地图池 (与 train_wsl2_ppo_v2.py MAPS 一致, 09-14) ---

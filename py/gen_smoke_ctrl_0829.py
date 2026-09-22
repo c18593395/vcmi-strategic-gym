@@ -1,5 +1,5 @@
 # [DIAG-0829] 生成对照版 runner: 用部署版 (rel/bin) libmlclient
-src = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+src = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 dst = "/tmp/smoke_ep_runner_ctrl.py"
 with open(src) as f:
     lines = f.readlines()

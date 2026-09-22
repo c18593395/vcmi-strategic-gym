@@ -30,7 +30,7 @@ except Exception as e:
     print(f"Could not load available_maps.json ({e}), using hardcoded {len(MAPS)} maps", flush=True)
 
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/ep_runner_one.py"
+RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
 TRAJ = "/tmp/traj_one.json"
 MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
 STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt"  # 模型+优化器联合保存

@@ -31,3 +31,12 @@ export/
 arena.out
 autorent.db
 .reasonix*
+
+# 09-23 一次性产物归档 (不删, 仅移出 git 视野)
+py/_archive_0923/
+py/cert_diag/
+py/p8_archive/
+py/.triage_state.json
+py/stuck4_analysis.txt
+py/p8b_captured_firstpack.bin
+
