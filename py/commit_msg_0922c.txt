@@ -1,0 +1,7 @@
+fix: batch1 50 局判定 — 摘除 a_viking×2 (能力真空), 剩 3 张继续
+
+- 三条判定: 课程图基线 ✅绿 (avg_r 保持) / batch1 曲线 ⚠️黄 (+43 改善但不够)
+  / 止损 ❌红 (两局 -934/-891 act3 刷墙 250 步满步 = -700 级)
+- 按预案摘图保留其余: a_viking×2 batch 1→99 (大图四角城+无近目标 = 能力真空,
+  hold_reason 入 index, 模型提升后回评)
+- batch1 剩 3 张: good_to_go / judgement_day / elbow_room (index 600s 缓存自动重载, 无需重启)
