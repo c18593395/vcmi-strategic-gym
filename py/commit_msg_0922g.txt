@@ -1,0 +1,4 @@
+docs: 新窗首批积极信号 (duel 首批转正) + keepalive guard 关闭记录
+
+- 知识库: 终版护栏新窗 ep42 窗 14 局 — duel 正局×2 / 零高负 / KoP 持续改善
+- 任务清单: T7.8 新窗进展 + keepalive guard 禁用记录 (主任务保留)
