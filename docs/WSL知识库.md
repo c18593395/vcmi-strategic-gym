@@ -3022,6 +3022,16 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - **教训（本窗口新增，含我自己的两次误判）**: ① **不能用"总耗时÷步数"推断步进速度**——必须用**字节/进度增长剖面**区分"冻结"与"慢速"（本次 `_298_stepprofile.sh` 一击定谳：92% 零增长 = 冻结，活跃期 1.4s/步 = 正常）；② **不能用单一 rc 值下结论**（rc=124 对"冻结超时"与"真慢速"都成立）；③ 补丁式修复必须"**改-编-验**"三段留痕；④ **验证脚本 timeout 必须显著大于被测现象窗口**（300 vs 300 同量级 → 判据退化，且强杀使局尾打点不触发）。
 - **下一步**: ① **卡死时刻栈取证**（冻结窗内 `gdb -p <pid> -batch -ex 'thread apply all bt'` + 引擎 Client_log 末段 query 类型）→ 定位冻结源（第三创建点 / NK2 应答 / 其他阻塞）；② judgement boot hang 单独定位（#212 reset 竞态嫌疑）；③ 若定位不到 → 上修复③（NK2 应答同步化 / 查询栈看门狗）；④ 混合轴 `MIX=0` 恢复条件改为"冻结源定位并消除 + boot hang 有结论"。
 
+**09-23 冻结源定谳（`py/_298_freezedump.sh` 冻结窗自动取证，gdb 全线程栈）— 根因不是 dialog**:
+- **方法**: 字节增长检测冻结（连续 12s 零增长）→ 冻结窗内抓 `/proc/<pid>/task/*/{comm,state,wchan}` + `gdb -p <engine_pid> -batch -ex 'thread apply all bt'`（17 线程全栈）。⚠ 坑：`timeout $PY ... &` 的 `$!` 是 **timeout 进程**，必须用 `pgrep -P $!` 取真正的引擎进程（首轮抓错，dump 只有 13 行）。
+- **冻结瞬间线程态**: 主线程/runNetwork/NK2AIGateway 等 14 个线程全 `futex_do_wait`；`runServer` = `do_epoll_wait`（**服务器空转**）。
+- **铁证栈（两条 AI 线程同形）**:
+  - Thread 8 `runNetwork`（红方 MMAI/AAI）：`CClient::sendRequest(item=1415)` → `ThreadSafeVector::waitWhileContains` ← `CCallback::endTurn`(CCallback.cpp:93) ← `MMAI::AAI::yourTurn` ← `visitPlayerStartsTurn`(NetPacksClient.cpp:952)
+  - Thread 5 `NK2AI::AIGateway`（蓝方 NK2）：同样卡在 `sendRequest(item=1414)` ← `AIGateway::endTurn` ← `makeTurn`(AIGateway.cpp:802) ← tbb task(AIGateway.cpp:544)
+- **机制**: `CClient::sendRequest(waitTillRealize=true)` 会 `waitingRequest.pushBack(id)` 后阻塞等该 id 被**服务器 realize**（Client.cpp:394-410，等待前释放 `CGameState::mutex`）。两条 AI 线程的 EndTurn（id=1414/1415）都没被 realize，而 `runServer` 空转 → **死锁：AI 等服务器、服务器不推进** → 主线程卡在 ctypes `adventure_wait` → 300s 超时强停。
+- **冻结前兆（关键线索）**: 日志末尾 `[ML-q] popIfTop FAIL color=1 target=A query of type '19MapObjectVisitQuery' and qid = 2662 affecting player BLUE, top=null` + `No applicable message for visiting empty object!` → **服务器侧查询栈不一致**（要 pop 蓝方的 MapObjectVisitQuery，但栈顶为 null）→ 服务器等一个永不到来的应答 → 后续 EndTurn 永不 realize。**与 `CGarrisonDialogQuery`/heroExchange 无关**（这解释了修复②为何对冻结无效果）。
+- **修复方向（按侵入度）**: ① **服务器侧查询栈看门狗**——`top=null`/`popIfTop FAIL` 时强制清理并推进回合（治标但直接解死锁）；② **根因**——查 `MapObjectVisitQuery` 为何在 `top=null` 时被 pop（谁提前移除了它 / `currentBattles`-类残留，参考 08-17 `removeQuery` PvP 计数欠减同族）；③ **AI 侧旁路**——AI 玩家 `endTurn` 走 `waitTillRealize=false`（不阻塞即可解死锁，但会放松回合序，需评估）。
+
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
 2. **概率性失败被"重试机制"掩盖后进入生产**，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯
