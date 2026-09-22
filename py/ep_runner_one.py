@@ -170,8 +170,9 @@ parser.add_argument("--ts_w_win", type=float, default=1.5, help="P10 打分器: 
 parser.add_argument("--ts_w_pow", type=float, default=1.0, help="P10 打分器: 可打性 logistic 系数")
 parser.add_argument("--ts_w_dist", type=float, default=0.5, help="P10 打分器: 距离惩罚系数")
 parser.add_argument("--ts_w_stick", type=float, default=2.0, help="P10 打分器: 目标粘滞 bonus 系数")
-parser.add_argument("--ts_margin", type=float, default=20.0, help="P10 打分器: 战力差 logistic margin")
-parser.add_argument("--ts_temp", type=float, default=30.0, help="P10 打分器: logistic 温度")
+parser.add_argument("--ts_margin", type=float, default=10.0, help="P10 打分器: 战力差 logistic margin (A3 五修 09-23: 20→10, 原 margin=20 过严致蓝英雄/中立守卫永远进不了候选池)")
+parser.add_argument("--ts_temp", type=float, default=30.0, help="P10 打分器: logistic 温度 (绝对公式用; 比例公式用 ts_log_margin+temp 0.5)")
+parser.add_argument("--ts_log_margin", type=float, default=0.5, help="P10 比例公式 log_margin (A3 五修 09-23: e^0.5≈1.65 倍战力比才 F=0, 替代旧绝对 margin)")
 # A3 (09-17): own_town 重复访问衰减 + 空撞拉黑 — 治 own_town 贴脸 89.5 恒定霸屏反复回城空撞
 # (T05 全负唯一根因, A4 深查定谳; 方案 docs/方案_own_town重复访问衰减_20260917.md)。默认全 0 = 零行为
 parser.add_argument("--own_town_decay", type=float, default=0.0,
@@ -844,7 +845,7 @@ try:
                         _step_budget = max(0, int(args.max_turns * 20 - traj["steps"]))  # 保守估算
                     _w = dict(w_type=args.ts_w_type, w_win=args.ts_w_win, w_pow=args.ts_w_pow,
                               w_dist=args.ts_w_dist, w_stick=args.ts_w_stick,
-                              margin=args.ts_margin, temp=args.ts_temp)
+                              log_margin=args.ts_log_margin, temp=0.5)
                     _scored = _target_scorer.score_candidates(
                         obs, hx, hy, hz, power_self,
                         mine_taken, town_blocked, town_visited,
@@ -1136,7 +1137,7 @@ try:
                                         pass
                             if _pw_blue > 0:
                                 _f_arg = (math.log1p(max(0.0, _pw_self)) - math.log1p(_pw_blue)
-                                          - args.ts_margin) / max(1e-6, args.ts_temp)
+                                          - args.ts_log_margin) / 0.5
                                 _Fv = 2.0 / (1.0 + math.exp(-_f_arg)) - 1.0
                             else:
                                 _Fv = 1.0  # 无战力信息全可打
@@ -1265,7 +1266,7 @@ try:
                                         break
                                 if _pw_blue > 0:
                                     _f_arg = (math.log1p(max(0.0, _pw_self)) - math.log1p(_pw_blue)
-                                              - args.ts_margin) / max(1e-6, args.ts_temp)
+                                              - args.ts_log_margin) / 0.5
                                     _Fv = 2.0 / (1.0 + math.exp(-_f_arg)) - 1.0
                                 else:
                                     _Fv = 1.0  # 无战力目标全可打

@@ -36,8 +36,9 @@ DEFAULT_W = dict(
     w_pow=1.0,     # 可打性 logistic 系数
     w_dist=0.5,    # BFS 距离惩罚系数
     w_stick=2.0,   # 目标粘滞 bonus 系数
-    margin=20.0,   # 战力差 logistic margin (power_self - power_c - margin)
-    temp=30.0,     # logistic 温度
+    # A3 五修 (09-23): 比例公式 log_margin/temp 替代旧绝对 margin/temp
+    log_margin=0.5,  # ln ratio 偏移: F=0 当 power_self ≈ power_c × e^0.5 (≈1.65 倍)
+    temp=0.5,        # 比例公式温度 (log space)
 )
 
 # 类型基础价值 V (阶段调制见 §3.2: 蓝英雄>蓝城>未占矿>宝箱/宝物/篝火>资源堆; 已占矿 V=0)
@@ -55,8 +56,11 @@ BLUE_TOWN_VALUE = 80.0    # 蓝城 (T06 阶段拉满, 吸收 _t06_direct 特例)
 GUARD_VALUE = 45.0        # 守卫 (D3: 价值=价值×可打性, 打得过的守卫 > 打不过的近矿)
 OWN_TOWN_VALUE = 35.0     # 回城取兵城 (取兵高频, 战力成长 1v7 核心; 高于资源堆低于矿)
 
-# 可打性 logistic: F = 2σ((log power_self − log power_c − margin)/temp) − 1 ∈ [-1, 1]
-# 打不过 (power_c >> power_self) → F≈−1 强负 (不剔除, 兵力成长后自然回升)
+# 可打性 logistic (A3 五修 09-23 改比例公式): F = 2σ((ln(power_self+1) - ln(power_c+1) - log_margin)/temp) - 1 ∈ [-1,1]
+# 旧公式 (A3 初版~四修): 绝对 margin (power_self - power_c - margin, margin=20) 导致 2× 战力比仍 F≈-0.3,
+# 蓝英雄/中立守卫永远进不了候选池 → 改为比例: log_margin=1.0 (即 e^1.0≈2.7 倍战力比才 F=0),
+# temp=0.5 (比例公式下温度需缩小, 与绝对公式 temp=30 等效).
+# 打不过 (power_c >> power_self) → F≈−1 强负; 明显强 (power_self >> power_c) → F→+1 稳赢.
 
 
 def _logistic(x):
@@ -71,13 +75,17 @@ def _log1p_pos(x):
 
 def power_feasibility(power_self, power_c, w):
     """可打性 F ∈ [-1,1]. 蓝英雄/守卫共用 (方案 §3.2).
+    A3 五修 (09-23): 比例公式 — d = ln((power_self+1)/(power_c+1)) - log_margin,
+    其中 log_margin = 0.5 (默认, e^0.5 ≈ 1.65 倍战力比 F=0), temp=0.5 (比例公式温度).
     power_self < power_c → F 偏负 (打不过, 候选降权但不剔除);
-    power_self > power_c + margin → F→+1 (稳赢, 强正).
+    power_self > power_c × e^log_margin → F→+1 (稳赢, 强正).
     """
     if power_c <= 0:
         return 1.0  # 无战力目标 (资源堆/篝火) 全可打
-    d = _log1p_pos(power_self) - _log1p_pos(power_c) - w["margin"]
-    return 2.0 * _logistic(d / max(1e-6, w["temp"])) - 1.0
+    log_margin = float(w.get("log_margin", 0.5))  # 默认 0.5 (e^0.5≈1.65 倍)
+    temp = max(1e-6, float(w.get("temp", 0.5)))
+    d = _log1p_pos(power_self) - _log1p_pos(power_c) - log_margin
+    return 2.0 * _logistic(d / temp) - 1.0
 
 
 def type_value(phase, ttype, mine_taken, c):
@@ -298,8 +306,21 @@ def score_candidates(obs, hx, hy, hz, power_self,
         # A3 二修 (09-19 深夜): 蓝英雄阈值 -0.1 收紧 — 实锤 10/10 死局全同构:
         # pick F=-0.20 微负蓝英雄 → 直奔 → 蓝英雄主动进攻 → 战败 (F=-0.2 过 -0.3 闸全放行)。
         # 微负 = 先攒兵变强再 capture, 空转 250 步好过送死 -50。
-        if pc > 0 and F < (-0.1 if c["is_blue_hero"] else -0.3):
-            continue
+        # A3 五修 (09-23): 中立独立守卫 (is_guard=True) 纳入 F 硬闸 —
+        # 72_01_duel 9/10 战死局全为资源 pick 路径踩中立守卫 (monster_*) 战死,
+        # 原逻辑 is_guard 走 half-self 回退 pc>0 但 F 硬闸只检蓝英雄, 中立守卫 F 恒正被放行。
+        # 新闸: is_guard=True 且 F < -0.3 → 剔除 (打不过别踩, 与资源堆自带守卫同口径)。
+        if pc > 0:
+            if c["is_blue_hero"]:
+                if F < -0.1:
+                    continue
+            elif c["is_guard"]:
+                if F < -0.3:
+                    continue
+            else:
+                # 资源堆自带守卫 (guard_pow>0) 或蓝城 (half-self 回退): F<-0.3 剔除
+                if F < -0.3:
+                    continue
         # stick: 粘滞 bonus (当前目标未 stall 时强化保持)
         stick = 1.0 if (current_target is not None and
                         (current_target[0] == _cx and current_target[1] == _cy)
