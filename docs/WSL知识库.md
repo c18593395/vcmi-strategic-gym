@@ -3037,6 +3037,16 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - **修复**: `ep_runner_one.py` daemon 滚动看门狗——400s 无 kick → `os._exit(43)`（绕 GIL/C++ 栈；SIGALRM handler 在 C++ 调用栈中不执行，不可靠）；kick 链 = 启动 + reset 后 + 每步后；rc=43 → 主进程按崩溃局归档（吞局有痕）。
 - **冒烟**: judgement 单局 **30 步 / 26s / rc=0 正常跑完**（boot hang 未复现 = 确认概率性竞态）+ 零误杀。注意：该结果同时**反证"12s/步慢速轴"不存在**（26s/30 步 = 0.87s/步）。
 
+**09-23 冻结源修复 + 4/4 全绿（本窗口收官）**:
+- **upgrade 死循环定位（第二个故障，此前被冻结掩盖）**: 唯一发送点 `AIGateway::makePossibleUpgrades`（`do{fillUpgradeInfo(); if(hasUpgrades()){...upgradeCreature();} }while(hasUpgrades())`）+ 服务器拒绝点 `CGameHandler::upgradeCreature:2578`（`!upgradeInfo.hasUpgrades() && complain("That upgrade is not possible!")` → return false）→ **客户端认为可升级 / 服务器认为不可 → 状态不变 → 永久重试**（坏局：10 万+/20MB，日志 2.4 GB / 313s，**仅 1 步**）。分歧前提 = `cc->waitTillRealize` 为 **false**（不等 realize → 客户端状态滞后）。该标志是**共享可变**：NK2 `init`(L524)/ring6(L1383) 置 true、`BattleAI:70`/`StupidAI:44` 战斗中置 false 且嵌入模式下不还原、MMAI `AAI.cpp:512-514` 置 false→true。
+- **三套补丁（均带 `.bak_*` + rollback）**:
+  1. `py/patch_298_stacktrace.py` — QueriesProcessor 四处栈变更打点（据此定谳 `popIfTop FAIL` 是**无害重复 pop**：`objectVisited` 尾部又 pop 一次已被暴露链出栈的查询；**非冻结原因**）
+  2. `py/patch_298_netthread_fix.py` — **方案1 框架级兜底**：`CClient::onNetworkThread`（`threadRunNetwork` 入口置位），网络线程内 `sendRequest` 跳过 `waitWhileContains`（机制正确：PackageApplied 只能由该线程处理，在其上等待即自锁）
+  3. `py/patch_298_upgrade_probe.py` — upgrade 循环打点（`[ML-upg] UpgradeCreature waitTillRealize=? onNetThread=?`）+ **熔断 cap 8**（防 2.4 GB 刷屏）
+- **验证（07:28 `py/_298_verify_sfix.sh`）: 4/4 全绿** — good_to_go 30 步/31s、judgement_day 30/24、elbow_room 30/24、a_viking 30/39，**rc=0 / swallow=0 / timeout=0 全满足**（此前 4/4 rc=124 + 300s 冻结）。健康局打点：**仅 2 次** upgrade 请求、`waitTillRealize=1`、循环 n=2 正常退出、**熔断未触发**。
+- **⚠ 归因未完全钉死（源码/二进制漂移疑点）**: 方案1 的跳过路径在健康局**从未触发**（全文件 `[ML-fix]` = 0）→ "300s 冻结消失"的精确归因未定；高度怀疑**本次重编把"源码已改但从未编译"的改动带了进来**。待对照实验（回退三套补丁重编再跑）厘清。
+- **当前构建状态**: `libmlclient.so` = 上述三套补丁（插桩 + 兜底 + 熔断）；训练仍停；`HOMM3_H3M_MIX=0` 未动。
+
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
 2. **概率性失败被"重试机制"掩盖后进入生产**，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯
