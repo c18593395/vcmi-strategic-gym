@@ -3008,18 +3008,24 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 
 **残留未知**: 训练配置（red=ML 模型）下 viking 能跑通 dialog 而三图挂——ML connector / 模型路径参与查询结算的具体机制未定位（`[ML-wait]` 打点在 NK2 AIGateway，connector 侧 query 管理逻辑的参与方式待下窗带模型复现分离变量）。
 
-**09-23 修复② 实测失败（heroExchange bothAI 自动关闭，`py/patch_298_heroexchange.py`）**:
-- **补丁内容**: `CGameHandler::heroExchange` 锚点前插 bothAI 短路——AI 间英雄相遇不再建 `CGarrisonDialogQuery`，改为 `useScholarSkill()` 后 `return`（对齐 `makeGarrisonDialog` 08-27 bothAI 同款模式；代价 = AI 间军队/宝物合并放弃）
-- **时间线（三段留痕，故可归因）**: 03:08 补丁写入 `~/vcmi-native/server/CGameHandler.cpp`（备份 `.bak_298_0923`）→ 03:09 **libvcmi.so 重编完成**（551 MB）→ 03:11 起 `py/_298_verify_sfix.sh` 验证（**跑在重编之后，结果有效**）
-- **结果（03:23 实测）**: `good_to_go` **rc=124** ❌ / `judgement_day` **rc=124** ❌ / `elbow_room` 进行中 / `a_viking` 未开始
-- **判据口径**: `rc=124` = 被外层 `timeout 300` 强杀；修好的话 30 步局应 **~40s 内 rc=0**。只要仍在 300s 内部强停窗口打转，就必然被外层杀掉 → **未修好**
-- **两个盲区（下轮必须修）**: ① 验证脚本 `timeout 300` 与被测现象（内部 300s 强停）**同量级** → 判据退化为"修好(rc=0/~40s) / 没修好(rc=124)"二分，量化不了改善；且 `rc=124` 时进程被强杀、**走不到局尾代码 → `[EP298_SWALLOW]` 打点永远拿不到数据**（历史 repro 用 `timeout 400`，应对齐）② 这刀只堵 `heroExchange` 一条通道，而定谳栈顶是 `CGarrisonDialogQuery qid=23` 三层叠压——**Garrison/town 访问路径可能未被覆盖**，单堵一条不够（待归因）
-- **⚠ 铁律例外登记**: 本次为验证补丁**重编了 `libvcmi.so`**，与项目铁律"不重编 libvcmi.so"冲突（CGameHandler.cpp 08-17 已有 ML fix 前科）→ 需拍板是否正式放开该铁律 + 确认 `.so` 多副本同步
-- **下一步**: ① 等 4 图跑完 → 归因 3 局是否卡在**同一** dialog 类型（`py/_298_grep_garrison.sh`）② 第二刀候选 = `makeGarrisonDialog` / 城访问路径同款 bothAI 关闭（与已打补丁同模式，低侵入）③ 仍不通再上修复③（NK2 应答同步化 / 查询栈看门狗）
+**09-23 修复② 实测（S 精准修复：heroExchange bothAI 自动关闭）— 部分有效，未根除**:
+- **补丁内容**: `CGameHandler::heroExchange`（`CGarrisonDialogQuery` **第二创建点**，:1582；第一创建点 makeGarrisonDialog:3507 已有 08-27 双层 AI 自动应答 fix）锚点前插 bothAI 短路——AI 间英雄相遇不再建查询，改为 `useScholarSkill()` 后 `return`（代价 = 放弃 NK2 pickBestCreatures 军队合并）。脚本 `py/patch_298_heroexchange.py`，备份 `.bak_298_0923`。
+- **时间线（改-编-验三段留痕）**: 03:08 补丁写入 → 03:09 构建（`cmake --build rel --target vcmiserver mlclient`；**libvcmi.so 系依赖链连带重链**，md5 `7a2b906e…`，全机单副本无同步风险）→ 03:11 起验证（跑在构建后，结果有效）。
+- **验证结果（s300×4 + s600×2，`py/_298_verify_sfix.sh` / `_298_verify_s600.sh`）**:
+  | 组 | 结果 |
+  |---|---|
+  | timeout=300 ×4 | 4/4 rc=124（good_to_go / judgement_day / elbow_room / a_viking） |
+  | timeout=600 | good_to_go **rc=0 / steps=28 / secs=340 / r=-6.1**（`adventure_wait timed out` ×1 后**恢复并自然收局**）；judgement_day rc=143（boot hang 被杀） |
+- **判定（两条轴必须分开看）**: ① **卡死轴 = 改善**——修复前 good_to_go 17 步被吞局（traj=None），修复后 28 步自然收局；elbow 从"1 步即卡"变活跃推进（31286 行）→ **补丁实证有效，保留**；② **慢速轴 = 独立残留**——post-patch 存在 ~12s/步（**s300 组 0 次 timeout 仍超 300s 被杀**），这才是 s300 组 4/4 rc=124 的真因，**不等于"卡死未修好"**（我一度据此误判"无效"，教训见下）；③ **300s 卡死仍会发生**（s600 组 ×1）→ **未根除**；④ judgement_day **boot hang 2/2**（卡在 TERRAIN 段、adventure 未进、`boot_timeout=120` 未触发）→ 与 patch 无关（patch 只作用于运行期相遇路径），疑 #212 reset 竞态同族，单独定位。
+- **打点判据的假阳性面（本轮新发现）**: `[EP298_SWALLOW]` 条件 `secs>250 且 steps<max_turns` 在**慢速轴**下同样成立（28 步 × ~12s = 340s，steps 不满 max_turns）→ 本轮 good_to_go 的 `swallow=1` 实为**慢速误报**，非卡死签名。要严谨区分需给打点加必要条件（如"该局存在 `adventure_wait timed out`"）。
+- **语义代价评估（保留的理由）**: 补丁取消 AI 间军队/宝物合并 → 训练语义有变，但并行会话评估"课程图 9000+ 局 exchange 从未卡死、影响小" → **保留，不回退**。（原则：无效**且**改语义才回退；本次是"有效但有代价"。）
+- **教训（本窗口新增）**: ① **多轴现象下不能用单一 rc 值下结论**——rc=124 既可来自卡死、也可来自慢速，必须拆轴取证（本次靠 s600 组 + `adventure_wait timed out` 计数才拆开）；② 补丁式修复必须"**改-编-验**"三段留痕（本次三段齐全，结论才可用）；③ **验证脚本 timeout 必须显著大于被测现象窗口**（300 vs 300 同量级 → 判据退化，且强杀使局尾打点不触发）。
+- **下一步**: ① 慢速轴（~12s/步）单独定性，与卡死轴解耦；② judgement boot hang 单独定位；③ 300s 卡死残留 → 找 `CGarrisonDialogQuery` 第三创建点 或上修复③（NK2 应答同步化 / 查询栈看门狗）；④ 混合轴 `MIX=0` 恢复时点 = 下窗观察首局 batch1 图是否出现 `EP_TIME`。
 
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
 2. **概率性失败被"重试机制"掩盖后进入生产**，爆雷时已是多层下游（管线 3 试 → 池 → 训练混合 → 零出现），根因定位要跨 4 层回溯
 3. **同输入两次运行不同死法（query -1 vs segfault）= 非确定性问题**，单次复现无意义，必须统计成功率
+4. **多轴现象下不能用单一 rc/耗时值下结论**——同一张图的"卡死"与"慢速"是两条独立轴，`rc=124`（被 timeout 杀）对两者都成立；必须拆轴取证（本次靠 s600 组 + `adventure_wait timed out` 计数才拆开，避免了"误判修复无效 → 错误回退有效补丁"）
 
 关联：踩坑 #298（权威记录）/ #296 族 / #299（`query -1` 降噪）/ #294（sanitize v2）/ `py/_298_repro.sh` / `py/_298_repro2.sh` / `py/_watch_b1_rest.sh`（捕获脚本暴露零出现）/ `py/_strip_te_test.py`（dialog 证伪实验）/ `AIGateway.cpp` L587/L635/L1583 / `CGameHandler.cpp:3512`
