@@ -273,13 +273,36 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
     # P10 target_list 加权排序 Python 旁路打分器 (09-15 灰度, 默认 legacy 零行为变化; scorer 启用 target_scorer.py 统一打分器)
     cmd.extend(["--target_chain", "scorer"])
     ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
+    # === #296 日志降噪 (2026-09-23, 方案A): Popen 层 shell 管道过滤 ===
+    # 根因: lib/callback/CCallback.cpp:53 sendQueryReply 收到 QueryID(-1) 时 logGlobal->error
+    #       经 C++ std::cerr 直写 (踩坑 #296 勘误: 实际在 lib 非 mlclient; 铁律不重编 libvcmi.so)。
+    # 现象: VCMI 引擎线程 (TBB worker N / runNetwork) 每 ~1.5s 一行刷屏, 无连锁报错 (Can not
+    #       end turn / fishy / Disaster / THREW 全 0), 训练链路不受影响 (主日志 EP_TIME 全 err=no)。
+    # 方案A: 不重编 C++, 在 Popen 层用 shell 管道 grep -v 按行过滤 C++ cerr 写入 hermes 日志的
+    #       内容 (C++ std::cerr 不经过 Python sys.stdout, 只能 shell 管道层过滤)。
+    #       扩展: 后续如发现其他刷屏良性噪声, 追加 grep -vE 模式 (正则或多次 -v)。
+    # 回退: 把下面 3 行换回原 `proc = subprocess.Popen(cmd, stdout=open(ep_log,"w"),
+    #       stderr=subprocess.STDOUT, env=env)` 即可 (2 行, 零其他改动)。
+    _grep_filter = "grep -vE 'Cannot answer the query -1' || true"
+    ep_log_fh = open(ep_log, "w")
     proc = subprocess.Popen(
         cmd,
-        stdout=open(ep_log, "w"), stderr=subprocess.STDOUT, env=env
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
     )
+    _grep_proc = subprocess.Popen(
+        ["sh", "-c", _grep_filter],
+        stdin=proc.stdout, stdout=ep_log_fh, stderr=subprocess.DEVNULL
+    )
+    proc.stdout.close()  # 父进程侧关闭 pipe 读端, 防 grep 写后死锁
     try: proc.wait(timeout=STEPS_PER_EP*60 + 300)  # C8.5: NK2 对手回合 15-60s, 原 *3+15 必误杀
     except subprocess.TimeoutExpired: proc.kill(); proc.wait()
     ep_rc = proc.returncode  # 09-14: segfault/秒退非 0, 配合 traj 身份校验拦截残留污染
+    # #296 降噪管道收尾: proc 已退出 → grep 的 stdin EOF → grep 自动结束; 显式 join 防残留
+    try:
+        _grep_proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        _grep_proc.kill()
+    ep_log_fh.close()  # 关闭 hermes 日志文件句柄 (grep 已 flush 完)
     try:
         # Clean up temp checkpoint
         if os.path.exists(ep_ckpt):

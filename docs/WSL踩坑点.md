@@ -257,6 +257,7 @@
 | 163. 二进制 ≠ 源码树: 08-18 exe 含未提交临时 hack, 行为对不上源码 (09-10) | 构建-编译与部署 |
 | 164. MSYS2 ninja 编译 cc1plus 静默失败 0xC0000135: PATH 缺 mingw64\bin (09-10) | 构建-编译与部署 |
 | 165. GUI 线程边界无 catch-all: 未捕获 C++ 异常 → "Disaster happened" + 僵尸进程 (09-10, 第五崩) | 引擎-VCMI-API |
+| #296 勘误+降噪: `Cannot answer the query -1` 实锤 `lib/callback/CCallback.cpp:53` (lib 非 mlclient) + Popen grep -v 管道降噪 (09-23) | 引擎-VCMI-API |
 
 ---
 
@@ -1582,6 +1583,7 @@
   - 但 `runNetwork` 线程 2 次 `ERROR Cannot answer the query -1!`，随后 `reset()` 内部 `assert_state(AWAITING_STATE)` + `cond1.wait` **永远阻塞**，30 步跑不完
 - **根因（引擎侧）**:
   - `Cannot answer` 文本在 `libvcmi.so` 二进制内（源码树 `grep -rn` 无源码匹配），**Python/Pybind 层改不动**
+  - **⚠️ 09-23 勘误**: 报错实际位置 = `lib/callback/CCallback.cpp:53` `CCallback::sendQueryReply` 收到 `QueryID(-1)` 时 `logGlobal->error`。`[runNetwork]`/`[TBB worker N]` 只是调用线程标签，非报错位置。`CCallback` 在 **libvcmi.so** 内（lib/callback/），重编 libmlclient 不影响该报错
   - 发出方 `[runNetwork]` = [CServerHandler.cpp](file:///home/administrator/vcmi-native/client/CServerHandler.cpp) 的 mlclient 网络线程，开局后做一次同步状态查询（query id 1），回复失败 → `query -1`
   - 真正卡 `reset()` 的根因不是 `query -1`，而是 **h3m 反转图在 mlclient `runNetwork` 开局初始化阶段，地图/玩家状态未被正常注册到 game state**，connector 永远等不到 `AWAITING_STATE`。`query -1` 是症状，非病因
   - **与玩家数无关**：单玩家图（Faeries）和双玩家图（All for One, red+blue）都复现 → 推翻"≥2 非中立玩家"假设

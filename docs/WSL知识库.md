@@ -2940,3 +2940,31 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 4. `query -1` 归因看上下文：vmap 侧 `Can not end turn` vs h3m 侧开局 reset 阻塞，别混（#294 vs #296）
 
 关联：踩坑 #295（工具链 4 坑）/ #296（引擎侧结论）/ #294（同表面不同层）/ #220（JSON 注释容错同源）/ `py/vmap2h3m.py` / `py/_test_v2h3m_engine_load.py` / `py/_fix_vmap2h3m_strip_comments.py` / `client/CServerHandler.cpp` / `vcmi_gym/connectors/v13/threadconnector.cpp` L322
+
+## 09-23 #296 勘误 + 日志降噪 (Popen 层 grep 管道, 零 C++ 重编)
+
+**背景**：09-21 #296 记录"hermes 日志每局 ~498 行 `ERROR Cannot answer the query -1!` 刷屏"并定性为"mlclient 网络层"。09-23 排查发现 ① 报错实际位置不在 mlclient；② 刷屏可安全降噪，不影响训练。
+
+**#296 勘误（实际报错位置）**:
+- **实锤位置 = `lib/callback/CCallback.cpp:53`** `CCallback::sendQueryReply` 收到 `QueryID(-1)` 时 `logGlobal->error("Cannot answer the query -1!")`
+- `lib/callback/CCallback.cpp` 在 **libvcmi.so** 内（lib/callback/），**不在 libmlclient.so** → 重编 libmlclient 不影响该报错
+- `[runNetwork]` / `[TBB worker N]` 只是**调用线程标签**（CServerHandler.cpp L156 设的 thread name），非报错位置
+- `runNetwork` 线程本身在 `client/CServerHandler.cpp` 内（mlclient），但它调用 `CCallback::sendQueryReply` 时进入 libvcmi.so 的 `CCallback` → 报错打出来的是 `logGlobal->error`（libvcmi.so 内的 boost logger）
+
+**刷屏机制**:
+- `CCallback::sendQueryReply(QueryID(-1))` 每次被调用都会打一条 error
+- TBB worker N / runNetwork 线程每 ~1.5s 调一次（server 广播 PlayerStartsTurn 时 AI 侧做 query 应答）
+- **无连锁报错**（`Can not end turn` / `fishy` / `Disaster` / `THREW` 全 0），训练链路不受影响（主日志 EP_TIME 全 err=no）
+- 本质 = **已知良性噪声**（#296 原定性"症状非病因"正确，但报错位置需勘误）
+
+**方案A 降噪（Popen 层 grep -v 管道, 零 C++ 重编, 铁律兼容）**:
+- 改动 = `train_wsl2_ppo_v2.py` 的 Popen 管道配置（2 行 → 7 行）
+- **为什么不用 Python 层过滤**：VCMI `logGlobal->error` 走 C++ `std::cerr`（CLogger.cpp L412 `printToStdErr = record.level >= ELogLevel::WARN`），不经过 Python `sys.stdout`；ep_runner 内 `sys.stdout = _FilteredStdout()` 无效（C++ 底层 fd 绕过 Python 对象）
+- **正确落点**：Popen `stdout=subprocess.PIPE` + `sh -c "grep -vE 'Cannot answer the query -1' || true"` → grep 按行过滤 → 写 ep_log。C++ `std::cerr` 经 Popen `stderr=STDOUT` 合入 stdout → 底层 pipe → grep 过滤
+- **验证**：ep_runner fd 1/2 由 `hermes_ep.log 文件` 变 `pipe:[inode]`；日志 Cannot answer 0 行（重启前 498 行/局），其他 14488 行全保留（MUTEX/THREAD/NK2/ECON/TERRAIN）；主日志 EP_TIME err=no 正常推进
+
+**回退**：把 `train_wsl2_ppo_v2.py` 的 grep 管道换回 `stdout=open(ep_log,"w"), stderr=subprocess.STDOUT`（2 行）。
+
+**扩展**：后续发现其他刷屏良性噪声 → 追加 grep -vE 模式（正则 `|` 分隔或多次 -v）。
+
+关联：踩坑 #296（勘误位置）/ #298（降噪细节）/ `py/train_wsl2_ppo_v2.py` L275-298（Popen 管道）/ `lib/callback/CCallback.cpp:53` / `lib/logging/CLogger.cpp` L412
