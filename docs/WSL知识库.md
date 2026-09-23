@@ -3053,7 +3053,7 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - **对照实验设计（下一步，排到自然停训窗，不打断 MIX 观测窗）**: 只回退三套补丁、**不动其余改动** → 重编 → 同 4 图跑 **N≥4 轮**（冻结是竞态，单轮会误判）。冻结回来 = 补丁是修复源；不回来 = 其余改动是修复源。
 - **去留倾向（待实验确认）**: **熔断 cap 8 留**（防 upgrade 死循环这个独立真 bug，安全网价值与冻结归因无关）；**方案1 留**（正确性有逻辑论证——`PackageApplied` 只能由网络线程处理，在该线程内等即自锁；0 触发恰说明只在真要死锁时才动手）；**两处打点可撤**，但建议留到观测窗结束（当哨兵，第一时间抓复发）。
 - **两处 08-17 修复被上游同步冲掉（已核验）**: ① `server/CGameHandler.cpp` `levelUpHero` 的「AI 玩家升级自动选第一个技能」（HEAD 里有、工作区与 09-19 备份里都没有 → 09-19 上游同步时丢失）；② `server/battles/BattleResultProcessor.cpp` 的 `removeQuery` 强制移除（同因丢失）。**共性 = ML 修复以"工作区改动"形式存在，上游同步时被静默覆盖**。缓解：`ENABLE_ML` throw 熔断（`grep -a 'unanswered query' rel/bin/libmlclient.so` = 1，**确已编入**）把"静默刷屏卡死"降级为"快速失败可归因"；训练日志 `has to answer queries` = 0 次 → 暂无征兆。**判断：要恢复（优先级中）**——按现行上游结构重新实现（在 `!hero->getOwner().isValidPlayer()` 之外补 AI 分支直接取 `hlu.skills.front()`），不是 revert；排到下个自然停训窗。
-- **全树丢失修复排查（09-23，系统性，结论=只有这两处）**: 两道判据交叉验证——① **标记计数差**: `git grep -c 'ML fix'` / `'C8.5'` / `'ring6'` 在 `41a99cd52c`(原 HEAD) 与工作区之间 15 文件逐一对齐，**净 −1 仅两处**（`CGameHandler.cpp:182` levelUpHero 08-17、`BattleResultProcessor.cpp` removeQuery 08-17；3→2 且另加新条目）；② **中文注释扫描**: 全树 diff 删行中含 CJK 的仅 11 行（含翻译文件），逐行核为重构/搬家而非丢失。**关键反例（勿误判）**: `server/queries/CQuery.cpp:44` 的 08-17「addPlayer 去重」修复注释被删，但**逻辑保留**——上游自己加了 `// prevent duplicates` + `assert(color.isValidPlayer())`，行为不变；`AIGateway.h` turnCounter、`QueriesProcessor.h` removeQuery 声明、`ML/MLClient.cpp` 的 08-01 直传 hack 均为**重写/搬迁**（工作区仍在）。→ **无第三处丢失**。
+- **全树丢失修复排查（09-23，系统性，结论=只有这两处）**: 两道判据交叉验证——① **标记计数差**: `git grep -c 'ML fix'` / `'C8.5'` / `'ring6'` 在 `41a99cd52c`(原 HEAD) 与工作区之间 15 文件逐一对齐，**净 −1 仅两处**（`CGameHandler.cpp:182` levelUpHero 08-17、`BattleResultProcessor.cpp` removeQuery 08-17；3→2 且另加新条目）；② **中文注释扫描**: 全树 diff 删行中含 CJK 的仅 11 行（含翻译文件），逐行核为重构/搬家而非丢失。**关键反例（勿误判）**: `server/queries/CQuery.cpp:44` 的 08-17「addPlayer 去重」修复注释被删，但**逻辑保留**——上游自己加了 `// prevent duplicates` + `assert(color.isValidPlayer())`，行为不变；`AIGateway.h` turnCounter、`QueriesProcessor.h` removeQuery 声明、`ML/MLClient.cpp` 的 08-01 直传 hack 均为**重写/搬迁**（工作区仍在）。→ **结论修正**：标记/注释类判据下**无第三处**；但**标记判据有盲区**——「纯代码改动、注释不变」的修复查不出。**实际存在第三处**（见下条 09-14 守卫），故该判据只能作初筛，**必须配「与上一已知良好提交逐函数比对」**。
 - **剩余 3022 文件盘点（09-23，`git diff --numstat` 分类）**: 合计 3022 文件 / 79379 增 / 73187 删，其中 **1541 文件仅模式变更**（644→755 chmod 噪声，无内容改动）。
 
 | 分类 | 文件 | 增 | 删 | 仅模式 | 最大改动 |
@@ -3067,6 +3067,13 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 | ML fork 代码 | 73 | 1751 | 912 | 43 | `ML/MLClient.cpp` 1220 |
 
 → **主体是一次完整上游重同步**（上游核心 + 翻译 + 测试占 76%），ML fork 代码占比小（73 文件）。**入库前建议先压掉 1541 个 chmod 噪声**（`git config core.fileMode false` 或单独一个 mode commit）。
+
+**09-23 三处修复恢复（本窗口收官，已改-编-验留痕）**:
+- **第三处丢失（标记判据盲区抓到）**: `server/queries/QueriesProcessor.cpp` `removeQuery` 的 **09-14「删 `removalDone` 守卫」**也被 09-19 同步冲掉（脚本 `py/patch_h3_server_0914.py` 当时指向的是**陈旧树** vcmi-native-build，docstring 可证）。守卫存在的后果见踩坑 #228：PvP 共享 `CBattleQuery` 的 `onRemoval` 只调一次 → `remainingBattleQueriesCount` 2→1 永久挂住 → `BattleEnded` 永不发 → `currentBattles` 残留 + 无人判 LOSER。**且它依赖 ②**：`removeQuery` 必须重新成为唯一调用点。
+- **恢复实现**: `py/patch_298_restore_0817.py`（幂等 + 写后 5 项校验 + `--rollback`）。① 按**新上游结构**重实现（改条件为 `!hero->getOwner().isValidPlayer() || !gameInfo().getPlayerState(hero->getOwner())->isHuman()`，非 revert）；② 调用点还原 `removeQuery(battleQuery)`（并删掉 #298 留下的游离 `[ML-stk]` 打点行）；③ 去守卫（每玩家各调一次 `onRemoval`）。依据 = `41a99cd52c` 原始实现 + 踩坑 #228。提交 `e439b22759`。
+- **A/B 对照（elbow_room ×6，决定性）**: **基线（未恢复）= 4/6 异常**（2×rc=139 SIGSEGV + 2×rc=124 超时）；**恢复后 = 3/6**（2×139 + 1×124）→ **崩溃/超时是既有竞态，与三处恢复无关**。恢复后 4 图冒烟 **3/4 rc=0**（`a_viking` rc=124）。
+- **⚠ 重大勘误：07:28「4/4 全绿 = 冻结消失」是单样本侥幸**。A/B 基线在 elbow_room 上就有 2/6 的 300s 超时 → **冻结根本没消失**，"方案1/熔断修好了冻结"的结论**不成立**（与之前"归因未钉死"的保留意见一致，现升级为"已证伪"）。**教训：竞态类修复的验证必须 N≥4 重复 + 逐图复现率，单样本 4/4 通过毫无判别力**。`elbow_room`/`a_viking` 已登记为偶发图（超时 ~33%）。
+- **自检**: `py/ml_patch_check.py` **11/11**，其中新增**反向判据** `09-14-qp-guard: expect=absent`（标记出现即 exit 1）——因这类修复的判据是"某段代码必须不存在"。新增工具 `py/_298_repeat.sh`（N 次重复测复现率）、`py/_298_crash_gdb.sh`（gdb 前台抓 SIGSEGV 栈）。
 
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明

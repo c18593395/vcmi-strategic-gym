@@ -60,11 +60,13 @@ PATCHES = [
     ("ml-strategic", "server/CGameHandler.cpp", "strategic_state.h", "present",
      "战略层状态桥接（strategic_state）"),
 
-    # ---------- 已知丢失，待恢复（09-19 上游同步冲掉）----------
-    ("08-17-lvup", "server/CGameHandler.cpp", "AI 玩家升级自动选第一个技能", "lost_pending",
-     "08-17 AI 升级自动选技能（防 NK2 升级查询持锁死锁 → 刷屏卡死）— 待按新上游结构重实现"),
-    ("08-17-rmq", "server/battles/BattleResultProcessor.cpp", "removeQuery(battleQuery)", "lost_pending",
-     "08-17 战斗查询 removeQuery 任意位置强制移除 — 待决定是否恢复"),
+    # ---------- 已恢复（09-23，py/patch_298_restore_0817.py）----------
+    ("08-17-lvup", "server/CGameHandler.cpp", "isHuman())", "present",
+     "08-17 AI 升级自动选技能（防 NK2 升级查询持锁死锁 → 刷屏卡死）— 09-23 按新上游结构恢复"),
+    ("08-17-rmq", "server/battles/BattleResultProcessor.cpp", "queries->removeQuery(battleQuery);", "present",
+     "08-17 战斗查询 removeQuery 任意位置强制移除 — 09-23 恢复"),
+    ("09-14-qp-guard", "server/queries/QueriesProcessor.cpp", "bool removalDone", "absent",
+     "09-14 修正: removeQuery 必须每玩家各调一次 onRemoval（守卫存在 = PvP 计数欠减回归，见踩坑 #228）"),
 ]
 
 
@@ -77,7 +79,7 @@ def check(root: Path):
         if not path.is_file():
             results.append(dict(id=pid, file=rel, marker=marker, expect=expect,
                                 status="FILE_MISSING", note=note))
-            if expect == "present":
+            if expect in ("present", "absent"):
                 hard_failures += 1
             continue
         try:
@@ -85,13 +87,18 @@ def check(root: Path):
         except OSError as exc:
             results.append(dict(id=pid, file=rel, marker=marker, expect=expect,
                                 status="READ_ERROR: %s" % exc, note=note))
-            if expect == "present":
+            if expect in ("present", "absent"):
                 hard_failures += 1
             continue
 
         if expect == "present":
             status = "OK" if found else "MISSING"
             if not found:
+                hard_failures += 1
+        elif expect == "absent":
+            # 反向判据: 标记出现 = 修复被回归 (如上游同步把删掉的守卫又带回来)
+            status = "REGRESSED" if found else "OK"
+            if found:
                 hard_failures += 1
         else:  # lost_pending
             status = "RESTORED" if found else "PENDING"
@@ -125,7 +132,7 @@ def main():
     for r in results:
         print("%-12s %-9s %-46s %s" % (r["id"], r["status"], r["file"], r["marker"]))
 
-    missing = [r for r in results if r["status"] in ("MISSING", "FILE_MISSING")]
+    missing = [r for r in results if r["status"] in ("MISSING", "FILE_MISSING", "REGRESSED")]
     pending = [r for r in results if r["status"] == "PENDING"]
     restored = [r for r in results if r["status"] == "RESTORED"]
 
