@@ -3053,6 +3053,20 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - **对照实验设计（下一步，排到自然停训窗，不打断 MIX 观测窗）**: 只回退三套补丁、**不动其余改动** → 重编 → 同 4 图跑 **N≥4 轮**（冻结是竞态，单轮会误判）。冻结回来 = 补丁是修复源；不回来 = 其余改动是修复源。
 - **去留倾向（待实验确认）**: **熔断 cap 8 留**（防 upgrade 死循环这个独立真 bug，安全网价值与冻结归因无关）；**方案1 留**（正确性有逻辑论证——`PackageApplied` 只能由网络线程处理，在该线程内等即自锁；0 触发恰说明只在真要死锁时才动手）；**两处打点可撤**，但建议留到观测窗结束（当哨兵，第一时间抓复发）。
 - **两处 08-17 修复被上游同步冲掉（已核验）**: ① `server/CGameHandler.cpp` `levelUpHero` 的「AI 玩家升级自动选第一个技能」（HEAD 里有、工作区与 09-19 备份里都没有 → 09-19 上游同步时丢失）；② `server/battles/BattleResultProcessor.cpp` 的 `removeQuery` 强制移除（同因丢失）。**共性 = ML 修复以"工作区改动"形式存在，上游同步时被静默覆盖**。缓解：`ENABLE_ML` throw 熔断（`grep -a 'unanswered query' rel/bin/libmlclient.so` = 1，**确已编入**）把"静默刷屏卡死"降级为"快速失败可归因"；训练日志 `has to answer queries` = 0 次 → 暂无征兆。**判断：要恢复（优先级中）**——按现行上游结构重新实现（在 `!hero->getOwner().isValidPlayer()` 之外补 AI 分支直接取 `hlu.skills.front()`），不是 revert；排到下个自然停训窗。
+- **全树丢失修复排查（09-23，系统性，结论=只有这两处）**: 两道判据交叉验证——① **标记计数差**: `git grep -c 'ML fix'` / `'C8.5'` / `'ring6'` 在 `41a99cd52c`(原 HEAD) 与工作区之间 15 文件逐一对齐，**净 −1 仅两处**（`CGameHandler.cpp:182` levelUpHero 08-17、`BattleResultProcessor.cpp` removeQuery 08-17；3→2 且另加新条目）；② **中文注释扫描**: 全树 diff 删行中含 CJK 的仅 11 行（含翻译文件），逐行核为重构/搬家而非丢失。**关键反例（勿误判）**: `server/queries/CQuery.cpp:44` 的 08-17「addPlayer 去重」修复注释被删，但**逻辑保留**——上游自己加了 `// prevent duplicates` + `assert(color.isValidPlayer())`，行为不变；`AIGateway.h` turnCounter、`QueriesProcessor.h` removeQuery 声明、`ML/MLClient.cpp` 的 08-01 直传 hack 均为**重写/搬迁**（工作区仍在）。→ **无第三处丢失**。
+- **剩余 3022 文件盘点（09-23，`git diff --numstat` 分类）**: 合计 3022 文件 / 79379 增 / 73187 删，其中 **1541 文件仅模式变更**（644→755 chmod 噪声，无内容改动）。
+
+| 分类 | 文件 | 增 | 删 | 仅模式 | 最大改动 |
+|---|---|---|---|---|---|
+| 翻译/本地化资源 | 369 | 58266 | 43311 | 79 | — |
+| 上游核心代码 | 1934 | 12549 | 23213 | 1073 | `scripting/erm/ERMInterpreter.cpp` 1775 |
+| 测试 | 165 | 2437 | 3774 | 83 | `test/spells/effects/TimedTest.cpp` 458 |
+| Nullkiller2 | 140 | 2707 | 652 | 86 | `AINodeStorage.cpp` 874 |
+| 文档 | 196 | 1607 | 1291 | 139 | `docs/developers/Lua_Scripting_System.md` 464 |
+| 打包/资源 | 145 | 62 | 34 | 38 | `CI/create_appimage.sh` 30 |
+| ML fork 代码 | 73 | 1751 | 912 | 43 | `ML/MLClient.cpp` 1220 |
+
+→ **主体是一次完整上游重同步**（上游核心 + 翻译 + 测试占 76%），ML fork 代码占比小（73 文件）。**入库前建议先压掉 1541 个 chmod 噪声**（`git config core.fileMode false` 或单独一个 mode commit）。
 
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
