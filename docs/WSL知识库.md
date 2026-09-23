@@ -3045,7 +3045,12 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
   3. `py/patch_298_upgrade_probe.py` — upgrade 循环打点（`[ML-upg] UpgradeCreature waitTillRealize=? onNetThread=?`）+ **熔断 cap 8**（防 2.4 GB 刷屏）
 - **验证（07:28 `py/_298_verify_sfix.sh`）: 4/4 全绿** — good_to_go 30 步/31s、judgement_day 30/24、elbow_room 30/24、a_viking 30/39，**rc=0 / swallow=0 / timeout=0 全满足**（此前 4/4 rc=124 + 300s 冻结）。健康局打点：**仅 2 次** upgrade 请求、`waitTillRealize=1`、循环 n=2 正常退出、**熔断未触发**。
 - **⚠ 归因未完全钉死（源码/二进制漂移疑点）**: 方案1 的跳过路径在健康局**从未触发**（全文件 `[ML-fix]` = 0）→ "300s 冻结消失"的精确归因未定；高度怀疑**本次重编把"源码已改但从未编译"的改动带了进来**。待对照实验（回退三套补丁重编再跑）厘清。
-- **当前构建状态**: `libmlclient.so` = 上述三套补丁（插桩 + 兜底 + 熔断）；训练仍停；`HOMM3_H3M_MIX=0` 未动。
+- **当前构建状态**: `libmlclient.so` = 上述三套补丁（插桩 + 兜底 + 熔断）；训练**已重启**，unit 双副本 `HOMM3_H3M_MIX=0.10 + HOMM3_H3M_BATCH=1`（checkpoint resume `step=948241`，MainPID 247909）。
+- **漂移取证（本窗口实况核查，`git diff -w --stat`）**: 漂移条件**实锤**——WSL 构建树 `~/vcmi-native` 的 HEAD 停在 **09-19**（`41a99cd52c`），工作区相对 HEAD 有 **6 文件 / 508 insertions / 214 deletions**（忽略空白）未提交：`server/CGameHandler.cpp` 349、`client/CServerHandler.cpp` 163、`client/Client.cpp` 123、`server/queries/QueriesProcessor.cpp` 44、`AI/Nullkiller2/AIGateway.cpp` 25、`server/battles/BattleResultProcessor.cpp` 18。三套补丁实际足迹仅数十行，**其余约 500 行是别的改动**（ML/fork 集成 + 历史遗留）→ **当前跑训练的 .so 无法从已提交源码复现**（系统性风险：下次重编不知道会带进什么）。
+- **一处具体内容回退（但早于本次重编，不能直接当修复源）**: `server/battles/BattleResultProcessor.cpp` 中 08-17 的修复（`3edc2ce431`「战斗查询残留卡死 — `removeQuery` 任意位置强制移除」）在工作区被**回退成上游 `popIfTop(battleQuery)`**；但 `.bak_stk298`（09-19 04:18）里**已经是 `popIfTop`** → 该回退至少 4 天前就存在，很可能早已编进过旧 .so。旁证：`patch_298_stacktrace.py:81` 的锚点本身就写的是 `popIfTop(battleQuery); // Workaround` → **打点脚本不产生回退，是回退先于打点**。
+- **对照实验设计（下一步，排到自然停训窗，不打断 MIX 观测窗）**: 只回退三套补丁、**不动那 500 行** → 重编 → 同 4 图跑 **N≥4 轮**（冻结是竞态，单轮会误判）。冻结回来 = 补丁是修复源；不回来 = 那 500 行是修复源。
+- **去留倾向（待实验确认）**: **熔断 cap 8 留**（防 upgrade 死循环这个独立真 bug，安全网价值与冻结归因无关）；**方案1 留**（正确性有逻辑论证——`PackageApplied` 只能由网络线程处理，在该线程内等即自锁；0 触发恰说明只在真要死锁时才动手）；**两处打点可撤**，但建议留到观测窗结束（当哨兵，第一时间抓复发）。
+- **配套建议**: 把工作区那 ~500 行改动入库（对齐 `d6f8f373a8` 的做法），消除 `.so ≠ 已提交源码` 的漂移面；入库前确认并行会话无冲突。
 
 **教训**:
 1. **采样命中期望与实际偏差超数量级时，先怀疑"选中后静默失败"**——`traj=None continue` 是无痕吞局点，只看 `EP_TIME` 的观测脚本会完全失明
