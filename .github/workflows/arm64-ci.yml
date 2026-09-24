@@ -27,3 +27,47 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: Runner identity (audit)
         run: uname -a && python3 -c "import platform; print('machine=', platform.machine())"
+
+  # ② ABI 守门 (防 09-24 毒化再犯): 仓内 connectors/v13/14/15 源码
+  #    对着 服务器活引擎 ABI (/DATA/hero3/vcmi 头 + rel/bin/libmlclient.so)
+  #    全量重编 6 个 pybind 模块 + RTLD_NOW dlopen 验链接.
+  #    砸 09-24 的正是这一层(WSL 源同步毒化), 引擎本体 6000 文件重编不入 CI(留手动).
+  #    self-hosted 价值: 能直接读本机引擎头/so, GitHub hosted(x86)做不了.
+  abi-gate-arm64:
+    runs-on: [ self-hosted, Linux, ARM64 ]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pybind11 v2.13.6 (仓内 CMakeLists add_subdirectory(pybind11) 但未 git 跟踪, 与服务器 2.13.6 同源)
+        run: |
+          set -e
+          mkdir -p connectors/pybind11
+          if [ ! -f connectors/pybind11/CMakeLists.txt ]; then
+            curl -fsSL "https://codeload.github.com/pybind/pybind11/tar.gz/v2.13.6" | tar xz --strip-components=1 -C connectors/pybind11
+          fi
+          grep -q "PYBIND11_VERSION_MINOR 13" connectors/pybind11/include/pybind11/detail/common.h && echo pybind11 OK
+      - name: Configure connector build against live engine ABI
+        run: |
+          set -e
+          export CMAKE_BUILD=build_abi_gate
+          cmake -S connectors -B "$CMAKE_BUILD"             -DVCMI_DIR=/DATA/hero3/vcmi             -DCMAKE_BUILD_TYPE=Release 2>&1 | grep -E "Found libmlclient|Boost:|Configuring|Generating|Error"
+          test -f "$CMAKE_BUILD/CMakeCache.txt"
+      - name: Build 6 pybind modules (v13/14/15 connector+exporter, -j16 不抢评测池)
+        run: cmake --build build_abi_gate -j 16 2>&1 | tail -6
+      - name: RTLD_NOW dlopen 验证 (守 ABI, 09-24 毒化正是 dlopen 炸)
+        run: |
+          python3 - <<'PY'
+          import ctypes, glob, os
+          so = sorted(glob.glob("build_abi_gate/*.so"))
+          assert len(so) == 6, f"expect 6 .so, got {len(so)}: {so}"
+          for p in so:
+              ctypes.CDLL(p, mode=os.RTLD_NOW)
+              print("OK", os.path.basename(p))
+          print(f"ABI-GATE dlopen RTLD_NOW {len(so)}/6 OK")
+          PY
+      - name: 产物清单 (audit)
+        if: always()
+        run: |
+          ls -la build_abi_gate/*.so 2>/dev/null || true
+          echo "engine ABI gate: $(uname -m) engine=/DATA/hero3/vcmi"
+
