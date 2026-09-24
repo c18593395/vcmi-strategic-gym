@@ -264,8 +264,8 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 **#305**，下一条为 #306…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
-> ℹ️ **重号提示 (09-24)**：现有**两条 #300**——L1556（池图开局故障根因修正）与 L1684（关机后 keepalive 静默丢失）。后条建议改号 #306，归档时一并处理。
+> 新增条目沿用全局编号续接（当前最大 **#307**，下一条为 #308…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> ℹ️ **重号提示 (09-24)**：现有**两条 #300**——L1556（池图开局故障根因修正）与 L1684（关机后 keepalive 静默丢失），后者建议归档时改号。**同日已处理掉另一批重号**：原编 #301（unit 双副本漂移）→ **#306**、原编 #302（/tmp EPERM）→ **#307**（因 #301/#302 已被 trade cap 与 merge-tree 口径占用）。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1567,6 +1567,34 @@
 
 ---
 
+#### #306 unit 配置双副本漂移：改 `/etc` 漏改 `py/` 仓内副本 → 三方 MIX 不一致 (09-24) — ✅ 已定位（本窗 sed 漏写 U2）〔原编 #301，与既有 #301 trade cap 重号，09-24 改号 #306；本条与 #305 同题，**以本条为准（定谳版）**〕
+
+- **状态**: ✅ 已定位根因（本窗操作失误）+ 双副本设计登记；漂移已同步
+- **现象**: `HOMM3_H3M_MIX` 三方不一致——`/etc/systemd/system/homm3-train-v5.service`=0.20（运行时权威，`systemctl show` 实读）/ **`py/homm3-train-v5.service`=0.10**（仓内副本，停在 09-23 07:35）/ 实跑日志 `mix=0.2`（与 /etc 一致，✓）。
+- **根因**: **unit 文件双副本是既有设计**——运行时 `/etc/systemd/system/homm3-train-v5.service`（**不在 git**，systemd 唯一权威）+ 仓内 `py/homm3-train-v5.service`（可版本控制，供 bootstrap/审计/`restart_train_v5_sys.sh` 的 heredoc 模板参考）。历史脚本 `py/_enable_mix_axis.sh` / `py/_pause_mix_axis.sh` 明确**双写**（`U1=/etc/... U2=/mnt/d/.../py/...` + `for U in "$U1" "$U2"`）。**09-24 本窗两次 sed（0.10→0.50→0.20）只写了 U1（/etc），漏写 U2 → 仓内副本停在 0.10**。另：用户所见 `/etc=0.50` 属读取时点差异（0.5 窗口内读取），当前实测 /etc=0.20。
+- **已核实**: 全系统仅一份 unit（无 drop-in `/etc/systemd/system/homm3-train-v5.service.d/`、无 `/lib`、无用户级 unit、无 `EnvironmentFile`）；`grep HOMM3_H3M_MIX=0.5` 全盘零命中。
+- **教训**: ① **改 unit 必须双写**（/etc 运行时 + py/ 仓内副本），或统一走封装脚本（参见 `_enable_mix_axis.sh` 的双写模式）；② **改完必须 `systemctl show -p Environment homm3-train-v5` 验实际加载值**，不能只看文件内容（daemon-reload 前的 show 也可能是旧值）；③ 长驻配置项（MIX/BATCH）应在单一权威处登记并定期对账——本次漂移存活了整整一天才被用户发现；④ 涉及"双副本/多副本"的资产（VCMI 的 `.so` 双树、unit 双写）一律先确认"谁是运行时权威"，再决定改哪几份。
+- **关联**: #201（unit 运维/判活三件套）/ `py/restart_train_v5_sys.sh`（heredoc 写 /etc）/ `py/_enable_mix_axis.sh`+`py/_pause_mix_axis.sh`（双写范例）/ 踩坑 #300（本窗池图故障）
+
+---
+
+#### #307 共享 `/tmp` 路径 + 粘滞位 + 服务非 root ⇒ `os.remove` EPERM 带走整个训练 (09-24) — ✅ 已修（PID 隔离 + 删除容错）〔原编 #302，与 #302 merge-tree 口径重号，09-24 改号 #307〕
+
+- **状态**: ✅ 已修（`EP_TRAJ` 按 PID 隔离 + `os.remove` 加 try/except）
+- **现象**: 训练进程整体退出（`systemctl` `status=1/FAILURE`），主日志尾部 traceback：
+  ```
+  File "py/train_wsl2_ppo_v2.py", line 212, in run_episode
+      os.remove(EP_TRAJ)
+  PermissionError: [Errno 1] Operation not permitted: '/tmp/traj_ep.json'
+  ```
+  **一局都没跑就死**（POOL_SCHED 打出后立刻崩）。
+- **根因（三重叠加）**: ① `/tmp` 带**粘滞位**（`drwxrwxrwt` / mode 1777）→ 只有文件属主或 /tmp 属主（root）能删；② 服务 `User=administrator`（uid 1001）；③ 而 `/tmp/traj_ep.json` 被 **root 属主**占用（09-24 本窗 root 身份跑的取证脚本遗留）→ administrator 既**不能删**（EPERM）也**不能写**（mode 644）。④ `os.remove()` 在 `run_episode` 里**未加保护**，异常未捕获 → 直接终结整个训练进程。
+- **修复**: `EP_TRAJ = f"/tmp/traj_ep_{os.getpid()}.json"`（**按训练进程 PID 隔离**，跨进程/跨用户残留不再撞车）+ `os.remove` 包 `try/except OSError` 打 `[WARN]` 忽略（清理失败不得带走主循环）。
+- **教训**: ① **运维/取证脚本一律不要以 root 写共享 `/tmp` 固定路径**——要么用专属子目录（如 `/tmp/_probe_xxx/`），要么与服务同身份（`sudo -u administrator`）；② **服务主循环里的清理类操作（remove/unlink/mkdir）必须容错**，单点失败不能终结训练；③ **共享 `/tmp` 固定文件名在多身份环境下是雷**，长驻进程应使用 PID/会话隔离的路径；④ 本窗"池图丢 traj"排查中我一直假设"文件不存在 = 子进程没写"，实际还需排查"**文件存在但属主/权限不对，读或写失败**"这一类（本次即由权限引发，见 #303 关联）。
+- **关联**: #306（同为"多副本/多身份"类配置坑）/ #300（池图 traj 丢失排查）/ `py/train_wsl2_ppo_v2.py`（EP_TRAJ / run_episode）
+
+---
+
 #### #293 timeout 判据形同虚设：adventure_wait 超时被 ep_runner 内部捕获 (rc=0 steps=1)，管线 detail 判据不含 "timeout" → StupidAI 重试机制上线以来零触发 (09-21 定性修复) — ✅ 已修（主仓 afdb414 + cfe5941）
 
 - **状态**: ✅ 已修上线（批转实战首触发：[1/160] MMAI_RANDOM timeout → 自动 StupidAI 重试）
@@ -1738,9 +1766,9 @@
 - **教训**: ① 删任何"中间产物"前先枚举它**被谁引用**（`grep -rl` 全项目 + 查各仓 `remote -v`），中转仓常常同时是灾备锚点；② 删仓的**前置条件是提交已在别处可寻**，不是"看着像冗余"；③ 灾备/恢复路径里的 fallback **宁可 FATAL 也不能静默降级**——静默降级会在最需要它的时刻给出一个"看起来成功"的错误结果；④ 删完必须验**引用方**（origin / 脚本）已改，否则下次 `git fetch/push` 才炸。
 - **关联**: #303（同一轮拓扑取证）/ 台账 §1.1「09-24 拓扑操作记录」/ `py/setup_wsl_train.sh` L19-22 + L77-87
 
-#### #305 unit 双副本 + 运行时实际值三方漂移：`/etc` 0.50 / `py/` 副本 0.10 / 日志实测 0.2 (09-24 实测) — ⚠️ 待拍板
+#### #305 unit 双副本 + 运行时实际值三方漂移：`/etc` 0.50 / `py/` 副本 0.10 / 日志实测 0.2 (09-24 实测) — ✅ 已定谳（根因见 #306）
 
-- **状态**: ⚠️ 已实测、**未处理**（三处不一致已记录，等拍板以哪处为准）
+- **状态**: ✅ 已定谳 —— 根因 = **改 `/etc` 时漏改 `py/` 仓内副本**（定谳与处置见 **#306**，本条保留为"首次发现"记录）。`/etc` 运行时权威值实为 **0.20**（`systemctl show -p Environment` 实读），本条原记的 0.50 系读取时点差异。
 - **现象**: 核查训练状态时对照三处 MIX 值，**三个都不一样**：
   - `/etc/systemd/system/homm3-train-v5.service` → `HOMM3_H3M_MIX=0.50`
   - 仓库内副本 `py/homm3-train-v5.service` → `HOMM3_H3M_MIX=0.10`

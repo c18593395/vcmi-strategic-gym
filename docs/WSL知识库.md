@@ -3215,3 +3215,41 @@ grep -c '^CONFLICT' /tmp/mt.txt        # ← 正确：冲突数
 2. **MIX 以哪处为准**（0.50 / 0.10 / 实测 0.2）—— 决定下窗池图出现率判据的基准。
 3. **异地备份缺口**：仓#2 那 10 个提交现在只在仓#3 与仓#2 各一份，**都在本机**（镜像原本也只在本机，无退步但也没解决）。仓#3 的两个远端（`smanolloff/vcmi.git` ssh + `upstream` vcmi/vcmi）**未必有写权限**，推自己的 fork 才能真正异地。
 4. **🔴 凭据泄漏**：`D:\Bigdata\hero3_fresh\.git\config` 的两个 remote URL 明文内嵌 GitHub PAT → 应吊销/轮换并改 ssh。
+
+---
+
+## 09-24 仓清单与仓清理（回答"你说的 git 到底是哪个目录"）
+
+> 一句话：**你平时说的「git」= `D:\Bigdata\hero3_fresh`**（就是工作区根目录本身）。知识库/踩坑点/任务清单/台账都在 `D:\Bigdata\hero3_fresh\docs\`，由这一个仓跟踪（149 个文件）。`git commit` 落 `D:\Bigdata\hero3_fresh\.git`。
+
+### 一、保留的仓（3 个 + WSL 1 个）
+
+| 目录 | 是什么 | 分支 / HEAD |
+|------|--------|------------|
+| `D:\Bigdata\hero3_fresh` | **主仓**（`vcmi-strategic-gym`）：docs / py / maps / rl / bc_data | `fix_action_mapping` |
+| `D:\Bigdata\hero3_fresh\vcmi` | vcmi 引擎**子模块**（`.git` 是文件，真身在 `.git\modules\vcmi`） | `fix_action_mapping` · `mmai-ml-wsl` |
+| `D:\Bigdata\hero3_fresh\vcmi_gym` | 嵌套独立仓（同 GitHub 仓的另一份检出） | `master` |
+| WSL `/home/administrator/vcmi-native` | **真正被编译/训练使用的引擎**（另一份独立克隆） | `mmai-ml-wsl` |
+| `D:\Bigdata\hero3_vcmi\20260924\vcmi` | 官方基线快照 94ec6b739（公开可重克隆，本轮选择保留） | `develop` |
+
+**提交位置规则**：文档 / `py/` / 地图 → 主仓；`vcmi/` 引擎源码 → 子模块仓（独立 commit + 独立 push）；引擎改动要真正生效 → 还得同步到 WSL `vcmi-native` 并重编 `.so`。
+
+### 二、09-24 已清理（共回收 583 MB，判据 = "git 能恢复"）
+
+| 删掉的 | 体积 | 恢复方式 |
+|--------|------|---------|
+| `tools\h3mtxt` | 313.7 MB | 上游可重克隆；其唯一未推送提交已存 `docs/patches/0001-fix-mingw-GCC-build-*.patch`（已入库） |
+| `vcmi-official-20260829` | 54.5 MB | 官方公开仓，可重克隆 |
+| `_pr_battle` / `_pr_spectator` / `vcmi_pr205` | 123 MB | 是 vcmi 子模块的 worktree；**分支仍在仓里**，`git worktree add` 可恢复 |
+| `D:\Bigdata\vcmi-native-wt` | 92 MB | 同上（detached @8679dd35a1） |
+| `D:\Bigdata\git-mirrors`（空壳，其裸镜像更早已删） | 0 | — |
+
+**保留理由**：`vcmi_gym`（主仓有 74 个文件跟踪它，删了主仓立刻变脏）；`hero3_vcmi\20260924\vcmi`（官方同步台账在用）。旧工作区 `D:\Bigdata\hero3\hero3_fresh` 按用户指示不动。
+
+### 三、选图机制变更（09-24，用户实施）
+
+`HOMM3_H3M_MIX`（**百分比随机混合**）→ **`HOMM3_POOL_INTERVAL=5`（确定性节拍：每 5 局插 1 局池图 + 队列轮转）**。
+
+- 代码：`py/train_wsl2_ppo_v2.py` L168-178（`_POOL_INTERVAL`）/ L557-566（`[POOL_SCHED]` 打点，替代 `[MIX_TRACE]`）
+- 运行时：`/etc/systemd/system/homm3-train-v5.service` 已是 `HOMM3_POOL_INTERVAL=5`
+- ⚠️ **两者尚未 git 入库**（`py/homm3-train-v5.service` 仓内副本与 `train_wsl2_ppo_v2.py` 处于已改未提交状态）——注意这正是踩坑 **#306** 警告的"双副本漂移"同款风险：仓内副本若不同步，下次按仓重建会退回 MIX
