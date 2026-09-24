@@ -3145,4 +3145,73 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - 官方 git log（22836 行）修过的锁问题全是**它自己内部**的（`99c075` Fix deadlock on AI turn / `61c71e` NK2 HeroChainCalculationTask deadlock+livelock / `a836cd3` TOCTOU in AIMemory）——**与 Mode B 不同形态**（官方没"外部 AI 接进来 + 给全局读写锁"的模式）。
 - **结论**：Mode B 是我们 fork 的债，**必须自己修**（09-24 trade cap 16 已修，`8679dd35a1`），不可能等官方 upstream。官方同类锁修复提交清单：`4e73f7d90f`（shared_mutex replace boost）/ `99c075afb7` / `61c71e9295` / `a836cd3aed` / `246d7e39a3` / `70cc9f7bb7`（Replace locking mutex with per-thread storage）/ `91c9f4a5f6`（remove mutex）。
 
-**09-24 当前状态**: 训练已重启（MIX=0.5 池=2 张，PID 29035），池图开局故障（#297 同族概率性竞态）待**引擎窗口修 mlclient h3m 开局稳定性**（与 P0-2 三套补丁对照实验同窗）。单进程取证工具 `py/_296_repro_pool3.sh`（30 步）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）已就位，**但单进程触发不了 Mode B 并发竞态**（gdb250 good_to_go 跑完没冻，栈文件为空）→ 并发复现需重启训练攒 `[EP298_SWALLOW]` 命中局再取证。
+**09-24 当前状态**: 训练已重启（MIX=0.5 池=2 张，PID 29035），池图开局故障（#297 同族概率性竞态）待**引擎窗口修 mlclient h3m 开局稳定性**（与 P0-2 三套补丁对照实验同窗）。单进程取证工具 `py/_296_repro_pool3.sh`（30 步）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）已就位，**但单进程触发不了 Mode B 并发竞态**（gdb250 good_to_go 跑完没冻，栈文件为空）→ 并发复现需重启训练攒 `[EP298_SWALLOW]` 命中局再取证。（⚠ **09-24 晚实测：训练已 inactive、存档 step=962235**，见下一节）
+
+---
+
+## 09-24 仓库拓扑坐实 + 镜像仓收敛 + 训练分支真实分叉面（本轮，回答"官方同步怎么对齐"）
+
+> 起因：用户要求把官方最新源码与我们"现在使用的"同步。核查过程中发现此前的"两棵树"心智模型**不成立**，真实结构是 **1 个工作区仓 + 1 个 vcmi 子模块 + 1 个 WSL 工作克隆**，中间还有一个兼作灾备的中转裸镜像。本轮把拓扑坐实、删掉镜像、并**首次算出了训练分支的真实分叉面**。
+
+### 一、拓扑全景（09-24 坐实）
+
+```
+官方  github.com/vcmi/vcmi  develop @94ec6b739  (1.7.5-1647, 有 AI/MMAI 无 ML/)
+  │ upstream
+外层  D:\Bigdata\hero3_fresh        【工作区仓 vcmi-strategic-gym，1458 文件，origin=c18593395】
+  │    vcmi/ 是它的 git 子模块 (.gitmodules url=git@github.com:smanolloff/vcmi.git)
+  │    子模块 git dir 实落在 D:\Bigdata\hero3_fresh\.git\modules\vcmi
+  ▼
+仓#3  D:\Bigdata\hero3_fresh\vcmi  【子模块/主仓】origin=smanolloff/vcmi.git  upstream=vcmi/vcmi.git
+  │    fix_action_mapping 1c3be8d03 (当前检出)  mmai-ml-wsl 8679dd35a1
+  │    pr-fix-battle-crash / pr-fix-spectator-crash / pr205-server-pack-guard
+  │    另有 4 个 worktree：_pr_battle / _pr_spectator / vcmi_pr205 / D:\Bigdata\vcmi-native-wt
+  ▼  09-24 起直连（原经裸镜像中转，镜像已删）
+仓#2  /home/administrator/vcmi-native  【WSL，真正被编译/训练使用】origin=/mnt/d/Bigdata/hero3_fresh/vcmi
+       mmai-ml-wsl 8679dd35a1   运行目录 rel/bin（libvcmi.so / AI/libMMAI.so / libmlclient.so / data/Maps）
+```
+
+**易错点**：
+- `D:\Bigdata\hero3_fresh`（工作区仓，跑训练脚本/地图/文档）与 `D:\Bigdata\hero3_fresh\vcmi`（vcmi 子模块）是**两个不同的仓**，但**分支同名**（都有 `fix_action_mapping`），极易混。
+- **训练真正用的是仓#2**（WSL `/home/administrator/vcmi-native`），不是 Windows 侧任何一个仓。它 9.3 GB，`rel/` 占 8.6 GB，文件系统是 **ext4**（D 盘是 v9fs/drvfs，编译明显更慢）。
+- 仓#2 内有**绝对软链** `rel/bin/data -> /home/administrator/vcmi-native/data`，**移动整棵树必断**。
+
+### 二、分叉面：训练分支不是台账口径的那个分支 ⭐
+
+台账 §1 的 ahead/behind 一直按 `fix_action_mapping` 算，但**训练跑的是 `mmai-ml-wsl`**。09-24 把仓#2 的 10 个未推送提交推入仓#3 后，两仓对象库打通，首次算出训练分支的真实数字：
+
+| 被测分支 | HEAD | merge-base vs 官方 | 领先 | 落后 | 冲突文件 | 类型拆分 |
+|---------|------|-------------------|------|------|---------|---------|
+| `fix_action_mapping` | `1c3be8d03` | `5dac4318` | 69 | 969 | **32** | content 30 / submodule 1 / modify-delete 1 |
+| **`mmai-ml-wsl`（在用）** | `8679dd35a1` | `1a0c8bf8` | **20** | **1923** | **786** | content 393 / add-add 370 / modify-delete 11 / rename-rename 5 / rename-delete 4 / file-location 2 / submodule 1 |
+
+**结论**：训练分支的分叉面是台账口径的 **24 倍**，落后近 **2000** 提交，merge-base 也更老。根因是 `mmai-ml-wsl` 那几次"上游重同步 1160 文件入库"是**文件级拷贝、不是 git 合并**，**没有推进 merge-base**，于是 `add/add` 类冲突高达 370 个。→ **以后任何"全量对齐"的成本评估必须以 `mmai-ml-wsl` 为准**（详见踩坑 #302）。
+
+**口径（重要，别数错）**：
+```bash
+git merge-tree --write-tree --name-only <分支> official-20260924/develop > /tmp/mt.txt
+grep -c '^CONFLICT' /tmp/mt.txt        # ← 正确：冲突数
+# ❌ 不能数总行数：首行是 tree OID，之后还接 Auto-merging 消息段与 submodule trailer
+```
+
+### 三、镜像仓收敛（已执行）
+
+中转裸镜像 `D:\Bigdata\git-mirrors\vcmi-native.git` 已删除（395.6 MB）。它当时兼三个角色：仓#2 的 `origin`、`setup_wsl_train.sh` 的克隆源、10 个未推送提交的唯一远端副本。处置顺序：**先保全提交 → 再验无唯一对象 → 才删 → 最后改引用方**。
+
+- 保全：仓#2 → 仓#3 快进推送 `mmai-ml-wsl`（`30f62b867a..8679dd35a1`，10 提交/1202 文件）
+- 善后：仓#2 `origin` → `/mnt/d/Bigdata/hero3_fresh/vcmi`
+- **灾备路径变更**：`py/setup_wsl_train.sh` 的 `MIRROR=` → `SRC=$PROJ/vcmi`，并**删除 `cp -r $PROJ/vcmi` fallback**（它拷的是仓#3 的 `fix_action_mapping` 工作树，会让 WSL 重建后**静默**丢掉 #298 与 09-24 全部修复）；源缺失改 `FATAL` 退出。WSL 重建命令不变：`bash py/setup_wsl_train.sh`
+- 新增 `D:\Bigdata\vcmi-native-wt`（仓#3 的 **detached** worktree @8679dd35a1），供 D: 侧查看/编辑。刷新：`git -C D:\Bigdata\hero3_fresh\vcmi worktree update D:\Bigdata\vcmi-native-wt`
+
+### 四、当前训练状态（09-24 实测）
+
+- `systemctl is-active homm3-train-v5` = **inactive**；`is-enabled` = **enabled**（开机自启正常）；无残留引擎进程
+- `train_loop.log` 尾部：`Shutdown signal received, saving current state...` → `Saved STATE_PATH (step=962235) and MODEL_PATH`（优雅停止，存档完整）
+- ⚠️ **MIX 三方漂移未处理**：`/etc/systemd/system/homm3-train-v5.service` = `0.50`、仓库副本 `py/homm3-train-v5.service` = `0.10`、最后一次实跑日志 `[MIX_TRACE] mix=0.2` —— 三处不一致，**判据只认运行时实测值**（踩坑 #305）
+
+### 五、遗留待决（本轮未做，等拍板）
+
+1. **训练分支 vs 官方全量对齐**：真实成本 = 786 冲突 / 落后 1923，且 `mmai-ml-wsl` 的分叉面含 370 个 add/add（文件级搬运的后果）。窗口 B 若要做，先按 §二 口径重估。
+2. **MIX 以哪处为准**（0.50 / 0.10 / 实测 0.2）—— 决定下窗池图出现率判据的基准。
+3. **异地备份缺口**：仓#2 那 10 个提交现在只在仓#3 与仓#2 各一份，**都在本机**（镜像原本也只在本机，无退步但也没解决）。仓#3 的两个远端（`smanolloff/vcmi.git` ssh + `upstream` vcmi/vcmi）**未必有写权限**，推自己的 fork 才能真正异地。
+4. **🔴 凭据泄漏**：`D:\Bigdata\hero3_fresh\.git\config` 的两个 remote URL 明文内嵌 GitHub PAT → 应吊销/轮换并改 ssh。

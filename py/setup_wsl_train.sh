@@ -19,7 +19,7 @@ set -e
 PROJ=/mnt/d/Bigdata/hero3_fresh
 WS=/home/administrator/vcmi-workspace
 NATIVE=/home/administrator/vcmi-native
-MIRROR=/mnt/d/Bigdata/git-mirrors/vcmi-native.git
+SRC=$PROJ/vcmi   # 仓#3 主仓（含 mmai-ml-wsl，09-24 已收编仓#2 的 10 提交）；镜像仓已于 09-24 删除
 VENV=$WS/venv
 PIP="$VENV/bin/pip -i https://mirrors.aliyun.com/pypi/simple/ --default-timeout=60"
 
@@ -77,15 +77,14 @@ fi
 # ---- 4. vcmi-native 源码 + 补丁 -------------------------------------------------
 step "4.vcmi-native 源码"
 if [ ! -d "$NATIVE/.git" ]; then
-  if [ -d "$MIRROR" ]; then
-    git clone "$MIRROR" "$NATIVE"
-    git -C "$NATIVE" checkout mmai-ml-wsl
-  else
-    echo "镜像仓缺失, fallback: 从 D 盘 vcmi/ 拷贝 (较慢)"
-    cp -r "$PROJ/vcmi" "$NATIVE"
-  fi
+  # 09-24: 原从镜像仓 D:\Bigdata\git-mirrors\vcmi-native.git 克隆，该镜像已删除 → 改为直连仓#3。
+  # 旧 fallback `cp -r $PROJ/vcmi` 已移除: 它拷的是仓#3 的 fix_action_mapping 工作树
+  # (无 .git、且不是 mmai-ml-wsl)，会静默回退掉 #298 与 09-24 全部修复 —— 宁可 FATAL 也不静默降级。
+  [ -d "$SRC/.git" ] || { echo "FATAL: 源仓缺失 $SRC (D 盘项目未挂载?)"; exit 1; }
+  git clone "$SRC" "$NATIVE"
+  git -C "$NATIVE" checkout mmai-ml-wsl
 fi
-# 补丁重放(全部幂等): clone 自镜像仓已含补丁则全跳过; 旧历史则正好打上
+# 补丁重放(全部幂等): clone 自仓#3 已含补丁则全跳过; 旧历史则正好打上
 python3 "$PROJ/py/patch_passable_0917.py"          || true   # passable 豁免
 python3 "$PROJ/py/patch_vcmidirs_0919.py"          || true   # VCMIDirs 纯虚实现
 python3 "$PROJ/py/patch_gameengine_0919.py"        || true   # 死锁打点跨平台
