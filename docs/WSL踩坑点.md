@@ -264,7 +264,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 #283，下一条为 #284…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 #299，下一条为 #300…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
 > ✅ **归档完成 (09-11)**：原待归档 50 条已全部分发至 5 个主题子文档（环境 14 / 构建 13 / 引擎 10 / 训练 11 / 地图 2）。
@@ -1549,6 +1549,8 @@
 - **09-23 漂移取证（收官窗口，归因未钉死的根因找到一半）**: WSL `~/vcmi-native` 工作区相对 HEAD 有 **3028 文件 / 79959+ / 73473- / 5074 hunk** 未提交（含整个 `ML/` 目录、`MLBot.cpp` 639、`AINodeStorage.cpp` 641 等）→ **`.so` ≠ 已提交源码**——"重编带入未知改动"不是猜想而是**事实**。**⚠ 勘误**：先前记的"6 文件 / 508+/214-"是误报（`git diff --stat` 带了 6 文件 pathspec，只统计子集）。**入库纪律**：只提已分类的 6 文件、显式标注两处 08-17 回退；~3000 文件另起专项，勿 `git add -A` 全提。另：`BattleResultProcessor.cpp` 的 08-17 `removeQuery` 修复在工作区被回退成 `popIfTop`，但 `.bak_stk298`（09-19）已是 `popIfTop` → 该回退**早于本次重编**，不能直接当修复源（`patch_298_stacktrace.py:81` 锚点即 `popIfTop`，打点不产生回退）。**对照实验设计 + 去留倾向**见知识库 09-23 节。
 - **09-23 排查"本地修复有没有被冲掉"的可靠方法（可复用）**: 本地 ML 修复以工作区改动形式存在，上游同步会静默覆盖。**两道交叉判据**：① **标记计数差**——`git grep -c '<标记>' <原HEAD>` vs 工作区逐文件对齐（标记取 `ML fix`/`C8.5`/`ring6`），出现净减即可疑；② **中文注释扫描**——`git diff` 删行中筛 CJK（上游注释是英文，中文注释≈本地修复），逐行核是否只是重构/搬家。**坑**：`git grep -c` 计数会因「同文件新增一条、删掉一条」互相抵消（CGameHandler 3→4 掩盖了 182 行丢失），**必须配 `git show <HEAD>:<file> | grep -n` 看具体行号**，不能只看计数。**另一坑**：判"丢失"要区分「注释丢」与「逻辑丢」——`CQuery.cpp` 的 08-17 去重修复注释被删，但上游自己加了 `// prevent duplicates`，**行为保留**，只看 grep 会误报。**⚠ 该判据的盲区（当日即踩到）**：它只认标记/注释，**"纯代码改动、注释不变"的修复查不出**——`QueriesProcessor::removeQuery` 的 09-14「删 `removalDone` 守卫」正是此类（注释原样保留，只删了代码），两道判据都漏过，后经逐函数比对才抓到。**修正结论：真丢失 = 三处**（`CGameHandler` levelUpHero、`BattleResultProcessor` 调用点、`QueriesProcessor` 守卫），均已登记 `py/ml_patch_check.py`（第三项用**反向判据** `expect=absent`）。
 - **09-23 竞态类修复的验证纪律（血泪）**: 「单样本 4 图全绿」**毫无判别力**——A/B 实测 `elbow_room` **基线（未做任何新修复）就 4/6 异常**（2×rc=139 SIGSEGV + 2×rc=124 300s 超时），而 07:28 那次单样本 4/4 绿被当成"冻结消失"的铁证，**结论直接错**。**正确姿势**：① N≥4 重复跑 + 记逐图复现率（工具 `py/_298_repeat.sh`）；② 任何"修好了竞态"的结论必须有**基线对照**（回退修复重编再跑同 N 局）；③ 崩溃栈用 `py/_298_crash_gdb.sh`（gdb 前台跑，命中 SIGSEGV 自动 `bt`+全线程栈）——注意崩溃可能**只在非 gdb 下复现**（gdb 下 6 局全过），故 gdb 单跑不能反证"没问题"。
+- **09-23 夜间定谳三条（用户拍板登记，#298 收官口径）**: ① **冻结仍需真修**——07:28「4/4 全绿 = 冻结消失」**已被 A/B 证伪**（`elbow_room` 基线即 4/6 异常），**AI EndTurn realize 死锁仍在**（红 MMAI/AAI 与蓝 NK2 两条 AI 线程同形卡 `CClient::sendRequest` 的 `ThreadSafeVector::waitWhileContains`，`runServer` 空转 `do_epoll_wait`）。修复方向三档见知识库 09-23 章：① 服务器侧查询栈看门狗（`top=null`/`popIfTop FAIL` 强制清理推进，治标直接解死锁）② 根因查 `MapObjectVisitQuery` 为何在 `top=null` 被 pop（08-17 `removeQuery` PvP 计数欠减同族）③ AI `endTurn` 走 `waitTillRealize=false`（解死锁但放松回合序）。三套补丁的**对照实验**（只回退补丁、重编、同 4 图 N≥4 轮）排下个自然停训窗，**不打断观测窗**。② **偶发图登记**——`elbow_room` / `a_viking` 约 **33% 概率 rc=124（300s 超时）/rc=139（SIGSEGV）**，**与本次改动无关**（A/B 基线同量级：基线 4/6 vs 恢复后 3/6）。是否暂移出 MIX 池待拍板（`a_viking`×2 已于 09-22 摘除 `batch:1→99`；`elbow_room` 仍在 `batch:1`，`elbow_room_allies` 在 `batch:2`）。③ **验证纪律升级为硬规则**——竞态类结论**强制 N≥4 重复 + 基线对照**，单样本通过不算数（同上条）。
+- **09-23 数据核查勘误（`a_viking` ×2 的归属）**: 任务清单/知识库 09-23 收官条记「重启后实采到池图 `a_viking` ×2（MIX 生效实证）」——**归属错误**。日志逐局解析实锤：该两局位于 **step=889517 / 905401**，而 09-23 重启 resume 起点是 **step=948241** → 属 **09-22 窗**（MIX 首次上线、`a_viking` 尚未摘除）。**09-23 重启后实际只跑 17 局（948241→951689），池图 0 局**（MIX=0.10 期望 ~1.7 局，`0.9^17≈0.17`，样本不足以判异常，也**不能**算"零出现复发"）。→ **MIX 是否真在按 `BATCH=1` 采样仍无实证**；下窗开 MIX 后先验「池图 EP_TIME 出现率 ≈ MIX 值」，再评估偶发图的实际吞局成本。工具：日志解析 `grep '\[EP_TIME\]' + 'stepNNN avg_r'` 配对定位所属窗。
 - **09-23 `shutil.copy2` 保留旧 mtime → rollback 后重编是空操作（差点污染 A/B）**: 补丁脚本用 `copy2` 做 `.bak`/回滚，`copy2` **连 mtime 一起复制**，回滚后源文件 mtime 比 `.o` 还旧 → `make` 判定无需重编 → **`.so` 与源码不一致而 md5 不变**（本次实测：回滚后重编 md5 仍是补丁版，`touch` 后才变）。**修法**：回滚路径加 `os.utime(p, None)`；推而广之，**任何"改源码→重编→验"的流程，改完必须确认构建日志出现 `Building CXX object <目标文件>`**，只看 `Built target` 不算数。
 
 #### #293 timeout 判据形同虚设：adventure_wait 超时被 ep_runner 内部捕获 (rc=0 steps=1)，管线 detail 判据不含 "timeout" → StupidAI 重试机制上线以来零触发 (09-21 定性修复) — ✅ 已修（主仓 afdb414 + cfe5941）
@@ -1641,3 +1643,45 @@
   3. 生成脚本 `py/_gen_pool_batches2.py` 按 `water_touched`/`has_island`/`has_underground` 三字段 + `risk_tag` 四批分类，输出 `maps/h3m_to_vmap/_pool_batches.json`
 - **教训**: ① 全池均匀随机在多能力图混池时必然引入未学能力维度的图 → 大负；任何"入池前未学"的能力维度（水/岛/地下/门）都必须有**显式批次门槛**；② 普查字段（`h3m_type_survey.json` 的 `water_touched`/`has_island`/`has_underground`）是分批的权威依据，不能只看 `risk_tag`（`dense_neutral` 图也可能有水）；③ 水/岛/地下三类能力维度独立，不能合并为"难图"一批——地下跨层与水边卡船是完全不同的失败模式，各自需要独立激励轴。
 - **关联**: WIN-5 任务清单入池节奏段 / `py/_gen_pool_batches2.py` / `maps/h3m_to_vmap/_pool_batches.json` / `maps/h3m_to_vmap/_pool_index.json` / `py/train_wsl2_ppo_v2.py` L165-L192
+
+---
+
+#### #299 独立测试套件 (`_test_suite/`) 首轮全量体检：8 模块定位 2 HIGH + 6 MEDIUM，全部修复收口 (09-23) — ✅ 8 项全修，仅 L1 环境项登记不修
+
+- **状态**: ✅ H1/H2/M1-M6 全部修复并复验；L1（45 处硬编码 WSL 路径）作环境前提登记不修
+- **由来**: 用户指令「对本项目代码进行测试，单独建测试任务清单，代码单独放目录，只测试不改代码，把有问题的整理出来」。产出独立套件 `_test_suite/`（与被测项目解耦，只读 py/、vcmi_gym/、maps/）：`任务清单.md` + `问题清单.md` + `run_all.py` + `tests/t01-t08`。设计要点：**不 import 被测模块**（避 torch/引擎副作用），用 `ast` 提取函数源码 exec 到独立命名空间测试（BFS/sync 预检/JSONC 均此法）；需引擎/WSL 的目标改静态审查。
+- **首轮结果**: 7/8 模块 PASS（t01 因检出真 bug 而"FAIL"属预期）。核心逻辑无功能 bug——BFS 局部/全图 12/12、打分器 21/21、课程管理 12/12、vmap 预检+JSONC 12/12、配置一致性 0 问题；`maps/training` 10 张在池图全部通过 `inspect_vmap`，58 张漂移图为退役存档（设计为仅报告不删）。
+- **定谳问题（8 条全部处置）**:
+  - **H1 ✅ 已修**：`py/validate_maps.py` L13 `MAP_DIR = ".../Maps/training"` 大写 M，而真实目录 `maps/training` 小写——WSL ext4 大小写敏感 → `os.path.exists` 全 False → 每张图判"文件不存在"FAIL，**该"生成→BFS校验→实跑"管道实质长期不可用**。修法：`Maps`→`maps`。
+  - **H2 ✅ 已修**：`py/win1_guardrail_probe.py` L17 f-string 表达式段 `{len(re.findall(r'\[GUARD\]|BHERO_KILL', j))}` 内含 raw-string 反斜杠——**Python <3.12 f-string 表达式段禁反斜杠** → Win CPython 3.11 直接 SyntaxError（WSL Py3.12+ 才兼容，故此前只在 WSL 跑未暴露）。修法：3 条含 `\[...\]` 的正则提到行级变量（`_re_guard_kill` 等），表达式内不再含 `\`，双环境通用。修复后 t01 362/362 全过 + WSL 侧 `py_compile` 双验。
+  - **M1 ✅ 已修**：`curriculum_manager.py` 默认 config 缺 `monitoring` 键 → 走默认 config（yaml 加载失败）时 `record_episode` 抛 KeyError。修法：默认 config 补 `monitoring` 段 + `record_episode` 改防御式 `.get("monitoring", {}).get("checkpoint_interval", 100)`；t04 加回归用例（13/13）。
+  - **M2 ✅ 已修（注释）**：`target_scorer.py` 注释口径与实现不符——原写"log_margin=0.5 (e^0.5≈1.65 倍战力比 F=0)"，另处还残留旧值 `log_margin=1.0 (即 e^1.0≈2.7 倍)`。**实测定谳**（`py/target_scorer.py` power_feasibility）：公式用 log1p → **等战力（比值=1）时 F ≡ −0.4621**（与战力绝对值无关，非 0）；F=0 精确解 `self=(power_c+1)×e^log_margin−1`，渐近比值 e^0.5≈1.65（c=10 时 ≈1.71）；**硬闸换算：过蓝英雄闸 F≥−0.1 需比值 ≥1.50 / 守卫闸 F≥−0.3 需 ≥1.21**。修法：三处注释/文档串改实测口径（含删旧值残留），**逻辑零改动**。
+  - **M3 ✅ 已修**：`train_wsl2_ppo_v2.py` 4 处裸 `except: pass`（traj 读取 / MODEL_PATH / 黑名单 ckpt / 候选 ckpt）静默吞异常 → 全改 `except Exception as _e:` + `[WARN]` 留痕。**训练主脚本，下次启动生效**（当时训练 stopped，无需停机）。
+  - **M4 ✅ 已修**：`validate_maps.py` 硬编码 `timeout=120` 对 72/108 大图过短（实测单局 328-432s）→ 大图恒误判超时。修法：新增 `--timeout`（默认 600）并贯通 `test_map`。
+  - **M5 ✅ 已移除**：`validate_maps.py` `--regenerate` 开关是空实现（`TODO/pass`）。**删开关而非补实现**——理由：① 无可靠"逐图→生成器"分发映射；② **自动重生成 `maps/training/` 权威训练图有覆盖风险**（生成器若不能逐字节复现会破坏在池地图）。替代路径：显式调用 `gen_t*/regenerate_*` + `sync_maps_to_runtime.py --strict`。
+  - **M6 ✅ 已修**：`strategic_env.py` docstring 写"3456 维"，实际 `OBS_DIM=3464`（OBS 维度冻结铁律）→ 改 3464。
+  - L1 全项目 45 处硬编码 WSL 绝对路径（`/mnt/d/...`、`/home/administrator/...`）——属已知环境前提，Windows 侧直跑/CI 不可用，**登记不修**（全链路环境变量化收益低风险高）。
+  - **修复收口复验**：套件 **8/8 全绿** · t01 361→**364/364** · t04 12→**13/13** · t08 HIGH 1/MEDIUM 7 → **HIGH 0 / MEDIUM 0** · WSL 侧 6 文件 `py_compile` 通过 · `__pycache__` 已清。
+- **教训**: ① **"只读脚本"最易藏大小写/跨环境坑**——它们不参与主训练链路，长期不被执行就长期不暴露（H1 的 `validate_maps.py` 属此类；H2 的 probe 只在 WSL 跑故 Win 侧从未编过）；② **f-string 表达式段禁反斜杠是 Py<3.12 硬约束**——写正则进 f-string 必须提行级变量，否则同仓库在 WSL(3.12+) 能跑、Win(3.11) 炸，形成"一半环境可用"的隐性分裂；③ 静态审查类发现**必须实证分级**：初版 f-string 反斜杠告警 16 条经 AST 精确检测后 15 条是字符串段合法 `\n`（误报），仅 1 条是真问题——正则粗筛必须用 AST 复核；④ 测试套件与项目解耦（`_test_suite/` 独立目录 + ast 提取不 import）能避免"测试自身被 torch/引擎副作用拖垮"；⑤ **修缺陷时写的"修复说明注释"会被自己的静态检测器误伤**——M1/M2/M6 修完后 t08 各误报一次（注释里引用了"原错误写法/旧值"），解法是给检测器加 `code_lines()` 只扫**非注释行**。这条对所有"文本匹配型 lint"通用：**检测器匹配目标应限定在代码行，注释是解释空间不是事实空间**；⑥ 训练主脚本的改动要分清"编辑"与"生效"——编辑 .py 不影响已加载进内存的运行进程，但按项目纪律仍需在停启窗部署（本次训练恰为 stopped，故改动仅需备注"下次启动生效"）。
+- **关联**: `_test_suite/任务清单.md` / `_test_suite/问题清单.md` / `docs/当前任务清单.md` A14 / 本条即"测试发现→修复→复验→登记"闭环首例
+
+
+---
+
+#### #300 关机/重启后 keepalive 静默丢失 → WSL 空闲自杀 + enabled unit 假启动振荡 (09-24) — ✅ 已修（保活重挂）
+
+- **状态**: ✅ 已修（`wsl.exe sleep infinity` 重挂后台常驻；训练自动续跑验证通过）
+- **现象**: 用户"关机"后 Windows 实际未重启（前晚的 pwsh 终端仍存活），只有 WSL 退出；保活进程（`wsl.exe sleep infinity`，见 #114/#201）随之消失。次日任一 `wsl` 命令都会把 WSL 拉起来 → enabled unit（`homm3-train-v5`）自动续跑 → 命令间隙 WSL 又空闲自杀 → 反复 boot（当日 3 个 boot id），训练永远活不过引擎 boot 期；另观测到 3 次 17-18s 的人为 stop 请求（来源未定谳，疑人工）。
+- **根因**: keepalive 是**进程级**而非**配置级**——它随 WSL/终端会话消亡，无机制在 Windows 侧自动重建；enabled unit 的自启与 WSL 空闲自杀叠加形成"假启动"振荡。
+- **修复/纪律**: ① 每次新会话操作 WSL 前先确认 keepalive 在岗（`(Get-Process wsl,wslhost).Count`，无则后台重挂 `wsl.exe sleep infinity`）；② 关机前训练先 `systemctl stop`（存档），开机后第一条命令先挂保活；③ 训练异常时先查 `journalctl -u homm3-train-v5` 的 boot id 数量——多个 boot id = WSL 在翻滚，不是 unit 的问题。
+- **教训**: enabled 自启 + keepalive 是**互补**而非冗余：自启解决"起来"，保活解决"活下去"；只有其一，训练就会陷入起来→死→起来的循环，且日志表现为"反复优雅停机"，极具迷惑性（会被误判为有人手动 stop）。
+- **关联**: #114 / #201 / `py/train_health_monitor.ps1` / 知识库 09-24 停训窗节
+
+#### #298 补充（09-24 取证工具链三坑——冻结/崩溃现场自动取证）
+
+- **状态**: ✅ 工具已沉淀（`py/_298_freeze_capture.sh` / `py/_298_modeA_gdb.sh` + `_modeA.gdb` / `py/_298_repeat.sh`）
+- **坑 1 — gdb attach 到了 timeout 而不是 python**: `timeout 300 python ... &` 后 `$!` 是 timeout 的 PID（subshell+exec 链），attach 它只抓到 2 个线程的空栈。修法：`pgrep -P $PROCPID -f python` 找真正的引擎子进程再 attach。
+- **坑 2 — 冻结检测盯日志 mtime 必失效**: 冻结后客户端网络线程仍空转刷 `[MUTEX]/[THREAD]` 噪声行，mtime 永远新鲜 → 永远不触发。修法：改盯**有意义引擎行**（`ML-stk|ML-obj|ML-q|EP_TIME|runServer|ML-battle`）的行号停滞 ≥20s。
+- **坑 3 — gdb 对 so 内符号报 "not defined"**: 断点目标在共享库（libmlclient.so）里，gdb 启动时 so 未加载。修法：`set breakpoint pending on` + 命令块用 `-x 脚本文件`（`-ex` 内联多行 commands 语法不可靠）。
+- **战果**: Mode A 冻结根因（占城胜利中途 SHUTDOWN 截断包流）首局命中实锤；两处 SEGV core 尸检定谳；胜利局正常收局验证。详录：知识库「09-24 停训窗」节。
+- **关联**: 知识库 09-24 停训窗节 / `py/patch_mlfix_shutdown.py` / `py/patch_mlcrash_battleresults.py` / `py/patch_mlcrash_aai_battlestart.py` / `py/patch_mlfix_gameover.py`
