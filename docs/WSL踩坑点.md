@@ -1553,6 +1553,19 @@
 - **09-23 数据核查勘误（`a_viking` ×2 的归属）**: 任务清单/知识库 09-23 收官条记「重启后实采到池图 `a_viking` ×2（MIX 生效实证）」——**归属错误**。日志逐局解析实锤：该两局位于 **step=889517 / 905401**，而 09-23 重启 resume 起点是 **step=948241** → 属 **09-22 窗**（MIX 首次上线、`a_viking` 尚未摘除）。**09-23 重启后实际只跑 17 局（948241→951689），池图 0 局**（MIX=0.10 期望 ~1.7 局，`0.9^17≈0.17`，样本不足以判异常，也**不能**算"零出现复发"）。→ **MIX 是否真在按 `BATCH=1` 采样仍无实证**；下窗开 MIX 后先验「池图 EP_TIME 出现率 ≈ MIX 值」，再评估偶发图的实际吞局成本。工具：日志解析 `grep '\[EP_TIME\]' + 'stepNNN avg_r'` 配对定位所属窗。
 - **09-23 `shutil.copy2` 保留旧 mtime → rollback 后重编是空操作（差点污染 A/B）**: 补丁脚本用 `copy2` 做 `.bak`/回滚，`copy2` **连 mtime 一起复制**，回滚后源文件 mtime 比 `.o` 还旧 → `make` 判定无需重编 → **`.so` 与源码不一致而 md5 不变**（本次实测：回滚后重编 md5 仍是补丁版，`touch` 后才变）。**修法**：回滚路径加 `os.utime(p, None)`；推而广之，**任何"改源码→重编→验"的流程，改完必须确认构建日志出现 `Building CXX object <目标文件>`**，只看 `Built target` 不算数。
 
+#### #300 池图开局故障根因修正：09-24 训练 3/3 池图丢 traj 非 MIX 机制/非 Mode B trade cap，而是 #297 同族概率性并发竞态（单进程复现不了）(09-24 定谳) — 🔄 并发取证待引擎窗口
+
+- **状态**: 🔄 已定性（单进程 250 步 good_to_go/judgement_day 全 rc=0 成功，trade cap 已编入 libvcmi.so），并发竞态根因（mlclient h3m 开局 query -1/reset 竞态）待引擎窗口修
+- **现象**: 09-24 训练 MIX=0.5 重启后 3 局池图（judgement_day ×2 / good_to_go ×1）全 `[WARN] traj 读取/解析失败 (No such file)` → 静默吞局，零 `[EP_TIME]`/零 `[FILTER]`/`crashlog/` 空，子进程 `ep_rc==0`
+- **根因定谳链**:
+  - **排除 MIX 机制故障**：`[MIX_TRACE]` 打点（`train_wsl2_ppo_v2.py` L537-543）实证 `roll/mix/pool` 全对（MIX=0.10 时 35 局 0 池图 = 10% 命中率正常波动 0 张概率 4.8%；MIX=0.5 时 3 局全 hit=True 采到池图）→ 采样机制没坏
+  - **排除 Mode B trade cap 未编入**：`_check_tradecap.sh` 实查 `libvcmi.so` 含 `trade BREAK` 1 命中 / `[ML-time]` 3 命中（`8679dd35a1` 已编入），`libmlclient.so` 不含（trade cap 在 Nullkiller2 库，编进 libvcmi.so 非 mlclient）
+  - **根因 = #297 同族概率性开局竞态**：单进程 30 步/250 步 good_to_go/judgement_day 全 rc=0 成功（r=+570.3 / -46.7 / +218.4），日志里 `[ML-q] popIfTop FAIL ... top=null` 每局数千行（good_to_go 3510 行）是 09-23 三套补丁的正常打点非故障；训练 10-env 并发 + 高 load 下 mlclient h3m 开局 `query -1` / reset 竞态才暴露，**单进程触发不了**（gdb250 跑完没冻 30s 零增长，栈文件为空）
+- **教训**: ① "池图专属故障"的判断要看**并发 vs 单进程**可复现性——单进程能跑通 ≠ 训练态能跑通，竞态故障必须用并发取证；② `[MIX_TRACE]` 这类打点要在 run_episode 入口（采样决策点）而非 traj 读取点，才能区分"没采到"vs"采到但跑挂"；③ 修 `.so` 后验修复要 strings 命中**具体符号**（如 `trade BREAK` 串），不要只看 `ML-fix` 标记（误命中其它修复）；④ `shutil.copy2` rollback 保留 mtime → 重编前必须 `touch` 触发（见 09-23 末条）。
+- **关联**: #297（池图开局随机失败静默吞局，同族）/ #296（h3m 反转图 query -1，mlclient 开局注册）/ 知识库 09-24「MIX_TRACE 实证 + 池图故障根因修正 + Mode B 官方归属」章 / `py/_296_repro_pool3.sh`（30 步单进程）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）/ `py/_check_tradecap.sh`（.so trade cap 验证）
+
+---
+
 #### #293 timeout 判据形同虚设：adventure_wait 超时被 ep_runner 内部捕获 (rc=0 steps=1)，管线 detail 判据不含 "timeout" → StupidAI 重试机制上线以来零触发 (09-21 定性修复) — ✅ 已修（主仓 afdb414 + cfe5941）
 
 - **状态**: ✅ 已修上线（批转实战首触发：[1/160] MMAI_RANDOM timeout → 自动 StupidAI 重试）

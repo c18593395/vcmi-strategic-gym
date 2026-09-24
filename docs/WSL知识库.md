@@ -3127,3 +3127,22 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 **game_over 缺口修复收尾（同日续窗）**: `py/patch_mlfix_gameover.py` — `visitPlayerEndsGame` 开头调 `strategic_state_force_game_over(winner)`（atomic，1v1 胜负映射），`adventure_wait_for_turn`（10ms 轮询版）/`adventure_try_wait` 检测后返回 -2（connector 既有 done 路径），`strategic_state_update` 双段（引用/指针版）强制终局优先于 alive 推导。**验证（elbow_room ×12）**: r10/r11 `EXIT=1 + rc=0 + EP_TIME + 哨兵 [ML-fix] force game_over: winner=1`（修复前 EXIT=1 必挂死）→ Mode A 闭环；剩余 3/12 = Mode B（r9 栈：NK2 卡 `BuildAnalyzer::update`，与 r8 同型，架构级另排）；崩溃 0/12（判空后未再复现）。自检 **15/15**；`libmlclient.so`=c1c43450；训练已二次重启拾取（PID 13830，resume step=952697）。⚠ 注：`server/strategic_state.*` 与 `ML/strategic_state.*` **已分叉**（734 vs 986 行，ML 版含 generation 防陈旧机制且为 python 实际加载版），本次只改 ML/；副本合并清理列入技术债。
 
 **Mode B 根因修正定谳（同日续窗，trade 循环熔断已落地）**: Mode B **非传统死锁**，是 `ResourceTrader::trade` 的 while 循环**无上界**——每成功交易一轮（`tradeHelper` 返回 true → `shouldTryToTrade=true`）就重跑 `buildAnalyzer.update()` 全量建筑评估（全城×全建筑×依赖递归），而 NK2 yourTurn TBB 任务全程持 `CGameState::mutex`（`static std::shared_mutex`，注释"effectively AI mutex"）**共享锁** → 读锁内狂转 → `runNetwork` 包 apply（`Client.cpp:381` 唯一写锁点）饥饿。实锤：r9 冻结局日志 **89704 行** vs 健康局 ~4000（`logAi->info` 每轮刷 Free/Missing）。**修复**（`py/patch_mlfix_tradecap.py`，vcmi-native `8679dd35a1`，`libvcmi.so`=bbce355a）：循环轮数 **cap 16** + `[ML-fix] trade BREAK` 哨兵 + NK2 规划链 `[ML-time]` RAII 耗时打点（makeTurn/update/trade 三层）。**验证（elbow_room ×12）**: **12/12 rc=0 全绿零冻结零崩溃**（历史异常率 25-50%，P≈3% 统计显著）；健康耗时基线：trade 1 轮 0ms / update 0-1ms / makeTurn 159-552ms；3 局 20s 慢段经时间线核实为局末长规划非死锁（抓栈误杀）。**Mode B 从"架构级死锁"降级为"已熔断的循环上界问题"**（与 upgrade 熔断同族同法），残余风险 = cap 触发时交易次优。训练已三次重启拾取（PID 16674）。另登记：`server/strategic_state.*`（734 行，stale）与 `ML/strategic_state.*`（986 行，python 实际加载，含 generation 防陈旧）**副本已分叉**，副本合并清理列入技术债。
+
+## 09-24 MIX_TRACE 实证 + 池图故障根因修正 + Mode B 官方归属（本窗补充）
+
+**MIX_TRACE 采样打点（`train_wsl2_ppo_v2.py` 临时打点，验 MIX 机制 + 池图故障实证）**: 在 `run_episode` 入口加 `[MIX_TRACE] roll={random.random():.3f} mix={_H3M_MIX} pool={len(_POOL_MAPS)} hit={_is_h3m} map={_map} ep={ep_count}`（纯 print 改动，无 torch/引擎副作用，下次启动生效）。**实证结果（09-24 MIX=0.5 重启后）**：
+- `pool=2` 印证 batch1 只剩 `good_to_go` + `judgement_day`（原 5 张摘 3 张：a_viking×2 09-22 摘除、elbow_room 09-24 移池），`_pool_index.json` 里 `batch<=1 非skip=2`。
+- **MIX=0.10 时 35 局 0 _h3m** = 统计正常波动（命中率 10% × 35 局期望 3.5 张，0 张概率 4.8%）——**MIX 机制本身没坏**，是样本量不足。
+- **MIX=0.5 重启后 3 局池图全 hit=True**（roll=0.024/0.002/0.046），但 3/3 局 `[WARN] traj 读取/解析失败 (No such file)` → **池图开局故障静默吞局**（#297 同族，非 MIX 采样问题）。
+
+**池图故障根因修正（09-24 14:00 取证）**: 独立 30 步复现 good_to_go / judgement_day **全成功**（rc=0，r=+570.3 / -46.7，traj 写出），但日志里 `[ML-q] popIfTop FAIL ... top=null` 每局数千行（good_to_go 3510 行 / judgement 1285 行）。**单进程 250 步复现 good_to_go 也成功**（rc=0 steps=33 r=+218.4，swallow=1 有 1 次 `adventure_wait timed out` 300s 看门狗兜底，但**没冻到 30s 零增长** → 单进程触发不了 Mode B 写锁饥饿）。
+- **结论**：09-24 训练中 3/3 池图丢 traj 的根因**不是 Mode B trade cap**（trade cap 修复已编入 `libvcmi.so`，elbow_room ×12 全绿实锤），而是**概率性开局 reset 竞态**（#297 同族：mlclient h3m 开局 `query -1` / 冻结，依赖训练 10-env 并发 + 高 load 才暴露，单进程复现不了）。
+- **判据**：单进程 250 步 good_to_go/judgement_day 全 rc=0 成功 → **池图本身能力 OK**，故障是并发竞态非图缺陷。
+
+**Mode B 官方归属澄清（09-24，回答"官方 VCMI 上解决了吗"）**: Mode B（NK2 `BuildAnalyzer`/`ResourceTrader` 持 `CGameState::mutex` 读锁长规划 → `runNetwork` 写锁饥饿）**官方 VCMI 既没引入也没修**，因为：
+- `CGameState::mutex`（`std::shared_mutex`）是**我们 fork 加的**（全仓 grep 只在 `server/strategic_state.cpp` 出现，非官方 `CGameState.h`）；
+- `AI/Nullkiller2/`（含 `BuildAnalyzer.cpp`/`ResourceTrader.cpp`）是 **fork 引入的外部 NK2**（目录 mtime 09-23 07:26，远晚于官方 AI 的 09-19 04:18）；
+- 官方 git log（22836 行）修过的锁问题全是**它自己内部**的（`99c075` Fix deadlock on AI turn / `61c71e` NK2 HeroChainCalculationTask deadlock+livelock / `a836cd3` TOCTOU in AIMemory）——**与 Mode B 不同形态**（官方没"外部 AI 接进来 + 给全局读写锁"的模式）。
+- **结论**：Mode B 是我们 fork 的债，**必须自己修**（09-24 trade cap 16 已修，`8679dd35a1`），不可能等官方 upstream。官方同类锁修复提交清单：`4e73f7d90f`（shared_mutex replace boost）/ `99c075afb7` / `61c71e9295` / `a836cd3aed` / `246d7e39a3` / `70cc9f7bb7`（Replace locking mutex with per-thread storage）/ `91c9f4a5f6`（remove mutex）。
+
+**09-24 当前状态**: 训练已重启（MIX=0.5 池=2 张，PID 29035），池图开局故障（#297 同族概率性竞态）待**引擎窗口修 mlclient h3m 开局稳定性**（与 P0-2 三套补丁对照实验同窗）。单进程取证工具 `py/_296_repro_pool3.sh`（30 步）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）已就位，**但单进程触发不了 Mode B 并发竞态**（gdb250 good_to_go 跑完没冻，栈文件为空）→ 并发复现需重启训练攒 `[EP298_SWALLOW]` 命中局再取证。

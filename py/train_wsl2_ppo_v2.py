@@ -376,7 +376,9 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
                     print(f"  [FILTER] obs_nz=0 脏样本丢弃 (引擎 reset 竞态), 不进 buffer map={mapname}", flush=True)
                     return None
             return d
-    except: pass
+    except Exception as _e:
+        # 09-23 测试套件 M3 修复: 原 `except: pass` 静默吞异常 → traj 读取/解析失败无痕
+        print(f"  [WARN] traj 读取/解析失败 (return None, 不入 buffer): {_e}", flush=True)
     return None
 
 
@@ -412,7 +414,9 @@ if resume_step == 0:
         try:
             model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True, strict=False), strict=False)
             print("Loaded existing model (weights only), continuing training", flush=True)
-        except: pass
+        except Exception as _e:
+            # 09-23 测试套件 M3 修复: 原 `except: pass` 静默吞异常
+            print(f"  [WARN] MODEL_PATH 加载失败 (保持当前权重): {_e}", flush=True)
 
 # === A+B: KL 约束 BC — 冻结 BC 参考网络, PPO 更新时对策略分布加 KL 正则 ===
 USE_KL = False
@@ -464,7 +468,9 @@ def restore_clean():
                     print(f"  Restored clean checkpoint from blacklist: {os.path.basename(fallback)}", flush=True)
                     opt = torch.optim.Adam(model.parameters(), lr=LR)
                     return
-            except: pass
+            except Exception as _e:
+                # 09-23 测试套件 M3 修复: 原 `except: pass` 静默吞异常
+                print(f"  [WARN] 黑名单 checkpoint 加载失败, 继续下一候选: {_e}", flush=True)
     ckpts = sorted([f for f in os.listdir(ckpt_dir) if f.startswith("wsl2_ckpt_") and f.endswith(".pt")],
                    key=lambda f: int(f.replace("wsl2_ckpt_", "").replace(".pt", "")))
     for ckpt in reversed(ckpts):
@@ -479,7 +485,9 @@ def restore_clean():
                 print(f"  Restored clean checkpoint: {ckpt}", flush=True)
                 opt = torch.optim.Adam(model.parameters(), lr=LR)
                 return
-        except: pass
+        except Exception as _e:
+            # 09-23 测试套件 M3 修复: 原 `except: pass` 静默吞异常 (循环内候选, 逐条留痕)
+            print(f"  [WARN] 候选 checkpoint {ckpt} 加载失败: {_e}", flush=True)
     model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
     opt = torch.optim.Adam(model.parameters(), lr=LR)
     print("  No clean checkpoint found, reinitialized model", flush=True)
@@ -526,11 +534,16 @@ for ep in range(N_EPISODES):
     # 对手池为空时 blue_model 保持 None，用当前模型自对弈
 
     _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签 + WIN-5 池图列表
-    if _H3M_MIX > 0 and _POOL_MAPS and random.random() < _H3M_MIX:
+    _mix_roll = random.random()
+    _is_h3m = (_H3M_MIX > 0 and _POOL_MAPS and _mix_roll < _H3M_MIX)
+    if _is_h3m:
         # WIN-5 混合轴: 按比例采 h3m_pool (默认 0=纯课程图, 观测窗内不动)
         _map = random.choice(_POOL_MAPS)
     else:
         _map = random.choice(MAPS)
+    # 09-24 临时打点: 验证 MIX 采样是否真在跑 (下次自然重启生效, 验完即删)
+    print(f"  [MIX_TRACE] roll={_mix_roll:.3f} mix={_H3M_MIX} pool={len(_POOL_MAPS)} "
+          f"hit={_is_h3m} map={_map} ep={ep_count}", flush=True)
     _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
     traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai)
     ep_count += 1
