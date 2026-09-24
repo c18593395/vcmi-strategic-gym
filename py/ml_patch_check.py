@@ -73,6 +73,8 @@ PATCHES = [
      "09-24 AAI::battleStart 无英雄防守方判空（core.5836 实锤的 SEGV）"),
     ("mlfix-shutdown", "server/CVCMIServer.cpp", "当前包处理完再停机", "present",
      "09-24 SHUTDOWN 延迟到当前包处理完（占城胜利截断包流 → 冻结, gdb 断点实锤）"),
+    ("mlfix-gameover", "ML/strategic_state.cpp", "strategic_state_force_game_over", "present",
+     "09-24 PlayerEndsGame 强制置位 game_over 唤醒等待者（胜利局正常收局, r10/r11 验证）"),
 ]
 
 
