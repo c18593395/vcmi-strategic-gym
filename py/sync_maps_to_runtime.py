@@ -15,6 +15,9 @@
     /home/administrator/vcmi-workspace/venv/bin/python py/sync_maps_to_runtime.py
 
 同步清单唯一事实源 = train_wsl2_ppo_v2.py 顶层 MAPS (退役图不推, 仅漂移报告)。
+**`--purge` 保护集 = MAPS ∪ `maps/training/h3m_pool/*.vmap`** (09-24): 池图由 h3m 流程
+单独投放, 不在 MAPS 里, 早期写法会把它们当"退役图"误删 → 训练池图全崩。池图只做
+"保护不删" (不参与预检/同步循环, 避免 135 张 strict 预检拖慢或误判挡住训练启动)。
 
 用法:
   python sync_maps_to_runtime.py                # 预检 + 同步 + 写后校验
@@ -22,7 +25,7 @@
   python sync_maps_to_runtime.py --dry-run      # 报告将要做什么, 不写
   python sync_maps_to_runtime.py --strict       # 额外用 VCMI config 注册表查 monster/town identifier
   python sync_maps_to_runtime.py X.vmap Y.vmap  # 只同步指定图 (仍须在 MAPS 清单内)
-  python sync_maps_to_runtime.py --purge        # 删除运行时副本中不在 MAPS 的 .vmap (默认只报告不删)
+  python sync_maps_to_runtime.py --purge        # 删除运行时副本中既不在 MAPS 也不在 h3m_pool 的 .vmap (默认只报告不删)
 
 退出码: 0 全部一致且校验通过; 1 存在失败项 (--check 不一致也算)
 """
@@ -38,6 +41,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 ROOT = HERE.parent.parent                      # d:\Bigdata\hero3_fresh
 SRC_DIR = ROOT / "maps" / "training"
+POOL_DIR = SRC_DIR / "h3m_pool"                 # 09-24: 池图 (不进 MAPS, 但 --purge 必须保护)
 TRAIN_PY = ROOT / "py" / "train_wsl2_ppo_v2.py"  # 09-21: py/ 迁移后路径修正 (train_loop.sh 同款)
 TARGETS = [
     Path("/home/administrator/vcmi-native/rel/bin/data/Maps"),
@@ -65,6 +69,13 @@ def parse_maps_list():
             assert isinstance(val, list) and all(isinstance(x, str) for x in val)
             return val
     raise RuntimeError("train_wsl2_ppo_v2.py 中未找到顶层 MAPS 列表")
+
+
+# ---------- 池图清单 (只用于 --purge 保护, 不参与同步) ----------
+def parse_pool_maps():
+    if not POOL_DIR.is_dir():
+        return []
+    return sorted(p.name for p in POOL_DIR.glob("*.vmap"))
 
 
 # ---------- JSONC 清洗 (VCMI config 带 // /* */ 注释) ----------
@@ -222,6 +233,8 @@ def main():
         return 1
 
     maps = parse_maps_list()
+    pool_maps = parse_pool_maps()                       # 09-24: --purge 保护集用
+    protected = set(maps) | set(pool_maps)
     only = set(args)
     selected = [m for m in maps if not only or m in only]
     if only:
@@ -233,7 +246,7 @@ def main():
     if strict and registry[0] is None:
         log("warn", "未找到 VCMI config/creatures, strict identifier 校验跳过 (需在 WSL 运行)")
 
-    log("info", f"权威清单 MAPS={len(maps)} 张, 本次处理 {len(selected)} 张"
+    log("info", f"权威清单 MAPS={len(maps)} 张 (+池图保护 {len(pool_maps)} 张), 本次处理 {len(selected)} 张"
                 f"{'  [CHECK]' if check_only else ''}{'  [DRY-RUN]' if dry_run else ''}{'  [STRICT]' if strict else ''}")
     if SRC_DIR.is_dir():
         log("info", f"源目录 {SRC_DIR}")
@@ -298,16 +311,16 @@ def main():
                 log("sync", f"{name} {old} -> {new[:12]}  (入口 {via})")
                 n_sync += 1
 
-    # 漂移报告: 运行时里不在 MAPS 的 .vmap (退役/临时图); 按真实目录去重
+    # 漂移报告: 运行时里不在 MAPS/池图的 .vmap (退役/临时图); 按真实目录去重
     for real, links in real_dirs.items():
         via = "+".join(l for l, _ in links)
-        extras = sorted(p.name for p in real.glob("*.vmap") if p.name not in maps)
+        extras = sorted(p.name for p in real.glob("*.vmap") if p.name not in protected)
         tmp_left = sorted(p.name for p in real.glob(".*.sync.tmp"))
         if tmp_left:
             log("warn", f"{real} 残留临时文件: {tmp_left}")
             n_fail += 1
         if extras:
-            log("info", f"{via}: {len(extras)} 张非 MAPS 图 (退役图, 不同步不影响)")
+            log("info", f"{via}: {len(extras)} 张非 MAPS/池图 (退役图, 不同步不影响)")
             if purge and not check_only and not dry_run:
                 for e in extras:
                     (real / e).unlink()

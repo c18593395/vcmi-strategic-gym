@@ -4,6 +4,11 @@
 set -e
 cd /mnt/d/Bigdata/hero3_fresh
 
+# 踩坑 #308 固件: VCMI 在非 root 身份下依赖 $XDG_DATA_HOME/vcmi/data/Maps,
+# 缺该目录链会导致 VFS 打开 .vmap 失败 → std::terminate → SIGABRT (池图必崩)。
+# 幂等, 需 root (内含 chown)。务必在 start 之前执行。
+bash /mnt/d/Bigdata/hero3_fresh/py/setup_vcmi_runtime.sh || true
+
 cat > /etc/systemd/system/homm3-train-v5.service <<'EOF'
 [Unit]
 Description=HoMM3 WSL2 PPO v5 training (persistent, system-level)
@@ -12,6 +17,8 @@ Description=HoMM3 WSL2 PPO v5 training (persistent, system-level)
 Type=simple
 User=administrator
 WorkingDirectory=/mnt/d/Bigdata/hero3_fresh
+# 踩坑 #308: 显式指定 XDG 数据目录, 勿依赖 threadconnector 的 getenv 默认推导
+Environment=XDG_DATA_HOME=/home/administrator/.local/share
 ExecStart=/home/administrator/vcmi-workspace/venv/bin/python py/train_wsl2_ppo_v2.py
 StandardOutput=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
 StandardError=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log

@@ -264,7 +264,7 @@
 ## 待归档新增（收到“保存踩坑点”时追加于此）
 
 > 此区为新增踩坑点暂存区。用户定期自行归档到上方 5 个主题子文档后，再从本区移除。
-> 新增条目沿用全局编号续接（当前最大 **#307**，下一条为 #308…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
+> 新增条目沿用全局编号续接（当前最大 **#308**，下一条为 #309…），每条须带状态字段（✅/⚠️/❌/🔄），引用其他条目用 `见 #X`。
 > ℹ️ **重号提示 (09-24)**：现有**两条 #300**——L1556（池图开局故障根因修正）与 L1684（关机后 keepalive 静默丢失），后者建议归档时改号。**同日已处理掉另一批重号**：原编 #301（unit 双副本漂移）→ **#306**、原编 #302（/tmp EPERM）→ **#307**（因 #301/#302 已被 trade cap 与 merge-tree 口径占用）。
 > ℹ️ 编号修正 (09-11)：原 (09-06~09-08) 组 #132~#140 与早期组重号，已改号为 #166~#174：#132→#166 / #133→#167 / #134→#168 / #135→#169 / #136→#170 / #137→#171 / #138→#172 / #139→#173 / #140→#174。
 
@@ -1554,16 +1554,32 @@
 - **09-23 数据核查勘误（`a_viking` ×2 的归属）**: 任务清单/知识库 09-23 收官条记「重启后实采到池图 `a_viking` ×2（MIX 生效实证）」——**归属错误**。日志逐局解析实锤：该两局位于 **step=889517 / 905401**，而 09-23 重启 resume 起点是 **step=948241** → 属 **09-22 窗**（MIX 首次上线、`a_viking` 尚未摘除）。**09-23 重启后实际只跑 17 局（948241→951689），池图 0 局**（MIX=0.10 期望 ~1.7 局，`0.9^17≈0.17`，样本不足以判异常，也**不能**算"零出现复发"）。→ **MIX 是否真在按 `BATCH=1` 采样仍无实证**；下窗开 MIX 后先验「池图 EP_TIME 出现率 ≈ MIX 值」，再评估偶发图的实际吞局成本。工具：日志解析 `grep '\[EP_TIME\]' + 'stepNNN avg_r'` 配对定位所属窗。
 - **09-23 `shutil.copy2` 保留旧 mtime → rollback 后重编是空操作（差点污染 A/B）**: 补丁脚本用 `copy2` 做 `.bak`/回滚，`copy2` **连 mtime 一起复制**，回滚后源文件 mtime 比 `.o` 还旧 → `make` 判定无需重编 → **`.so` 与源码不一致而 md5 不变**（本次实测：回滚后重编 md5 仍是补丁版，`touch` 后才变）。**修法**：回滚路径加 `os.utime(p, None)`；推而广之，**任何"改源码→重编→验"的流程，改完必须确认构建日志出现 `Building CXX object <目标文件>`**，只看 `Built target` 不算数。
 
-#### #300 池图开局故障根因修正：09-24 训练 3/3 池图丢 traj 非 MIX 机制/非 Mode B trade cap，而是 #297 同族概率性并发竞态（单进程复现不了）(09-24 定谳) — 🔄 并发取证待引擎窗口
+#### ~~#300~~ 池图开局故障的**误判条目**：「#297 同族概率性并发竞态」（09-24）— ❌ 已证伪（真根因见 **#308**）〔原编 #300，与下方 keepalive 条目 #300 重号；本条已作废，**保留仅为记录误判历程**〕
 
-- **状态**: 🔄 已定性（单进程 250 步 good_to_go/judgement_day 全 rc=0 成功，trade cap 已编入 libvcmi.so），并发竞态根因（mlclient h3m 开局 query -1/reset 竞态）待引擎窗口修
-- **现象**: 09-24 训练 MIX=0.5 重启后 3 局池图（judgement_day ×2 / good_to_go ×1）全 `[WARN] traj 读取/解析失败 (No such file)` → 静默吞局，零 `[EP_TIME]`/零 `[FILTER]`/`crashlog/` 空，子进程 `ep_rc==0`
-- **根因定谳链**:
-  - **排除 MIX 机制故障**：`[MIX_TRACE]` 打点（`train_wsl2_ppo_v2.py` L537-543）实证 `roll/mix/pool` 全对（MIX=0.10 时 35 局 0 池图 = 10% 命中率正常波动 0 张概率 4.8%；MIX=0.5 时 3 局全 hit=True 采到池图）→ 采样机制没坏
-  - **排除 Mode B trade cap 未编入**：`_check_tradecap.sh` 实查 `libvcmi.so` 含 `trade BREAK` 1 命中 / `[ML-time]` 3 命中（`8679dd35a1` 已编入），`libmlclient.so` 不含（trade cap 在 Nullkiller2 库，编进 libvcmi.so 非 mlclient）
-  - **根因 = #297 同族概率性开局竞态**：单进程 30 步/250 步 good_to_go/judgement_day 全 rc=0 成功（r=+570.3 / -46.7 / +218.4），日志里 `[ML-q] popIfTop FAIL ... top=null` 每局数千行（good_to_go 3510 行）是 09-23 三套补丁的正常打点非故障；训练 10-env 并发 + 高 load 下 mlclient h3m 开局 `query -1` / reset 竞态才暴露，**单进程触发不了**（gdb250 跑完没冻 30s 零增长，栈文件为空）
-- **教训**: ① "池图专属故障"的判断要看**并发 vs 单进程**可复现性——单进程能跑通 ≠ 训练态能跑通，竞态故障必须用并发取证；② `[MIX_TRACE]` 这类打点要在 run_episode 入口（采样决策点）而非 traj 读取点，才能区分"没采到"vs"采到但跑挂"；③ 修 `.so` 后验修复要 strings 命中**具体符号**（如 `trade BREAK` 串），不要只看 `ML-fix` 标记（误命中其它修复）；④ `shutil.copy2` rollback 保留 mtime → 重编前必须 `touch` 触发（见 09-23 末条）。
-- **关联**: #297（池图开局随机失败静默吞局，同族）/ #296（h3m 反转图 query -1，mlclient 开局注册）/ 知识库 09-24「MIX_TRACE 实证 + 池图故障根因修正 + Mode B 官方归属」章 / `py/_296_repro_pool3.sh`（30 步单进程）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）/ `py/_check_tradecap.sh`（.so trade cap 验证）
+- **状态**: ❌ **已证伪**——真根因 = **#308 XDG 用户数据目录缺失导致 SIGABRT**（服务非 root 身份 VFS 打开失败）。本条结论「并发竞态 / 单进程复现不了」完全错误。
+- **被证伪的论据（备查，避免重走）**:
+  - ✗ 「单进程 250 步 good_to_go/judgement_day 全 rc=0 成功 ⇒ 非图缺陷、是并发竞态」——**实验身份不对**：那些单进程实验是 **root** 跑的，而训练服务是 `User=administrator`。以 administrator 身份跑 → rc=134 + `Failed to open .../good_to_go_h3m.vmap`。**身份不一致的实验无判别力**。
+  - ✗ 「训练 10-env 并发才暴露 ⇒ 竞态」——**Python 侧实为串行**（同一时刻仅 1 个 `ep_runner`），根本不存在池图并发。课程图/`King_of_Pain` 正常只是恰好未触发该路径。
+  - ✗ `[ML-q] popIfTop FAIL ... top=null`（数千行）被当作 #297 前兆——实为 09-23 三套补丁的**正常打点**，与本故障无关。
+- **仍有效的部分**：MIX 采样机制本身正常（`[MIX_TRACE]` 实证 roll/mix/pool 全对，见知识库 09-24 章）；`trade BREAK` strings 命中法可查 .so 修复是否编入（`py/_check_tradecap.sh` 保留）。
+- **教训（新增，最重要）**: **排查"服务里才崩"的问题，第一件事是对齐身份**——任何单进程复现必须以 `sudo -u <服务用户>` 跑；root 跑通毫无证明力。此误判的代价 = 一个引擎窗口的并发取证（方向完全跑偏）。
+- **关联**: **#308（真根因，以此为准）** / #296 / #297（地下城图 mainTown 去层 → HEROSEG_EMPTY，与本故障**无关**，当时"同族"说法也是错的）/ 知识库 09-24「池图故障根因修正」章（已同步改为以 #308 为准）
+
+---
+
+#### #308 池图在训练中 SIGABRT 的真根因：服务非 root 身份下 VCMI 的 XDG 用户数据目录缺失 → VFS 打开失败（报误导性 "Permission denied"）→ `std::terminate` (09-24 定谳) — ✅ 已修（预建 XDG 链 + Maps 软链）
+
+- **状态**: ✅ 已修（`py/setup_vcmi_runtime.sh` 预建 + `restart_train_v5_sys.sh` 调用）；同进程内 A→B 实测通过
+- **现象**: `h3m_pool` 池图（`good_to_go_h3m.vmap` / `judgement_day_h3m.vmap`）进入训练后**必崩**：父进程报 `[WARN] traj 读取/解析失败 ... rc=-6`，子进程日志尾是 C++ 栈回溯。**课程图与 `King_of_Pain_h3m.vmap` 完全正常**。
+- **误判历程（备查，避免重走）**: ①「并发竞态」错——Python 侧实为**串行**（同一时刻仅 1 个 `ep_runner`）；②「无 `[FILTER]` ⇒ rc=0」错——`if ep_rc != 0: FILTER` 代码位于 `open(EP_TRAJ)` **之后**，文件缺失时先抛 `FileNotFoundError` 直接落 WARN，**FILTER 分支不可达**（crashlog 也因此长期为空）；③「地图内容/saveMap 格式/无 hero 对象」错——结构差异真实存在但不是崩溃原因；④「terrain_grid.bin 被 root 占」是真实隐患但非充分原因。
+- **真根因（用户身份 A/B 铁证）**: 训练服务 `User=administrator`，而 **VCMI 的 XDG 用户数据目录 `$HOME/.local/share/vcmi/` 从未存在**（`/home/administrator/.local` 不存在；`/root` 侧路径恰可用）→ `CFilesystemLoader::load` 打开 `.vmap` 失败（VCMI 把路径无效**误报成 "Permission denied"**）→ C++ 抛 `Exception` → 未捕获 → `std::terminate` → **SIGABRT (rc=-6/-134)**。
+  - 栈：`CFilesystemLoader::load ← CFilesystemList::load ← CMapService::getStreamFromFS ← CMapService::loadMapHeader ← CMapInfo::mapInit ← CServerHandler::debugStartTest`
+  - A/B：administrator → `ERROR Exception: Failed to open file './data/Maps/good_to_go_h3m.vmap'. Reason: Permission denied` + rc=134；root → `rc=0` + traj 写出 + `[EP_TIME] err=no`
+  - 同进程内转变：修复前后同一训练进程，`rc=-6` 立即转为 `[EP_TIME] map=good_to_go_h3m.vmap steps=84 r=-189.5 err=no`
+- **修复**: 预建 `~/.local/share/vcmi/{data,config}`（administrator 属主）+ 把 `$XDG_DATA_HOME/vcmi/data/Maps` **软链到运行时 Maps 目录**（`/home/administrator/vcmi-native/rel/bin/data/Maps`）+ unit 显式 `XDG_DATA_HOME`。
+- **教训**: ① **守护进程以非 root 运行时，engine 依赖的 XDG/HOME 派生路径必须显式预建并 chown**——"root 能跑"不等于"服务能跑"；② VCMI 的 `Failed to open ... Reason: Permission denied` **不可当权限问题直读**（路径无效/缺失也这么报），要结合 strace/身份 A/B 判定；③ 排查"文件读不到"要分三态：**不存在 / 存在但权限不对 / 路径解析失败**，本窗前两轮只查了前两态；④ `rc=-6` 这类 C++ abort 必须**先看 C++ 栈**（`CFilesystemLoader` 段直接指向 VFS），比在 Python 侧猜快得多；⑤ 同一运行内的"修复前后"对比是最强的单样本证据（不必另建对照）。
+- **关联**: #307（共享 /tmp + 粘滞位，同属"身份/权限"类）/ #306（unit 双副本漂移）/ #296（h3m 图开局）/ **~~#300~~（本故障的误判条目，已作废）** / `py/setup_vcmi_runtime.sh` / `py/sync_unit_env.sh` / `py/train_wsl2_ppo_v2.py`（EP_TRAJ PID 隔离）
+- **附带修复（09-24 同窗）**: `py/sync_maps_to_runtime.py --purge` 原按"不在 MAPS 清单"删运行时图，会把 `h3m_pool` 池图当退役图**误删** → 已改为「保护集 = MAPS ∪ `maps/training/h3m_pool/*.vmap`」（池图只保护不删，不参与预检/同步循环，避免 135 张 strict 预检拖慢或误判挡住训练启动）。
 
 ---
 

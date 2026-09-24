@@ -159,20 +159,28 @@ class Net(nn.Module):
         return Categorical(logits=self.actor(h)), self.critic(h).squeeze(-1)
 
 
-EP_TRAJ = "/tmp/traj_ep.json"  # per-episode trajectory file
+# 09-24 修 (踩坑 #302): traj 路径按训练进程 PID 隔离 — 防跨进程/跨用户残留撞车。
+# 实锤: /tmp 带粘滞位 (1777) 且服务 User=administrator, 而 root 跑的取证脚本遗留
+# root 属主同名文件 → os.remove → EPERM → 未捕获 → 整个训练进程崩溃 (status=1)。
+EP_TRAJ = f"/tmp/traj_ep_{os.getpid()}.json"  # per-episode trajectory file (PID 隔离)
 
 # === #293: 入池图蓝方 AI 标签 (h3m_batch_pipeline 写 _pool_index.json, 此处读) ===
-# === WIN-5: H3M 池混合采样开关 (09-21 就绪默认关) — HOMM3_H3M_MIX=0.3 → 30% 局采 h3m_pool ===
-# 错窗纪律: T7.8 观测窗内保持 0 (纯课程图), 观测窗收口后下一窗设 0.2-0.3 开混合轴
+# === WIN-5: H3M 池图入训开关 — HOMM3_POOL_INTERVAL=N → 每 N 局插 1 局池图 (顺序调度, 09-24) ===
+# (09-24 起废弃百分比随机混合 HOMM3_H3M_MIX; 改确定性节拍 + 队列轮转, 见下方 _POOL_INTERVAL)
 # === 入池批次过滤 (09-21): HOMM3_H3M_BATCH=1 → 只采 _pool_index.json 里
 #    "batch" <= 1 的图（首批安全5张）。防负数核心: 设了 BATCH 时, 没标 batch
 #    字段的图一律不放行（水/岛/地下图未标记 = 不入采样），只有显式标 batch 才入。
 _POOL_INDEX_PATH = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
 _POOL_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
-_H3M_MIX = float(os.environ.get("HOMM3_H3M_MIX", "0"))
+# 09-24 顺序调度 (替代百分比随机混合): HOMM3_POOL_INTERVAL>0 = 每 N 局插 1 局池图 (确定性节拍);
+# 0 = 关闭 (纯课程图)。用户拍板: 不用百分比掷骰子, 改"一张一张按顺序循序" —
+# 确定性 = 可复现 / 每图等量曝光 / 故障规律可读 (百分比在 50-100 局尺度方差过大)。
+_POOL_INTERVAL = int(os.environ.get("HOMM3_POOL_INTERVAL", "0"))
+_POOL_SEQ_I = 0      # 池图队列轮转下标 (round-robin, 保证每张等量)
+_ep_since_pool = 0   # 距上次池图的局数 (节拍计数器)
 _H3M_BATCH = int(os.environ.get("HOMM3_H3M_BATCH", "0"))  # 0=不过滤, 1=只采有batch且<=1的图
 _POOL_BLUE_AI = {}
-_POOL_MAPS = []  # 池内实际存在且非 skip 的图 (混合采样候选)
+_POOL_MAPS = []  # 池内实际存在且非 skip 的图 (顺序调度候选)
 _POOL_IDX_AT = 0.0
 
 
@@ -204,7 +212,11 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
     # 09-14 防残留污染 (4 张新图 segfault 秒退实证): 开局先删上一局 traj,
     # 子进程若在首步写入前崩溃 → 文件不存在 → 下方读取抛错 return None, 杜绝旧轨迹被当新局
     if os.path.exists(EP_TRAJ):
-        os.remove(EP_TRAJ)
+        # 09-24 (踩坑 #302): 删除加保护 — 属主/粘滞位导致 EPERM 时不得带走整个训练
+        try:
+            os.remove(EP_TRAJ)
+        except OSError as _re:
+            print(f"  [WARN] 清理上一局 traj 失败(忽略, 后续按缺失处理): {_re}", flush=True)
     # Save current model to temp checkpoint for the subprocess
     ep_ckpt = f"/tmp/hermes_ep_model_{os.getpid()}.pt"
     torch.save(model.state_dict(), ep_ckpt)
@@ -378,7 +390,15 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
             return d
     except Exception as _e:
         # 09-23 测试套件 M3 修复: 原 `except: pass` 静默吞异常 → traj 读取/解析失败无痕
-        print(f"  [WARN] traj 读取/解析失败 (return None, 不入 buffer): {_e}", flush=True)
+        # 09-24 增强: 附子进程 rc + ep_log 尾部 — 区分「子进程正常退出却没写 traj」vs「被杀/崩溃」
+        # (池图 8/8 丢 traj 而无 FILTER, 疑 rc=0 静默; 此打点下次复发即可定谳)
+        try:
+            with open(ep_log, "r", errors="replace") as _f:
+                _tail = " | ".join(l.rstrip() for l in _f.readlines()[-4:])[:400]
+        except Exception:
+            _tail = "(ep_log 不可读)"
+        print(f"  [WARN] traj 读取/解析失败 (return None, 不入 buffer): {_e} "
+              f"|| rc={ep_rc} map={mapname} || 子进程日志尾: {_tail}", flush=True)
     return None
 
 
@@ -534,16 +554,17 @@ for ep in range(N_EPISODES):
     # 对手池为空时 blue_model 保持 None，用当前模型自对弈
 
     _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签 + WIN-5 池图列表
-    _mix_roll = random.random()
-    _is_h3m = (_H3M_MIX > 0 and _POOL_MAPS and _mix_roll < _H3M_MIX)
-    if _is_h3m:
-        # WIN-5 混合轴: 按比例采 h3m_pool (默认 0=纯课程图, 观测窗内不动)
-        _map = random.choice(_POOL_MAPS)
+    # 09-24 顺序调度: 每 _POOL_INTERVAL 局插 1 局池图 (确定性节拍 + 队列轮转, 替代百分比随机)
+    _ep_since_pool += 1
+    _is_pool = bool(_POOL_INTERVAL > 0 and _POOL_MAPS and _ep_since_pool >= _POOL_INTERVAL)
+    if _is_pool:
+        _ep_since_pool = 0
+        _map = _POOL_MAPS[_POOL_SEQ_I % len(_POOL_MAPS)]   # round-robin: 每张等量曝光
+        _POOL_SEQ_I += 1
     else:
         _map = random.choice(MAPS)
-    # 09-24 临时打点: 验证 MIX 采样是否真在跑 (下次自然重启生效, 验完即删)
-    print(f"  [MIX_TRACE] roll={_mix_roll:.3f} mix={_H3M_MIX} pool={len(_POOL_MAPS)} "
-          f"hit={_is_h3m} map={_map} ep={ep_count}", flush=True)
+    print(f"  [POOL_SCHED] interval={_POOL_INTERVAL} since_pool={_ep_since_pool} pool={len(_POOL_MAPS)} "
+          f"is_pool={_is_pool} seq_i={_POOL_SEQ_I} map={_map} ep={ep_count}", flush=True)
     _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
     traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai)
     ep_count += 1

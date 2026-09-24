@@ -3133,11 +3133,13 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 **MIX_TRACE 采样打点（`train_wsl2_ppo_v2.py` 临时打点，验 MIX 机制 + 池图故障实证）**: 在 `run_episode` 入口加 `[MIX_TRACE] roll={random.random():.3f} mix={_H3M_MIX} pool={len(_POOL_MAPS)} hit={_is_h3m} map={_map} ep={ep_count}`（纯 print 改动，无 torch/引擎副作用，下次启动生效）。**实证结果（09-24 MIX=0.5 重启后）**：
 - `pool=2` 印证 batch1 只剩 `good_to_go` + `judgement_day`（原 5 张摘 3 张：a_viking×2 09-22 摘除、elbow_room 09-24 移池），`_pool_index.json` 里 `batch<=1 非skip=2`。
 - **MIX=0.10 时 35 局 0 _h3m** = 统计正常波动（命中率 10% × 35 局期望 3.5 张，0 张概率 4.8%）——**MIX 机制本身没坏**，是样本量不足。
-- **MIX=0.5 重启后 3 局池图全 hit=True**（roll=0.024/0.002/0.046），但 3/3 局 `[WARN] traj 读取/解析失败 (No such file)` → **池图开局故障静默吞局**（#297 同族，非 MIX 采样问题）。
+- **MIX=0.5 重启后 3 局池图全 hit=True**（roll=0.024/0.002/0.046），但 3/3 局 `[WARN] traj 读取/解析失败 (No such file)` → **池图开局故障静默吞局**。
 
-**池图故障根因修正（09-24 14:00 取证）**: 独立 30 步复现 good_to_go / judgement_day **全成功**（rc=0，r=+570.3 / -46.7，traj 写出），但日志里 `[ML-q] popIfTop FAIL ... top=null` 每局数千行（good_to_go 3510 行 / judgement 1285 行）。**单进程 250 步复现 good_to_go 也成功**（rc=0 steps=33 r=+218.4，swallow=1 有 1 次 `adventure_wait timed out` 300s 看门狗兜底，但**没冻到 30s 零增长** → 单进程触发不了 Mode B 写锁饥饿）。
-- **结论**：09-24 训练中 3/3 池图丢 traj 的根因**不是 Mode B trade cap**（trade cap 修复已编入 `libvcmi.so`，elbow_room ×12 全绿实锤），而是**概率性开局 reset 竞态**（#297 同族：mlclient h3m 开局 `query -1` / 冻结，依赖训练 10-env 并发 + 高 load 才暴露，单进程复现不了）。
-- **判据**：单进程 250 步 good_to_go/judgement_day 全 rc=0 成功 → **池图本身能力 OK**，故障是并发竞态非图缺陷。
+**池图故障根因修正（09-24 定谳 = 踩坑 #308 — 本条为此前的误判，务必以下方结论为准）**: 早期的"#297 同族概率性并发竞态 / 单进程复现不了"结论 **已证伪**，是真根因判断错误，此处保留误判历程备查：
+- 误判依据（当时成立但不足以定性）：① 独立 30 步复现 good_to_go / judgement_day 全成功（rc=0，traj 写出）；② 单进程 250 步复现 good_to_go 也成功（rc=0 steps=33 r=+218.4）；③ 训练 10-env 并发下才崩 → 误推"并发竞态"。日志里 `[ML-q] popIfTop FAIL ... top=null`（good_to_go 3510 行 / judgement 1285 行）也被误当作 #297 前兆（实际是另一类噪声，与本故障无关）。
+- **真根因（踩坑 #308，用户身份 A/B 铁证）**: 训练服务 `User=administrator`，而 **VCMI 的 XDG 用户数据目录 `$HOME/.local/share/vcmi/` 从未存在** → `CFilesystemLoader::load` 打开 `.vmap` 失败（VCMI 把路径无效**误报成 `Permission denied`**）→ C++ 抛 `Exception` 未捕获 → `std::terminate` → **SIGABRT (rc=-6/-134)** → traj 未写出。A/B：administrator → rc=134 + `Failed to open file './data/Maps/good_to_go_h3m.vmap'`；root → rc=0 + `[EP_TIME]`。**同进程内修复前后对比**（最强单样本证据）：`rc=-6` → `[EP_TIME] map=good_to_go_h3m.vmap steps=84 r=-189.5 err=no`。
+- 与并发**无关**的旁证：Python 侧实为**串行**（同一时刻仅 1 个 `ep_runner`），不存在池图并发；课程图/`King_of_Pain` 正常只是"恰好没触发该路径"。
+- **判据修订**：单进程成功**不能**反证"池图本身 OK"（root 身份 ✓ / administrator 身份 ✗ 是身份差异而非图差异）；一致性判据 = **以 `User=administrator` 身份跑**（`sudo -u administrator`），身份不一致的单进程实验无判别力。
 
 **Mode B 官方归属澄清（09-24，回答"官方 VCMI 上解决了吗"）**: Mode B（NK2 `BuildAnalyzer`/`ResourceTrader` 持 `CGameState::mutex` 读锁长规划 → `runNetwork` 写锁饥饿）**官方 VCMI 既没引入也没修**，因为：
 - `CGameState::mutex`（`std::shared_mutex`）是**我们 fork 加的**（全仓 grep 只在 `server/strategic_state.cpp` 出现，非官方 `CGameState.h`）；
@@ -3145,7 +3147,7 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 - 官方 git log（22836 行）修过的锁问题全是**它自己内部**的（`99c075` Fix deadlock on AI turn / `61c71e` NK2 HeroChainCalculationTask deadlock+livelock / `a836cd3` TOCTOU in AIMemory）——**与 Mode B 不同形态**（官方没"外部 AI 接进来 + 给全局读写锁"的模式）。
 - **结论**：Mode B 是我们 fork 的债，**必须自己修**（09-24 trade cap 16 已修，`8679dd35a1`），不可能等官方 upstream。官方同类锁修复提交清单：`4e73f7d90f`（shared_mutex replace boost）/ `99c075afb7` / `61c71e9295` / `a836cd3aed` / `246d7e39a3` / `70cc9f7bb7`（Replace locking mutex with per-thread storage）/ `91c9f4a5f6`（remove mutex）。
 
-**09-24 当前状态**: 训练已重启（MIX=0.5 池=2 张，PID 29035），池图开局故障（#297 同族概率性竞态）待**引擎窗口修 mlclient h3m 开局稳定性**（与 P0-2 三套补丁对照实验同窗）。单进程取证工具 `py/_296_repro_pool3.sh`（30 步）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）已就位，**但单进程触发不了 Mode B 并发竞态**（gdb250 good_to_go 跑完没冻，栈文件为空）→ 并发复现需重启训练攒 `[EP298_SWALLOW]` 命中局再取证。（⚠ **09-24 晚实测：训练已 inactive、存档 step=962235**，见下一节）
+**09-24 当前状态**: 训练已重启（MIX=0.5 池=2 张，PID 29035），池图开局故障（后定谳 = **踩坑 #308 XDG 目录缺失**，非并发竞态）已由 `py/setup_vcmi_runtime.sh` 修复（预建 XDG 链 + Maps 软链，已接入 `restart_train_v5_sys.sh` start 前；unit 加 `Environment=XDG_DATA_HOME`）。单进程取证工具 `py/_296_repro_pool3.sh`（30 步）/ `py/_296_gdb250.sh`（250 步 + 冻结 30s 自动 gdb 全线程栈）已就位，**但单进程触发不了 Mode B 并发竞态**（gdb250 good_to_go 跑完没冻，栈文件为空）→ 并发复现需重启训练攒 `[EP298_SWALLOW]` 命中局再取证。（⚠ **09-24 晚实测：训练已 inactive、存档 step=962235**，见下一节）
 
 ---
 
@@ -3252,4 +3254,14 @@ grep -c '^CONFLICT' /tmp/mt.txt        # ← 正确：冲突数
 
 - 代码：`py/train_wsl2_ppo_v2.py` L168-178（`_POOL_INTERVAL`）/ L557-566（`[POOL_SCHED]` 打点，替代 `[MIX_TRACE]`）
 - 运行时：`/etc/systemd/system/homm3-train-v5.service` 已是 `HOMM3_POOL_INTERVAL=5`
-- ⚠️ **两者尚未 git 入库**（`py/homm3-train-v5.service` 仓内副本与 `train_wsl2_ppo_v2.py` 处于已改未提交状态）——注意这正是踩坑 **#306** 警告的"双副本漂移"同款风险：仓内副本若不同步，下次按仓重建会退回 MIX
+- ✅ **已 git 入库**（09-24 收尾窗提交）：`py/homm3-train-v5.service` 仓内副本与 `py/train_wsl2_ppo_v2.py` 已提交 → 消除踩坑 **#306** 警告的"双副本漂移 / 按仓重建退回 MIX"风险。**以后改 unit 一律走 `bash py/sync_unit_env.sh KEY=VALUE`**（自动双写 `/etc` + `py/` 副本 + `daemon-reload` + 实读校验）。
+
+### 四、池图 SIGABRT 运行时依赖固化（09-24 = 踩坑 #308）
+
+**一句话**：训练服务 `User=administrator`，而 VCMI 找地图走 `$XDG_DATA_HOME/vcmi/data/Maps`，该目录链从未存在 → 池图 `.vmap` 打开失败（VCMI 误报 `Permission denied`）→ C++ `std::terminate` → SIGABRT。
+
+- **固件**：`py/setup_vcmi_runtime.sh`（幂等，需 root）——预建 `~/.local/share/vcmi/{data,config}` + `data/Maps` **软链 → `/home/administrator/vcmi-native/rel/bin/data/Maps`**（383 项，含池图）+ chown administrator；**已接线** `py/restart_train_v5_sys.sh`（start 前调用）。
+- **unit**：加 `Environment=XDG_DATA_HOME=/home/administrator/.local/share`（双副本一致，脚本 `py/sync_unit_env.sh`）。
+- **验证**：修复后实跑 `[EP_TIME] map=judgement_day_h3m.vmap steps=250 secs=299 err=no`（池图首次跑通）。注：该局 `r=-900.8` 属**能力轴**，按复现率观察，不下单局结论。
+- **判据提醒**：单进程复现池图故障**必须以服务身份**（`sudo -u administrator`）跑，root 身份永远 rc=0 —— 身份不一致的实验无判别力（这是"并发竞态"误判的根源）。
+- **指针**：踩坑 #308（含误判历程四轮 + 三态排查法）/ #307（同属身份-权限类）/ `py/setup_vcmi_runtime.sh` / `py/sync_unit_env.sh`。

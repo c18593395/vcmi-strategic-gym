@@ -2,16 +2,18 @@
 Description=HoMM3 WSL2 PPO v5 training (persistent, system-level)
 
 [Service]
+LimitCORE=infinity
 Type=simple
 User=administrator
 WorkingDirectory=/mnt/d/Bigdata/hero3_fresh
 ExecStart=/home/administrator/vcmi-workspace/venv/bin/python py/train_wsl2_ppo_v2.py
 StandardOutput=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
 StandardError=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
+Environment=XDG_DATA_HOME=/home/administrator/.local/share
 Environment=PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # 09-23: batch1 四图经 #298 修复后 4/4 全绿 (30 步/24-39s rc=0) → 试开混合轴 0.10
 # 回退: 改回 0 + daemon-reload + 重启训练 (盯 [ML-upg] BREAK, 出现即 flag=false 路径又被踩)
-Environment=HOMM3_H3M_MIX=0.10
+Environment=HOMM3_POOL_INTERVAL=5
 # 只采 _pool_index.json batch<=1 的图 (防负数: 水/岛/地下图不放行)
 Environment=HOMM3_H3M_BATCH=1
 
