@@ -1685,3 +1685,12 @@
 - **坑 3 — gdb 对 so 内符号报 "not defined"**: 断点目标在共享库（libmlclient.so）里，gdb 启动时 so 未加载。修法：`set breakpoint pending on` + 命令块用 `-x 脚本文件`（`-ex` 内联多行 commands 语法不可靠）。
 - **战果**: Mode A 冻结根因（占城胜利中途 SHUTDOWN 截断包流）首局命中实锤；两处 SEGV core 尸检定谳；胜利局正常收局验证。详录：知识库「09-24 停训窗」节。
 - **关联**: 知识库 09-24 停训窗节 / `py/patch_mlfix_shutdown.py` / `py/patch_mlcrash_battleresults.py` / `py/patch_mlcrash_aai_battlestart.py` / `py/patch_mlfix_gameover.py`
+
+#### #301 ResourceTrader::trade 循环无上界 + 每轮全量重算 → 持共享锁狂转 → 写锁饥饿冻结 (09-24) — ✅ 已修（cap 16 + 耗时打点）
+
+- **状态**: ✅ 已修（`py/patch_mlfix_tradecap.py`，vcmi-native `8679dd35a1`，`libvcmi.so`=bbce355a）
+- **现象**: elbow_room 探针 rc=124 冻结（该图日志 89704 行 vs 健康局 ~4000），NK2 冻结栈两次独立抓到 `BuildAnalyzer::update` / `ResourceTrader::trade` 段（`AI/Nullkiller2/Engine/ResourceTrader.cpp:46-47`）。
+- **根因**: `trade()` 的 `while(shouldTryToTrade)` 每成功交易一轮就重跑 `buildAnalyzer.update()` 全量建筑评估（全城×全建筑×依赖递归）；NK2 yourTurn TBB 任务全程持 `CGameState::mutex`（static "AI mutex"）**共享锁** → 读锁内循环无上界狂转 → `runNetwork` 包 apply（`Client.cpp:381` 唯一写锁点）写锁饥饿 → 包流停摆 → 超时冻结。
+- **修复**: 循环轮数 **cap 16**（超限 `[ML-fix] trade BREAK`，对齐 upgrade 熔断模式）+ `[ML-time]` RAII 耗时打点（`makeTurn` 总 / `update` 每轮 / `trade` passes+总耗时）。**验证**: elbow_room ×12 = **12/12 rc=0 全绿**（历史异常率 25-50%）；健康耗时基线 trade 1 轮 0ms / update 0-1ms / makeTurn 159-552ms。
+- **教训**: ① **"每轮成功就重算全量"的循环天然无上界**——与 upgrade `while(hasUpgrades())`（熔断 cap 8）同族同法，任何"状态分歧→重试"循环必须带轮数熔断；② 长持共享锁的 AI 任务内，任何周期性重算都是写锁饥饿源——`[ML-time]` RAII 打点（函数尾自动报时）是定位此类问题的标准手段；③ 冻结 ≠ 死锁：两次瞬时栈卡在同一函数也可能只是"该函数真的慢"，**日志行数量对比**（89k vs 4k）才是揭穿狂转的关键。
+- **关联**: #298（upgrade 熔断同族）/ 知识库「09-24 停训窗」节 / `py/patch_mlfix_tradecap.py` / `py/_298_freeze_capture.sh`
