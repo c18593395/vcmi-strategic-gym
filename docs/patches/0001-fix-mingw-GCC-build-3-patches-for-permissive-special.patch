@@ -1,0 +1,184 @@
+From 09c25559f564593c6233b11d8f7620676fa9ff2a Mon Sep 17 00:00:00 2001
+From: hero3-fresh <dev@local>
+Date: Fri, 11 Sep 2026 10:45:41 +0800
+Subject: [PATCH] fix: mingw GCC build - 3 patches for
+ permissive/specialization/consteval
+
+---
+ cmake/h3mtxt_common.cmake                     |  1 +
+ src/h3mtxt/H3Writer/H3MWriter/H3MWriter.h     | 20 +++++++++++-
+ .../H3Writer/H3WriterBase/H3WriterBase.h      | 19 -----------
+ src/h3mtxt/Map/ObjectPropertiesVariant.h      | 32 +++++++++++++------
+ 4 files changed, 42 insertions(+), 30 deletions(-)
+
+diff --git a/cmake/h3mtxt_common.cmake b/cmake/h3mtxt_common.cmake
+index 38539de..bc33fed 100644
+--- a/cmake/h3mtxt_common.cmake
++++ b/cmake/h3mtxt_common.cmake
+@@ -40,6 +40,7 @@ function(h3mtxt_add_common_compiler_options target)
+   else()
+     # Set warning level
+     target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
++    target_compile_options(${target} PRIVATE -fpermissive)
+   endif()
+ 
+   # Enable Whole Program Optimization in Release if it's supported.
+diff --git a/src/h3mtxt/H3Writer/H3MWriter/H3MWriter.h b/src/h3mtxt/H3Writer/H3MWriter/H3MWriter.h
+index 4e23b3d..ec5d797 100644
+--- a/src/h3mtxt/H3Writer/H3MWriter/H3MWriter.h
++++ b/src/h3mtxt/H3Writer/H3MWriter/H3MWriter.h
+@@ -13,6 +13,19 @@
+ 
+ namespace h3m
+ {
++  namespace Detail_NS
++  {
++    // True if T is an instantiation of EnumIndexedArray (GCC overload ambiguity workaround).
++    template<class T>
++    struct is_enum_indexed_array : std::false_type {};
++
++    template<class Enum, class U, std::size_t N>
++    struct is_enum_indexed_array<EnumIndexedArray<Enum, U, N>> : std::true_type {};
++
++    template<class T>
++    inline constexpr bool is_enum_indexed_array_v = is_enum_indexed_array<T>::value;
++  }
++
+   // API for writing various structures into an *UNCOMPRESSED* .h3m file.
+   class H3MWriter : public h3mtxt::H3WriterBase
+   {
+@@ -131,7 +144,8 @@ namespace h3m
+     // This overload hides a similar function from H3WriterBase - this is intentional, so that we
+     // can extend the set of types T that are supported.
+     template<class T, std::size_t N>
+-    void writeData(const std::array<T, N>& value) const;
++    void writeData(const std::array<T, N>& value) const
++      requires(!Detail_NS::is_enum_indexed_array_v<T>);
+ 
+     // Appends an h3m::EnumIndexedArray to the binary stream.
+     //
+@@ -268,6 +282,7 @@ namespace h3m
+ 
+   template<class T, std::size_t N>
+   void H3MWriter::writeData(const std::array<T, N>& value) const
++  requires(!Detail_NS::is_enum_indexed_array_v<T>)
+   {
+     writeSpan(std::span<const T>{value});
+   }
+@@ -278,6 +293,9 @@ namespace h3m
+     writeData(enum_indexed_array.data);
+   }
+ 
++  // GCC ambiguity workaround: full-spec disambiguators for aliases of EnumIndexedArray.
++  // (GCC treats EnumIndexedArray<...> as convertible to std::array<...> candidate; MSVC/Clang pick the exact match.)
++
+   template<class T>
+   void H3MWriter::writeData(const std::optional<T>& value) const
+   {
+diff --git a/src/h3mtxt/H3Writer/H3WriterBase/H3WriterBase.h b/src/h3mtxt/H3Writer/H3WriterBase/H3WriterBase.h
+index 6145c36..9b15d0f 100644
+--- a/src/h3mtxt/H3Writer/H3WriterBase/H3WriterBase.h
++++ b/src/h3mtxt/H3Writer/H3WriterBase/H3WriterBase.h
+@@ -77,16 +77,6 @@ namespace h3mtxt
+     template<class Enum, std::size_t NumBytes>
+     void writeData(const h3m::EnumBitmask<Enum, NumBytes>& enum_bitmask) const;
+ 
+-    // Appends an h3m::EnumIndexedArray to the binary stream.
+-    //
+-    // This function only participates in the overload resolution if T is a (possibly
+-    // cv-qualified) integer or enum type other than bool.
+-    template<class Enum, class T, std::size_t NumElements>
+-    std::enable_if_t<(std::is_integral_v<std::remove_cvref_t<T>> &&
+-                      !std::is_same_v<std::remove_cvref_t<T>, bool>) ||
+-                     std::is_enum_v<std::remove_cvref_t<T>>>
+-    writeData(const h3m::EnumIndexedArray<Enum, T, NumElements>& enum_indexed_array) const;
+-
+     // Appends an h3m::ReservedData to the binary stream.
+     template<std::size_t NumBytes>
+     void writeData(const h3m::ReservedData<NumBytes>& reserved_data) const;
+@@ -194,15 +184,6 @@ namespace h3mtxt
+     writeData(enum_bitmask.bitset);
+   }
+ 
+-  template<class Enum, class T, std::size_t NumElements>
+-  std::enable_if_t<(std::is_integral_v<std::remove_cvref_t<T>> &&
+-                    !std::is_same_v<std::remove_cvref_t<T>, bool>) ||
+-                    std::is_enum_v<std::remove_cvref_t<T>>>
+-  H3WriterBase::writeData(const h3m::EnumIndexedArray<Enum, T, NumElements>& enum_indexed_array) const
+-  {
+-    writeData(enum_indexed_array.data);
+-  }
+-
+   template<std::size_t NumBytes>
+   void H3WriterBase::writeData(const h3m::ReservedData<NumBytes>& reserved_data) const
+   {
+diff --git a/src/h3mtxt/Map/ObjectPropertiesVariant.h b/src/h3mtxt/Map/ObjectPropertiesVariant.h
+index cf6eb9a..7eb21e5 100644
+--- a/src/h3mtxt/Map/ObjectPropertiesVariant.h
++++ b/src/h3mtxt/Map/ObjectPropertiesVariant.h
+@@ -57,6 +57,23 @@ namespace h3m
+     };
+   }
+ 
++  namespace Detail_NS
++  {
++    // True if ObjectProperties<T> fits into the inline storage (a pointer).
++    // Namespace-scope variable template: GCC (mingw) rejects a consteval static member
++    // function used in an in-class alias-template default argument ("used before its
++    // definition"), MSVC/Clang accept it. Namespace scope avoids the ordering problem.
++    template<ObjectPropertiesType T>
++    inline constexpr bool kObjectPropertiesIsInline =
++      (sizeof(ObjectProperties<T>) <= sizeof(void*)) &&
++      (alignof(ObjectProperties<T>) <= alignof(void*));
++
++    // This is so that we can guarantee that ObjectPropertiesVariant never stores a null
++    // pointer for some non-inline alternative.
++    inline constexpr bool kNoneMustBeInline =
++      kObjectPropertiesIsInline<ObjectPropertiesType::NONE>;
++  }
++
+   // Eldritch abomination capable of storing any ObjectProperties<T>.
+   //
+   // This is similar to std::variant, but, unlike std::variant, it stores the data on heap
+@@ -72,17 +89,10 @@ namespace h3m
+     static constexpr std::size_t kInlineStorageSize = sizeof(void*);
+ 
+     // \return true if ObjectProperties<T> should be inline, false otherwise.
+-    template<ObjectPropertiesType T>
+-    static consteval bool isInline()
+-    {
+-      return (sizeof(ObjectProperties<T>) <= kInlineStorageSize) &&
+-             (alignof(ObjectProperties<T>) <= alignof(void*));
+-    }
+-
+     // Alias template storing ObjectProperties<T> for types that should be inline,
+     // NonInlineAlternative<ObjectProperties<T>> otherwise.
+     template<ObjectPropertiesType T>
+-    using AlternativeImpl = std::conditional_t<isInline<T>(), ObjectProperties<T>,
++    using AlternativeImpl = std::conditional_t<Detail_NS::kObjectPropertiesIsInline<T>, ObjectProperties<T>,
+                                                               Detail_NS::NonInlineAlternative<ObjectProperties<T>>>;
+ 
+     template<class T>
+@@ -100,8 +110,7 @@ namespace h3m
+   public:
+     // This is so that we can guarantee that ObjectPropertiesVariant never stores a null pointer
+     // for some non-inline alternative.
+-    static_assert(isInline<ObjectPropertiesType::NONE>(),
+-                  "ObjectProperties<ObjectPropertiesType::NONE> must be stored in the inline storage.");
++    // Note: moved below Impl definition for GCC (used-before-definition in class scope).
+     static_assert(std::is_nothrow_default_constructible_v<ObjectProperties<ObjectPropertiesType::NONE>>,
+                   "ObjectProperties<ObjectPropertiesType::NONE> must have a non-throwing default constructor");
+ 
+@@ -132,6 +141,9 @@ namespace h3m
+     inline ObjectPropertiesVariant& operator=(ObjectPropertiesVariant&& other)
+       noexcept(std::is_nothrow_move_assignable_v<Impl>);
+ 
++    static_assert(Detail_NS::kNoneMustBeInline,
++                  "ObjectProperties<ObjectPropertiesType::NONE> must be stored in the inline storage.");
++
+     ~ObjectPropertiesVariant() = default;
+ 
+     bool operator==(const ObjectPropertiesVariant&) const noexcept = default;
+-- 
+2.52.0.windows.1
+

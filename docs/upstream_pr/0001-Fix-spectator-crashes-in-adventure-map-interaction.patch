@@ -1,0 +1,60 @@
+From de94bc0c5a0d2bc197c64ef67d30405587e9b55c Mon Sep 17 00:00:00 2001
+From: c18593395 <c18593395@users.noreply.github.com>
+Date: Thu, 24 Sep 2026 14:14:01 +0800
+Subject: [PATCH] Fix spectator crashes in adventure map interaction
+
+Two places assumed that a non-spectator local player with an active
+selection exists:
+
+- AdventureMapInterface::onTileLeftClicked() dereferenced
+  getCurrentArmy() without a null check. In spectator mode (and in edge
+  cases such as losing the last hero) no selection is established and
+  any left click on the adventure map crashed the client.
+
+- AdventureMapShortcuts::showOverview() unconditionally pushed
+  CKingdomInterface, which queries player data on construction and
+  throws for spectators.
+
+Guard both cases: make the map click a no-op when no army is selected,
+and skip opening the kingdom overview for PlayerColor::SPECTATOR.
+---
+ client/adventureMap/AdventureMapInterface.cpp | 7 ++++++-
+ client/adventureMap/AdventureMapShortcuts.cpp | 4 ++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/client/adventureMap/AdventureMapInterface.cpp b/client/adventureMap/AdventureMapInterface.cpp
+index 071690dad..d9c4974fb 100644
+--- a/client/adventureMap/AdventureMapInterface.cpp
++++ b/client/adventureMap/AdventureMapInterface.cpp
+@@ -556,7 +556,12 @@ void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
+ 	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
+ 	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
+ 
+-	if(GAME->interface()->localState->getCurrentArmy()->ID != Obj::HERO) //hero is not selected (presumably town)
++	// Spectator mode (and edge cases such as losing the last hero) never establishes a selection - clicking on the map must be a no-op then
++	const CArmedInstance * currentArmy = GAME->interface()->localState->getCurrentArmy();
++	if(!currentArmy)
++		return;
++
++	if(currentArmy->ID != Obj::HERO) //hero is not selected (presumably town)
+ 	{
+ 		if(GAME->interface()->localState->getCurrentArmy() == topBlocking) //selected town clicked
+ 			GAME->interface()->openTownWindow(static_cast<const CGTownInstance*>(topBlocking));
+diff --git a/client/adventureMap/AdventureMapShortcuts.cpp b/client/adventureMap/AdventureMapShortcuts.cpp
+index 2bbe5d55b..2f3534ef0 100644
+--- a/client/adventureMap/AdventureMapShortcuts.cpp
++++ b/client/adventureMap/AdventureMapShortcuts.cpp
+@@ -137,6 +137,10 @@ std::vector<AdventureMapShortcutState> AdventureMapShortcuts::getShortcuts()
+ 
+ void AdventureMapShortcuts::showOverview()
+ {
++	// Kingdom overview queries player data on construction, which is not available for spectators / AI-only observers
++	if(GAME->interface()->playerID == PlayerColor::SPECTATOR)
++		return;
++
+ 	ENGINE->windows().createAndPushWindow<CKingdomInterface>();
+ }
+ 
+-- 
+2.55.0.windows.3
+
