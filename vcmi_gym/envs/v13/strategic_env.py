@@ -283,7 +283,8 @@ def _read_strategic_state(lib_path: str = None):
 
 
 def _strategic_state_to_obs(state: StrategicState) -> np.ndarray:
-    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量 (OBS schema v3, 3456 维)
+    """将 StrategicState ctypes 结构体展平为 1D numpy 观测向量 (OBS schema v3, 3464 维)
+    (09-23 测试套件 M6 修复: 原写 3456 维, 与模块 OBS_DIM=3464 不符 — OBS 维度冻结铁律)
 
     布局 (索引从 0 开始):
       [0:8]      global          day,week,month,current_player,map_w,map_h,has_underground,player_count
