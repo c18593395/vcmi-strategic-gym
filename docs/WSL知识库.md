@@ -3081,4 +3081,45 @@ ERROR Got false in applying 7EndTurn... that request must have been fishy!
 3. **同输入两次运行不同死法（query -1 vs segfault）= 非确定性问题**，单次复现无意义，必须统计成功率
 4. **判断"卡死 vs 慢速"必须用增长剖面，不能用总耗时÷步数**——本次实测：`总耗时÷步数` 得出"12s/步"（误判为慢速），字节增长剖面显示真相是"27s 正常工作（1.4s/步）+ 305s 完全冻结"（92% 零增长）。**同一个数字，两种解释，只有剖面能分开**
 
+## 09-23 夜间三条定谳（冻结真修 / 偶发图 / 竞态验证纪律）
+
+**① 冻结仍需真修（4/4 全绿已被 A/B 证伪）**:
+- 证伪链：`elbow_room ×6` 两轮 —— **基线（未做任何新修复）4/6 异常**（2×rc=139 SIGSEGV + 2×rc=124 300s 超时）vs 三处恢复后 3/6（2×139 + 1×124）→ 07:28 那次单样本「4/4 全绿 = 冻结消失」**无判别力**，冻结**从未消失**。
+- **未修的根因**：AI EndTurn realize 死锁（红 MMAI/AAI + 蓝 NK2 两条 AI 线程同形卡 `CClient::sendRequest` 的 `waitWhileContains`，`runServer` 空转 `do_epoll_wait`）。`popIfTop FAIL top=null` 已定谳为**无害重复 pop**，不是冻结源 → 冻结源目前**仍无确定解释**。
+- **方向三档（按侵入度）**：① 服务器侧查询栈看门狗（`top=null`/`popIfTop FAIL` 时强制清理并推进回合）——治标，直接解死锁，侵入服务器侧；② 根因查 `MapObjectVisitQuery` 为何在 `top=null` 被 pop（08-17 `removeQuery` PvP 计数欠减同族）——治本但排查面大；③ AI 侧 `endTurn` 走 `waitTillRealize=false`（框架级已有方案1 网络线程跳过等待，属此档的变体）——解死锁但放松回合序。
+- **排期**：下个自然停训窗，**不打断当前/下一观测窗**；先做三套补丁的**对照实验**（只回退补丁 → 重编 → 同 4 图 N≥4 轮）厘清归因，再定方向。
+
+**② 偶发图（`elbow_room` / `a_viking` ~33% rc=124/139，与改动无关）**:
+- A/B 双组同量级（基线 4/6 vs 恢复后 3/6）→ 属**既有竞态**，不是本次引入，也不是本次能修。
+- 现状：`a_viking`×2 已于 09-22 摘除（`batch:1→99`，hold_reason 登记大图能力真空）；`elbow_room` 仍在 `batch:1`；`elbow_room_allies` 在 `batch:2`（未启用）。
+- **成本量化**：MIX=0.10 × batch1 三张均匀 → `elbow_room` 约占全局 3.3% 局 × 33% 失败 ≈ **1.1% 全局吞局率**（每局 ~300s 空耗）。收益面 = 多一张图的多样性；成本面 = 样本污染 + `[EP298_SWALLOW]` 打点至今 0 次命中（冻结在训练态是否真发生、能否被观测到，都未验证）。
+
+**③ 竞态类验证纪律（升级为硬规则）**: N≥4 重复 + 记逐图复现率 + **基线对照**（回退修复重编同 N 局）；单样本通过不算数。已写入任务清单顶部置顶块 + 踩坑 #298。
+
+**⚠ 数据核查勘误（`a_viking` ×2 的归属）**:
+- 09-23 收官条「重启后实采到池图 `a_viking` ×2（MIX 生效实证）」**归属错误**。逐局解析 `train_loop.log`（`[EP_TIME]` 与 `stepNNN avg_r` 配对）：两局位于 **step=889517 / 905401**，09-23 重启 resume 起点为 **step=948241** → 属 **09-22 窗**（MIX 首次上线、`a_viking` 尚未摘除）。
+- **09-23 重启后实跑 17 局（948241→951689），池图 0 局**：MIX=0.10 期望 ~1.7 局，`0.9^17≈0.17` → **样本不足以判任何结论**（既不能证 MIX 生效，也不能证零出现复发）。
+- **下窗开 MIX 后的第一判据**：池图 EP_TIME 出现率 ≈ MIX 值（± 采样噪声），否则先查 `_POOL_MAPS` 是否为空/过滤失效，再谈偶发图影响。
+
 关联：踩坑 #298（权威记录）/ #296 族 / #299（`query -1` 降噪）/ #294（sanitize v2）/ `py/_298_repro.sh` / `py/_298_repro2.sh` / `py/_watch_b1_rest.sh`（捕获脚本暴露零出现）/ `py/_strip_te_test.py`（dialog 证伪实验）/ `AIGateway.cpp` L587/L635/L1583 / `CGameHandler.cpp:3512`
+
+## 09-24 停训窗：冻结 Mode A/B 定谳 + 崩溃两处修复（本窗收官）
+
+**取证基建（新工具，全部可复用）**: `py/_298_freeze_capture.sh`（跑探针 → 有意义引擎行停滞 20s → gdb attach 抓 29 线程全栈 → kill）、`py/_298_modeA_gdb.sh` + `py/_modeA.gdb`（gdb 断点 `CVCMIServer::setState if value==2` 抓 SHUTDOWN 调用者，**首局即命中**）、`py/_298_repeat.sh`（N 局复现率）。core dump：`echo /tmp/cores/core.%p > /proc/sys/kernel/core_pattern`（root，本次 boot 有效）。
+
+**Mode A（冻结主型，rc=124，EXIT=1）— 已修**:
+- **因果链（gdb 断点实锤 `mB_100124_r1_killer.txt`）**: 蓝方英雄移动进城 → `objectVisited → CGTownInstance::onHeroVisit → onTownCaptured → setOwner` → `checkVictoryLossConditionsForPlayer:3854`（占城=胜利条件）→ **在 moveHero 包处理中途** `setState(SHUTDOWN)` → `networkHandler->stop()` 立即杀网络循环 → 当前包流截断（PackageApplied/胜利包不再发，已入队请求不再处理）→ 客户端 NK2 `sendRequest(waitTillRealize=true)` 永久等 realize → 冻结。
+- **修复**（`py/patch_mlfix_shutdown.py`，vcmi-native 提交）: setState 只改状态；`onPacketReceived` 尾部检查 `state==SHUTDOWN` 再 stop（当前包处理完才停机）。
+- **修后残余**: 剩余冻结（r12 栈）= 游戏已正常胜利结束（PlayerEndsGame 已广播）、但 **ML 客户端不认 PlayerEndsGame 为 game_over** → NK2 `waitTillFree` 1s 重试空转（`[ML-wait]` 哨兵刷屏）。危害已从"服务器死锁"降级为"ep 延迟结束"（400s 看门狗兜底）。**遗留：connector/MLClient 侧把 PlayerEndsGame 映射为 game_over**（下一窗）。
+
+**Mode B（冻结次型，rc=124，EXIT=0）— 根因定谳，未修**:
+- r8 冻结栈：`runNetwork` 卡 `CGameState::mutex` **写锁** futex；NK2 线程在 `Nullkiller::makeTurn` 建筑评估（`std::function<bool(BuildingID)>` 谓词链）**持读锁长规划** → 写锁饥饿 → 服务器包处理停摆。与 08-17 levelUp 修复同根因家族（AI 长规划 vs 服务器短临界区的 rw 锁争用）。修复方向：NK2 规划期回调读锁粒度 / TBB 段不持锁跨等待——架构级，另排。
+
+**崩溃 rc=139 两处 — 已修（core 尸检实锤，vcmi-native `64a97aa666`）**:
+1. `GameStatePackVisitor::visitBattleResultsApplied / visitBattleCancelled`: 英雄战死后已移出 gs，但 `side.heroID` 残留 → `getHero(getSideHero(i)->id)` 未判空 → mana 恢复 SEGV（core.2888：defenderHero=0x0）。判空 + 哨兵 `[ML-fix] battleResultsApplied: side %d hero gone`。
+2. `AAI::battleStart`: 无英雄防守方（中立怪战）`dynamic_cast` 得 null → `getNameTextID()` SEGV（core.5836：hero2=0x0）。判空 + `<no hero>` 日志。注：**非上游冲掉**（41a99cd52c 同为无判空），MMAI fork 既有隐患。
+- 修复落 `libvcmi.so`（GameStatePackVisitor + AAI）；延迟停机落 `libmlclient.so`（CVCMIServer，md5 83b1cfd2）；自检 `py/ml_patch_check.py` **14 项通过**。
+
+**踩坑补充**: ① gdb attach 冻结进程时 `$!` 拿到的是 `timeout` 的 PID（subshell+exec），须 `pgrep -P` 找真正的 python 子进程；② gdb 对 so 内符号需 `set breakpoint pending on`；③ 冻结检测不能盯日志 mtime（冻结后客户端网络线程仍空转刷日志），要盯**有意义引擎行**（`ML-stk|EP_TIME|...`）行号停滞；④ PowerShell→wsl 嵌套转义不可靠，复杂循环一律写 .sh 脚本文件执行。
+
+**训练状态**: 已重启（10:16，resume step=951759，MIX=0.10 池=good_to_go+judgement_day，elbow_room/a_viking 均 batch=99）。验证判据：训练态 `[EP298_SWALLOW]`/`[EP_TIME] err=` 按**复现率**观察；冻结残余（ML game_over 缺口）若在训练态表现为 ep 拖满 400s 看门狗，下一步修 connector。

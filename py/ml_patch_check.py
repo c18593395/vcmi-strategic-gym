@@ -67,6 +67,12 @@ PATCHES = [
      "08-17 战斗查询 removeQuery 任意位置强制移除 — 09-23 恢复"),
     ("09-14-qp-guard", "server/queries/QueriesProcessor.cpp", "bool removalDone", "absent",
      "09-14 修正: removeQuery 必须每玩家各调一次 onRemoval（守卫存在 = PvP 计数欠减回归，见踩坑 #228）"),
+    ("ml-crash-bra", "lib/gameState/GameStatePackVisitor.cpp", "hero gone (died in battle)", "present",
+     "09-24 英雄战死后 BattleResultsApplied/BattleCancelled mana 恢复判空（core.2888 实锤的 SEGV）"),
+    ("ml-crash-aai", "AI/MMAI/AAI/AAI.cpp", "<no hero>", "present",
+     "09-24 AAI::battleStart 无英雄防守方判空（core.5836 实锤的 SEGV）"),
+    ("mlfix-shutdown", "server/CVCMIServer.cpp", "当前包处理完再停机", "present",
+     "09-24 SHUTDOWN 延迟到当前包处理完（占城胜利截断包流 → 冻结, gdb 断点实锤）"),
 ]
 
 

@@ -194,7 +194,8 @@
   "blue_ai": "MMAI_RANDOM",
   "verify": "steps=30/250 rew=-62.75",
   "ts": "2026-09-21 06:03:13",
-  "batch": 1
+  "batch": 99,
+  "hold_reason": "A/B 实测 ~33% 偶发 rc=124/139 (基线 4/6 异常, 与 09-23 修复无关), 400s 看门狗全进程重启风险; 保留为冻结复现专用探针图 (09-24 摘除)"
  },
  "emerald_isles_h3m.vmap": {
   "blue_ai": "MMAI_RANDOM",
