@@ -1,0 +1,15 @@
+[Unit]
+Description=VCMI WIN RATE Results Hub (port 8088)
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/DATA/hero3
+ExecStart=/usr/local/bin/python3 /DATA/hero3/results_hub.py
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
