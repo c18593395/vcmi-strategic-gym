@@ -37,7 +37,11 @@ DEFAULT_W = dict(
     w_dist=0.5,    # BFS 距离惩罚系数
     w_stick=2.0,   # 目标粘滞 bonus 系数
     # A3 五修 (09-23): 比例公式 log_margin/temp 替代旧绝对 margin/temp
-    log_margin=0.5,  # ln ratio 偏移: F=0 当 power_self ≈ power_c × e^0.5 (≈1.65 倍)
+    # 09-23 测试修正 (实测口径, 原注释 "F=0 当 ≈e^0.5 倍" 易误导):
+    #   精确解 self = (power_c+1)×e^log_margin − 1, 渐近比值 e^0.5≈1.65 (仅 power_c 大时成立);
+    #   等战力 (比值 1) 时 F ≡ −0.462 而非 0 (log1p 压缩所致, 与战力绝对值无关);
+    #   硬闸换算: 过蓝英雄闸 (F≥−0.1) 需比值 ≥1.50; 过守卫闸 (F≥−0.3) 需比值 ≥1.21。
+    log_margin=0.5,
     temp=0.5,        # 比例公式温度 (log space)
 )
 
@@ -58,7 +62,10 @@ OWN_TOWN_VALUE = 35.0     # 回城取兵城 (取兵高频, 战力成长 1v7 核�
 
 # 可打性 logistic (A3 五修 09-23 改比例公式): F = 2σ((ln(power_self+1) - ln(power_c+1) - log_margin)/temp) - 1 ∈ [-1,1]
 # 旧公式 (A3 初版~四修): 绝对 margin (power_self - power_c - margin, margin=20) 导致 2× 战力比仍 F≈-0.3,
-# 蓝英雄/中立守卫永远进不了候选池 → 改为比例: log_margin=1.0 (即 e^1.0≈2.7 倍战力比才 F=0),
+# 蓝英雄/中立守卫永远进不了候选池 → 改为比例公式: 实际默认 log_margin=0.5 (temp=0.5)。
+# 09-23 测试修正: 原注释 "log_margin=1.0 (即 e^1.0≈2.7 倍战力比才 F=0)" 是旧值残留, 与实际默认 0.5 不符。
+#   正确口径: F=0 精确解 self=(power_c+1)×e^0.5−1, 渐近比值 ≈1.65 (power_c 越大越接近 e^0.5);
+#   等战力 (比值=1) 时 F≡−0.462 非 0; 过蓝英雄闸 (−0.1) 需比值≥1.50 / 守卫闸 (−0.3) 需≥1.21。
 # temp=0.5 (比例公式下温度需缩小, 与绝对公式 temp=30 等效).
 # 打不过 (power_c >> power_self) → F≈−1 强负; 明显强 (power_self >> power_c) → F→+1 稳赢.
 
@@ -76,13 +83,18 @@ def _log1p_pos(x):
 def power_feasibility(power_self, power_c, w):
     """可打性 F ∈ [-1,1]. 蓝英雄/守卫共用 (方案 §3.2).
     A3 五修 (09-23): 比例公式 — d = ln((power_self+1)/(power_c+1)) - log_margin,
-    其中 log_margin = 0.5 (默认, e^0.5 ≈ 1.65 倍战力比 F=0), temp=0.5 (比例公式温度).
+    其中 log_margin = 0.5 (默认), temp=0.5 (比例公式温度).
+    09-23 测试修正 (实测口径, 原 "e^0.5 ≈ 1.65 倍战力比 F=0" 表述有歧义):
+      F=0 精确解 self = (power_c+1)×e^log_margin − 1; 比值随 power_c 变化,
+      power_c→大 时 渐近 e^0.5≈1.65, power_c=10 时 ≈1.71;
+      等战力 (self==power_c, 比值=1) 时 d=−0.5 → F≡−0.462 ≠ 0 (log1p 压缩)。
     power_self < power_c → F 偏负 (打不过, 候选降权但不剔除);
     power_self > power_c × e^log_margin → F→+1 (稳赢, 强正).
+    硬闸换算 (c=100 实测): 过蓝英雄闸 F≥−0.1 需比值 ≥1.50; 过守卫闸 F≥−0.3 需比值 ≥1.21。
     """
     if power_c <= 0:
         return 1.0  # 无战力目标 (资源堆/篝火) 全可打
-    log_margin = float(w.get("log_margin", 0.5))  # 默认 0.5 (e^0.5≈1.65 倍)
+    log_margin = float(w.get("log_margin", 0.5))  # 默认 0.5 (F=0 渐近比值 e^0.5≈1.65)
     temp = max(1e-6, float(w.get("temp", 0.5)))
     d = _log1p_pos(power_self) - _log1p_pos(power_c) - log_margin
     return 2.0 * _logistic(d / temp) - 1.0

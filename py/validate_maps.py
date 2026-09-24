@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-"""地图验证管道: 生成 → BFS校验 → 实跑测试 → 不过丢弃重生成
+"""地图验证管道: BFS 静态校验 → 实跑测试 (只验证, 不生成/不删除地图)
 
 Usage:
   python validate_maps.py                    # 验证所有地图
   python validate_maps.py T01_adventure_*    # 验证指定地图
-  python validate_maps.py --regenerate L1    # 验证+失败重生成
+  python validate_maps.py --level L1         # 按 Level 前缀筛选
+  python validate_maps.py --timeout 900      # 单局实跑超时秒 (默认 600; 72/108 大图需调大)
+
+09-23 测试套件修复:
+  H1 路径大小写 Maps→maps; M4 超时可配 (原硬编码 120s 对大图恒误判);
+  M5 移除 --regenerate 空实现开关 (无可靠的逐图生成器分发; 且自动重生成权威训练图
+     有覆盖风险, 地图生成请显式调用 gen_t*/regenerate_* 脚本并走 sync_maps_to_runtime 流程)。
 """
 import sys, os, time, json, subprocess, glob, argparse
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 os.environ["PYTHONPATH"] = "/mnt/d/Bigdata/hero3_fresh"
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/Maps/training"
+MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"  # 09-23 测试套件 H1 修复: Maps→maps (WSL ext4 大小写敏感, 原值目录不存在致实跑全 FAIL)
 VCMI_MAPS = "/home/administrator/vcmi-native/rel/bin/data/Maps"
 VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
 EP_RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
@@ -29,8 +35,8 @@ def load_terrain_grid():
         time.sleep(0.1)
     return None
 
-def test_map(mapname, max_steps=10):
-    """测试单张地图, 返回 (pass, details)"""
+def test_map(mapname, max_steps=10, timeout=600):
+    """测试单张地图, 返回 (pass, details)。timeout = 单局实跑超时秒 (默认 600; 大图 72/108 实测单局 328-432s)"""
     import numpy as np
 
     # 1. 检查文件存在
@@ -80,11 +86,11 @@ def test_map(mapname, max_steps=10):
     cmd = [VENV, EP_RUNNER, str(max_steps), OUTFILE, mapname]
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-        stdout, stderr = proc.communicate(timeout=120)
+        stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
-        return False, "超时 (120s)"
+        return False, f"超时 ({timeout}s)"
 
     if proc.returncode != 0:
         err = stderr.decode('utf-8', errors='replace')[-200:]
@@ -129,8 +135,10 @@ def test_map(mapname, max_steps=10):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('patterns', nargs='*', help='地图名模式')
-    parser.add_argument('--regenerate', action='store_true', help='失败时重生成')
     parser.add_argument('--level', type=str, help='Level 筛选 (T01/T02/L1/...)')
+    # 09-23 测试套件 M4 修复: 超时可配 — 原硬编码 120s 对 72/108 大图过短 (实测单局 328-432s) 恒误判超时
+    parser.add_argument('--timeout', type=int, default=600, help='单局实跑超时秒 (默认 600; 大图需调大)')
+    # 09-23 测试套件 M5 修复: 移除 --regenerate (原为空实现 TODO/pass, 文档与实现不符)
     args = parser.parse_args()
 
     # 收集地图列表
@@ -158,7 +166,7 @@ def main():
         sys.stdout.write(f"[{i+1}/{len(maps)}] {mapname}...")
         sys.stdout.flush()
 
-        ok, detail = test_map(mapname)
+        ok, detail = test_map(mapname, timeout=args.timeout)
 
         if ok:
             print(f" PASS ({detail})")
@@ -166,11 +174,6 @@ def main():
         else:
             print(f" FAIL ({detail})")
             failed.append((mapname, detail))
-
-            # 重生成
-            if args.regenerate:
-                # TODO: 触发重生成
-                pass
 
     print(f"\n{'='*60}")
     print(f"结果: {len(passed)}/{len(maps)} 通过")

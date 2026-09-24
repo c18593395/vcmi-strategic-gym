@@ -12,12 +12,19 @@ start = max(i for i, l in enumerate(lines, 1) if "WIN1_BATCH" in l)  # L102375 �
 seg = lines[start:]
 j = "".join(seg)
 
+# 09-23 测试套件 H2 修复: 正则提到行级变量 — f-string 表达式内 raw-string 含反斜杠
+# (\[GUARD\] 等) 在 Windows Py<3.12 触发 SyntaxError (表达式段禁反斜杠), WSL Py3.12+ 才兼容。
+# 提出来做行级变量, 表达式 {len(...)} 内不再含 \, 双环境通用。
+_re_guard_kill = r"\[GUARD\]|BHERO_KILL"
+_re_econ = r"\[ECON\]"
+_re_start_home = r"START_HOME\] begin"
+
 print(f"生效窗起点 L={start}, 段内行数={len(seg)}")
 print(f"TOWN_CAPTURE 事件: {len(re.findall(r'TOWN_CAPTURE', j))}")
-print(f"[GUARD]/BHERO_KILL 事件: {len(re.findall(r'\[GUARD\]|BHERO_KILL', j))}")
+print(f"[GUARD]/BHERO_KILL 事件: {len(re.findall(_re_guard_kill, j))}")
 print(f"RECRUITED 事件: {len(re.findall(r'RECRUITED', j))}")
-print(f"[ECON] 事件: {len(re.findall(r'\[ECON\]', j))}")
-print(f"[START_HOME] 局: {len(re.findall(r'START_HOME\] begin', j))}")
+print(f"[ECON] 事件: {len(re.findall(_re_econ, j))}")
+print(f"[START_HOME] 局: {len(re.findall(_re_start_home, j))}")
 
 eps = [int(m) for m in re.findall(r"ep_steps=(\d+)", j)]
 if eps:

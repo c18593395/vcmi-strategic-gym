@@ -56,6 +56,13 @@ class CurriculumManager:
                 "check_interval": 100,
                 "promotion_window": 100
             },
+            # 09-23 测试套件 M1 修复: 补 monitoring 段 — record_episode 直接取
+            # self.config["monitoring"]["checkpoint_interval"], 原默认 config 无该段 →
+            # yaml 加载失败走默认配置后 record_episode 抛 KeyError。值与 curriculum_config.yaml 一致。
+            "monitoring": {
+                "checkpoint_interval": 100,
+                "log_interval": 10,
+            },
             "output": {
                 "curriculum_state_path": "/mnt/d/Bigdata/hero3_fresh/curriculum_state.json"
             }
@@ -129,7 +136,10 @@ class CurriculumManager:
         self.metrics_history.append(metrics)
         
         # 定期保存
-        if self.episode_count % self.config["monitoring"]["checkpoint_interval"] == 0:
+        # 09-23 测试套件 M1 修复: 防御式取值 — 兼容 monitoring 段或 checkpoint_interval 键缺失
+        # (默认 config 已补齐该段, 此处再兜底一次防自定义 yaml 缺键)
+        _ckpt_interval = self.config.get("monitoring", {}).get("checkpoint_interval", 100)
+        if _ckpt_interval and self.episode_count % _ckpt_interval == 0:
             self._save_state()
         
         return metrics
