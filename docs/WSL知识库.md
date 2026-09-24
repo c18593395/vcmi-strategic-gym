@@ -59,6 +59,34 @@
 
 > 此区为新增知识暂存区。用户定期自行归档到上方「一、稳定参考」三个子文档后，再从本区移除。新增内容请尽量带"截至日期"与"结论"。
 
+### 09-24 服务器 172.16.2.40 SSH 登录凭据 + 免交互通道 + pam_faillock 踩坑（结论）
+
+**截至 2026-09-24，双通道验证通过**（paramiko 代码 + sshpass 命令，均免手工输入密码框）。
+
+**有效凭据**：`root` / `C/jw2073721`
+- 易错点：中间是 **20**（jw + 2073721）；写成 `C/jw073721`（jw 后 7）是错版本，09-24 已实测拒绝。
+- 旧密码 `度搜` 已失效（09-24 实测拒绝）。
+- `admin` 用户不存在（`getent passwd admin` 查无此人），密码只 root 有效。
+
+**免交互登录三种方式**（脚本 / agent 用，不弹密码框）：
+1. 密钥直连（日常首选，**不受 faillock 限制**）：本机 `id_ed25519`，`~/.ssh/config` 别名 `xm-server`/`xm-opencode`。
+   `ssh -o BatchMode=yes root@172.16.2.40 "command"`
+2. sshpass（本机 WinGet 已装）：
+   `sshpass -p "C/jw2073721" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@172.16.2.40 "command"`
+3. Python paramiko（纯代码，`allow_agent=False, look_for_keys=False` 防密钥劫持）：
+   `paramiko.SSHClient().connect("172.16.2.40", 22, "root", "C/jw2073721", allow_agent=False, look_for_keys=False)`
+
+**服务端 sshd 实测**：`passwordauthentication yes` / `PermitRootLogin yes` / `kbdinteractive no`。
+
+**⚠️ 踩坑：pam_faillock 锁 root（09-24 实测血泪）**
+PAM `deny=3 even_deny_root unlock_time=60`：15 分钟内密码失败 3 次 → root 密码登录锁 60 秒，**锁期内正确密码也被拒**（会误判成"密码错了"）。09-24 实际发生：试错 2 次 + paramiko 错密码 1 次凑满 3 次，随后对的 `C/jw2073721` 也全拒，看着像两个密码都错。
+- 诊断/解锁（**走密钥，不受 faillock 影响**）：
+  `ssh -o BatchMode=yes root@172.16.2.40 "faillock --user root"`（查失败计数）
+  `ssh -o BatchMode=yes root@172.16.2.40 "faillock --user root --reset"`（清零）→ 等 >60s 再试密码通道。
+- **纪律**：批量测密码（paramiko/sshpass 循环）前先 `faillock --user root` 查状态，失败 2 次即停，别凑满 3 次触发锁。
+
+**文档落点**：完整凭据表已同步写入服务器 `/root/SSH_ACCESS_172.16.2.40.md`（09-24 经密钥通道写入）+ 知识库 fact_store（"172.16.2.40 服务器" 实体 + pam_faillock 踩坑条目）。
+
 ### 09-20/21 JEV 决策模型运维工具链全量上线（OPS-JEV-01~04：告警分诊 / FAIL 归因 / 池排序 / 金标回归）+ jegrep + h3m2vmap 重链与段错误发现
 
 **背景**（截至 09-21）：接 Trae 论坛帖（TypeSafe Jev = System One 决策模型，只判不写，choice/score/noul 三原语带校准概率，$0.042/1M input 输出免费）。评估定调：**训练环境内判定（ZOMBIE/FUSE/reward/done）红线不碰**（热路径 + PPO 可复现性）；JEV 位置 = Windows 监控运维层旁路。jev CLI 0.6.2 已装，key 走 OpenRouter 路由（`typesafe/jev-1.13-20260917`），**key 全程经 jev CLI 凭据库自取，不进脚本不进聊天**。
