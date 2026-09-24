@@ -81,6 +81,16 @@ MAPS = [
     "T06_adventure_108X108_02_duel.vmap",
     "T06_adventure_108X108_02.vmap",
 ]
+# === WIN-3 难度轴: 108X108_02_duel 聚焦 (09-25 定谳, 一次一轴) ===
+# HOMM3_DUEL_FOCUS=1 → 非池局时以 DUEL_FOCUS_P 概率强制采 T06_adventure_108X108_02_duel,
+# 其余概率回落 random.choice(MAPS); 池图节拍 (HOMM3_POOL_INTERVAL) 不受影响 (池局仍按原 1/10 节奏插)。
+# 回退 = 改回 0 (默认 0 零行为变化, 不影响现有 10 图均匀采)。
+# 错窗纪律: 难度轴不与图池变更同窗 — 与 WIN-5 batch1 维持 (不开 batch2) 同窗可共存 (难度轴≠图池变更)。
+DUEL_FOCUS_MAP = "T06_adventure_108X108_02_duel.vmap"
+DUEL_FOCUS_P = 0.6        # 非池局强制 108_02_duel 概率 (0.6 = 6 倍于均匀采 1/10, 余 0.4 回落 10 图, 防单图过拟合)
+_DUEL_FOCUS_ON = os.environ.get("HOMM3_DUEL_FOCUS", "0") not in (None, "", "0", "0.0")
+if _DUEL_FOCUS_ON:
+    print(f"[WIN-3 DUEL-FOCUS] 难度轴 ON: 非池局 {DUEL_FOCUS_P:.0%} 强制 {DUEL_FOCUS_MAP} (HOMM3_DUEL_FOCUS)", flush=True)
 # ===== T03 课程 (毕业存档, 如需回退换回) =====
 # MAPS = [
 #     "T03_adventure_20X20_01.vmap",
@@ -562,7 +572,11 @@ for ep in range(N_EPISODES):
         _map = _POOL_MAPS[_POOL_SEQ_I % len(_POOL_MAPS)]   # round-robin: 每张等量曝光
         _POOL_SEQ_I += 1
     else:
-        _map = random.choice(MAPS)
+        # WIN-3 难度轴: 非池局时以 DUEL_FOCUS_P 概率强制 108_02_duel, 其余回落均匀采
+        if _DUEL_FOCUS_ON and random.random() < DUEL_FOCUS_P:
+            _map = DUEL_FOCUS_MAP
+        else:
+            _map = random.choice(MAPS)
     print(f"  [POOL_SCHED] interval={_POOL_INTERVAL} since_pool={_ep_since_pool} pool={len(_POOL_MAPS)} "
           f"is_pool={_is_pool} seq_i={_POOL_SEQ_I} map={_map} ep={ep_count}", flush=True)
     _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")

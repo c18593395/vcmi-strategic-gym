@@ -16,6 +16,9 @@ Environment=PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/us
 Environment=HOMM3_POOL_INTERVAL=5
 # 只采 _pool_index.json batch<=1 的图 (防负数: 水/岛/地下图不放行)
 Environment=HOMM3_H3M_BATCH=1
+# 09-25 WIN-3 难度轴: 108X108_02_duel 聚焦 (非池局 80% 强制采该图, 错窗=WIN-5 batch1 维持不开 batch2)
+# 回退: 改回 0 + daemon-reload + 重启 (难度轴下, 回 10 图均匀采)
+Environment=HOMM3_DUEL_FOCUS=1
 
 [Install]
 WantedBy=multi-user.target
