@@ -15,14 +15,15 @@ jobs:
     runs-on: [ self-hosted, Linux, ARM64 ]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      # setup-python 砍掉: python-versions 无 3.11 linux-arm64 预构建(只 3.12+),
+      # 直接吃 runner 系统 python3.11 (numpy 2.4.6 + gymnasium 已预装, 无 GPU 需求, engine-free 测试够用)
+      - name: System Python check (arm64 无 3.11 预构建, 走系统解释器)
+        run: python3 --version
+      - name: Ensure test deps (numpy + gymnasium; 缺才装)
+        run: python3 -c "import numpy, gymnasium" || python3 -m pip install numpy gymnasium
       - name: Byte-compile all Python (syntax check)
-        run: python -m compileall -q envs tools || exit 1
-      - name: Install test deps (numpy + gymnasium only)
-        run: pip install numpy gymnasium
+        run: python3 -m compileall -q envs tools || exit 1
       - name: Engine-free unit tests
-        run: python -m unittest discover -s tests -v
+        run: python3 -m unittest discover -s tests -v
       - name: Runner identity (audit)
-        run: uname -a && python -c "import platform; print('machine=', platform.machine())"
+        run: uname -a && python3 -c "import platform; print('machine=', platform.machine())"
