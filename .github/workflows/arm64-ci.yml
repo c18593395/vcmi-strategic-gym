@@ -1,0 +1,28 @@
+# ARM64 CI: 服务器 kunpeng-920 runner (S-3) 跑同套 lint + engine-free unittest.
+# 价值: ① 守 ARM64 构建/运行面 (GitHub hosted ubuntu-latest 全是 x86_64, 测不到 aarch64)
+#       ② 64 核跑 unittest/compileall 比 hosted 快 (无排队)
+# 触发: 与 ci.yml 一致 (push master/main + PR), 双矩阵并存.
+# 依赖: runner labels = [self-hosted, Linux, ARM64, kunpeng] (systemd actions.runner.c18593395-vcmi-strategic-gym.kunpeng-920-arm64)
+name: CI-ARM64
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+
+jobs:
+  lint-arm64:
+    runs-on: [ self-hosted, Linux, ARM64 ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Byte-compile all Python (syntax check)
+        run: python -m compileall -q envs tools || exit 1
+      - name: Install test deps (numpy + gymnasium only)
+        run: pip install numpy gymnasium
+      - name: Engine-free unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Runner identity (audit)
+        run: uname -a && python -c "import platform; print('machine=', platform.machine())"
