@@ -17,7 +17,7 @@ echo '=== step 2: checkpoint backup pre-v4 ==='
 STAMP=$(date +%Y%m%d_%H%M%S)
 cp -f wsl2_model_state.pt "wsl2_model_state.pt.bak_OPS2026082801_v4_$STAMP"
 cp -f wsl2_model.pt       "wsl2_model.pt.bak_OPS2026082801_v4_$STAMP"
-python3_bin=/home/administrator/vcmi-workspace/venv/bin/python3
+python3_bin="${python3_bin:-/home/administrator/vcmi-workspace/venv/bin/python3}"
 step_in_ckpt=$($python3_bin -c "import torch; sd=torch.load('wsl2_model_state.pt',map_location='cpu'); print(sd.get('step'))" 2>&1)
 echo "preflight step=$step_in_ckpt backup=wsl2_model_state.pt.bak_OPS2026082801_v4_$STAMP"
 

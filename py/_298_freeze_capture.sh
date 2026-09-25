@@ -14,8 +14,8 @@ mkdir -p $OUT $COREDIR
 # core dump 配置(仅本次 WSL boot 有效)
 echo "/tmp/cores/core.%p" > /proc/sys/kernel/core_pattern 2>/dev/null || sudo -n sh -c 'echo "/tmp/cores/core.%p" > /proc/sys/kernel/core_pattern'
 
-PY=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
+PY="${PY:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
 
 export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel
 export STRATEGIC_STATE_LIB=/home/administrator/vcmi-native/rel/bin/libmlclient.so

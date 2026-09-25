@@ -3,7 +3,7 @@
 # 命名保留原 H3M 名, 便于溯源
 set -e
 
-SRC=/home/administrator/vcmi-native/rel/bin/data/Maps/vmap_from_h3m/King\ of\ Pain.h3m.vmap
+SRC="${SRC:-/home/administrator/vcmi-native/rel/bin/data/Maps/vmap_from_h3m/King\ of\ Pain.h3m.vmap}"
 
 # 1) ep_runner 直接读取: maps/training/
 mkdir -p /mnt/d/Bigdata/hero3_fresh/maps/training

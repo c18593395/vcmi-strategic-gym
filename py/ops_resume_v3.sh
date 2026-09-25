@@ -19,7 +19,7 @@ sleep 1
 set -e
 
 # 用 setsid 让整管道脱离当前会话；重定向 nohup.out
-SETSID_OUTFILE="/mnt/d/Bigdata/hero3_fresh/py/nohup_train_setsid.log"
+SETSID_OUTFILE="${SETSID_OUTFILE:-/mnt/d/Bigdata/hero3_fresh/py/nohup_train_setsid.log}"
 : > "$SETSID_OUTFILE"
 
 setsid bash -c '

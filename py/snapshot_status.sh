@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 单次状态快照: 服务/进程/step 行/最近 ep
 svc=homm3-train-v5
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 echo "== snapshot @ $(date) =="
 echo "== service =="
 systemctl is-active "$svc"

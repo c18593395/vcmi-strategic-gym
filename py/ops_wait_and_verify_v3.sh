@@ -6,7 +6,7 @@ echo "=== wait ${SEC}s begin @ $(date '+%Y-%m-%d %T') ==="
 sleep $SEC
 echo "=== alive ps @ $(date '+%T') ==="
 ps -efH | grep -E 'train_wsl2_ppo_v2|ep_runner_one' | grep -v grep || echo '(DEAD!)'
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 MARK='^===== OPS-20260828-01 RESUME v3'
 echo "=== tail 30 WHOLE LOG ==="
 tail -30 "$LOG"

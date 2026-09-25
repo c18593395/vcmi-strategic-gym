@@ -1,6 +1,6 @@
 #!/bin/bash
 # R6 修复后日志综合分析 (2026-09-03)
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 SEG=$(tail -n +$LINE "$LOG")
 echo "=== resume 后运行时长与 ep 数:"

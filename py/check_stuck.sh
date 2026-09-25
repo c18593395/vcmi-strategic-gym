@@ -1,5 +1,5 @@
 #!/bin/bash
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 echo "=== resume 后日志尾部 15 行:"
 tail -n +$LINE "$LOG" | tail -15

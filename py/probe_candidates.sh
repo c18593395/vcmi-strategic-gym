@@ -10,7 +10,7 @@ declare -A MAPS=(
 )
 for k in ror uu dl; do
   n="${MAPS[$k]}"
-  out="/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/probe_${k}.vmap"
+  out="${out:-/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/probe_${k}.vmap}"
   "$BIN" --save "rel/bin/data/Maps/$n.h3m" "$out" --no-r1 >/dev/null 2>&1
   echo "converted: $n -> $(basename "$out") rc=$?"
 done

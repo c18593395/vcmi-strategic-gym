@@ -1,9 +1,9 @@
 #!/bin/bash
 # 检查 72X72_02_duel vmap 的 obs 初始化相关字段（蓝方英雄/城镇坐标）
-PYBIN=/home/administrator/vcmi-workspace/venv/bin/python3
+PYBIN="${PYBIN:-/home/administrator/vcmi-workspace/venv/bin/python3}"
 $PYBIN - <<'PY'
 import zipfile, json, os
-base='/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps'
+base="${base:-/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps}"
 print("=== 72X72 相关 vmap 列表 ===")
 cands=[f for f in sorted(os.listdir(base)) if '72X72' in f and f.endswith('.vmap')]
 print(cands)

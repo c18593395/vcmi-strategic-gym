@@ -11,7 +11,7 @@ set -u
 USER_NAME=administrator
 HOME_DIR=/home/$USER_NAME
 XDG="$HOME_DIR/.local/share"
-RUNTIME_MAPS=/home/administrator/vcmi-native/rel/bin/data/Maps   # sync_maps_to_runtime.py 的目标(真实目录)
+RUNTIME_MAPS="${RUNTIME_MAPS:-/home/administrator/vcmi-native/rel/bin/data/Maps   # sync_maps_to_runtime.py 的目标(真实目录)}"
 
 log() { echo "[setup_vcmi_runtime] $*"; }
 
@@ -24,7 +24,7 @@ chown -R "$USER_NAME:$USER_NAME" "$HOME_DIR/.local"
 log "2) 解析运行时 Maps 真实目录"
 if [ ! -d "$RUNTIME_MAPS" ]; then
   # 兜底: 若默认入口不在, 尝试 readlink rel/bin/data/Maps
-  ALT=$(readlink -f /home/administrator/vcmi-native/rel/bin/data/Maps 2>/dev/null)
+  ALT="${ALT:-$(readlink -f /home/administrator/vcmi-native/rel/bin/data/Maps 2>/dev/null)}"
   if [ -n "$ALT" ] && [ -d "$ALT" ]; then RUNTIME_MAPS="$ALT"; fi
 fi
 log "   运行时 Maps = $RUNTIME_MAPS ($(ls "$RUNTIME_MAPS" 2>/dev/null | wc -l) 项)"

@@ -4,11 +4,11 @@ set -u
 # #248: GameLibrary cwd 依赖, 必须 cd vcmi-native (CResourceHandler 相对路径)
 cd /home/administrator/vcmi-native || exit 1
 export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:${LD_LIBRARY_PATH:-}
-BIN=/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap
-PY=/home/administrator/vcmi-workspace/venv/bin/python
-KNEE="/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m"
+BIN="${BIN:-/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap}"
+PY="${PY:-/home/administrator/vcmi-workspace/venv/bin/python}"
+KNEE="${KNEE:-/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m}"
 [ -f "$KNEE" ] || KNEE="/home/administrator/vcmi-native/rel/bin/data/Maps/Knee Deep in the Dead.h3m"
-CHECK=/mnt/d/Bigdata/hero3_fresh/py/b4_recon_players.py
+CHECK="${CHECK:-/mnt/d/Bigdata/hero3_fresh/py/b4_recon_players.py}"
 OUTDIR=/tmp/b4_out
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 RC_ALL=0

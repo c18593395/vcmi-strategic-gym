@@ -5,7 +5,7 @@
 # 用法（root）: bash py/sync_unit_env.sh HOMM3_H3M_MIX=0.20 [OTHER_KEY=VALUE ...]
 set -u
 U1=/etc/systemd/system/homm3-train-v5.service
-U2=/mnt/d/Bigdata/hero3_fresh/py/homm3-train-v5.service
+U2="${U2:-/mnt/d/Bigdata/hero3_fresh/py/homm3-train-v5.service}"
 
 if [ "$#" -eq 0 ]; then
   echo "用法: bash $0 KEY=VALUE [KEY=VALUE ...]"

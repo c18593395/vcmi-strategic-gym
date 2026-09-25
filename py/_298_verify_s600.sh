@@ -2,8 +2,8 @@
 # #298 慢 vs 卡定性: good_to_go/judgement 各 1 局 timeout 600 (09-23)
 set -u
 OUT=/tmp/_298_evidence
-PY=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
+PY="${PY:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
 export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel
 export STRATEGIC_STATE_LIB=/home/administrator/vcmi-native/rel/bin/libmlclient.so
 SUMMARY=$OUT/verify_s600.txt

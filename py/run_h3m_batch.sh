@@ -3,10 +3,10 @@
 # 用法: wsl -u root bash /mnt/d/Bigdata/hero3_fresh/py/run_h3m_batch.sh [STEPS]
 #   断点续跑: 中断后直接重跑本脚本即可 (PASS 条目自动 skip)
 set -u
-ROOT=/mnt/d/Bigdata/hero3_fresh
+ROOT="${ROOT:-/mnt/d/Bigdata/hero3_fresh}"
 STEPS=${1:-250}
 LOG="$ROOT/tmp/h3m_batch_run.log"
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
 # 09-23 路径环境化: 本脚本以 root 运行 (HOME=/root), 显式声明引擎/工作区路径
 # (strategic_env.py 的默认值由 ~ 派生, root 下会指向 /root — 必须在此覆盖)
 export VCMI_NATIVE_DIR=/home/administrator/vcmi-native

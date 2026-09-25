@@ -1,6 +1,6 @@
 #!/bin/bash
 # map= 标签与 obs_nz 对应性验证 (mir 补齐后)
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 tail -n +$LINE "$LOG" > /tmp/seg.log
 echo "=== 本次启动 ep 数: $(grep -c 'ep_steps=' /tmp/seg.log)"

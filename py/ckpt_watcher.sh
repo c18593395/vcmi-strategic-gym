@@ -9,11 +9,11 @@
 # 或单次手动: bash ckpt_watcher.sh
 set -u
 
-CKPT_DIR=/mnt/d/Bigdata/hero3_fresh/checkpoints
-MARKER=/mnt/d/Bigdata/hero3_fresh/.last_ckpt_pushed
-HOOK=/mnt/d/Bigdata/hero3_fresh/py/ckpt_push_hook.py
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
-HOOK_LOG=/mnt/d/Bigdata/hero3_fresh/push_hook.log
+CKPT_DIR="${CKPT_DIR:-/mnt/d/Bigdata/hero3_fresh/checkpoints}"
+MARKER="${MARKER:-/mnt/d/Bigdata/hero3_fresh/.last_ckpt_pushed}"
+HOOK="${HOOK:-/mnt/d/Bigdata/hero3_fresh/py/ckpt_push_hook.py}"
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
+HOOK_LOG="${HOOK_LOG:-/mnt/d/Bigdata/hero3_fresh/push_hook.log}"
 
 latest=$(ls -t "$CKPT_DIR"/wsl2_ckpt_*.pt 2>/dev/null | head -1)
 [ -z "$latest" ] && { echo "[watcher $(date '+%F %T')] no checkpoint yet"; exit 0; }

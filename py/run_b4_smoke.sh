@@ -5,7 +5,7 @@
 set -u
 cd /mnt/d/Bigdata/hero3_fresh
 SRC=/tmp/b4_out/B4_adventure_knee_deep.vmap
-DST=/home/administrator/vcmi-native/rel/bin/data/Maps/B4_adventure_knee_deep.vmap
+DST="${DST:-/home/administrator/vcmi-native/rel/bin/data/Maps/B4_adventure_knee_deep.vmap}"
 [ -f "$SRC" ] || { echo "missing $SRC (先跑 run_b4_verify.sh)"; exit 1; }
 cp "$SRC" "$DST"
 echo "deployed: $DST ($(stat -c%s "$DST") bytes)"

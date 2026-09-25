@@ -7,8 +7,8 @@ MAP=${1:-good_to_go_h3m.vmap}
 TURNS=${2:-30}
 OUT=/tmp/_298_evidence
 mkdir -p $OUT
-PY=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
+PY="${PY:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
 TS=$(date +%H%M%S)
 LOG=$OUT/ep_freeze_${MAP%.vmap}_${TS}.log
 PROC=$OUT/freeze_proc_${MAP%.vmap}_${TS}.txt

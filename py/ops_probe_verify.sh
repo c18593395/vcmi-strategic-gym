@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # OPS-20260828-01 探测验收（直接）
 set +e
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 MARK='RESUME v3'
 echo '=== size & mtime ==='
 stat -c 'mtime=%y size=%s' "$LOG"

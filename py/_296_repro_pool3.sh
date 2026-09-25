@@ -3,9 +3,9 @@
 # 现象: 3 局池图 hit=True 后全 [WARN] traj 读取失败 (rc=0, 无 [EP_TIME])
 # 假设: 池图开局 reset 失败/卡死 → 子进程首步写 traj 前退出
 set -u
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
-B=/home/administrator/vcmi-native
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
+B="${B:-/home/administrator/vcmi-native}"
 OUT=/tmp/_296_repro
 mkdir -p $OUT
 export LD_LIBRARY_PATH=$B/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel

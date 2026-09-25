@@ -1,6 +1,6 @@
 #!/bin/bash
 # P0-2 对照实验: 查三套补丁 + 08-17 恢复 叠加状态，设计干净 A/B
-B=/home/administrator/vcmi-native
+B="${B:-/home/administrator/vcmi-native}"
 echo "=== A 档当前源码标记 ==="
 echo -n "  [Client.cpp] 方案1标记: "
 grep -c 'ML fix (09-23, #298)' $B/client/Client.cpp

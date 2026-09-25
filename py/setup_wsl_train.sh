@@ -16,9 +16,9 @@
 # 预计耗时: 全新环境 40-70min (大头=venv pip 下载 + mlclient 全量编译)
 # =====================================================================
 set -e
-PROJ=/mnt/d/Bigdata/hero3_fresh
-WS=/home/administrator/vcmi-workspace
-NATIVE=/home/administrator/vcmi-native
+PROJ="${PROJ:-/mnt/d/Bigdata/hero3_fresh}"
+WS="${WS:-/home/administrator/vcmi-workspace}"
+NATIVE="${NATIVE:-/home/administrator/vcmi-native}"
 SRC=$PROJ/vcmi   # 仓#3 主仓（含 mmai-ml-wsl，09-24 已收编仓#2 的 10 提交）；镜像仓已于 09-24 删除
 VENV=$WS/venv
 PIP="$VENV/bin/pip -i https://mirrors.aliyun.com/pypi/simple/ --default-timeout=60"

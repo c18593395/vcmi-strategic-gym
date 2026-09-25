@@ -1,6 +1,6 @@
 #!/bin/bash
 # 检查训练进展
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 
 if [ ! -f "$LOG" ]; then
   echo "[NO LOG] training not started yet"

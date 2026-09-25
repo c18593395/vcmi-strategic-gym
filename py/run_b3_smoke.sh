@@ -5,7 +5,7 @@
 set -u
 cd /mnt/d/Bigdata/hero3_fresh
 SRC=/tmp/b3_matrix/default.vmap
-DST=/home/administrator/vcmi-native/rel/bin/data/Maps/B3_adventure_knee_deep.vmap
+DST="${DST:-/home/administrator/vcmi-native/rel/bin/data/Maps/B3_adventure_knee_deep.vmap}"
 [ -f "$SRC" ] || { echo "missing $SRC (先跑 run_b3_matrix.sh)"; exit 1; }
 cp "$SRC" "$DST"
 echo "deployed: $DST ($(stat -c%s "$DST") bytes)"

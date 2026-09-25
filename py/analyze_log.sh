@@ -1,5 +1,5 @@
 #!/bin/bash
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 echo '=== 最近 5 条 ZOMBIE ==='
 grep -n 'ZOMBIE' "$LOG" | tail -n 5
 echo '=== 大额负奖励统计 (按 r= 数值) ==='

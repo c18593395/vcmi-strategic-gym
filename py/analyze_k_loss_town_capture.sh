@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 分析 k=10.0 顶格 / loss spike / vloss / TOWN_CAPTURE 频率
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 # 重启窗口起点 (L877 修复后 resume)
 START=76382
 

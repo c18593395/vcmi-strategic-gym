@@ -1,7 +1,7 @@
 #!/bin/bash
 # P1e .so 同步 (运行时 -> 3 副本) + 源码双目录/Windows 镜像同步 + 清诊断日志
 set -e
-SRC=/home/administrator/vcmi-native/rel/bin/AI/libMMAI.so
+SRC="${SRC:-/home/administrator/vcmi-native/rel/bin/AI/libMMAI.so}"
 for D in /home/administrator/vcmi-native-build/rel/bin/AI/libMMAI.so \
          /home/administrator/vtest/bin/AI/libMMAI.so \
          /home/administrator/vcmi-workspace/vcmi/rel/bin/AI/libMMAI.so; do

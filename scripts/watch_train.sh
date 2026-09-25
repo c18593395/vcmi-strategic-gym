@@ -1,7 +1,7 @@
 #!/bin/bash
 # 训练 watchdog: 每 20 分钟输出 TRAIN_CHECK 行 (进度或异常), 训练进程消失时退出
 # 注意: train_loop.sh tee 到 train_loop.log (新训练); c85.log 为兼容旧名
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 prev=""
 while true; do
   sleep 1200   # 20 分钟

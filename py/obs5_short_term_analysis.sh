@@ -1,7 +1,7 @@
 #!/bin/bash
 # OBS-5 108_02_duel 无标记短终局定性 (09-14 36 局中 2 局: 34/41 步, r16/20, 8-9.4s/步偏慢)
 # 目标: 从 train_loop.log 抓 108_02_duel 的终局明细, 看有无终局标记 / 战斗事件 / err 字段
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 
 echo "=== 1. 108_02_duel 全部局终局行 (grep 108_02 相关终局信号) ==="
 # 终局信号: END_TURN_DONE / GAME_OVER / GUARD_DONE / TOWN_CAPTURE / zombie / err

@@ -2,9 +2,9 @@
 # 250 步 + gdb 全线程栈取证: 定位池图长局是否 Mode B 冻结 (BuildAnalyzer 读锁)
 # 原理: 30s 无日志增长 → 判冻结 → 抓 gdb 全线程栈 + /proc 线程态
 set -u
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
-B=/home/administrator/vcmi-native
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
+B="${B:-/home/administrator/vcmi-native}"
 OUT=/tmp/_296_gdb
 mkdir -p $OUT
 export LD_LIBRARY_PATH=$B/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel

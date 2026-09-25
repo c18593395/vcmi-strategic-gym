@@ -1,6 +1,6 @@
 #!/bin/bash
 # R6 验证: 本次启动(最后一次 Loaded train state)之后的 Router 异常与新日志
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 echo "resume at line $LINE"
 echo "--- Router exception after resume:"

@@ -1,15 +1,15 @@
 #!/bin/bash
 # 忠实复现: 逐字照抄训练实参(含 --model)在池图上跑, 抓 traj 丢失根因
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
-B=/home/administrator/vcmi-native
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
+B="${B:-/home/administrator/vcmi-native}"
 export LD_LIBRARY_PATH=$B/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel
 export STRATEGIC_STATE_LIB=$B/rel/bin/libmlclient.so
 
 OUT=/tmp/_pool_faithful
 mkdir -p "$OUT"
 
-CKPT=$(ls -t /mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_*.pt 2>/dev/null | head -1)
+CKPT="${CKPT:-$(ls -t /mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_*.pt 2>/dev/null | head -1)}"
 echo "=== CKPT=$CKPT (size=$(stat -c%s "$CKPT" 2>/dev/null || echo NA)) ==="
 [ -z "$CKPT" ] && { echo "无 checkpoint, 退出"; exit 1; }
 

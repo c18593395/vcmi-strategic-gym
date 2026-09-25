@@ -1,6 +1,6 @@
 #!/bin/bash
 # move_to 200 + T05 混入 复查 (09-04)
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 SEG=$(tail -n +$LINE "$LOG")
 echo "=== 本次启动 ep 数与进度:"

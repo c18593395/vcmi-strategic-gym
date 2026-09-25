@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
-PYBIN=/home/administrator/vcmi-workspace/venv/bin/python3
-MAPS=/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps
+PYBIN="${PYBIN:-/home/administrator/vcmi-workspace/venv/bin/python3}"
+MAPS="${MAPS:-/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps}"
 
 $PYBIN - "$MAPS" <<'PY'
 import sys, zipfile, json, os

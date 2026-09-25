@@ -6,7 +6,7 @@ ps -ef | grep -E 'train_wsl2_ppo_v2|ep_runner_one|tee train_loop' | grep -v grep
 
 echo '=== 2) signal SIGTERM ==='
 PIDS=$(ps -ef | grep -E 'train_wsl2_ppo_v2|ep_runner_one|python3 -u train_wsl2_ppo_v2' | grep -v grep | awk '{print $2}')
-BASH_PID=$(ps -ef | grep -E 'bash -c cd /mnt/d/Bigdata/hero3_fresh && python3 -u train_wsl2_ppo_v2' | grep -v grep | awk '{print $2}')
+BASH_PID="${BASH_PID:-$(ps -ef | grep -E 'bash -c cd /mnt/d/Bigdata/hero3_fresh && python3 -u train_wsl2_ppo_v2' | grep -v grep | awk '{print $2}')}"
 echo "PIDS=$PIDS BASH_PID=$BASH_PID"
 [ -n "$PIDS" ]    && kill -15 $PIDS    2>&1 | sed 's/^/[kill15] /'
 [ -n "$BASH_PID" ] && kill -15 $BASH_PID 2>&1 | sed 's/^/[kill15bash] /'

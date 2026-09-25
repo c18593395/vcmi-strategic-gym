@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 等待 1 个新的 batch 指标行 (ent/entc/loss), 每 10 分钟轮询一次, 最多 72 次 (12h)
 # resume 时间基准: ~18:42
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 BASE=$(grep -an 'ent=' "$LOG" | tail -n 1 | cut -d: -f1)
 echo "[watch] baseline ent line @ $BASE $(sed -n "${BASE}p" "$LOG" 2>/dev/null | tr -d ' ')"
 for i in $(seq 1 72); do

@@ -32,11 +32,11 @@ Description=HoMM3 WSL2 PPO v5 training (persistent, system-level)
 [Service]
 Type=simple
 User=administrator
-WorkingDirectory=/mnt/d/Bigdata/hero3_fresh
-ExecStart=/home/administrator/vcmi-workspace/venv/bin/python train_wsl2_ppo_v2.py
-StandardOutput=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
-StandardError=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
-Environment=PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory="${WorkingDirectory:-/mnt/d/Bigdata/hero3_fresh}"
+ExecStart="${ExecStart:-/home/administrator/vcmi-workspace/venv/bin/python train_wsl2_ppo_v2.py}"
+StandardOutput="${StandardOutput:-append:/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
+StandardError="${StandardError:-append:/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
+Environment="${Environment:-PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
 Environment=HOMM3_BLUE_HERO_GRAD=0.2
 Environment=HOMM3_BLUE_HERO_GRAD_CAP=25
 Environment=HOMM3_BLUE_HERO_CONTACT_R=15

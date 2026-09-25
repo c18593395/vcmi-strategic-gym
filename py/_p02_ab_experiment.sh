@@ -7,9 +7,9 @@
 
 set -u
 EXP=${1:-baseline}
-B=/home/administrator/vcmi-native
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
-RUNNER=/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py
+B="${B:-/home/administrator/vcmi-native}"
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
+RUNNER="${RUNNER:-/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py}"
 OUT=/tmp/_298_ab_${EXP}
 mkdir -p $OUT
 SUMMARY=$OUT/summary.txt

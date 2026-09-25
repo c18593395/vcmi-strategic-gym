@@ -5,7 +5,7 @@ set -e
 cd /mnt/d/Bigdata/hero3_fresh
 export LD_LIBRARY_PATH="/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
 export STRATEGIC_STATE_LIB="/home/administrator/vcmi-native/rel/bin/libmlclient.so"
-CKPT=/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt
+CKPT="${CKPT:-/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt}"
 echo "=== 冒烟局启动 (max_turns=60, 有来有回战斗图)..."
 timeout 600 /home/administrator/vcmi-workspace/venv/bin/python ep_runner_one.py \
   60 /tmp/smoke_traj.json T04smoke_adventure_20X20_bai.vmap \

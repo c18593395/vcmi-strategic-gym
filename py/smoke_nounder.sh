@@ -7,7 +7,7 @@ MAPS="when_dragons_clash_nounder_adventure unexpected_inheritance_nounder_advent
 
 for m in $MAPS; do
   SRC="maps/h3m_to_vmap/$m.vmap"
-  DST="/home/administrator/vcmi-native/rel/bin/data/Maps/$m.vmap"
+  DST="${DST:-/home/administrator/vcmi-native/rel/bin/data/Maps/$m.vmap}"
   [ -f "$SRC" ] || { echo "missing $SRC"; exit 1; }
   cp "$SRC" "$DST"
   echo "deployed: $m ($(stat -c%s "$DST") bytes)"

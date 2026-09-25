@@ -7,7 +7,7 @@
 set -u
 cd /mnt/d/Bigdata/hero3_fresh
 export LD_LIBRARY_PATH="/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel:${LD_LIBRARY_PATH:-}"
-VENV=/home/administrator/vcmi-workspace/venv/bin/python
+VENV="${VENV:-/home/administrator/vcmi-workspace/venv/bin/python}"
 STEPS=250
 MAPS="when_dragons_clash_nounder_adventure"
 

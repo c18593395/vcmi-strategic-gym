@@ -10,7 +10,7 @@ declare -A MAPS=(
 )
 for k in faeries ror ui; do
   n="${MAPS[$k]}"
-  out="/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/r2v2_${k}.vmap"
+  out="${out:-/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/r2v2_${k}.vmap}"
   "$BIN" --save "rel/bin/data/Maps/$n.h3m" "$out" --no-r1 >/dev/null 2>&1
   rc=$?
   echo "=== $n rc=$rc ==="

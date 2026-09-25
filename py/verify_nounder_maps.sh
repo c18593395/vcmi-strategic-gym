@@ -6,7 +6,7 @@
 # 全绿输出 [PASS], 任一失败输出 [FAIL] 且 rc=1
 set -u
 cd /mnt/d/Bigdata/hero3_fresh
-PY=/home/administrator/vcmi-workspace/venv/bin/python
+PY="${PY:-/home/administrator/vcmi-workspace/venv/bin/python}"
 MAPS="when_dragons_clash_nounder_adventure unexpected_inheritance_nounder_adventure"
 STEPS=50
 FAIL=0
@@ -14,7 +14,7 @@ FAIL=0
 for m in $MAPS; do
   echo "############ $m ############"
   SRC="maps/training/$m.vmap"
-  DST="/home/administrator/vcmi-native/rel/bin/data/Maps/$m.vmap"
+  DST="${DST:-/home/administrator/vcmi-native/rel/bin/data/Maps/$m.vmap}"
   # 0) 源文件在位
   if [ ! -f "$SRC" ]; then echo "[FAIL] 缺源: $SRC"; FAIL=1; continue; fi
   # 1) 结构校验

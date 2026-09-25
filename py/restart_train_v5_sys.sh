@@ -16,13 +16,13 @@ Description=HoMM3 WSL2 PPO v5 training (persistent, system-level)
 [Service]
 Type=simple
 User=administrator
-WorkingDirectory=/mnt/d/Bigdata/hero3_fresh
+WorkingDirectory="${WorkingDirectory:-/mnt/d/Bigdata/hero3_fresh}"
 # 踩坑 #308: 显式指定 XDG 数据目录, 勿依赖 threadconnector 的 getenv 默认推导
-Environment=XDG_DATA_HOME=/home/administrator/.local/share
-ExecStart=/home/administrator/vcmi-workspace/venv/bin/python py/train_wsl2_ppo_v2.py
-StandardOutput=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
-StandardError=append:/mnt/d/Bigdata/hero3_fresh/train_loop.log
-Environment=PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment="${Environment:-XDG_DATA_HOME=/home/administrator/.local/share}"
+ExecStart="${ExecStart:-/home/administrator/vcmi-workspace/venv/bin/python py/train_wsl2_ppo_v2.py}"
+StandardOutput="${StandardOutput:-append:/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
+StandardError="${StandardError:-append:/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
+Environment="${Environment:-PATH=/home/administrator/vcmi-workspace/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 #!/bin/bash
 # 查 Mode B trade cap 修复是否已编入当前 .so + git 状态
-B=/home/administrator/vcmi-native
+B="${B:-/home/administrator/vcmi-native}"
 echo "=== 当前 .so mtime ==="
 stat -c '%y %n' "$B/rel/bin/libvcmi.so" "$B/rel/bin/libmlclient.so" 2>/dev/null
 echo

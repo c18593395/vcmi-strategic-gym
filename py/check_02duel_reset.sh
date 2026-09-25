@@ -1,9 +1,9 @@
 #!/bin/bash
 # 对比 01_duel vs 02_duel 的 ep_log（首拍 obs 非空率）+ 检查 duel 图 reset 路径
-PYBIN=/home/administrator/vcmi-workspace/venv/bin/python3
+PYBIN="${PYBIN:-/home/administrator/vcmi-workspace/venv/bin/python3}"
 $PYBIN - <<'PY'
 import json, glob, os
-base='/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps'
+base="${base:-/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps}"
 # 找 duel 图
 duel=[f for f in sorted(os.listdir(base)) if 'duel' in f and f.endswith('.vmap')]
 print("duel maps:", duel)

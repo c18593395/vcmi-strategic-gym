@@ -1,6 +1,6 @@
 #!/bin/bash
 # batch1 剩余 3 张捕获: 出现即记录, 全部齐或 3 小时超时退出 (09-22)
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 OUT=/tmp/_b1_rest.txt
 START_LINE=$(grep -n 'WSL2 PPO v2' $LOG | tail -1 | cut -d: -f1)
 DEADLINE=$(( $(date +%s) + 10800 ))

@@ -1,7 +1,7 @@
 #!/bin/bash
 # BC 采集 watchdog: 每 20 分钟检查一次, 采集完成或异常时退出并汇报
-LOG=/mnt/d/Bigdata/hero3_fresh/bc_data/bc_v2/collect.log
-OUT=/mnt/d/Bigdata/hero3_fresh/bc_data/bc_v2
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/bc_data/bc_v2/collect.log}"
+OUT="${OUT:-/mnt/d/Bigdata/hero3_fresh/bc_data/bc_v2}"
 while true; do
   sleep 1200   # 20 分钟
   if wsl bash -c 'pgrep -f "collect_bc.py --episodes" >/dev/null 2>&1'; then

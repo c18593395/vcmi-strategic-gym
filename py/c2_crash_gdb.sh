@@ -5,7 +5,7 @@
 set -e
 
 CORE_FILE="${1:?用法: c2_crash_gdb.sh <core_file> [vcmiserver_path]}"
-VCMISERVER="${2:-/home/administrator/vcmi-workspace/rel/bin/vcmiserver}"
+VCMISERVER="${VCMISERVER:-${2:-/home/administrator/vcmi-workspace/rel/bin/vcmiserver}}"
 
 echo "=== C2 L1 crash dump analysis ==="
 echo "core:   ${CORE_FILE}"

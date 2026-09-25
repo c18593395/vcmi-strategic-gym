@@ -1,6 +1,6 @@
 #!/bin/bash
 # v7: dungeon.json 建筑 jsonKey
-F=/home/administrator/vcmi-native/config/factions/dungeon.json
+F="${F:-/home/administrator/vcmi-native/config/factions/dungeon.json}"
 grep -nE '"fort"|"jsonKey"|dwelling|"name"|"special1"|"mageGuild"' "$F" | head -30
 echo "=== buildings 段样例 ==="
 /home/administrator/vcmi-workspace/venv/bin/python - <<'PYEOF'

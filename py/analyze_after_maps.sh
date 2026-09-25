@@ -1,6 +1,6 @@
 #!/bin/bash
 # 加图后日志分析: 镜像图表现 vs 原图 / 固化是否破
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 SEG=$(tail -n +$LINE "$LOG")
 echo "=== 加图后 ep 数:"

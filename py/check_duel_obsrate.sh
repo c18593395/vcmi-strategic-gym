@@ -1,6 +1,6 @@
 #!/bin/bash
 # duel 图首局 obs 非空率 — 从最近 ep_log 提取 duel 局首拍 obs_nz
-PYBIN=/home/administrator/vcmi-workspace/venv/bin/python3
+PYBIN="${PYBIN:-/home/administrator/vcmi-workspace/venv/bin/python3}"
 $PYBIN - <<'PY'
 import json, glob, os, re, collections
 eplogs=sorted(glob.glob('/tmp/hermes_ep_*.log'), key=os.path.getmtime, reverse=True)

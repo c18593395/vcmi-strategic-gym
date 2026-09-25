@@ -1,6 +1,6 @@
 #!/bin/bash
 # 200 步挂死局专项分析: T05 r=-126 局
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 echo "=== 定位 r=-126 局的 ep_steps 行号:"
 grep -n 'ep_steps=200 r=-126' "$LOG" | tail -2
 N=$(grep -n 'ep_steps=200 r=-126' "$LOG" | tail -1 | cut -d: -f1)

@@ -1,7 +1,7 @@
 #!/bin/bash
 # 检查 T06 源文件和已生成 duel 文件的 zip 内容 (terrain_0.json 是否存在)
-DIR_SRC=/mnt/d/Bigdata/hero3_fresh/Maps/training
-DIR_RUN=/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps
+DIR_SRC="${DIR_SRC:-/mnt/d/Bigdata/hero3_fresh/Maps/training}"
+DIR_RUN="${DIR_RUN:-/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps}"
 
 check_zip() {
     local f="$1"

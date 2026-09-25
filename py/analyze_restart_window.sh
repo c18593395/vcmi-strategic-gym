@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 分析 homm3-train-v5 本次重启窗口（L76382 起）训练日志
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 START=76382
 
 echo "=== 重启窗口 (L${START} 起) 统计 ==="

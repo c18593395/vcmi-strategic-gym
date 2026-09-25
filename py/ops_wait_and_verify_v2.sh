@@ -11,7 +11,7 @@ awk '/^===== OPS-20260828-01 RESUME v3/,0' /mnt/d/Bigdata/hero3_fresh/train_loop
 echo "=== TAIL 35 WHOLE LOG ==="
 tail -35 /mnt/d/Bigdata/hero3_fresh/train_loop.log
 echo "=== quick regex verification ==="
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 echo -n "(a) Loaded step=153785? "; awk '/^===== OPS-20260828-01 RESUME v3/,0' "$LOG" | grep -c 'Loaded train state (model+optimizer, step=153785)'
 echo -n "(b) ep >= 393 (in resume section)? "; awk '/^===== OPS-20260828-01 RESUME v3/,0' "$LOG" | grep -oE ' ep=[0-9]+' | sort -uV | tail -10
 echo -n "(c) maps=2 (in resume section)? "; awk '/^===== OPS-20260828-01 RESUME v3/,0' "$LOG" | grep -c 'maps=2'

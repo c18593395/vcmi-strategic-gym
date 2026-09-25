@@ -1,6 +1,6 @@
 #!/bin/bash
 # 短局 (8步) 结束原因分析
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 LINE=$(grep -n 'Loaded train state' "$LOG" | tail -1 | cut -d: -f1)
 echo "=== 主日志 resume 后的 ZOMBIE/死亡行:"
 tail -n +$LINE "$LOG" | grep -iE 'ZOMBIE|dead|blocked x2' | tail -6

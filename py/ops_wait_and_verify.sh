@@ -8,7 +8,7 @@ ps -efH | grep -E 'train_wsl2_ppo_v2|ep_runner_one' | grep -v grep || echo '(non
 echo "=== train_loop.log tail -30 @ $(date '+%T') ==="
 tail -30 /mnt/d/Bigdata/hero3_fresh/train_loop.log
 echo "=== quick regex verification ==="
-LOG=/mnt/d/Bigdata/hero3_fresh/train_loop.log
+LOG="${LOG:-/mnt/d/Bigdata/hero3_fresh/train_loop.log}"
 echo -n "(a) Loaded train state? "; grep -c 'Loaded train state (model+optimizer, step=153785)' "$LOG"
 echo -n "(b) ep >= 393? "; grep -oE ' ep=[0-9]+' "$LOG" | tail -5 || echo '(no ep lines yet)'
 echo -n "(c) maps=2 banner? "; grep -c 'maps=2' "$LOG"

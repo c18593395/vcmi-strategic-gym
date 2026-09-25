@@ -3,7 +3,7 @@
 LOG=/tmp/nk2_long_mem.log
 echo "=== NK2 长时内存观测 $(date +%H:%M:%S) ===" > $LOG
 for i in $(seq 1 30); do
-  PID=$(pgrep -f '^/home/administrator/vcmi-workspace/venv/bin/python' | head -1)
+  PID="${PID:-$(pgrep -f '^/home/administrator/vcmi-workspace/venv/bin/python' | head -1)}"
   if [ -n "$PID" ]; then
     RSS=$(ps -o rss= -p $PID 2>/dev/null | tr -d ' ')
     if [ -n "$RSS" ]; then RSS_MB=$((RSS/1024)); else RSS_MB="?"; fi

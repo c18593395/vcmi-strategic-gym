@@ -1,7 +1,7 @@
 #!/bin/bash
 # Create baseline backup of all critical files before step2 fix attempts
 set -e
-DEST=/home/administrator/vcmi-workspace/route-backups/base
+DEST="${DEST:-/home/administrator/vcmi-workspace/route-backups/base}"
 mkdir -p $DEST/vcmi-native/ML
 mkdir -p $DEST/vcmi-native/AI/MMAI/AAI
 mkdir -p $DEST/vcmi_gym/connectors/v13

@@ -23,7 +23,7 @@ echo "build OK, binary size: $(stat -c%s ./h3m2vmap 2>/dev/null || ls -la h3m2vm
 # 让 build/h3m2vmap 运行时找到 rel 系 .so
 export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:${LD_LIBRARY_PATH:-}
 
-KNEE="/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m"
+KNEE="${KNEE:-/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m}"
 [ -f "$KNEE" ] || KNEE="/home/administrator/vcmi-native/rel/bin/data/Maps/Knee Deep in the Dead.h3m"
 OUT=/tmp/b3_rules_test.vmap
 rm -f "$OUT" /tmp/report.json

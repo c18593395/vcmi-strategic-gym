@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # B4 构建: 同步 main.cpp (Windows 共享盘 → WSL 原生) + 独立 CMake 重编 (零 rel 写入)
 set -u
-SRC=/mnt/d/Bigdata/hero3_fresh/tools/h3m2vmap/main.cpp
-DST=/home/administrator/vcmi-native/tools/h3m2vmap/main.cpp
+SRC="${SRC:-/mnt/d/Bigdata/hero3_fresh/tools/h3m2vmap/main.cpp}"
+DST="${DST:-/home/administrator/vcmi-native/tools/h3m2vmap/main.cpp}"
 
 echo "=== [1] sync main.cpp ==="
 [ -f "$SRC" ] || { echo "SRC missing: $SRC"; exit 1; }

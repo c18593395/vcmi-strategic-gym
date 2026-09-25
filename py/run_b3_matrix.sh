@@ -3,8 +3,8 @@
 # 必须在 /home/administrator/vcmi-native cwd 下跑引擎 (GameLibrary 找 config/)
 set -u
 export LD_LIBRARY_PATH=/home/administrator/vcmi-native/rel/bin:${LD_LIBRARY_PATH:-}
-BIN=/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap
-KNEE="/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m"
+BIN="${BIN:-/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap}"
+KNEE="${KNEE:-/home/administrator/vcmi-native/data/Maps/Knee Deep in the Dead.h3m}"
 [ -f "$KNEE" ] || KNEE="/home/administrator/vcmi-native/rel/bin/data/Maps/Knee Deep in the Dead.h3m"
 cd /home/administrator/vcmi-native
 
