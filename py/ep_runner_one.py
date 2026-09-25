@@ -501,7 +501,12 @@ try:
     visit_army_snap = None   # 窗开启时兵力 power 快照 (空撞判定基线)
     visit_check_pending = False  # 窗已结束待空撞复核 (延迟一帧到 army power 段, 用 nobs 最新兵力)
     start_home = True        # 2026-09-02 出发前招兵阶段: 每局开局先回城招兵带兵再探索 (用户设计)
-    garrison_revisit_done = False  # 09-25 回访取兵修复: 城堆兵回访引导每局一次性标记 (防横跳)
+    # 09-25 回访取兵修复 (粘滞状态机): 城堆兵后英雄外出探索, 招出的兵堆 garrison, [RECRUITED] 断
+    garrison_revisit_done = False     # 本局已收口 (邻接交窗 / 到达 / 超时放弃 / 开局已邻接)
+    garrison_revisit_active = False   # 粘滞回城驱动中 (每步 a=24, 同 start_home 机制)
+    garrison_revisit_city = None      # 目标城坐标
+    garrison_revisit_start = 0        # 触发步 (预算从此计)
+    garrison_revisit_budget = 0       # 预算步数 (触发时按切比雪夫距离自适应, cap 120)
     own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
     own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
 
@@ -797,11 +802,12 @@ try:
                 move_town_bfs = True
         # 09-25 回访取兵修复: start_home 开局引导一邻接就永久解除 → 英雄外出探索后永不回城,
         # 招进城的兵堆 garrison (实测 elbow_room 局 garrison 0→25 而 hero_army 恒 25, [RECRUITED] 断)。
-        # 修法: 城 garrison≥10 + 英雄非邻接 + step>60 (不干扰开局相位/取兵窗) → 每局一次性强制回城
-        # (复用 move_town_bfs 粘滞引导); 邻接后现有 visit 检测自动开取兵窗 → 窗内 RECRUIT dst=getUpperArmy
-        # =英雄部队, 直上部队 → [RECRUITED] 出信号。garrison_revisit_done 保证每局 1 次防横跳。
-        if (not garrison_revisit_done and args.objective_reward > 0 and red_model is not None
-                and visit_econ_steps <= 0 and traj["steps"] > 60):
+        # 修法 (粘滞状态机): 城 garrison≥10 + 英雄非邻接 + step>60 → 每局 1 次触发粘滞回城驱动,
+        # 邻接/到达/50步预算 三选一收口, 收口后交现有取兵窗 ([RECRUITED] 出信号)。
+        _revisit_runnable = (not garrison_revisit_done and not garrison_revisit_active
+                             and args.objective_reward > 0 and red_model is not None
+                             and visit_econ_steps <= 0 and traj["steps"] > 60)
+        if _revisit_runnable:
             _ah3 = int(obs[3203]) if obs[3203] >= 0 else 0
             _hb3 = 128 + _ah3 * 26
             _hx3, _hy3, _hz3 = int(obs[_hb3+2]), int(obs[_hb3+3]), int(obs[_hb3+4])
@@ -816,18 +822,48 @@ try:
                             garrison_revisit_done = True  # 已邻接 → visit 检测接手开取兵窗
                             print(f"[GARR_REVISIT] town={int(obs[_tb3])} garrison={_gs} adjacent at step {traj['steps']}", flush=True)
                             _hit = "adj"
+                            break
                         else:
                             _hit = (_ox3, _oy3, _gs, int(obs[_tb3]))
-                        break
+                            break
             if _hit not in (None, "adj"):
                 _ox3, _oy3, _gs, _tid3 = _hit
-                print(f"[GARR_REVISIT] town={_tid3} garrison={_gs} hero=({_hx3},{_hy3}) step {traj['steps']} -> 强制回城取兵", flush=True)
+                garrison_revisit_active = True
+                garrison_revisit_city = (_ox3, _oy3, _hz3)
+                garrison_revisit_start = traj["steps"]
+                # 预算按触发时切比雪夫距离自适应: dist 66 缺口需 >66 步, 固定 50 必超时 (09-25 诊断实锤)
+                garrison_revisit_budget = min(max(50, 3 * max(abs(_ox3 - _hx3), abs(_oy3 - _hy3))), 120)
+                print(f"[GARR_REVISIT] 触发 town={_tid3} garrison={_gs} hero=({_hx3},{_hy3}) step {traj['steps']} dist={max(abs(_ox3-_hx3),abs(_oy3-_hy3))} -> 粘滞回城取兵 (预算{garrison_revisit_budget}步)", flush=True)
+        # 粘滞驱动: 触发后每步重驱 a=24 直到收口 (邻接交窗 / 50步预算耗尽)
+        if garrison_revisit_active:
+            _cx3, _cy3, _cz3 = garrison_revisit_city
+            _ah3d = int(obs[3203]) if obs[3203] >= 0 else 0
+            _hb3d = 128 + _ah3d * 26
+            _hx4, _hy4 = int(obs[_hb3d+2]), int(obs[_hb3d+3])
+            if max(abs(_hx4 - _cx3), abs(_hy4 - _cy3)) <= 1:
+                garrison_revisit_active = False
+                garrison_revisit_done = True
+                a = 10  # END_TURN 原地: 交 TOWN_VISIT 取兵窗; a=24 会走"选新目标"分支把英雄拉走
+                move_target = None
+                move_guard_target = False
+                move_town_target = False
+                move_town_bfs = False
+                print(f"[GARR_REVISIT] 邻接 town=({_cx3},{_cy3}) step={traj['steps']} -> 交取兵窗, 收口", flush=True)
+            elif traj["steps"] - garrison_revisit_start >= garrison_revisit_budget:
+                garrison_revisit_active = False
+                garrison_revisit_done = True
+                a = 10  # 预算放弃: END_TURN 不驱动, 避免再选目标拉走
+                move_target = None
+                move_guard_target = False
+                move_town_target = False
+                move_town_bfs = False
+                print(f"[GARR_REVISIT] 预算({garrison_revisit_budget}步)耗尽 step={traj['steps']} 未邻接, 放弃本次回访 (本局不再驱动)", flush=True)
+            else:
                 a = 24
-                move_target = (_ox3, _oy3, _hz3)
+                move_target = (_cx3, _cy3, _cz3)
                 move_guard_target = False
                 move_town_target = False
                 move_town_bfs = True
-                garrison_revisit_done = True  # 每局 1 次: 触发即标记 (粘滞 move_town_bfs 带到底, 防逐帧刷打点)
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:
