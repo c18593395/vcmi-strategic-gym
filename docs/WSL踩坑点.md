@@ -316,3 +316,24 @@
 - **#228 不同源**：#228「obs 3464 修复」实为败北信号断链根修（局末 PvP 战斗结算挂起 → game_over=2 刷新），是局末问题，与局首 reset obs 全零无因果
 - **排查工具**：`py/_scan_h3m_players2.py`（raw 字节级读 .vmap players 段，临时脚本查完即删）；权威预检走 `py/sync_maps_to_runtime.py --strict`（自带 header.players 预检+原子写+写后校验）
 - **下一步**：N=4 灰度若 H3M 池图仍见 `[FILTER] obs_nz=0`，优先跑 `sync_maps_to_runtime.py --strict` 验在池 3 张 H3M 的 `header.players` 是否修净（确定性根因 L1），而非归因"竞态"
+
+---
+
+## 09-26 T14.2b 冒烟（t14-handicap 纯 JSON mod）新增踩坑
+
+### #316. obs 资源槽 log1p 压缩，int() 取整造成「A/B 曲线重合=mod 没生效」假象 ⚠️ 定案（09-25 冒烟最大误判源）
+
+- **现象**：t14-handicap B 组（king gold 15000）vs A 组（10000），直接 `int(obs[gold])` 对比逐帧曲线 → 完全重合 → 误判「mod 没流入引擎」
+- **根因**：obs 资源槽是 `np.log1p` 压缩值（`strategic_env.py` L454-462 `_LOG1P_COLS`：players gold(+2)/total_power(+12)/weekly_income(+13)）。log1p(10000)=9.21、log1p(15000)=9.62，`int()` 都压成 9 → 假重合
+- **修复/判据**：读 raw 必须 `np.exp(obs)-1` 反算。ridiculous 值铁证法（king gold 临时 500000）：B 组 obs 反算 raw=500000 原样进引擎，双通道（start resources + weekly income）确认生效
+- **通用教训**：凡 obs 对比实验先查该槽是否在 `_LOG1P_COLS`，压缩槽禁止 int 取整直比
+
+### #317. `wsl -d Ubuntu -u root bash -c` 嵌套层 shell 变量展开失效 ⚠️ 已踩（09-25 冒烟脚本调试）
+
+- **现象**：嵌套 `bash -c "..."` 里 `$VAR` 展开被外层/内层引号吃成空串，路径命令静默跑错目录
+- **修复**：一律字面路径或写 `.sh` 脚本文件执行；不靠嵌套展开。WSL 内路径统一字面量（`/home/administrator/...`）
+
+### #318. WSL 同步后 vcmi 仓 CRLF 行尾噪音（94 行 diff） ⚠️ 已挡（09-25）
+
+- **现象**：Windows↔WSL 同步后 vcmi 仓工作区满屏 CRLF↔LF 行尾 diff，`git diff --stat` 几百行但内容零改
+- **修复**：提交前 `git add --renormalize .`（或按文件 `git checkout`）洗行尾，只带真内容改；diff 前 `git diff -w` 先扣 whitespace 看实际改动

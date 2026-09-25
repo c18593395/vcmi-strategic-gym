@@ -188,6 +188,18 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 - **#228「obs 3464 修复」与此不同源**：#228 = 败北信号断链根修（局末 PvP 战斗结算挂起 → game_over=2 刷新），与局首 reset obs 全零无因果
 - **排查工具**：`py/_scan_h3m_players2.py`（raw 字节级读 .vmap players 段，临时脚本，查完即删）；权威预检走 `py/sync_maps_to_runtime.py --strict`（自带 header.players 预检）
 
+
+### 09-25 T14.2b t14-handicap 纯 JSON mod（KTV N=4 冒烟闭环，零 C++）
+
+**结论（边界）**：对称经济加速（mod 双通道 start resources + weekly income 均确认流入进程内引擎）**未单独治好 KTV 单图 DRAW**——A/B 两组 250 步 go 仍全 0（全截断），B 组总战力末帧 B>A 但 nk2 把钱吃进战力不收割。治 DRAW 根因 = T14.3 VictoryPursuer（无胜利条件解析层），对称加金只是加速双方攒钱。详见 fact_store #61 / 任务清单 T14.2b 段。
+
+**三条稳定参考**：
+- **进程内引擎读 `rel/bin` 树而非源根**：`ep_runner` 走 `libmlclient.so` 内嵌引擎（非独立 vcmiserver），mod/preset 生效路径 = `rel/bin/data/` + `rel/bin/Mods/`；`vcmi-native/`（源根）与 `rel/bin/` 双树独立，**mod 部署需双写**（`rel/bin/data` 软链到 `vcmi-native/data`，但 Mods 是两份）
+- **settings key = `weeklyBonusesAI`（带 "es"）**：schema + 官方 gameConfig.json + `GameSettings.cpp` L120 三元组 + mod.json 四方一致；C++ 枚举名 `RESOURCES_WEEKLY_BONUPS_AI` 无 es 是历史 typo，JSON 层以带 es 为准。`additionalProperties:false` 下错一个字母 = 通道 B 静默 0 效果（不报错）
+- **obs 资源槽 log1p 压缩**（详见踩坑 #316）：`_LOG1P_COLS` 槽位读 raw 必须 `np.exp(obs)-1`，int() 直比 = 假曲线重合误判
+
+**部署态**：preset 默认关（`keepDisabled=true`，零干扰）；启用 = `modSettings.json` `default.mods` 加 `"t14-handicap"` 一行；数值定稿 = core king 档 ×1.5（gold 全档 7500/11250/15000/15000/15000，weekly king gold=525）。仓内 `vcmi/Mods/t14-handicap/{mod.json,Content/config/difficulty.json}`。
+
 ---
 
 > ✅ **归档完成 (2026-09-25)**：原混在本文件的日期工作日志（共 290 块 / 3184 行）已全部拆分归档到 `WSL日志/` 下按日期命名的文件（2026-09-02 ~ 09-24），上方「三、日期工作日志」链接表已补全。本区清空，收到保存知识库指令时仍追加于此。
