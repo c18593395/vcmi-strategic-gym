@@ -493,6 +493,7 @@ try:
     # A3 (09-17): own_town 衰减/拉黑状态 (局内, 每局随 runner 重启重置; checkpoint resume 无残留)
     own_town_visits = {}     # {town_id: 已完成取兵窗次数} — scorer 衰减用 (窗结束时 +1)
     own_town_blocked = set() # 空撞拉黑: 取兵窗兵力零增量 → 本局整类剔除 (TOWN_EMPTY 打点)
+    own_town_empty_count = {} # 09-25 根因修复: {town_id: 空撞次数} — 首撞重试 / 二撞才拉黑 (周额刷新窗口)
     ts_blocked = set()       # 09-21 scorer 单目标拉黑: stall/横跳放弃的格子本局不再 pick (-803 局同 pick 50 拍死循环根治)
     ts_pick_count = {}       # 09-21 同目标 pick 累计计数: >=8 拉黑 (不依赖位置启发式 — 振荡形态多变, prev2/stall 都会漏)
     visit_town_id = None     # 当前取兵窗的城 id
@@ -698,7 +699,8 @@ try:
             a = 24
         # 2026-08-31 回城取兵检测: 英雄位于己方城 (dist<=1) → 启动 4 步 RECRUIT 窗 (带 30 步冷却防 spam)
         # 己方城识别: obs towns 段 [336+ti*18], owner==0 (红方) + pos 非零 (空槽全 0 排除)
-        # 触发信号 = recruit_mask 非零 (城有巢穴可招) — garrison 字段 C++ fill 恒 0 (strategic_state.cpp L724 memset, 未实现), 不可用
+        # 触发信号 = recruit_mask 非零 (城有巢穴可招) — garrison 字段: 09-01 前 C++ 恒 0 (strategic_state.cpp L724 memset 未实现),
+        # 09-01 P3 起 fill_v3_fields 已填驻军 (getUpperArmy→garrison[0-6]), obs 城槽 field 6-12 可用
         # 关键机制: visit 状态 RECRUIT dst=getUpperArmy()=英雄 → 新招兵直上部队, 无需 garrison 存量
         if visit_econ_cooldown > 0:
             visit_econ_cooldown -= 1
@@ -1671,12 +1673,24 @@ try:
                 print(f"[RECRUITED] army power +{_dp:.0f} at step {traj['steps']} (observe only)", flush=True)
         econ_prev_army_power = _army_now
         # --- A3 (09-17): 取兵窗空撞复核 (延迟一帧, _army_now = nobs 最新兵力, 含窗内招兵增量) ---
+        # 09-25 根因修复: 一撞永久拉黑 → 两撞拉黑 + 首撞 [TOWN_RETRY] 放行。
+        # 根因: 开局周额=0 (newWeek day 8 刷新) 时首窗必然空招 → 旧逻辑本局整城剔除,
+        #   day 8 后周额刷新也再没窗口取兵 → [RECRUITED] 结构性恒 0, 0.03×dp 奖励轴死信号。
+        # 修法: 首撞记 1 次 + 放行重试 (后续取兵窗照常触发), 二撞 (≥2) 才真拉黑 (防死城反复撞)。
         if visit_check_pending:
             visit_check_pending = False
             if _army_now <= (visit_army_snap or 0.0) + 1e-6:
-                own_town_blocked.add(visit_town_id)
-                print(f"[TOWN_EMPTY] town={visit_town_id} at step {traj['steps']} "
-                      f"army={_army_now:.0f} snap={visit_army_snap or 0.0:.0f} (recruit empty, blocked this ep)", flush=True)
+                _n_empty = own_town_empty_count.get(visit_town_id, 0) + 1
+                own_town_empty_count[visit_town_id] = _n_empty
+                if _n_empty >= 2:
+                    own_town_blocked.add(visit_town_id)
+                    print(f"[TOWN_EMPTY] town={visit_town_id} at step {traj['steps']} "
+                          f"army={_army_now:.0f} snap={visit_army_snap or 0.0:.0f} "
+                          f"(2nd empty, blocked this ep)", flush=True)
+                else:
+                    print(f"[TOWN_RETRY] town={visit_town_id} at step {traj['steps']} "
+                          f"army={_army_now:.0f} snap={visit_army_snap or 0.0:.0f} "
+                          f"(1st empty, allow retry after weekly quota refresh)", flush=True)
         # --- 优先级4 (前半): 首次踩资源点格 → 记步 ---
         _rpts = get_resource_points(args.mapname)
         if _rpts and econ_resource_step is None:
