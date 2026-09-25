@@ -1,0 +1,15 @@
+--- vcmi/ML/strategic_state.cpp.bak_s9go	2026-09-25 08:16:22.351696759 +0800
++++ vcmi/ML/strategic_state.cpp	2026-09-25 09:02:47.455821931 +0800
+@@ -838,6 +838,12 @@
+ // ML fix (09-24): 终局强制置位 — 由 client 侧 visitPlayerEndsGame 调用
+ extern "C" void strategic_state_force_game_over(int winner_player) {
+     s_force_game_over.store(winner_player, std::memory_order_release);
++    // 09-25 S-9 winner->go 收割: force 时直接把权威结构体刷成 winner_player+1
++    // (原仅设 atomic, 结构体 game_over 只在下次 yourTurn 的 strategic_state_update 刷新,
++    //  终局后 yourTurn 永不再来 -> 结构体恒 0 -> Python 共享内存读不到 -> 全池 588 局 go 全 0).
++    //  一次性置位, 终局后无 yourTurn/无 reset 会把它清回 0, 稳态.
++    if (g_strategic_state)
++        g_strategic_state->game_over = winner_player + 1;
+     fprintf(stderr, "[ML-fix] force game_over: winner=%d\n", winner_player);
+ }
+ 

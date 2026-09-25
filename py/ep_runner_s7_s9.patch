@@ -1,0 +1,25 @@
+--- a/py/ep_runner_one.py
++++ b/py/ep_runner_one.py
+@@ -1,6 +1,6 @@
+ import sys, os, json, argparse, random, zipfile, time, importlib, math, threading
+ from collections import deque
+-os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
++os.environ.setdefault("STRATEGIC_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so")  # 09-25 S-7: 部署侧可注入 ARM 值覆盖；本地无 env 时仍用此 WSL 值，行为不变
+ sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
+ import torch, torch.nn as nn
+ import numpy as np  # 2026-08-19 第5轮: MOVE_TO 展开用 np.asarray — 第4轮 24 零出现掩盖了缺失 (强制引导后必炸)
+@@ -1900,6 +1900,14 @@
+         except Exception:
+             pass
+ 
++# 09-25 S-9 winner->go 收割 (tail fresh-read): 终局 -2 路径 step() 跳过 _read_state, env._game_over 缓存停在终局前快照(=0);
++# C++ force 已在终局把 g_strategic_state->game_over 刷新 (strategic_state_force_game_over, S-9 keystone), 尾段 fresh-read 即取到.
++_s9_state = None
++try:
++    _s9_state = env._read_state()
++except Exception:
++    _s9_state = None
++traj["game_over"] = int(_s9_state.game_over if _s9_state is not None else getattr(env, "_game_over", 0))  # C++ 权威终局: 1=red/win, >=2=blue, 0=无, 供批评 harness 判 WIN/LOSS/DRAW
+ # 最终写入（正常退出时覆盖，确保完整数据）
+ with open(args.outfile, "w") as f:
+     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
