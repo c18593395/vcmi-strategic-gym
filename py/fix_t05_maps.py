@@ -3,11 +3,11 @@
 (战力近似同 tier 近战; peasant/archer/swordsman 均已实测存在)
 修复 4 张 T05 图, 写回 Maps/training 并同步 rel/bin/data/Maps/ 运行时路径
 """
+import os
 import zipfile, json, glob, shutil
 
 BAD, GOOD = "core:footman", "core:swordsman"
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 for p in sorted(glob.glob('/mnt/d/Bigdata/hero3_fresh/Maps/training/T05_*.vmap')):
     z = zipfile.ZipFile(p)
     header = json.loads(z.read("header.json"))

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """批次A 生效窗护栏判据计数 (WIN-1 ②④⑤不塌: 守卫胜闭环/自发经济/局长分布). 只读."""
+import os
 import re
 import statistics
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 with open(LOG, errors="replace") as f:
     lines = f.readlines()
 

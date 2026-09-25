@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 """S2 撤梯子判据复查: avg_r 跌<20% + 招兵/建设频率不塌。
 用法: s2_gate_check.py <窗起始行号> <窗名>  (可多次调用对比基线窗与 S2 窗)"""
+import os
 import re
 import statistics
 import sys
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 start = int(sys.argv[1])
 tag = sys.argv[2] if len(sys.argv) > 2 else f"L{start}"
 

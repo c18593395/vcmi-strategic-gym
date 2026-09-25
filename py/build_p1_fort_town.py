@@ -4,11 +4,12 @@
 生成 <名>_p1.vmap 副本, 不改原文件不入池 (错窗纪律: 地图轴, 等窗改名切换 + sync_maps --strict)。
 JSON 写法依据 CGTownInstance::serializeJsonOptions (L1107 buildingsLIC / all 数组 addBuilding)。
 dungeon 建筑 jsonKey: core:fort / core:dwellingLvl1 (config/factions/dungeon.json, dwellingLvl1 requires fort)。"""
+import os
 import json
 import shutil
 import zipfile
 
-MAPS_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"
+MAPS_DIR = os.environ.get("MAPS_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training")
 TARGETS = [
     "T05_adventure_36X36_01.vmap",
     "T05_adventure_52X52_02.vmap",

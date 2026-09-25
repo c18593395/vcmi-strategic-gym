@@ -19,7 +19,7 @@ import os
 import shutil
 import sys
 
-ROOT = "/home/administrator/vcmi-native"
+ROOT = os.environ.get("ROOT", "/home/administrator/vcmi-native")
 CPP = os.path.join(ROOT, "ML/strategic_state.cpp")
 H = os.path.join(ROOT, "ML/strategic_state.h")
 NPC = os.path.join(ROOT, "client/NetPacksClient.cpp")

@@ -2,6 +2,7 @@
 """#298 专项 v3: players 完整 JSON + mapLevels + events + 课程图对照 (09-23 只读)
 v2 发现: players dict 骨架级; good_to_go blue 无 mainTown; 对象数假设证伪。
 """
+import os
 import json, zipfile, re
 
 MAPS = [
@@ -15,8 +16,7 @@ MAPS = [
 PATHS = {
     "T05_adventure_52X52_01.vmap": "/mnt/d/Bigdata/hero3_fresh/maps/training/T05_adventure_52X52_01.vmap",
 }
-POOL = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
-
+POOL = os.environ.get("POOL", "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool")
 def strip_comments(s):
     return re.sub(r'^\s*//.*$', '', s, flags=re.M)
 

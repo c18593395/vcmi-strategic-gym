@@ -2,9 +2,10 @@
 """WIN-3 难度轴评估：72_02_duel 即插即用确认 + 108 duel 可完成度分析
 vmap 结构：objects.json 是 dict {key: {l, x, y, type, options:{owner,...}}}
 """
+import os
 import json, zipfile, os
 
-BASE = "/mnt/d/Bigdata/hero3_fresh/maps/training"
+BASE = os.environ.get("BASE", "/mnt/d/Bigdata/hero3_fresh/maps/training")
 STEPS_LIMIT = 200  # 当前 STEPS_PER_EP
 
 for name in ["T06_adventure_72X72_02_duel", "T06_adventure_108X108_02_duel"]:

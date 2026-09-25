@@ -11,15 +11,16 @@ C4.1: 全地图扫描脚本 — 从 WSL VCMI data/Maps 枚举所有 .h3m 文件�
         python3 /mnt/d/Bigdata/hero3_fresh/scan_maps.py
     '
 """
+import os
 import subprocess, json, os, tempfile, glob, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
 # === 配置 ===
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
-MAPS_DIR = "/home/administrator/vcmi-strategic/vcmi/data/Maps"
-OUTPUT = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
+MAPS_DIR = os.environ.get("MAPS_DIR", "/home/administrator/vcmi-strategic/vcmi/data/Maps")
+OUTPUT = os.environ.get("OUTPUT", "/mnt/d/Bigdata/hero3_fresh/available_maps.json")
 STEPS = 3          # 快速测试只需 3 步
 MAP_TIMEOUT = 30   # 每张图超时 30s
 MAX_WORKERS = 8    # 并行 8 路（WSL 可承受）

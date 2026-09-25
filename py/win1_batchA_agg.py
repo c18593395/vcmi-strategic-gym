@@ -6,12 +6,12 @@
 (零 BHERO_GRAD 输出 = P-H1 未生效), 视为污染段不计; 生效窗 = L102375 resume 起新代码。
 默认取最后一个 WIN1_BATCH 行为窗起点 (resume 不断窗); 传行号可手动指定历史窗。
 """
+import os
 import re
 import statistics
 import sys
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
-
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 with open(LOG, errors="replace") as f:
     lines = f.readlines()
 

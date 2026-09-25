@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """验证 _pool_index skip 标记生效"""
+import os
 import json, sys
 
-POOL_INDEX = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
+POOL_INDEX = os.environ.get("POOL_INDEX", "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json")
 idx = json.load(open(POOL_INDEX, encoding="utf-8"))
 
 skip_names = set()

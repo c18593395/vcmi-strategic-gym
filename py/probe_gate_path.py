@@ -2,10 +2,11 @@
 """实锤 approach2 移动失败: (3,4)->门格(0,3) 地形级 BFS 可达性 + 局部 ASCII 图
 背景: P1d-v2 approach2 13 次 from==to=(3,4), moveHero 直进门格 0 推进 (2026-09-03 凌晨)
 """
+import os
 import zipfile, json, os
 from collections import deque
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training")
 MAPS = [
     "T04_adventure_20X20_01.vmap",
     "T04_adventure_20X20_02.vmap",

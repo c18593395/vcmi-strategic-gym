@@ -17,7 +17,7 @@ import os
 import shutil
 import sys
 
-BASE = "/home/administrator/vcmi-native"
+BASE = os.environ.get("BASE", "/home/administrator/vcmi-native")
 QP = BASE + "/server/queries/QueriesProcessor.cpp"
 CG = BASE + "/server/CGameHandler.cpp"
 BR = BASE + "/server/battles/BattleResultProcessor.cpp"

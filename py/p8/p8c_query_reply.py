@@ -33,6 +33,7 @@ P8-C 收尾 2.1/2.2 — QueryReply(197) 组包脚本 + 8B/9B 回退 (QUERY-DIAG 
 跑法: 在 WSL 内 python3 /mnt/d/Bigdata/hero3_fresh/py/p8/p8c_query_reply.py
 预计 150-200s, 退出码 0=PASS / 2=未开局 / 3=FAIL
 """
+import os
 import sys, os, time, uuid as uuidlib, subprocess, threading, re, json
 
 sys.path.insert(0, '/mnt/d/Bigdata/hero3_fresh/py')
@@ -42,7 +43,7 @@ from vcmi_protocol.packs import (
     LobbyClientConnected, EndTurn, QueryReply, BuildStructure, RecruitCreatures)
 
 HOST = '127.0.0.1'; PORT = 3030
-BIN = '/home/administrator/vcmi-native/rel/bin'
+BIN = os.environ.get("BIN", '/home/administrator/vcmi-native/rel/bin')
 MAP = 'Maps/A Warm and Familiar Place.h3m'
 MY_COLOR = 0
 SRV_LOG = '/tmp/p8cr_srv.log'

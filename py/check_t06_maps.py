@@ -10,6 +10,7 @@
   6. 对角 duel 坐标 (red 在左上 5,5 / blue 在对角)
   7. 文件落地校验 (源 + 运行 + 副本 三处均存在)
 """
+import os
 import zipfile, json, os, sys, struct
 
 MAPS = [
@@ -24,10 +25,9 @@ VALID_RES = {'core:gold', 'core:wood', 'core:crystal'}
 VALID_MINE = {'core:goldMine'}
 VALID_HERO = {'core:edric', 'core:iona', 'core:alchemist'}
 
-SRC = "/mnt/d/Bigdata/hero3_fresh/Maps/training"
-RUNTIME = "/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps"
-CP = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+SRC = os.environ.get("SRC", "/mnt/d/Bigdata/hero3_fresh/Maps/training")
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-workspace/vcmi_gym/envs/v13/maps")
+CP = os.environ.get("CP", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 failures = []
 
 for name in MAPS:

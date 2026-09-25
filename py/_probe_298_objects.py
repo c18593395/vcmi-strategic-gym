@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """#298 专项 v4: objects 层 town/hero/owner 分布 + pipeline report + pool rank (09-23 只读)"""
+import os
 import json, zipfile, re
 from collections import Counter
 
-POOL = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
+POOL = os.environ.get("POOL", "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool")
 MAPS = [
     "good_to_go_h3m.vmap", "judgement_day_h3m.vmap", "elbow_room_h3m.vmap",
     "a_viking_we_shall_go_h3m.vmap", "arrogance_h3m.vmap",

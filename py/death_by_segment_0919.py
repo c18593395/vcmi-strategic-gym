@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """按行号分段统计 HERO_DEATH, 精确归属灾难前 vs 恢复段。"""
+import os
 import re
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 lines = open(LOG, errors="replace").readlines()
 
 SEGS = [

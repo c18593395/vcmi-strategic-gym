@@ -3,10 +3,11 @@
 """逐字复刻 train_wsl2_ppo_v2.py 的 run_episode spawn 方式, 复现池图 traj 丢失。
 用法: python3 _parentsim.py <map> <steps> <runs>
 """
+import os
 import os, sys, time, subprocess, glob
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 EP_TRAJ = "/tmp/traj_ep.json"          # 与训练完全同一路径
 CKPTS = sorted(glob.glob("/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_*.pt"),
                key=lambda p: int(p.rsplit("_", 1)[1].split(".")[0]), reverse=True)

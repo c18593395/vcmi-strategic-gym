@@ -33,10 +33,11 @@
   - 每局在独立进程组启动, 父进程收 SIGTERM/SIGINT 会连带 kill 整个局 (不留 vcmiserver 孤儿)。
   - 外层调度 timeout 必须 > --timeout, 给 Python 侧看门狗留出杀局+汇总时间。
 """
+import os
 import argparse, glob, json, os, re, signal, subprocess, sys, threading, time
 
-ROOT = "/mnt/d/Bigdata/hero3_fresh"
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
+ROOT = os.environ.get("ROOT", "/mnt/d/Bigdata/hero3_fresh")
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
 RUNNER = f"{ROOT}/py/ep_runner_one.py"
 HIST = f"{ROOT}/py/eval_history.jsonl"
 

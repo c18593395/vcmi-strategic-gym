@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # headless client segfault 定位: 用 logLocation 拿完整日志, 看连接失败前的最后行为
+import os
 import subprocess, os, time, socket
 
-BIN = '/home/administrator/vcmi-native/rel/bin'
+BIN = os.environ.get("BIN", '/home/administrator/vcmi-native/rel/bin')
 env = dict(os.environ)
 env['VCMI_TESTMAP_ONLYAI'] = '1'
 

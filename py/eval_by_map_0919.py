@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """按图分组对比死亡率: 守卫激活假设检验 (duel 图无中立怪, T05 有守卫)。"""
+import os
 import re, statistics
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 lines = open(LOG, errors="replace").readlines()
 
 SEGS = [("灾难前", 105629, 111327), ("恢复后", 111328, len(lines) + 1)]

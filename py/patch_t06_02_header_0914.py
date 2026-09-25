@@ -5,9 +5,10 @@
 #        (缺 victoryConditions/triggeredEvents/versionMajor 等, 01 系 13 字段正常)
 # 修补: 注入 01 系同款 8 字段, 保留各图 name/description/mapLevels/players,
 #        mods 置 null 与 01 系一致; terrain/objects 原样字节回写
+import os
 import zipfile, json, os, shutil, sys
 
-MAPDIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"
+MAPDIR = os.environ.get("MAPDIR", "/mnt/d/Bigdata/hero3_fresh/maps/training")
 TARGETS = [
     "T06_adventure_72X72_02.vmap",
     "T06_adventure_72X72_02_duel.vmap",

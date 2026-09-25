@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """高负局 act 序列分析: 从主日志 ep_steps 行提取, 对比高负局 vs 正局模式 (09-21)"""
+import os
 import re
 from collections import Counter
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 eps = []
 for line in open(LOG, errors="replace"):
     m = re.search(r"ep_steps=(\d+) r=(-?[\d.]+) act=\[([0-9, ]*)\]", line)

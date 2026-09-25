@@ -18,8 +18,7 @@ import re
 import shutil
 import sys
 
-ROOT = "/home/administrator/vcmi-native"
-
+ROOT = os.environ.get("ROOT", "/home/administrator/vcmi-native")
 RAII_SRC = """// ML fix (09-24): 规划链耗时打点 (trade 循环无上界 + 锁内全量重算取证)
 struct MlTimeGuard {
 \tconst char * name;

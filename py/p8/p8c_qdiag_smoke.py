@@ -8,6 +8,7 @@ opsx add-query-reply-live-verification — Task 1.2 QUERY-DIAG 冒烟 (最终版
 - server 必须先监听 (client 连不上会重试, 有 server 在即连上)
 流程: vcmiserver(diag=1) -> client1 --testmap guest -> ChangeHost -> 开局 -> 抓 QUERY-DIAG
 """
+import os
 import sys, os, time, uuid as uuidlib, subprocess, threading, re, socket
 
 sys.path.insert(0, '/mnt/d/Bigdata/hero3_fresh/py')
@@ -16,7 +17,7 @@ from vcmi_protocol.serialization import BinarySerializer, BinaryDeserializer
 from vcmi_protocol.packs import LobbyClientConnected
 
 HOST = '127.0.0.1'; PORT = 3030
-BIN = '/home/administrator/vcmi-native/rel/bin'
+BIN = os.environ.get("BIN", '/home/administrator/vcmi-native/rel/bin')
 MAP = 'Maps/A Warm and Familiar Place.h3m'
 MY_COLOR = 0
 SRV_LOG = '/tmp/qdiag_srv.log'

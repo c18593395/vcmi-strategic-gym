@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # 直接跑 vcmiclient --testmap 看卡在哪: 观察无 server 模式下 (端口不通) 的行为
+import os
 import subprocess, os, time
-BIN = '/home/administrator/vcmi-native/rel/bin'
+BIN = os.environ.get("BIN", '/home/administrator/vcmi-native/rel/bin')
 MAP = 'Maps/A Warm and Familiar Place.h3m'
 env = dict(os.environ)
 env['VCMI_TESTMAP_ONLYAI'] = '1'

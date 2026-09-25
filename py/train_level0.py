@@ -3,6 +3,7 @@
 Level 0 专用训练脚本
 使用 T01 地图 (无障碍基础地图) 训练
 """
+import os
 
 import subprocess, json, time, os, random, signal, sys
 import torch, torch.nn as nn, numpy as np
@@ -28,14 +29,12 @@ MAPS = [
 ]
 
 # === 路径配置 ===
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 TRAJ = "/tmp/traj_one.json"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state_level0.pt"
-LOG_PATH = "/mnt/d/Bigdata/hero3_fresh/train_level0.log"
-
-# === 网络定义 (必须与 ep_runner_one.py 一致) ===
+MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt")
+STATE_PATH = os.environ.get("STATE_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state_level0.pt")
+LOG_PATH = os.environ.get("LOG_PATH", "/mnt/d/Bigdata/hero3_fresh/train_level0.log")  # === 网络定义 (必须与 ep_runner_one.py 一致) ===
 class Net(nn.Module):
     def __init__(self):
         super().__init__()

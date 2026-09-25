@@ -32,15 +32,15 @@ from pathlib import Path
 
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh/py")
 
-ROOT = "/mnt/d/Bigdata/hero3_fresh"
-H3M_DIR = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-BIN = "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap"
-REL_MAPS = "/home/administrator/vcmi-native/rel/bin/data/Maps"
+ROOT = os.environ.get("ROOT", "/mnt/d/Bigdata/hero3_fresh")
+H3M_DIR = os.environ.get("H3M_DIR", "/home/administrator/vcmi-native/rel/bin/data/Maps")
+BIN = os.environ.get("BIN", "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap")
+REL_MAPS = os.environ.get("REL_MAPS", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 POOL = f"{ROOT}/maps/training/h3m_pool"
 WORK = "/tmp/h3m_pipeline"
 REPORT = f"{ROOT}/maps/h3m_to_vmap/_pipeline_report.json"
 CKPT_DIR = f"{ROOT}/checkpoints"
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
 RUNNER = f"{ROOT}/py/ep_runner_one.py"
 FAIL_TRIAGE = f"{ROOT}/maps/h3m_to_vmap/_fail_triage"  # OPS-JEV-02 取证目录 (Windows 侧归因消费)
 

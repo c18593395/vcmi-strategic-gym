@@ -1,5 +1,6 @@
+import os
 # [DIAG-0829] 修复 COMPLETE 标记错位 v2 (按行处理, 空白免疫)
-SRC = "/home/administrator/vcmi-native/ML/MLClient.cpp"
+SRC = os.environ.get("SRC", "/home/administrator/vcmi-native/ML/MLClient.cpp")
 with open(SRC) as f:
     lines = f.readlines()
 

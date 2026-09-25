@@ -14,7 +14,7 @@ import os
 import shutil
 import sys
 
-BASE = "/home/administrator/vcmi-native"
+BASE = os.environ.get("BASE", "/home/administrator/vcmi-native")
 CC = BASE + "/client/Client.cpp"
 AG = BASE + "/AI/Nullkiller2/AIGateway.cpp"
 T = "\t"

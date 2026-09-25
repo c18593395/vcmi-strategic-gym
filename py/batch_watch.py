@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """批转监控: 从指定起点行号读 h3m_batch_run.log 新轮次内容, 过滤 sanitize 明细噪声.
 用法: python py/batch_watch.py [起始行号, 默认找最后一个 '^\\[1/']"""
+import os
 import re
 import sys
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/tmp/h3m_batch_run.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/tmp/h3m_batch_run.log")
 start_marker = sys.argv[1] if len(sys.argv) > 1 else None
 
 lines = open(LOG, errors="replace").readlines()

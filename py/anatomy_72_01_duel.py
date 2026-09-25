@@ -11,10 +11,11 @@
 用法: wsl bash -c "python3 /mnt/d/Bigdata/hero3_fresh/py/anatomy_72_01_duel.py"
       (START 行号随窗滚动, 先 grep 定位最后 100 局起点)
 """
+import os
 import re
 import collections
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 START = 152775          # 最后 100 局窗口起点 (行号 1-based), 跑前先重定位
 TARGET = "T06_adventure_72X72_01_duel.vmap"
 TAIL_N = 12            # 死局前回看 SCORE 拍数

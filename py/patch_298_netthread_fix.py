@@ -17,7 +17,7 @@ import os
 import shutil
 import sys
 
-BASE = "/home/administrator/vcmi-native"
+BASE = os.environ.get("BASE", "/home/administrator/vcmi-native")
 CH = BASE + "/client/Client.h"
 CC = BASE + "/client/Client.cpp"
 CSH = BASE + "/client/CServerHandler.cpp"

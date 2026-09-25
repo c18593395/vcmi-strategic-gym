@@ -3,11 +3,12 @@
 """贴脸局日志快照器 (09-18 B+C 验证窗): 主日志出现 BHERO_CONTACT 时, 立即复制当前最新
 /tmp/hermes_ep_*.log 为 /tmp/hermes_snap_<时刻>.log, 供单局归因 (主日志交织无法归属事件行)。
 用法: nohup venv-python py/contact_log_snapshot.py >/tmp/snapshot.log 2>&1 &"""
+import os
 import glob
 import shutil
 import time
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 seen = 0
 _ring = 0
 last_ring = 0.0

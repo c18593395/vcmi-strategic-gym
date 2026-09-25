@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """批次B+A3 修复后首窗验证: 最近 WIN1_BATCH 行之后的双轨信号。只读。"""
+import os
 import re
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 with open(LOG, errors="replace") as f:
     lines = f.readlines()
 

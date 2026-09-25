@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """20X20_01 单局 eval + 英雄真实轨迹分析 (对照 20X20_02)
 复刻 eval_promo.py 环境参数, 但保留 traj 文件做逐步位置分析"""
+import os
 import glob, json, os, re, subprocess, sys, time
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
-ROOT = "/mnt/d/Bigdata/hero3_fresh"
-
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
+ROOT = os.environ.get("ROOT", "/mnt/d/Bigdata/hero3_fresh")
 GUARDS = {
     "T03_adventure_20X20_01.vmap": [(5, 6), (6, 5)],
     "T03_adventure_20X20_02.vmap": [(8, 7), (9, 6)],

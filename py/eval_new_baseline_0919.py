@@ -9,9 +9,10 @@ duel 净胜率 (MVP 指标): 净胜率 = 守卫胜率 - 困死率 (duel 图), �
   1) 直接运行: 用内置 START 行号 (默认最后 40 局)
   2) 改 START 行号评估其他窗口 (见 eval_new_baseline_0919.py 头部注释)
 """
+import os
 import re, statistics, collections
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 lines = open(LOG, errors="replace").readlines()
 
 # 评估起点 (行号, 1-based) — 09-22 T7.8 新观测窗 (终版护栏 + pick 拉黑, 01:00 重启 banner 后)

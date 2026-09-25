@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """训练日志快速分析: 奖励分布 / 胜率代理 / 1步局定位 / 分图统计"""
+import os
 import re, sys, io
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 WINS = {"win"}  # 首胜判定: r>=80 且 steps<60 (与 eval_promo 同口径)
 
 rs = []          # (line_no, steps, r, map)

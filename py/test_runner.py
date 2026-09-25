@@ -1,10 +1,10 @@
+import os
 import subprocess, os
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 TRAJ = "/tmp/traj_test.json"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt"
-
+MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt")
 mapname = "T01_adventure_20X20_01.vmap"
 
 env = os.environ.copy()

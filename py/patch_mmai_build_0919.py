@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """09-19 WSL 重建补丁 5/5：MMAI 库本体版本漂移修复（AAI.cpp 落后于 AAI.h）。
@@ -6,9 +7,8 @@
 2) router.cpp ASSERT(shared_ptr) 显式转 bool（宏展开不接受 implicit 转换）。
 幂等可重放。
 """
-F1 = "/home/administrator/vcmi-native/AI/MMAI/AAI/AAI.cpp"
-F2 = "/home/administrator/vcmi-native/AI/MMAI/BAI/router.cpp"
-
+F1 = os.environ.get("F1", "/home/administrator/vcmi-native/AI/MMAI/AAI/AAI.cpp")
+F2 = os.environ.get("F2", "/home/administrator/vcmi-native/AI/MMAI/BAI/router.cpp")
 changed = []
 
 s = open(F1).read()
@@ -41,7 +41,7 @@ if changed:
     print("补丁应用成功:", " + ".join(changed))
 
 # 3) BAI.cpp 三处（shared_ptr 隐式转 bool ×2 + 字面量赋值笔误 ×1）
-F3 = "/home/administrator/vcmi-native/AI/MMAI/BAI/v13/BAI.cpp"
+F3 = os.environ.get("F3", "/home/administrator/vcmi-native/AI/MMAI/BAI/v13/BAI.cpp")
 s = open(F3).read()
 fixes3 = [
     ('ASSERT(state->battlefield, "Cannot build battle action if state->battlefield is missing");',
@@ -65,7 +65,7 @@ if changed:
     print("全部完成:", " + ".join(changed))
 
 # 4) global_stats.cpp 适配 11 项 schema（BATTLE_ROUND）：断言 10→11 + 构造 NA + update 动态 round
-F4 = "/home/administrator/vcmi-native/AI/MMAI/BAI/v13/global_stats.cpp"
+F4 = os.environ.get("F4", "/home/administrator/vcmi-native/AI/MMAI/BAI/v13/global_stats.cpp")
 s = open(F4).read()
 pending = False
 
@@ -130,7 +130,7 @@ else:
     print("补丁应用成功: AAI 补 onNewSystemMessageReceived 实现")
 
 # 6) router.cpp 补 Router::onNewSystemMessageReceived 实现（同 5，链接缺符号）
-F5 = "/home/administrator/vcmi-native/AI/MMAI/BAI/router.cpp"
+F5 = os.environ.get("F5", "/home/administrator/vcmi-native/AI/MMAI/BAI/router.cpp")
 s = open(F5).read()
 impl5 = ("\n"
          "// 09-19 重建补丁: router.h 声明了 onNewSystemMessageReceived(const override) 但实现缺失\n"

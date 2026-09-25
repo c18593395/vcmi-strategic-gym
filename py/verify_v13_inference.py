@@ -1,11 +1,10 @@
 # v13 battle onnx inference verification (0908)
+import os
 import sys
 import numpy as np
 import onnxruntime as ort
 
-MODEL = "/home/administrator/mmai-battle-test/config/MMAI/models/defender-fqcbvmti-best7.onnx"
-
-
+MODEL = os.environ.get("MODEL", "/home/administrator/mmai-battle-test/config/MMAI/models/defender-fqcbvmti-best7.onnx")
 def run():
     sess = ort.InferenceSession(MODEL, providers=["CPUExecutionProvider"])
     rng = np.random.default_rng(42)

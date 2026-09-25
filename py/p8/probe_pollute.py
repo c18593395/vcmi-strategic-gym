@@ -1,5 +1,6 @@
+import os
 import socket, time, subprocess, os
-BIN = "/home/administrator/vcmi-native/rel/bin"
+BIN = os.environ.get("BIN", "/home/administrator/vcmi-native/rel/bin")
 env = dict(os.environ); env["VCMI_QUERY_DIAG"] = "1"
 subprocess.run(["pkill", "-f", "vcmiserver"], capture_output=True)
 time.sleep(1)

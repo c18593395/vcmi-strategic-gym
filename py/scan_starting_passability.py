@@ -4,13 +4,14 @@
 每张图跑 1 步，读 obs[-8:] 看有几格可通行。
 输出按可通行数降序排列。
 """
+import os
 import subprocess, json, tempfile, os, sys, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
-MAPS_JSON = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
-OUTPUT = "/mnt/d/Bigdata/hero3_fresh/passability_ranking.json"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
+MAPS_JSON = os.environ.get("MAPS_JSON", "/mnt/d/Bigdata/hero3_fresh/available_maps.json")
+OUTPUT = os.environ.get("OUTPUT", "/mnt/d/Bigdata/hero3_fresh/passability_ranking.json")
 STEPS = 1
 TIMEOUT = 30
 MAX_WORKERS = 8

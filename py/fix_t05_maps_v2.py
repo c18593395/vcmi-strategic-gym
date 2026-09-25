@@ -3,6 +3,7 @@
 core:resourceGold→core:gold / core:resourceWood→core:wood / core:resourceRare→core:crystal
 (T04 已验证可加载的类型; resourceRare 语义 = 稀有矿 → crystal)
 """
+import os
 import zipfile, json, glob, shutil
 
 MAP_SUB = {
@@ -10,8 +11,7 @@ MAP_SUB = {
     "core:resourceWood": "core:wood",
     "core:resourceRare": "core:crystal",
 }
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 for p in sorted(glob.glob('/mnt/d/Bigdata/hero3_fresh/Maps/training/T05_*.vmap')):
     z = zipfile.ZipFile(p)
     header = json.loads(z.read("header.json"))

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """WSL2 PPO — 多步自对弈训练 (GPU) — C3.2+C4.2"""
+import os
 import subprocess, json, time, os, random, signal, sys
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
@@ -29,11 +30,11 @@ try:
 except Exception as e:
     print(f"Could not load available_maps.json ({e}), using hardcoded {len(MAPS)} maps", flush=True)
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 TRAJ = "/tmp/traj_one.json"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt"  # 模型+优化器联合保存
+MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt")
+STATE_PATH = os.environ.get("STATE_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt")  # 模型+优化器联合保存
 
 
 REWARD_SCALE = 1.0  # 奖励值 [-10,10] 无需缩放

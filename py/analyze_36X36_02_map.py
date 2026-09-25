@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """0910 36X36_02 地形障碍图: rocks/water ASCII 可视化 + red 路线阻塞分析 (对照 01)"""
+import os
 import zipfile, json
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/"
-
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training/")
 def load(name):
     z = zipfile.ZipFile(MAP_DIR + name)
     terr = json.loads(z.read("surface_terrain.json"))

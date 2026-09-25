@@ -17,13 +17,13 @@
   python3 py/analyze_trunc200.py --last 60  # 尾窗 60 个 ep 行
   python3 py/analyze_trunc200.py --all      # 全历史
 """
+import os
 import math
 import re
 import sys
 from collections import Counter, defaultdict
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
-
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 EP_PAT = re.compile(
     r"ep_steps=(\d+) r=(-?[\d.]+) act=\[([0-9, ]*)\] obs_nz=(\d+) map=(\S+)"
 )

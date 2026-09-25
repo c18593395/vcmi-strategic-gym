@@ -7,11 +7,11 @@
 每张: 去 hero_2/hero_3 + town_2/3 → 1 red (hero_0+town_0) vs 1 blue (hero_1+town_1) 对角。
 只生成+inspect+同步副本, 不入 MAPS (等 duel 判据达标后择机入池)。
 """
+import os
 import zipfile, json, shutil
 
-SRC_DIR = '/mnt/d/Bigdata/hero3_fresh/Maps/training'
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+SRC_DIR = os.environ.get("SRC_DIR", '/mnt/d/Bigdata/hero3_fresh/Maps/training')
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 DROP = {"hero_2", "hero_3", "town_2", "town_3"}
 SOURCES = [
     "T06_adventure_72X72_02.vmap",

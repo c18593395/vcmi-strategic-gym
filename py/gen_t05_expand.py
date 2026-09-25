@@ -4,11 +4,11 @@
 调守卫: 36X36_02 swordsman 8→4 / archer 10→5 / peasant 15→8 (可赢难度)
 产出 4 张新图 → Maps/training + rel/bin/data/Maps 双路径 (踩坑 #143 事实 2)
 """
+import os
 import zipfile, json, glob, shutil, os
 
-SRC_DIR = "/mnt/d/Bigdata/hero3_fresh/Maps/training"
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+SRC_DIR = os.environ.get("SRC_DIR", "/mnt/d/Bigdata/hero3_fresh/Maps/training")
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 def rot180_terrain(grid):
     return [row[::-1] for row in grid[::-1]]
 

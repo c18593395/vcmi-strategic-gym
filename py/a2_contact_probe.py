@@ -2,10 +2,11 @@
 """A2 只读归因: 批次B 窗 contact 为何仍 0 + 红蓝位置轨迹实证
 用法: python3 py/a2_contact_probe.py [窗口起始标记关键字, 默认最后一个 WIN1_BATCH]
 只读 train_loop.log, 不碰训练。"""
+import os
 import re, sys, io
 from collections import defaultdict
 
-LOG = '/mnt/d/Bigdata/hero3_fresh/train_loop.log'
+LOG = os.environ.get("LOG", '/mnt/d/Bigdata/hero3_fresh/train_loop.log')
 MARK = sys.argv[1] if len(sys.argv) > 1 else 'WIN1_BATCH'
 
 re_ep  = re.compile(r'ep_steps=(\d+)\s+r=([-\d.]+)\s+act=\[(.+?)\]\s+obs_nz=(\d+)\s+map=(\S+)')

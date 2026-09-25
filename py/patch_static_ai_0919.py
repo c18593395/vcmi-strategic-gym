@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """09-19 WSL 重建补丁 4/5：ML 模式静态 AI 机制。
@@ -8,9 +9,8 @@
 MMAI::AAI 符号来自 OBJECT 库）+ 解除 ML/MMAI 互斥让 OBJECT 库编出来。
 幂等可重放。
 """
-F1 = "/home/administrator/vcmi-native/lib/callback/CDynLibHandler.cpp"
-F2 = "/home/administrator/vcmi-native/CMakeLists.txt"
-
+F1 = os.environ.get("F1", "/home/administrator/vcmi-native/lib/callback/CDynLibHandler.cpp")
+F2 = os.environ.get("F2", "/home/administrator/vcmi-native/CMakeLists.txt")
 changed = []
 
 # 1) CDynLibHandler.cpp: 文件级 #define STATIC_AI

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """检查 6 张 T03 地图的 hero 出生点 vs 守卫曼哈顿距离 (项目 1 守卫 patch 是否已做)"""
+import os
 import zipfile, json, os
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/Maps/training"
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/Maps/training")
 MAPS = [
     "T03_adventure_20X20_01.vmap",
     "T03_adventure_20X20_02.vmap",

@@ -34,7 +34,7 @@ import os
 import shutil
 import sys
 
-DEFAULT_ROOT = "/home/administrator/vcmi-native"
+DEFAULT_ROOT = os.environ.get("DEFAULT_ROOT", "/home/administrator/vcmi-native")
 BAK = ".bak_298restore"
 
 CG = "server/CGameHandler.cpp"

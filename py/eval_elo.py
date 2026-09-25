@@ -30,8 +30,8 @@ import sys
 import tempfile
 
 # ── WSL 环境常量 ─────────────────────────────────────────────────────────
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 STEPS = 20
 
 # 默认地图池
@@ -43,9 +43,7 @@ MAPS = [
 # 日志路径（Windows 路径）
 LOG_PATH_WIN = r"D:\Bigdata\hero3_fresh\elo_log.json"
 # WSL 等价路径（用于 os.path.exists 等 POSIX 调用）
-LOG_PATH_WSL = "/mnt/d/Bigdata/hero3_fresh/elo_log.json"
-
-
+LOG_PATH_WSL = os.environ.get("LOG_PATH_WSL", "/mnt/d/Bigdata/hero3_fresh/elo_log.json")
 def run_game(mapname, red_model, blue_model, baseline_type="stupidai"):
     """跑一局，返回 (total_reward, has_error)。
 

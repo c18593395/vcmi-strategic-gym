@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """训练日志全段分析: 进度/吞吐/分图/截断/胜负/熵与KL健康度/异常事件 (250步口径)"""
+import os
 import re, io, sys
 from collections import defaultdict
 
-LOG = '/mnt/d/Bigdata/hero3_fresh/train_loop.log'
+LOG = os.environ.get("LOG", '/mnt/d/Bigdata/hero3_fresh/train_loop.log')
 WIN_R, WIN_S = 80, 60          # 首胜代理口径
 CAPS = [200, 250]              # 历史/当前步上限
 

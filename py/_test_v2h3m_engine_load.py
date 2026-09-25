@@ -7,9 +7,8 @@
 import os
 import sys
 
-ROOT = "/mnt/d/Bigdata/hero3_fresh"
-GYM = "/home/administrator/vcmi-workspace"
-
+ROOT = os.environ.get("ROOT", "/mnt/d/Bigdata/hero3_fresh")
+GYM = os.environ.get("GYM", "/home/administrator/vcmi-workspace")
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, GYM)
 sys.path.insert(0, ROOT)

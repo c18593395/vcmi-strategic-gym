@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """T05 图修复 v3 (2026-09-03): hero_1 portrait/type core:inham (fork 不存在) → core:iona (T04 已验证)"""
+import os
 import zipfile, json, glob, shutil
 
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 for p in sorted(glob.glob('/mnt/d/Bigdata/hero3_fresh/Maps/training/T05_*.vmap')):
     z = zipfile.ZipFile(p)
     header = json.loads(z.read("header.json"))

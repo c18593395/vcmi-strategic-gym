@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Level 0 训练 - 使用 T01 地图"""
+import os
 import subprocess, json, time, os, random, signal, sys
 import torch, torch.nn as nn, numpy as np
 from torch.distributions import Categorical
@@ -22,13 +23,11 @@ MAPS = [
     "T01_adventure_36X36_01.vmap",
 ]
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 TRAJ = "/tmp/traj_one.json"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state_level0.pt"
-
-# 网络定义 (与 ep_runner_one.py 一致)
+MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_model_level0.pt")
+STATE_PATH = os.environ.get("STATE_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state_level0.pt")  # 网络定义 (与 ep_runner_one.py 一致)
 class Net(nn.Module):
     def __init__(self):
         super().__init__()

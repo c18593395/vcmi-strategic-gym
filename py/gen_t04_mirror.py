@@ -6,9 +6,10 @@
 命名: T04_adventure_{W}X{H}_0{n}_mir.vmap (n=1→3, n=2→4)
 运行: wsl bash -c "python3 /mnt/d/Bigdata/hero3_fresh/py/gen_t04_mirror.py"
 """
+import os
 import zipfile, json, os, sys
 
-SRC_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"
+SRC_DIR = os.environ.get("SRC_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training")
 SRC_MAPS = [
     "T04_adventure_20X20_01.vmap",
     "T04_adventure_20X20_02.vmap",

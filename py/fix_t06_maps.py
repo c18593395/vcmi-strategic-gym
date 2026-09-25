@@ -10,11 +10,11 @@
 duel 变体 (方案 A 核心思路: 只加大图轴, 不加多敌轴 — 一次一个难度轴):
   T06_adventure_72X72_01_duel.vmap = 72X72_01 去掉 hero_2/hero_3 + town_2/town_3 → 1v1 对角 (与 T05 结构一致)
 """
+import os
 import zipfile, json, glob, shutil
 
-SRC_GLOB = '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_*.vmap'
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-
+SRC_GLOB = os.environ.get("SRC_GLOB", '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_*.vmap')
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 HERO_MAP = {"hero_1": "core:edric", "hero_2": "core:iona", "hero_3": "core:alchemist"}
 RES_MAP = {"core:resourceGold": "core:gold", "core:resourceWood": "core:wood",
            "core:resourceRare": "core:crystal"}
@@ -104,8 +104,8 @@ for p in sorted(glob.glob(SRC_GLOB)):
     print(f"OK {p.split('/')[-1]}: hero={n_fix['hero']} res={n_fix['res']} mon={n_fix['mon']}")
 
 # ===== 2) 生成 duel 变体 (1v1: 删 hero_2/3 + town_2/3) =====
-SRC = '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_72X72_01.vmap'
-DST = '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_72X72_01_duel.vmap'
+SRC = os.environ.get("SRC", '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_72X72_01.vmap')
+DST = os.environ.get("DST", '/mnt/d/Bigdata/hero3_fresh/Maps/training/T06_adventure_72X72_01_duel.vmap')
 DROP = {"hero_2", "hero_3", "town_2", "town_3"}
 
 data = load_vmap(SRC)

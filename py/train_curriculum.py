@@ -9,6 +9,7 @@ Curriculum Learning Training Script
 3. 训练状态保存/加载
 4. 监控指标记录
 """
+import os
 
 import subprocess, json, time, os, random, signal, sys
 import torch, torch.nn as nn, numpy as np
@@ -29,14 +30,12 @@ GAMMA = 0.99
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # === 路径配置 ===
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 TRAJ = "/tmp/traj_one.json"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt"
-CURRICULUM_CONFIG = "/mnt/d/Bigdata/hero3_fresh/curriculum_config.yaml"
-
-# === 网络定义 ===
+MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt")
+STATE_PATH = os.environ.get("STATE_PATH", "/mnt/d/Bigdata/hero3_fresh/wsl2_train_state.pt")
+CURRICULUM_CONFIG = os.environ.get("CURRICULUM_CONFIG", "/mnt/d/Bigdata/hero3_fresh/curriculum_config.yaml")  # === 网络定义 ===
 class Net(nn.Module):
     def __init__(self):
         super().__init__()

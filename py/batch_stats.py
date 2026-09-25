@@ -6,7 +6,7 @@ import os
 import re
 import time
 
-ROOT = "/mnt/d/Bigdata/hero3_fresh"
+ROOT = os.environ.get("ROOT", "/mnt/d/Bigdata/hero3_fresh")
 REPORT = f"{ROOT}/maps/h3m_to_vmap/_pipeline_report.json"
 LOG = f"{ROOT}/tmp/h3m_batch_run.log"
 POOL = f"{ROOT}/maps/training/h3m_pool"

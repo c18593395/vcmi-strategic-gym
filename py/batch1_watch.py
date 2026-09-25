@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """batch1 表现观测: 重启以来 batch1 五图 vs 课程图对照 (09-22)
 用法: python3 py/batch1_watch.py"""
+import os
 import re
 import statistics
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 BATCH1 = {
     "good_to_go_h3m.vmap", "judgement_day_h3m.vmap", "elbow_room_h3m.vmap",
     "a_viking_we_shall_go_h3m.vmap", "a_viking_we_shall_go_allied_h3m.vmap",

@@ -12,16 +12,16 @@ Usage:
   M5 移除 --regenerate 空实现开关 (无可靠的逐图生成器分发; 且自动重生成权威训练图
      有覆盖风险, 地图生成请显式调用 gen_t*/regenerate_* 脚本并走 sync_maps_to_runtime 流程)。
 """
+import os
 import sys, os, time, json, subprocess, glob, argparse
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 os.environ["PYTHONPATH"] = "/mnt/d/Bigdata/hero3_fresh"
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training"  # 09-23 测试套件 H1 修复: Maps→maps (WSL ext4 大小写敏感, 原值目录不存在致实跑全 FAIL)
-VCMI_MAPS = "/home/administrator/vcmi-native/rel/bin/data/Maps"
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-EP_RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
-OUTFILE = "/home/administrator/validate_map.json"
-
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training")  # 09-23 测试套件 H1 修复: Maps→maps (WSL ext4 大小写敏感, 原值目录不存在致实跑全 FAIL)
+VCMI_MAPS = os.environ.get("VCMI_MAPS", "/home/administrator/vcmi-native/rel/bin/data/Maps")
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+EP_RUNNER = os.environ.get("EP_RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
+OUTFILE = os.environ.get("OUTFILE", "/home/administrator/validate_map.json")
 def load_terrain_grid():
     """读取 terrain_grid.bin"""
     fpath = "/home/administrator/vcmi-workspace/terrain_grid.bin"

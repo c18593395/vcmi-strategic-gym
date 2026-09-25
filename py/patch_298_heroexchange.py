@@ -3,9 +3,10 @@
 对齐 makeGarrisonDialog 08-27 bothAI 同款模式。精确替换 + count 断言 + 自动备份, 失败即退。
 运行: wsl bash -c "python3 /mnt/d/Bigdata/hero3_fresh/py/patch_298_heroexchange.py"
 """
+import os
 import shutil, sys
 
-TARGET = "/home/administrator/vcmi-native/server/CGameHandler.cpp"
+TARGET = os.environ.get("TARGET", "/home/administrator/vcmi-native/server/CGameHandler.cpp")
 BACKUP = TARGET + ".bak_298_0923"
 
 ANCHOR = "\t\tauto exchange = std::make_shared<CGarrisonDialogQuery>(this, h1, h2);"

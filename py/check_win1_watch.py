@@ -23,11 +23,12 @@ WIN-1 五判据 (见 docs/当前任务清单.md WIN-1):
   python3 check_win1_watch.py --last 40  # 尾窗 40 有效局口径
   python3 check_win1_watch.py --from-line 88446
 """
+import os
 import re
 import sys
 from collections import defaultdict
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 TARGET_N = 40          # WIN-1 聚合目标局数
 OBS5_MAX_STEPS = 60    # OBS-5 无标记短终局: 步数上限
 

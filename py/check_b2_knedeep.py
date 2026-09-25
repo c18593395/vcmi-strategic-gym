@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # B2 冒烟前置检查 v2: B2_KneeDeep.vmap 零改写直通产物
 # header.json 可能带注释/非严格 JSON (引擎 fixStringsTextIDInJson 产物) → 宽松解析
+import os
 import zipfile, json, collections, os, re
 
-MAPS_TRAINING = "/mnt/d/Bigdata/hero3_fresh/maps/training"
-RUNTIME = "/home/administrator/vcmi-native/rel/bin/data/Maps"
+MAPS_TRAINING = os.environ.get("MAPS_TRAINING", "/mnt/d/Bigdata/hero3_fresh/maps/training")
+RUNTIME = os.environ.get("RUNTIME", "/home/administrator/vcmi-native/rel/bin/data/Maps")
 NAME = "B2_KneeDeep.vmap"
 
 def strip_json_comments(s: str) -> str:

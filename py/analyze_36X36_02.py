@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """0910 T05 36X36_02 重设计分析: 对象布局 + 地形障碍 dump, 对照 36X36_01"""
+import os
 import zipfile, json, sys
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/"
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training/")
 NAMES = ["T05_adventure_36X36_01.vmap", "T05_adventure_36X36_02.vmap"]
 
 for name in NAMES:

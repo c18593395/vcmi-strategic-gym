@@ -4,6 +4,7 @@
 用法 (WSL): python3 py/snapshot_observe.py [train_loop.log 路径]
 只统计最后一次 'Loaded train state' 之后的数据。
 """
+import os
 import re, sys, statistics
 from collections import defaultdict
 
@@ -84,7 +85,7 @@ for l in w:
             guards_seq[-1] = (guards_seq[-1][0], guards_seq[-1][1], last_map)
 
 import zipfile, json
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/"
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training/")
 def vis_set(mapname):
     try:
         z = zipfile.ZipFile(MAP_DIR + mapname)

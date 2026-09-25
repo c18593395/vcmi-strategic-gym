@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """检测 Round 3 完成 → 跑基线评估 → 重启训练"""
+import os
 import subprocess, json, time, os, sys
 
-LOG_WSL = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
-EVAL_FLAG = "/mnt/d/Bigdata/hero3_fresh/.eval_round3_done"
-
-# 检查 Round 3 是否已完成（3 个 DONE 行）
+LOG_WSL = os.environ.get("LOG_WSL", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
+EVAL_FLAG = os.environ.get("EVAL_FLAG", "/mnt/d/Bigdata/hero3_fresh/.eval_round3_done")  # 检查 Round 3 是否已完成（3 个 DONE 行）
 result = subprocess.run(
     ["wsl", "-d", "Ubuntu", "--", "bash", "-c",
      f'grep -c "^DONE:" {LOG_WSL}'],

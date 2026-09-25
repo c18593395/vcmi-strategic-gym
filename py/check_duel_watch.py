@@ -14,11 +14,12 @@ T05 同口径对照 + 1v3 结案面板 (30 局判据 + 战斗质量三指标)
   ②[GUARD] 守卫胜闭环率趋势 = 有 [GUARD] 的局占比, 前 1/3 vs 后 1/3 (duel 基线 96.9%)
   ③蓝英雄 roaming 交战频率 = ([TOWNSTALL]+[TOWN_BLOCKED]) 次数/局 (1v3 vs duel 对比)
 """
+import os
 import re, sys, os
 from collections import defaultdict
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
-KILL_LOG = "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
+KILL_LOG = os.environ.get("KILL_LOG", "/mnt/d/Bigdata/hero3_fresh/battle_quality_events.log")
 WINDOW = int(sys.argv[1]) if len(sys.argv) > 1 else 200  # 最近 N 个 ep 行
 
 pat = re.compile(

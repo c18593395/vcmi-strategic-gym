@@ -3,8 +3,9 @@
 # 猜测: server 的 "Listening" 在 accept loop 就绪前打印; port probe 成功后立刻断开
 # (probe 本身占了一个 accept!), 随后 backlog 满/状态异常导致真连接被拒?
 # 测试: 不做 port probe, 直接 connect + 重试
+import os
 import socket, time, subprocess, os
-BIN = "/home/administrator/vcmi-native/rel/bin"
+BIN = os.environ.get("BIN", "/home/administrator/vcmi-native/rel/bin")
 env = dict(os.environ); env["VCMI_QUERY_DIAG"] = "1"
 subprocess.run(["pkill", "-f", "vcmiserver"], capture_output=True)
 time.sleep(1)

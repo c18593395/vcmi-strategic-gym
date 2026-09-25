@@ -12,12 +12,13 @@
   - 对症 "蓝英雄 obs 外 → move_blue_hero_target 恒 False → 旁路 0 进入" 的困死场景
   - 验证目标: FORCE=1 下 [BHERO_ATTACK] 是否 >0 (对比 bypass 仅 0 条)
 """
+import os
 import subprocess, os, re, sys, time
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
 MAP = "T06_adventure_72X72_02_duel.vmap"
-CKPT = "/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_818598.pt"
+CKPT = os.environ.get("CKPT", "/mnt/d/Bigdata/hero3_fresh/checkpoints/wsl2_ckpt_818598.pt")
 LOG_BASE = "/tmp/smoke_force_ep_%d.log"
 
 # 3 参数 (A2 贴脸强攻)

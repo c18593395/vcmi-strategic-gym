@@ -13,7 +13,7 @@ import os
 import shutil
 import sys
 
-ROOT = "/home/administrator/vcmi-native"
+ROOT = os.environ.get("ROOT", "/home/administrator/vcmi-native")
 TARGET = os.path.join(ROOT, "AI/MMAI/AAI/AAI.cpp")
 BAK = TARGET + ".bak_mlaai"
 

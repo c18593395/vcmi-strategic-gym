@@ -4,13 +4,13 @@
 用法 (WSL): python3 py/diag_obj_dump.py T05_adventure_36X36_01.vmap [T06_adventure_72X72_01.vmap ...]
 单局 reset 即停, 不训练; 每图 ~1-2 分钟。
 """
+import os
 import sys, os, json, zipfile, time
 os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
-MAP_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/"
-
+MAP_DIR = os.environ.get("MAP_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training/")
 def static_coords(mapname):
     p = MAP_DIR + mapname
     with zipfile.ZipFile(p) as z:

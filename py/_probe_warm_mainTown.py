@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """probe: a_warm_and_familiar_place 清洗前后 mainTown 与城坐标对照"""
+import os
 import zipfile, json, sys
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh/py")
 from h3m2vmap import _loads_permissive
@@ -30,7 +31,7 @@ for t in towns:
           f"l={t.get('l')} x={t.get('x')} y={t.get('y')} name={t.get('instanceName')}")
 
 # 清洗后的 vmap（已部署到 rel/bin 的那个）
-REL = "/home/administrator/vcmi-native/rel/bin/data/Maps/a_warm_and_familiar_place_h3m.vmap"
+REL = os.environ.get("REL", "/home/administrator/vcmi-native/rel/bin/data/Maps/a_warm_and_familiar_place_h3m.vmap")
 print(f"\n=== 已部署 vmap: {REL} ===")
 try:
     z2 = zipfile.ZipFile(REL)

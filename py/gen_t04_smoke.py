@@ -6,11 +6,11 @@
       兵力价值相当 (swordsman vs archer 同 tier), 保证多回合
 运行: wsl bash -c "python3 /mnt/d/Bigdata/hero3_fresh/py/gen_t04_smoke.py"
 """
+import os
 import zipfile, json, os
 
-SRC = "/mnt/d/Bigdata/hero3_fresh/maps/training/T04_adventure_20X20_01.vmap"
-DST = "/mnt/d/Bigdata/hero3_fresh/maps/training/T04smoke_adventure_20X20_bai.vmap"
-
+SRC = os.environ.get("SRC", "/mnt/d/Bigdata/hero3_fresh/maps/training/T04_adventure_20X20_01.vmap")
+DST = os.environ.get("DST", "/mnt/d/Bigdata/hero3_fresh/maps/training/T04smoke_adventure_20X20_bai.vmap")
 with zipfile.ZipFile(SRC) as zin:
     header = json.loads(zin.read("header.json"))
     terrain = json.loads(zin.read("surface_terrain.json"))

@@ -35,6 +35,7 @@ probe_t06_gameover.py — T06 终局方向判别探针 (g3b 交付, 09-11 只写
   3. 跑完重启: wsl -u root systemctl start homm3-train-v5
   traj 持久落盘 py/probe_t06_traj.json (D: 盘, 避免 /tmp/EP_TRAJ pid 覆盖事故重演)
 """
+import os
 import os, sys, json, time, argparse
 
 # ---- WSL 运行时环境 (镜像 train_wsl2_ppo_v2.py L123-125, setdefault 不覆盖已设值) ----
@@ -49,7 +50,7 @@ import torch.nn as nn
 from torch.distributions import Categorical
 from vcmi_gym.envs.v13.strategic_env import StrategicEnv
 
-PROJECT = "/mnt/d/Bigdata/hero3_fresh"
+PROJECT = os.environ.get("PROJECT", "/mnt/d/Bigdata/hero3_fresh")
 DEFAULT_MODEL = "checkpoints/wsl2_ckpt_623809.pt"  # 最新 PPO ckpt (相对项目根)
 
 

@@ -5,11 +5,11 @@
 守卫: core:archer x8 放 (8,9) (红城→矿对角路径中段); 兵力相当 = 多回合攻防
 参数: --economy_force 0 (消除 16-21 对 move_to 的覆盖)
 """
+import os
 import zipfile, json, os
 
-SRC = "/mnt/d/Bigdata/hero3_fresh/maps/training/T04_adventure_20X20_01.vmap"
-DST = "/mnt/d/Bigdata/hero3_fresh/maps/training/T04smoke_adventure_20X20_bai.vmap"
-
+SRC = os.environ.get("SRC", "/mnt/d/Bigdata/hero3_fresh/maps/training/T04_adventure_20X20_01.vmap")
+DST = os.environ.get("DST", "/mnt/d/Bigdata/hero3_fresh/maps/training/T04smoke_adventure_20X20_bai.vmap")
 with zipfile.ZipFile(SRC) as zin:
     header = json.loads(zin.read("header.json"))
     terrain = json.loads(zin.read("surface_terrain.json"))

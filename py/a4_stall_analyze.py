@@ -9,12 +9,13 @@
 - 停滞步 (guide_abort 模拟口径): 零推进步 或 所在 8 步窗振荡
 分段: econ 0-23 / 引导窗 24-59 (move_to_force=60) / 自由期 60+
 """
+import os
 import re
 import statistics
 import sys
 from collections import defaultdict
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 DIRS = [(0,-1),(1,-1),(1,0),(1,1),(0,1),(-1,1),(-1,0),(-1,-1)]
 
 with open(LOG, errors="replace") as f:

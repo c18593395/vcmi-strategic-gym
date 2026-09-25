@@ -2,9 +2,10 @@
 # 用法: python3 patch_diag_0829.py apply|revert
 # - apply:   MLClient.cpp -> MLClient.cpp (打补丁, 已备份 .bak_diag20260829)
 # - revert:  从 .bak_diag20260829 恢复
+import os
 import sys, shutil
 
-SRC = "/home/administrator/vcmi-native/ML/MLClient.cpp"
+SRC = os.environ.get("SRC", "/home/administrator/vcmi-native/ML/MLClient.cpp")
 BAK = SRC + ".bak_diag20260829"
 
 GUARD_OLD = """    void shutdown_vcmi() {

@@ -30,15 +30,14 @@
     "present"      该修复应当存在于源码中；缺失即报错（这是真正的回归）
     "lost_pending" 已知丢失、待恢复；缺失只告警不报错（恢复后改成 present）
 """
+import os
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
-DEFAULT_ROOT = "/home/administrator/vcmi-native"
-
-# (id, 相对路径, grep 标记, 期望, 说明)
+DEFAULT_ROOT = os.environ.get("DEFAULT_ROOT", "/home/administrator/vcmi-native")  # (id, 相对路径, grep 标记, 期望, 说明)
 PATCHES = [
     # ---------- #298 三套补丁（09-23）----------
     ("298-stk", "server/queries/QueriesProcessor.cpp", "[ML-stk]", "present",

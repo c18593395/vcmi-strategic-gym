@@ -48,10 +48,10 @@ from pathlib import Path
 # ── 默认路径 ──────────────────────────────────────────────────────────────────
 ROOT_WIN = Path(r"D:\Bigdata\hero3_fresh")
 ROOT_WSL = Path("/mnt/d/Bigdata/hero3_fresh")
-ENGINE_BIN = "/home/administrator/vcmi-native/rel/bin"
+ENGINE_BIN = os.environ.get("ENGINE_BIN", "/home/administrator/vcmi-native/rel/bin")
 ENGINE_DATA = os.path.join(ENGINE_BIN, "data", "Maps")
-CONVERTER = "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap"
-BATCH_OUT = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap"
+CONVERTER = os.environ.get("CONVERTER", "/home/administrator/vcmi-native/tools/h3m2vmap/build/h3m2vmap")
+BATCH_OUT = os.environ.get("BATCH_OUT", "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap")
 BATCH_REPORT = os.path.join(BATCH_OUT, "_report.json")
 BATCH_LOG = os.path.join(BATCH_OUT, "_batch.log")
 

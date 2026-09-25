@@ -22,17 +22,13 @@ import time
 import subprocess
 
 # ===== 路径配置 (WSL2) =====
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-EXPORT = "/mnt/d/Bigdata/hero3_fresh/scripts/export_rl_onnx.py"
-WINRATE = "/mnt/d/Bigdata/hero3_fresh/py/winrate_eval.py"
-CKPT_DIR = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
-MODELS_BASE = "/mnt/d/Bigdata/hero3_fresh"
-
-# VCMI / libmlclient 运行环境 (与 train_wsl2_ppo_v2.run_episode 一致)
-LD_LIBRARY_PATH = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
-STRATEGIC_STATE_LIB = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
-
-# ===== 服务器配置 =====
+VENV = os.environ.get("VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+EXPORT = os.environ.get("EXPORT", "/mnt/d/Bigdata/hero3_fresh/scripts/export_rl_onnx.py")
+WINRATE = os.environ.get("WINRATE", "/mnt/d/Bigdata/hero3_fresh/py/winrate_eval.py")
+CKPT_DIR = os.environ.get("CKPT_DIR", "/mnt/d/Bigdata/hero3_fresh/checkpoints")
+MODELS_BASE = os.environ.get("MODELS_BASE", "/mnt/d/Bigdata/hero3_fresh")  # VCMI / libmlclient 运行环境 (与 train_wsl2_ppo_v2.run_episode 一致)
+LD_LIBRARY_PATH = os.environ.get("LD_LIBRARY_PATH", "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel")
+STRATEGIC_STATE_LIB = os.environ.get("STRATEGIC_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so")  # ===== 服务器配置 =====
 SERVER = "172.16.2.40"
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=15"]
 INCOMING_DIR = "/DATA/hero3/models_incoming"

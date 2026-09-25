@@ -12,9 +12,10 @@
 #   1. 起点跳过: it->coord(格子) 改与 hero 真实落格 convertToVisitablePos(cur->pos) 比较
 #   2. 入队换算: pathVec.push_back(cur->convertFromVisitablePos(it->coord))  格子→锚点
 # 修复后: path 各步落格与规划一致, 尾补 standGoal 单步可同拍连上 → 直达门格 visit
+import os
 import io, sys
 
-PATH = "/home/administrator/vcmi-native/AI/MMAI/AAI/AAI.cpp"
+PATH = os.environ.get("PATH", "/home/administrator/vcmi-native/AI/MMAI/AAI/AAI.cpp")
 BAK = PATH + ".bak_p1e_r2"
 
 with io.open(PATH, "r", encoding="utf-8") as f:

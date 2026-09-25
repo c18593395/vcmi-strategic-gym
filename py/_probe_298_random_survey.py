@@ -3,10 +3,11 @@
 假设: randomTown/randomHero/random* 对象加载期随机解析 → 概率性触发引擎 bug。
 对照批转结果(池内=PASS): 若含随机对象的图普遍带雷而 viking(纯实体)幸存 → 假设成立。
 """
+import os
 import json, zipfile, re, os
 from collections import Counter
 
-POOL = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
+POOL = os.environ.get("POOL", "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool")
 IDX = json.load(open("/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json", encoding="utf-8"))
 
 RANDOM_PAT = re.compile(r'^random', re.I)  # type 以 random 开头

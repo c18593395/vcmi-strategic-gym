@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """09-19 恢复段 vs 灾难前 S2 窗: 局/结束原因/战斗事件 对比评估。"""
+import os
 import re, statistics
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 lines = open(LOG, errors="replace").readlines()
 
 SEGS = [

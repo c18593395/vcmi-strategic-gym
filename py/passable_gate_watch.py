@@ -3,10 +3,11 @@
 """passable 闸门（方案甲）4 判据验证看板。只读 train_loop.log，窗起点 = 最后一条 WIN1_BATCH 行。
 判据: ① passable 新口径不炸(无 moveHero 全拒/#143 复发) ② 首个真实战斗事件 ③ BHERO_KILL 非零 ④ 死亡局占比<20% + avg_r 无塌
 """
+import os
 import re
 import statistics
 
-LOG = "/mnt/d/Bigdata/hero3_fresh/train_loop.log"
+LOG = os.environ.get("LOG", "/mnt/d/Bigdata/hero3_fresh/train_loop.log")
 lines = open(LOG, errors="replace").readlines()
 start = max(i for i, l in enumerate(lines, 1) if "WIN1_BATCH" in l)
 seg = lines[start:]
