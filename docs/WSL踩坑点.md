@@ -337,3 +337,10 @@
 
 - **现象**：Windows↔WSL 同步后 vcmi 仓工作区满屏 CRLF↔LF 行尾 diff，`git diff --stat` 几百行但内容零改
 - **修复**：提交前 `git add --renormalize .`（或按文件 `git checkout`）洗行尾，只带真内容改；diff 前 `git diff -w` 先扣 whitespace 看实际改动
+
+### #319. t14-handicap 通道 B JSON key 拼写 `weeklyBonusesAI`（带 es）四方定谳 ⚠️ 定案（09-25/09-26）
+
+- **现象**：T14.2b 做 mod 时 C++ 枚举名是 `RESOURCES_WEEKLY_BONUPS_AI`（**无 es**，官方 VCMI 历史 typo），手滑把 mod.json 的 JSON key 也照抄成无 es 版 → 被 schema `additionalProperties:false` **静默拒收**（不报错，通道 B 直接 0 效果）
+- **定谳（字节级四方一致）**：合法 JSON key = `weeklyBonusesAI`（**带 es**）——`config/schemas/gameSettings.json`、官方 `gameConfig.json`、`GameSettings.cpp` L120 三元组、mod.json 四处全带 es；**仅 C++ 枚举名无 es（官方 typo）**，两侧本来就不一致
+- **坑点**：`mod.json settings` 走 schema 校验（`additionalProperties:false`），错一个字母不报任何错、只是该字段被丢弃 → 表现为「mod 加载 OK 但通道 B 无效果」，极易误判为「mod 没生效」（与 #316 log1p 假象叠加成双重误判源）
+- **判据/防再踩**：改 mod settings 后必跑 ridiculous 值探针（临时拉满数值看 obs 反算 raw 是否原样进引擎）——本次 weekly 通道 s29 income 8.16→10.24 即靠此坐实 key 被正确消费
