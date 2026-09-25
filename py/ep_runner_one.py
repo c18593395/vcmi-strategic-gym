@@ -1,6 +1,6 @@
 import sys, os, json, argparse, random, zipfile, time, importlib, math, threading
 from collections import deque
-os.environ["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
+os.environ.setdefault("STRATEGIC_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so")  # 09-25 S-7: 部署侧可注入 ARM 值覆盖；本地无 env 时仍用此 WSL 值，行为不变
 sys.path.insert(0, "/mnt/d/Bigdata/hero3_fresh")
 import torch, torch.nn as nn
 import numpy as np  # 2026-08-19 第5轮: MOVE_TO 展开用 np.asarray — 第4轮 24 零出现掩盖了缺失 (强制引导后必炸)
@@ -558,18 +558,20 @@ try:
                     # 目标: 先学会地图探索, 内政关闭直到能把官方地图跑通
                     # 2026-08-27: 屏蔽无操作动作 — 训练构建真源 (vcmi-native-build) only executes 0-7/24; 8/9/11-15 无执行分支 (纯浪费步)
                     # ========== 永久屏蔽段 (Level 0-5 不变) ==========
-                    # 8=INTERACT / 9=NEXT_HERO / 11-15=SPLIT/MERGE: vcmi-native-build 真源无 switch 执行分支 → 纯NOOP刷步
+                    # ========== 09-25 方案B: 开放 13/14/15 (SPLIT_ALL/MERGE_FROM/SWAP_ARMY) ==========
+                    # C++ 侧 (AAI.cpp L197-238) 已有执行分支: 13/14/15 = 英雄↔友方英雄搬兵 (不需在城)
+                    # 11=SPLIT_1OF3 / 12=SPLIT_1OF2: 保留屏蔽 (C++ L180 有分支但当前用不上, 防误用)
                     logits[8] = float('-inf')
                     logits[9] = float('-inf')
-                    logits[11:16] = float('-inf')
-                    # ========== 内政动作 (16-23): Level 3 (T04) 起按需开启 ==========
+                    logits[11:13] = float('-inf')   # 只挡 11/12, 保留 13/14/15
+                    # ========== 内政动作 (16-23): 方案B 全图开 (原 T04 专属 → 全图) ==========
                     # 22=GARRISON (需双目标) / 23=RECRUIT_HERO (需多英雄槽): 永久关, Level 4 多英雄再评估
                     logits[22:24] = float('-inf')
-                    if not args.mapname.startswith("T04"):
-                        # 非 T04 地图 (当前 Level 2 = T03×2): 16-21 全屏蔽, 行为 100% 等价旧代码
-                        logits[16:22] = float('-inf')
-                        # (模型从没见过这些码 (BC 无样本) → logits 极负, 需 --economy_force 采样强制引导)
-                    else:
+                    if True:
+                        # === 方案B: 全图 16-18 RECRUIT + 19-21 BUILD 开, 需两道硬门槛 (位域 + 资源) ===
+                        # 门槛1: 位域合法性 (VCMI 引擎直接暴露的解锁状态)
+                        #   recruit_mask 256 bits @ obs[640:672] (32 bytes): bit i = 兵种 i 可招募
+                        #   build_mask 256 bits @ obs[672:704] (32 bytes):   bit i = 建筑 i 可建造
                         # === T04 (有城镇): 16-18 RECRUIT + 19-21 BUILD 开, 但需两道硬门槛 ===
                         # 门槛1: 位域合法性 (VCMI 引擎直接暴露的解锁状态)
                         #   recruit_mask 256 bits @ obs[640:672] (32 bytes): bit i = 兵种 i 可招募
@@ -1770,8 +1772,14 @@ try:
         _ah3 = int(nobs[3203]) if nobs[3203] >= 0 else 0
         _cur_pos_all = (int(nobs[128 + _ah3 * 26 + 2]), int(nobs[128 + _ah3 * 26 + 3]), int(nobs[128 + _ah3 * 26 + 4]))
         # 横跳惩罚 (2026-08-19): 回到两格前位置 = 往返打转 (局部最优), 额外 -2.0
-        if len(traj["obs"]) >= 2:
-            prev2 = traj["obs"][-2]
+        # P0 修正 (09-24): 原比较 prev2=traj["obs"][-2] (第 t-1 步 obs) 对 nobs[t]
+        # → 实为"1 步位置不变"(move_reject 场景), E-W 横跳时 pos[t]≠pos[t-1] 永远漏检。
+        # 改 traj["obs"][-3] (第 t-2 步 obs) → 真"回到 2 格前", E-W 对拍命中。
+        # P0 结构 (09-24): roundtrip 块提升至此与 zigzag 平级 — 原嵌套在
+        # "if _cur_pos_all == prev2_pos" 内, 横跳交替帧恒真虽能进入, 但平级更清晰且
+        # 避免被 zigzag 的 else 分支误关。roundtrip 门控 _al_from 保持同步。
+        if len(traj["obs"]) >= 3:
+            prev2 = traj["obs"][-3]
             ah2 = int(prev2[3203]) if prev2[3203] >= 0 else 0
             base2 = 128 + ah2 * 26
             prev2_pos = (int(prev2[base2+2]), int(prev2[base2+3]), int(prev2[base2+4]))
@@ -1788,8 +1796,11 @@ try:
             # 0915: T06 move_to_force=250 → 横跳8步窗门控也永假, 用 act_loop_from_step 解耦
             _al_from = args.act_loop_from_step if args.act_loop_from_step > 0 else args.move_to_force
             if len(traj["obs"]) >= 8 and traj["steps"] >= _al_from:
+                # 8 步窗: 当前 nobs + 之前 7 步 (traj["obs"][-7:] 在 obs 追加前 = obs[t-7]..obs[t-1],
+                # 配合当前 nobs = 含当前帧在内的最近 8 帧位置, 检测 2 格交替)
                 recent = []
-                for o in traj["obs"][-8:]:
+                recent.append((int(nobs[128 + _ah3 * 26 + 2]), int(nobs[128 + _ah3 * 26 + 3])))
+                for o in traj["obs"][-7:]:
                     a2 = int(o[3203]) if o[3203] >= 0 else 0
                     b2 = 128 + a2 * 26
                     recent.append((int(o[b2+2]), int(o[b2+3])))
@@ -1900,6 +1911,14 @@ if args.kill_r_first > 0 and (_attack_tried or _kill_pending is not None):
         except Exception:
             pass
 
+# 09-25 S-9 winner->go 收割 (tail fresh-read): 终局 -2 路径 step() 跳过 _read_state, env._game_over 缓存停在终局前快照(=0);
+# C++ force 已在终局把 g_strategic_state->game_over 刷新 (strategic_state_force_game_over, S-9 keystone), 尾段 fresh-read 即取到.
+_s9_state = None
+try:
+    _s9_state = env._read_state()
+except Exception:
+    _s9_state = None
+traj["game_over"] = int(_s9_state.game_over if _s9_state is not None else getattr(env, "_game_over", 0))  # C++ 权威终局: 1=red/win, >=2=blue, 0=无, 供批评 harness 判 WIN/LOSS/DRAW
 # 最终写入（正常退出时覆盖，确保完整数据）
 with open(args.outfile, "w") as f:
     json.dump(traj, f); f.flush(); os.fsync(f.fileno())
