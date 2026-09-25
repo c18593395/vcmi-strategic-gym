@@ -501,6 +501,7 @@ try:
     visit_army_snap = None   # 窗开启时兵力 power 快照 (空撞判定基线)
     visit_check_pending = False  # 窗已结束待空撞复核 (延迟一帧到 army power 段, 用 nobs 最新兵力)
     start_home = True        # 2026-09-02 出发前招兵阶段: 每局开局先回城招兵带兵再探索 (用户设计)
+    garrison_revisit_done = False  # 09-25 回访取兵修复: 城堆兵回访引导每局一次性标记 (防横跳)
     own_town_guiding = False # 取兵引导状态 (边沿检测: 启动瞬间打诊断日志用)
     own_town_guide_count = 0 # 诊断日志限次 (每局上限 5 条防刷屏)
 
@@ -794,6 +795,39 @@ try:
                 move_guard_target = False
                 move_town_target = False
                 move_town_bfs = True
+        # 09-25 回访取兵修复: start_home 开局引导一邻接就永久解除 → 英雄外出探索后永不回城,
+        # 招进城的兵堆 garrison (实测 elbow_room 局 garrison 0→25 而 hero_army 恒 25, [RECRUITED] 断)。
+        # 修法: 城 garrison≥10 + 英雄非邻接 + step>60 (不干扰开局相位/取兵窗) → 每局一次性强制回城
+        # (复用 move_town_bfs 粘滞引导); 邻接后现有 visit 检测自动开取兵窗 → 窗内 RECRUIT dst=getUpperArmy
+        # =英雄部队, 直上部队 → [RECRUITED] 出信号。garrison_revisit_done 保证每局 1 次防横跳。
+        if (not garrison_revisit_done and args.objective_reward > 0 and red_model is not None
+                and visit_econ_steps <= 0 and traj["steps"] > 60):
+            _ah3 = int(obs[3203]) if obs[3203] >= 0 else 0
+            _hb3 = 128 + _ah3 * 26
+            _hx3, _hy3, _hz3 = int(obs[_hb3+2]), int(obs[_hb3+3]), int(obs[_hb3+4])
+            _hit = None
+            for _ti3 in range(8):
+                _tb3 = 336 + _ti3 * 18
+                if int(obs[_tb3+1]) == 0 and (int(obs[_tb3+2]) > 0 or int(obs[_tb3+3]) > 0):
+                    _gs = sum(int(obs[_tb3+6+_gi]) for _gi in range(7))
+                    if _gs >= 10:
+                        _ox3, _oy3 = int(obs[_tb3+2]), int(obs[_tb3+3])
+                        if max(abs(_ox3 - _hx3), abs(_oy3 - _hy3)) <= 1:
+                            garrison_revisit_done = True  # 已邻接 → visit 检测接手开取兵窗
+                            print(f"[GARR_REVISIT] town={int(obs[_tb3])} garrison={_gs} adjacent at step {traj['steps']}", flush=True)
+                            _hit = "adj"
+                        else:
+                            _hit = (_ox3, _oy3, _gs, int(obs[_tb3]))
+                        break
+            if _hit not in (None, "adj"):
+                _ox3, _oy3, _gs, _tid3 = _hit
+                print(f"[GARR_REVISIT] town={_tid3} garrison={_gs} hero=({_hx3},{_hy3}) step {traj['steps']} -> 强制回城取兵", flush=True)
+                a = 24
+                move_target = (_ox3, _oy3, _hz3)
+                move_guard_target = False
+                move_town_target = False
+                move_town_bfs = True
+                garrison_revisit_done = True  # 每局 1 次: 触发即标记 (粘滞 move_town_bfs 带到底, 防逐帧刷打点)
         # MOVE_TO (24): 朝 target_list 目标走一格 (目标导向采集, 2026-08-19)
         # 粘滞: 上次目标未到达则继续用 (防漂移来回走); target_list obs[3251:3315] 8x8: type,idx,x,y,z,dist,power,flags
         if a == 24:
