@@ -298,3 +298,21 @@
 - **根因**：Python `global slots` 延迟求值，但函数体执行时 `slots` 未定义
 - **修复**：`if "slots" in globals():` 防御（slots 定义前 SIGTERM 跳过清理，此时无子进程残留）
 - **教训**：模块级注册信号处理器 + 全局变量定义在处理器之后的代码，必须加 `globals()` 防御
+
+### #314. `[SLOT] 全崩兜底` 日志措辞误导（正常 batch 满跳出被命名为"全崩"）✅ 已改（09-25）
+
+- **现象**：N=4 并行日志满屏 `[SLOT] 全崩兜底: buffer=2182/2048, 跳出进 PPO 更新`，用户误判为 4 个子进程全崩
+- **根因**：L815 `if all(s["proc"] is None and s["traj"] is None)` 在 4 slot 正常并行完成（4 局同时跑完 → 同时 poll 完成）时**必然为 True**（设计内 batch 满跳出），却被打印成"全崩兜底"；且 `rc=0` 才是健康标志（子进程正常退出码），日志却与"全崩"并列
+- **修复**：改措辞 → L815 `[SLOT] batch 满 (buffer=X/2048), N slot 回收完毕, 跳出进 PPO 更新`；L420/L719 `[FILTER] obs_nz=0` 从「脏样本」改为「首拍全零丢弃 (reset 冷启动竞态/地图 header.players 缺陷)」点明两类根因
+- **教训**：日志措辞必须与触发语义严格对齐；「兜底」「全崩」等强语义词若触发条件是设计内常态，会系统性误导排查方向。`rc=0`=健康退出 / `rc≠0`(−6 SIGABRT / −11 SIGSEGV / −15 SIGTERM)=崩溃，是判断子进程健康的唯一真锚点
+
+### #315. H3M 池图首拍 obs 全零 = 三层叠加根因，非单一"引擎 reset 竞态" ⚠️ 排查结论（09-25）
+
+- **现象**：N=4 灰度里 H3M 池图（King_of_Pain/good_to_go/judgement_day）偶发 `[FILTER] obs_nz=0 首拍全零丢弃`，课程图（T04/T05/T06）几乎不出现
+- **三层根因**（按证据强度）：
+  1. **地图 `header.players=[]` 空数组（确定性，已修 #222/#223）** — 主因。`h3m2vmap` 工具链导出时漏注入 `header.players` → 引擎不建玩家槽位 → obs 城段 owner 全 0 → runner `no_own_town` abort（`ep_runner_one.py` L762-778）→ 首拍全零。King of Pain 早期 10/10 局全脏即此（#222 修后归零）。**这是确定性地图缺陷，非偶发竞态**
+  2. **引擎 reset 冷启动竞态（偶发 ~4%，#214 残余）** — `strategic_env.py` L690 `_adventure_wait()` 300s 内未收到 yourTurn 回调 / obs 填充线程未就绪 → `return np.zeros(OBS_DIM)`；H3M 72×72/108×108 大图 reset ~600s 竞争窗口大
+  3. **XDG 目录缺失（已修 #308，独立故障线）** — `$HOME/.local/share/vcmi/` 不存在 → `.vmap` 加载失败误报 Permission denied → SIGABRT rc=−6 丢 traj（走 `[WARN] traj 读取失败` 分支，**不是 obs_nz=0 分支**，两条故障要分开看）
+- **#228 不同源**：#228「obs 3464 修复」实为败北信号断链根修（局末 PvP 战斗结算挂起 → game_over=2 刷新），是局末问题，与局首 reset obs 全零无因果
+- **排查工具**：`py/_scan_h3m_players2.py`（raw 字节级读 .vmap players 段，临时脚本查完即删）；权威预检走 `py/sync_maps_to_runtime.py --strict`（自带 header.players 预检+原子写+写后校验）
+- **下一步**：N=4 灰度若 H3M 池图仍见 `[FILTER] obs_nz=0`，优先跑 `sync_maps_to_runtime.py --strict` 验在池 3 张 H3M 的 `header.players` 是否修净（确定性根因 L1），而非归因"竞态"

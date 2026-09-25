@@ -417,7 +417,7 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM", slot=0):
                 # 2026-09-13 方案 A: 全零 obs 局 (引擎 reset 冷启动竞态, obs_nz=0) 不进 buffer —
                 # 02_duel 4 局 steps=1 secs=603 实证: 首拍 obs 全零 + 无效动作 = 脏样本污染 PPO 价值网
                 if obs_nz == 0:
-                    print(f"  [FILTER] obs_nz=0 脏样本丢弃 (引擎 reset 竞态), 不进 buffer map={mapname}", flush=True)
+                    print(f"  [FILTER] obs_nz=0 首拍全零丢弃 (reset 冷启动竞态/地图 header.players 缺陷), 不进 buffer map={mapname}", flush=True)
                     return None
             return d
     except Exception as _e:
@@ -716,7 +716,7 @@ def _harvest_slots():
             if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
                 obs_nz = np.count_nonzero(d["obs"][0])
                 if obs_nz == 0:
-                    print(f"  [FILTER] slot obs_nz=0 脏样本丢弃 map={s['map']}", flush=True)
+                    print(f"  [FILTER] slot obs_nz=0 首拍全零丢弃 (reset 冷启动竞态/地图 header.players 缺陷) map={s['map']}", flush=True)
                     continue
         for i in range(d["steps"]):
             for k in ["obs", "act", "rew", "nobs", "done"]:

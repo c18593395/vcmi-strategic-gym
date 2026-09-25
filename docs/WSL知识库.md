@@ -176,6 +176,18 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 - `C:/Users/Administrator/.wslconfig`（memory=12GB + swap=4GB）
 - `py/homm3-train-v5.service` + `/etc/systemd/system/homm3-train-v5.service`（HOMM3_N_SUBPROC=4）
 
+**日志口径说明（09-25 补，防误判）**：
+- 并行 `[SLOT]` 行打印 `avg_r=`（= `np.mean(traj["rew"])`，逐帧均值），串行打印 `r=`（= `total_rew`，整局累积）——两者口径不同但都是奖励指标，**`avg_r` 是更细的逐帧均值**，不是数据丢失
+- `rc=0` = ep_runner 子进程**正常退出码**（跑完 250 步或自然 done，traj 正常写出）；`rc≠0`（-6/SIGABRT、-11/SIGSEGV、-15/SIGTERM）= 崩溃/被杀，traj 被 `[FILTER]` 丢弃。4 个 slot 全 `rc=0` = 全健康
+- 全崩兜底日志措辞 09-25 已改：原「全崩兜底: buffer=X/2048」在 N 个 slot 正常并行完成时必然触发（4 slot 同时 poll 完成 = 设计内 batch 满跳出），易误读为崩溃 → 改后 L815 `[SLOT] batch 满...跳出进 PPO 更新`、L420/L719 `[FILTER] obs_nz=0 首拍全零丢弃 (reset 冷启动竞态/地图 header.players 缺陷)`（踩坑 #314）
+
+**H3M 池图 obs 全零三层根因（09-25 排查，非单一竞态）**：
+- **L1 地图 `header.players=[]` 空数组（确定性，已修 #222/#223）**：H3M 池图（King/good_to_go/judgement_day）`h3m2vmap` 工具链导出时漏注入 `header.players` → 引擎不建玩家槽位 → obs 城段 owner 全 0 → runner `no_own_town` abort → 首拍全零。**这是确定性缺陷非偶发竞态**，修 players 后脏样本归零
+- **L2 引擎 reset 冷启动竞态（偶发 ~4%，#214 残余）**：`strategic_env.py` L690 `_adventure_wait()` 300s 内未收到 yourTurn 回调 / obs 填充线程未就绪 → `return np.zeros(OBS_DIM)`；H3M 72×72/108×108 大图 reset ~600s 竞争窗口大
+- **L3 XDG 目录缺失（已修 #308，独立故障线）**：`$HOME/.local/share/vcmi/` 不存在 → `.vmap` 加载失败误报 Permission denied → SIGABRT rc=-6 丢 traj（走 `[WARN] traj 读取失败`，**不是 obs_nz=0 分支**）
+- **#228「obs 3464 修复」与此不同源**：#228 = 败北信号断链根修（局末 PvP 战斗结算挂起 → game_over=2 刷新），与局首 reset obs 全零无因果
+- **排查工具**：`py/_scan_h3m_players2.py`（raw 字节级读 .vmap players 段，临时脚本，查完即删）；权威预检走 `py/sync_maps_to_runtime.py --strict`（自带 header.players 预检）
+
 ---
 
 > ✅ **归档完成 (2026-09-25)**：原混在本文件的日期工作日志（共 290 块 / 3184 行）已全部拆分归档到 `WSL日志/` 下按日期命名的文件（2026-09-02 ~ 09-24），上方「三、日期工作日志」链接表已补全。本区清空，收到保存知识库指令时仍追加于此。
