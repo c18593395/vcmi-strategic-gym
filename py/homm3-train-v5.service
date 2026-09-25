@@ -19,6 +19,10 @@ Environment=HOMM3_H3M_BATCH=1
 # 09-25 WIN-3 难度轴: 108X108_02_duel 聚焦 (非池局 80% 强制采该图, 错窗=WIN-5 batch1 维持不开 batch2)
 # 回退: 改回 0 + daemon-reload + 重启 (难度轴下, 回 10 图均匀采)
 Environment=HOMM3_DUEL_FOCUS=1
+# 09-25 PPO-DNA 并行化预留: 子进程池化并行度. 默认 1 = 完全现状 (串行 1 个 ep_runner), 零行为变化。
+# 主循环改造完成后, 改 4 即启用 4 并行 (需 .wslconfig memory=12GB 已就位 + 清 __pycache__)。
+# 回退: 改回 1 (默认值) + daemon-reload + 重启, 完全恢复串行。
+Environment=HOMM3_N_SUBPROC=4
 
 [Install]
 WantedBy=multi-user.target

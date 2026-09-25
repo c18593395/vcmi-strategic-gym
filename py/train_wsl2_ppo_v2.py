@@ -28,6 +28,17 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # === C3.2: 对手池 ===
 OPPONENT_POOL_SIZE = 10
 
+# === PPO-DNA 并行化预留开关 (09-25, 起步 N=4 评估结论) ===
+# N_SUBPROC = 子进程池化并行度: 默认 1 = 完全现状 (串行 1 个 ep_runner), 零行为变化。
+# 置 4 = 4 个 ep_runner 并行 (Popen 池化, 主循环改造另做; 此常量仅为后续改造预留读点)。
+# 内存: 当前 .wslconfig memory=12GB, 单 ep_runner RSS~0.9GB, N=4 峰值 ~4.5GB 占 38% (安全垫 6GB)。
+# 回退: HOMM3_N_SUBPROC=1 (默认值) 即现状串行。
+N_SUBPROC = int(os.environ.get("HOMM3_N_SUBPROC", "1"))
+# 09-25 服务器迁移 POC 限局数: HERMES_N_EP>0 覆盖 N_EPISODES (默认 0 = 用 N_EPISODES, WSL 侧零变化)
+_HERMES_N_EP = int(os.environ.get("HERMES_N_EP", "0"))
+if _HERMES_N_EP > 0:
+    N_EPISODES = _HERMES_N_EP
+
 # === 2026-08-29 Level 3 晋级 (II.2): T04 六图, 经济动作 16-21 仍关 (开经济 = 第二阶段, 一次一轴) ===
 # T03 毕业战绩: eval 10/10 全胜 avg_r=99 / 最近100局首胜率 64% / 30X30_01 A/B 44局 0% 大负率
 # ===== T04 课程 (退役存档 09-04, 如需回退换回) =====
@@ -112,13 +123,16 @@ KL_COEF_MAX = 10.0     # 上限 5→10, 给更强约束空间
 maps_json_path = "/mnt/d/Bigdata/hero3_fresh/available_maps.json"
 # Not loading from JSON — using verified-open maps only
 
-VENV = "/home/administrator/vcmi-workspace/venv/bin/python"
-RUNNER = "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py"
-MODEL_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
-STATE_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model_state.pt"
-CLEAN_CKPT_PATH = "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt"
-# C2 L0: 崩溃局 ep_log 归档目录 (09-15)
-CRASHLOG_DIR = "/mnt/d/Bigdata/hero3_fresh/crashlog"
+# 09-25 服务器迁移 (S-9 后续): 全部部署路径环境化 — 默认值=WSL 原值 (在跑的 WSL 训练零行为变化),
+# 服务器侧注入 HERMES_* 指向 /DATA/hero3/train_server/* + 服务器 runner (ARM 动作掩码匹配 ARM 引擎)
+VENV = os.environ.get("HERMES_VENV", "/home/administrator/vcmi-workspace/venv/bin/python")
+RUNNER = os.environ.get("HERMES_RUNNER", "/mnt/d/Bigdata/hero3_fresh/py/ep_runner_one.py")
+MODEL_PATH = os.environ.get("HERMES_MODEL", "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt")
+STATE_PATH = os.environ.get("HERMES_STATE", "/mnt/d/Bigdata/hero3_fresh/wsl2_model_state.pt")
+CLEAN_CKPT_PATH = os.environ.get("HERMES_CLEAN_CKPT", "/mnt/d/Bigdata/hero3_fresh/wsl2_model.pt")
+# 服务器 POC 限局数 (0=不限制, 用 N_EPISODES): HERMES_N_EP
+# C2 L0: 崩溃局 ep_log 归档目录 (09-15) — 服务器迁移环境化
+CRASHLOG_DIR = os.environ.get("HERMES_CRASHLOG", "/mnt/d/Bigdata/hero3_fresh/crashlog")
 
 # WIN-1 击杀激励批次A/B (09-16, 方案 docs/方案_WIN1_击杀激励重设计_20260916.md):
 # ep_runner 新参数经环境变量注入 — 启动脚本 restart_train_v5_win1_batchA.sh 在 unit Environment= 注入;
@@ -180,8 +194,8 @@ EP_TRAJ = f"/tmp/traj_ep_{os.getpid()}.json"  # per-episode trajectory file (PID
 # === 入池批次过滤 (09-21): HOMM3_H3M_BATCH=1 → 只采 _pool_index.json 里
 #    "batch" <= 1 的图（首批安全5张）。防负数核心: 设了 BATCH 时, 没标 batch
 #    字段的图一律不放行（水/岛/地下图未标记 = 不入采样），只有显式标 batch 才入。
-_POOL_INDEX_PATH = "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json"
-_POOL_DIR = "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool"
+_POOL_INDEX_PATH = os.environ.get("HERMES_POOL_INDEX", "/mnt/d/Bigdata/hero3_fresh/maps/h3m_to_vmap/_pool_index.json")
+_POOL_DIR = os.environ.get("HERMES_POOL_DIR", "/mnt/d/Bigdata/hero3_fresh/maps/training/h3m_pool")
 # 09-24 顺序调度 (替代百分比随机混合): HOMM3_POOL_INTERVAL>0 = 每 N 局插 1 局池图 (确定性节拍);
 # 0 = 关闭 (纯课程图)。用户拍板: 不用百分比掷骰子, 改"一张一张按顺序循序" —
 # 确定性 = 可复现 / 每图等量曝光 / 故障规律可读 (百分比在 50-100 局尺度方差过大)。
@@ -216,24 +230,32 @@ def _refresh_pool_blue_ai(force=False):
     _POOL_IDX_AT = time.time()
 
 
-def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
+def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM", slot=0):
     """Run one episode using current model policy (not random).
-    Saves model to temp file, spawns isolated subprocess."""
+    Saves model to temp file, spawns isolated subprocess.
+    slot: N_SUBPROC>1 并行化时的槽位号, 用于 traj/ep_log/ep_ckpt 路径按 slot 隔离
+          (防 N 个子进程撞同名文件); slot=0 = 现状路径, N=1 时行为 100% 不变。"""
+    # === 09-25 PPO-DNA 并行化: 路径按 slot 隔离 (踩坑 #302 同款: /tmp 粘滞位 + root 残留 EPERM 防护) ===
+    # slot=0 时后缀 "", 路径与改前完全一致 (零行为变化); slot>0 时后缀 _{slot}
+    _sfx = f"_{slot}" if slot else ""
+    traj_path = f"/tmp/traj_ep_{os.getpid()}_{slot}.json" if slot else EP_TRAJ
+    ep_ckpt   = f"/tmp/hermes_ep_model_{os.getpid()}{_sfx}.pt"
+    ep_log    = f"/tmp/hermes_ep_{os.getpid()}{_sfx}.log"
     # 09-14 防残留污染 (4 张新图 segfault 秒退实证): 开局先删上一局 traj,
     # 子进程若在首步写入前崩溃 → 文件不存在 → 下方读取抛错 return None, 杜绝旧轨迹被当新局
-    if os.path.exists(EP_TRAJ):
+    if os.path.exists(traj_path):
         # 09-24 (踩坑 #302): 删除加保护 — 属主/粘滞位导致 EPERM 时不得带走整个训练
         try:
-            os.remove(EP_TRAJ)
+            os.remove(traj_path)
         except OSError as _re:
             print(f"  [WARN] 清理上一局 traj 失败(忽略, 后续按缺失处理): {_re}", flush=True)
     # Save current model to temp checkpoint for the subprocess
-    ep_ckpt = f"/tmp/hermes_ep_model_{os.getpid()}.pt"
     torch.save(model.state_dict(), ep_ckpt)
     env = os.environ.copy()
-    env["LD_LIBRARY_PATH"] = "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel"
-    env["STRATEGIC_STATE_LIB"] = "/home/administrator/vcmi-native/rel/bin/libmlclient.so"
-    cmd = [VENV, RUNNER, str(STEPS_PER_EP), EP_TRAJ, mapname, "--model", ep_ckpt]
+    # 09-25 服务器迁移: 引擎库链路环境化 — 默认=WSL 值; 服务器注入 HERMES_LD_PATH/HERMES_STATE_LIB
+    env["LD_LIBRARY_PATH"] = os.environ.get("HERMES_LD_PATH", "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel")
+    env["STRATEGIC_STATE_LIB"] = os.environ.get("HERMES_STATE_LIB", "/home/administrator/vcmi-native/rel/bin/libmlclient.so")
+    cmd = [VENV, RUNNER, str(STEPS_PER_EP), traj_path, mapname, "--model", ep_ckpt]
     # C8.5: blue 对手 — MMAI_RANDOM 自动随机行动 (NK2 内存爆炸 3.7-7.5GB/局 → WSL OOM, 已弃用)
     cmd.extend(["--blue_ai", blue_ai, "--blue_adventure_ai", "MMAI"])
     # A2 贴脸强攻 (09-17): bypass=1 开贴脸强攻总开关 + contact_d=2 八邻域贴脸判定
@@ -294,8 +316,8 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
         cmd.extend(["--blue_model", blue_model])
     # P10 target_list 加权排序 Python 旁路打分器 (09-15 灰度, 默认 legacy 零行为变化; scorer 启用 target_scorer.py 统一打分器)
     cmd.extend(["--target_chain", "scorer"])
-    ep_log = f"/tmp/hermes_ep_{os.getpid()}.log"
     # === #296 日志降噪 (2026-09-23, 方案A): Popen 层 shell 管道过滤 ===
+    # ep_log 已在函数头部按 slot 隔离定义 (09-25 并行化)
     # 根因: lib/callback/CCallback.cpp:53 sendQueryReply 收到 QueryID(-1) 时 logGlobal->error
     #       经 C++ std::cerr 直写 (踩坑 #296 勘误: 实际在 lib 非 mlclient; 铁律不重编 libvcmi.so)。
     # 现象: VCMI 引擎线程 (TBB worker N / runNetwork) 每 ~1.5s 一行刷屏, 无连锁报错 (Can not
@@ -367,7 +389,7 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
                             print(f"  {l}", flush=True)
             except Exception as ep_exc:
                 print(f"  [WARN] ep_log dump failed: {ep_exc}", flush=True)
-        with open(EP_TRAJ) as f: d = json.load(f)
+        with open(traj_path) as f: d = json.load(f)
         # 09-14 三道拦截: 子进程崩溃(rc!=0) / traj 是上一局残留(身份不符) / obs 全零 → 一律 return None 不入 buffer
         if ep_rc != 0:
             # C2 L0: rc 信号名翻译 (09-15)
@@ -414,9 +436,12 @@ def run_episode(mapname, blue_model=None, blue_ai="MMAI_RANDOM"):
 
 model = Net().to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=LR)
+# 09-25 服务器迁移: 部署根环境化 (默认=WSL 原值, 零行为变化); 服务器注入 HERMES_ROOT=/mnt/d/Bigdata/hero3_fresh
+#   (服务器侧已建 /mnt/d 符号链接指向 /DATA/hero3/train_server, 故 runner 硬编码 /mnt/d 路径仍可达)
+HERMES_ROOT = os.environ.get("HERMES_ROOT", "/mnt/d/Bigdata/hero3_fresh")
 # C8.5: BC 权重路径 — 存在则优先于旧 MODEL_PATH 初始化 (fc+actor 有 NK2 行为知识)
 # 2026-08-17 H.8: v3464b = 新采集 (All for One 34 局 28903 pairs, NK2 卡死修复后) 训练产物
-BC_PATH = "/mnt/d/Bigdata/hero3_fresh/bc_model_v3464b.pt"
+BC_PATH = os.environ.get("HERMES_BC", f"{HERMES_ROOT}/bc_model_v3464b.pt")
 # 尝试加载已有模型续训（优先完整状态，含优化器）
 resume_step = 0
 bc_loaded = False  # 无条件初始化: resume 路径跳过下方 BC 块时 line 121 不再 NameError
@@ -484,7 +509,7 @@ def restore_clean():
     global opt, warmup_until_load, warmup_batches
     warmup_until_load = True
     warmup_batches = 0
-    ckpt_dir = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
+    ckpt_dir = os.environ.get("HERMES_CKPT_DIR", f"{HERMES_ROOT}/checkpoints")
     # 先试黑名单指定 snapshot
     for fallback in [CLEAN_CKPT_PATH]:
         if os.path.exists(fallback):
@@ -525,6 +550,23 @@ def restore_clean():
 def save_shutdown(*args):
     """SIGTERM/SIGINT 时保存当前状态，确保关机不丢进度"""
     print("\n  Shutdown signal received, saving current state...", flush=True)
+    # 09-25 并行化: 清理可能残留的 ep_runner 子进程 + grep 管道 (N_SUBPROC>1 时有 N 个)
+    # 防御: slots 在主循环前定义, 若 SIGTERM 在 slots 定义前到达则跳过 (此时无子进程残留)
+    global slots
+    if "slots" in globals():
+        for s in slots:
+            if s.get("_grep_proc") is not None:
+                try: s["_grep_proc"].terminate()
+                except Exception: pass
+                s["_grep_proc"] = None
+            if s["proc"] is not None:
+                try:
+                    s["proc"].terminate()
+                    s["proc"].wait(timeout=5)
+                except Exception:
+                    try: s["proc"].kill()
+                    except Exception: pass
+                s["proc"] = None
     if is_clean():
         save_train_state(STATE_PATH, step=total_steps)
         torch.save(model.state_dict(), MODEL_PATH)
@@ -542,6 +584,7 @@ opponent_pool = []
 
 print(f"WSL2 PPO v2 — {N_EPISODES}eps×{STEPS_PER_EP}steps batch={BATCH} maps={len(MAPS)} device={DEVICE}", flush=True)
 print(f"  GAE λ={GAE_LAMBDA}  grad_clip={GRAD_CLIP_MAX}  gamma={GAMMA}", flush=True)
+print(f"  N_SUBPROC={N_SUBPROC} (1=串行现状, >1=并行池化待实现)", flush=True)
 print(f"  自对弈: red=MMAI_USER blue=MMAI_USER/对手池", flush=True)
 t0 = time.time()
 # LR 预热：从 MODEL_PATH 加载（新鲜优化器）时前 5 batch 渐增 LR，防止 NaN
@@ -549,48 +592,224 @@ warmup_until_load = (resume_step == 0)
 warmup_batches = 0
 LR_TARGET = LR
 
-for ep in range(N_EPISODES):
-    # === C3.2: 选择对手 ===
-    blue_model = None
-    if opponent_pool:
-        r = random.random()
-        if r < 0.7:
-            blue_model = None          # 当前模型
-        elif r < 0.9:
-            # 早期版本（池中前半部分）
-            blue_model = random.choice(opponent_pool[:max(1, len(opponent_pool)//2)])
-        else:
-            blue_model = random.choice(opponent_pool)  # 随机旧版
-    # 对手池为空时 blue_model 保持 None，用当前模型自对弈
-
-    _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签 + WIN-5 池图列表
-    # 09-24 顺序调度: 每 _POOL_INTERVAL 局插 1 局池图 (确定性节拍 + 队列轮转, 替代百分比随机)
+# === 09-25 PPO-DNA 并行化: Popen 子进程池 (N_SUBPROC>1 时启用, N=1 走原串行路径) ===
+# 设计: N 个 slot 常驻 Popen ep_runner_one.py, 主循环非阻塞 poll;
+#   模型下发: 每轮对「已启动 slot」Popen 新版 ep_ckpt (有 1 个 PPO 更新延迟, PPO 容忍度高);
+#   traj 回收: 完成 slot 读 traj 入 buffer, 立即 Popen 下一局 (槽位常驻, 不冷启动);
+#   零行为变化: N_SUBPROC=1 时主循环走原 `run_episode` 串行路径, 不触碰 slots。
+def _slot_pick_map(blue_model, ep_idx):
+    """单 slot 调度: 选 (map, blue_ai, blue_model), 与主循环 L574-590 调度逻辑一致。"""
+    global _ep_since_pool, _POOL_SEQ_I
+    _refresh_pool_blue_ai()
     _ep_since_pool += 1
     _is_pool = bool(_POOL_INTERVAL > 0 and _POOL_MAPS and _ep_since_pool >= _POOL_INTERVAL)
     if _is_pool:
         _ep_since_pool = 0
-        _map = _POOL_MAPS[_POOL_SEQ_I % len(_POOL_MAPS)]   # round-robin: 每张等量曝光
+        _map = _POOL_MAPS[_POOL_SEQ_I % len(_POOL_MAPS)]
         _POOL_SEQ_I += 1
     else:
-        # WIN-3 难度轴: 非池局时以 DUEL_FOCUS_P 概率强制 108_02_duel, 其余回落均匀采
         if _DUEL_FOCUS_ON and random.random() < DUEL_FOCUS_P:
             _map = DUEL_FOCUS_MAP
         else:
             _map = random.choice(MAPS)
-    print(f"  [POOL_SCHED] interval={_POOL_INTERVAL} since_pool={_ep_since_pool} pool={len(_POOL_MAPS)} "
-          f"is_pool={_is_pool} seq_i={_POOL_SEQ_I} map={_map} ep={ep_count}", flush=True)
     _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
-    traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai)
-    ep_count += 1
-    if traj is None: continue
-    for i in range(traj["steps"]):
-        for k in ["obs","act","rew","nobs","done"]:
-            buffer[k].append(traj[k][i])
-        total_steps += 1
+    return _map, _blue_ai, blue_model
 
-    # 每局一行日志
-    ep_rew = np.mean(traj["rew"]) if traj["steps"] > 0 else 0.0
-    print(f"  step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} time={time.time()-t0:.0f}s", flush=True)
+slots = [{"proc": None, "_grep_proc": None, "traj_path": None, "ep_ckpt": None,
+          "ep_log": None, "launched": False, "map": None, "blue_ai": None, "blue_model": None}
+         for _ in range(N_SUBPROC)]
+
+def _spawn_slots(blue_model_override):
+    """对每个 launched=True 且 proc=None 的 slot Popen 新版 ep_runner (主循环每轮调用)。
+    cmd 构造与 run_episode L254-318 逐条对齐 (HERMES env 化 + move_to 分支 + WIN1 注入 + #296 降噪管道),
+    确保并行路径行为 = 串行路径 (N=4 灰度时策略输入完全一致)。"""
+    for _i, s in enumerate(slots):
+        if not s["launched"] or s["proc"] is not None:
+            continue
+        # 调度 (与串行路径完全一致: 对手 70/20/10 采样 + 池图节拍 + WIN-3 难度轴)
+        s["map"], s["blue_ai"], s["blue_model"] = _slot_pick_map(blue_model_override, ep_count)
+        mapname = s["map"]
+        # --- 路径按 slot 隔离 (slot>0) ---
+        s["traj_path"] = f"/tmp/traj_ep_{os.getpid()}_{_i}.json"
+        s["ep_ckpt"]   = f"/tmp/hermes_ep_model_{os.getpid()}_{_i}.pt"
+        s["ep_log"]    = f"/tmp/hermes_ep_{os.getpid()}_{_i}.log"
+        # 清理上一局残留 traj (踩坑 #302 EPERM 防护)
+        if os.path.exists(s["traj_path"]):
+            try: os.remove(s["traj_path"])
+            except OSError: pass
+        # 保存当前模型权重到 slot 专属 ep_ckpt
+        torch.save(model.state_dict(), s["ep_ckpt"])
+        # --- env (09-25 服务器迁移 HERMES env 化, 与 run_episode L254-257 一致) ---
+        env = os.environ.copy()
+        env["LD_LIBRARY_PATH"] = os.environ.get("HERMES_LD_PATH",
+            "/home/administrator/vcmi-native/rel/bin:/home/administrator/vcmi-workspace/vcmi_gym/connectors/rel")
+        env["STRATEGIC_STATE_LIB"] = os.environ.get("HERMES_STATE_LIB",
+            "/home/administrator/vcmi-native/rel/bin/libmlclient.so")
+        # --- cmd 基础段 (与 run_episode L258-268 一致) ---
+        move_scale = max(0.5, 1.0 - ep_count / 200)
+        cmd = [VENV, RUNNER, str(STEPS_PER_EP), s["traj_path"], mapname, "--model", s["ep_ckpt"],
+               "--blue_ai", s["blue_ai"], "--blue_adventure_ai", "MMAI",
+               "--blue_hero_attack_bypass", "1", "--blue_hero_contact_d", "2", "--attack_f_min", "0.0",
+               "--reward_explore", "0.3",
+               "--move_to_bias", str(2.0 * move_scale)]
+        # move_to_force 按 map 前缀分支 (与 run_episode L273-282 一致: T04/T05/T06=60, 其余=30*move_scale)
+        if mapname.startswith(("T04", "T05", "T06")):
+            cmd.extend(["--move_to_force", "60"])
+        else:
+            cmd.extend(["--move_to_force", str(int(30 * move_scale))])
+        cmd.extend(["--economy_force", "24", "--cycle_detect", "5",
+                    "--act_loop_penalty", "1.0",
+                    "--guard_done_steps", "15", "--objective_reward", "30"])
+        # T06 act_loop_from_step=60 (与 run_episode L294-295 一致)
+        if mapname.startswith('T06'):
+            cmd.extend(["--act_loop_from_step", "60"])
+        # WIN-1 批次A/B 环境变量注入 (与 run_episode L305-307 一致: 未设/0=不注入, 值透传)
+        for _ek, _ea in WIN1_ENV_ARGS.items():
+            if os.environ.get(_ek) not in (None, "", "0", "0.0"):
+                cmd.extend([_ea, os.environ[_ek]])
+        cmd.extend(["--use_nk2_shaping", "--nk2_shaping_scale", "0.45"])
+        if s["blue_model"]:
+            cmd.extend(["--blue_model", s["blue_model"]])
+        cmd.extend(["--target_chain", "scorer"])
+        # --- Popen (含 #296 grep 降噪管道, 与 run_episode L330-348 一致) ---
+        _grep_filter = "grep -vE 'Cannot answer the query -1' || true"
+        ep_log_fh = open(s["ep_log"], "w")
+        s["proc"] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+        s["_grep_proc"] = subprocess.Popen(
+            ["sh", "-c", _grep_filter],
+            stdin=s["proc"].stdout, stdout=ep_log_fh, stderr=subprocess.DEVNULL)
+        s["proc"].stdout.close()  # 父侧关 pipe 读端, 防 grep 写后死锁
+        s["launched"] = True
+
+def _harvest_slots():
+    """poll 所有 slot, 完成的收 traj 入 buffer (与串行路径 L594-601 同款追加逻辑)。"""
+    global total_steps, ep_count
+    for s in slots:
+        if s["proc"] is None:
+            continue
+        rc = s["proc"].poll()
+        if rc is None:
+            continue  # 仍在跑
+        # --- #296 grep 管道收尾 (与 run_episode L329-334 一致: proc 退出 → grep stdin EOF → join 防残留) ---
+        if s.get("_grep_proc") is not None:
+            try:
+                s["_grep_proc"].wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try: s["_grep_proc"].kill()
+                except Exception: pass
+            s["_grep_proc"] = None
+        s["proc"] = None  # 标记回收, 下轮 _spawn_slots 重启
+        # traj 读取 (与 run_episode L377-407 同款三道拦截: rc!=0 / 身份不符 / obs 全零)
+        if rc != 0:
+            print(f"  [FILTER] slot ep 子进程非正常退出 rc={rc}, 丢弃 map={s['map']}", flush=True)
+            continue
+        try:
+            with open(s["traj_path"]) as f:
+                d = json.load(f)
+        except Exception as _e:
+            print(f"  [WARN] slot traj 读取失败: {_e} map={s['map']}", flush=True)
+            continue
+        if d.get("mapname") != s["map"]:
+            print(f"  [FILTER] slot traj 身份不符 traj_map={d.get('mapname')} != sched={s['map']}", flush=True)
+            continue
+        if d.get("steps", 0) > 0 and not d.get("error"):
+            if "obs" in d and len(d["obs"]) > 0 and len(d["obs"][0]) > 30:
+                obs_nz = np.count_nonzero(d["obs"][0])
+                if obs_nz == 0:
+                    print(f"  [FILTER] slot obs_nz=0 脏样本丢弃 map={s['map']}", flush=True)
+                    continue
+        for i in range(d["steps"]):
+            for k in ["obs", "act", "rew", "nobs", "done"]:
+                buffer[k].append(d[k][i])
+        buffer["terrain_grid"].append(d.get("terrain_grid", []))  # 整局 append 一次
+        ep_count += 1
+        total_steps += d["steps"]
+        ep_rew = np.mean(d["rew"]) if d["steps"] > 0 else 0.0
+        print(f"  [SLOT] step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} map={s['map']} rc={rc}", flush=True)
+
+
+for ep in range(N_EPISODES):
+    # === 09-25 并行分叉: N_SUBPROC=1 走原串行路径 (零行为变化); N>1 走 slot 池化路径 ===
+    if N_SUBPROC == 1:
+        # === C3.2: 选择对手 (原串行路径, 完全不变) ===
+        blue_model = None
+        if opponent_pool:
+            r = random.random()
+            if r < 0.7:
+                blue_model = None          # 当前模型
+            elif r < 0.9:
+                # 早期版本（池中前半部分）
+                blue_model = random.choice(opponent_pool[:max(1, len(opponent_pool)//2)])
+            else:
+                blue_model = random.choice(opponent_pool)  # 随机旧版
+        # 对手池为空时 blue_model 保持 None，用当前模型自对弈
+
+        _refresh_pool_blue_ai()  # #293: 10min 缓存刷新蓝方 AI 标签 + WIN-5 池图列表
+        # 09-24 顺序调度: 每 _POOL_INTERVAL 局插 1 局池图 (确定性节拍 + 队列轮转, 替代百分比随机)
+        _ep_since_pool += 1
+        _is_pool = bool(_POOL_INTERVAL > 0 and _POOL_MAPS and _ep_since_pool >= _POOL_INTERVAL)
+        if _is_pool:
+            _ep_since_pool = 0
+            _map = _POOL_MAPS[_POOL_SEQ_I % len(_POOL_MAPS)]   # round-robin: 每张等量曝光
+            _POOL_SEQ_I += 1
+        else:
+            # WIN-3 难度轴: 非池局时以 DUEL_FOCUS_P 概率强制 108_02_duel, 其余回落均匀采
+            if _DUEL_FOCUS_ON and random.random() < DUEL_FOCUS_P:
+                _map = DUEL_FOCUS_MAP
+            else:
+                _map = random.choice(MAPS)
+        print(f"  [POOL_SCHED] interval={_POOL_INTERVAL} since_pool={_ep_since_pool} pool={len(_POOL_MAPS)} "
+              f"is_pool={_is_pool} seq_i={_POOL_SEQ_I} map={_map} ep={ep_count}", flush=True)
+        _blue_ai = _POOL_BLUE_AI.get(_map, "MMAI_RANDOM")
+        traj = run_episode(_map, blue_model=blue_model, blue_ai=_blue_ai, slot=0)
+        ep_count += 1
+        if traj is None: continue
+        for i in range(traj["steps"]):
+            for k in ["obs","act","rew","nobs","done"]:
+                buffer[k].append(traj[k][i])
+            total_steps += 1
+        # terrain_grid: 整局作为一个元素 append (与 PPO 更新侧 len(tg_list)==BATCH 检查对齐)
+        buffer["terrain_grid"].append(traj.get("terrain_grid", []))
+
+        # 每局一行日志
+        ep_rew = np.mean(traj["rew"]) if traj["steps"] > 0 else 0.0
+        print(f"  step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} time={time.time()-t0:.0f}s", flush=True)
+    else:
+        # === 09-25 并行路径: slot 池化 (N_SUBPROC>1) ===
+        # 模型: Popen N 局 (当前模型权重) → 阻塞 poll 直到 buffer≥BATCH → 跳出进 PPO 更新块
+        #       → PPO 更新模型 → 回主循环顶 _spawn_slots Popen N 局新版模型
+        blue_model = None
+        if opponent_pool:
+            r = random.random()
+            if r < 0.7:
+                blue_model = None
+            elif r < 0.9:
+                blue_model = random.choice(opponent_pool[:max(1, len(opponent_pool)//2)])
+            else:
+                blue_model = random.choice(opponent_pool)
+        # 首次启动所有 slot (Popen 当前模型权重的 N 局)
+        if all(not s["launched"] for s in slots):
+            for s in slots:
+                s["launched"] = True
+        _spawn_slots(blue_model)
+        # 阻塞 poll: 每 2s 收割已完成 slot + 重新 Popen 回收的空闲 slot, 直到 buffer 攒够 BATCH
+        # 4 局并行完成 ~300s 后 buffer 攒满 2048 → 跳出进 PPO 更新 → 更新后 slot 空闲,
+        # 下一轮 for ep 的 _spawn_slots 会 Popen 新版模型 (不会空转, 因 while 只在这轮内阻塞)
+        _crash_rounds = 0
+        while len(buffer["obs"]) < BATCH:
+            _harvest_slots()
+            # 全崩兜底: 所有 slot proc=None (已回收) 且 buffer 仍不够 → 重新 Popen
+            if all(s["proc"] is None for s in slots):
+                _crash_rounds += 1
+                if _crash_rounds >= 3:
+                    print(f"  [SLOT] 全崩兜底: buffer={len(buffer['obs'])}/{BATCH}, 跳出进 PPO 更新", flush=True)
+                    break
+                _spawn_slots(blue_model)  # 重新 Popen (崩溃局重采, 用当前模型权重)
+                time.sleep(2.0)
+                continue
+            time.sleep(2.0)
+        # buffer 够了 → 跳出 for ep 进下方 PPO 更新块
+        # PPO 更新后 model 权重变了, 回主循环顶 _spawn_slots 对空闲 slot Popen 新版 ep_ckpt
 
     if len(buffer["obs"]) >= BATCH:
         obs_t  = torch.tensor(np.array(buffer["obs"][:BATCH]), dtype=torch.float32, device=DEVICE)
@@ -698,7 +917,7 @@ for ep in range(N_EPISODES):
             torch.save(model.state_dict(), MODEL_PATH)
 
         # === checkpoint: 每 50 step 保存，保留最近 OPPONENT_POOL_SIZE 个 ===
-        ckpt_dir = "/mnt/d/Bigdata/hero3_fresh/checkpoints"
+        ckpt_dir = os.environ.get("HERMES_CKPT_DIR", f"{HERMES_ROOT}/checkpoints")
         os.makedirs(ckpt_dir, exist_ok=True)
         if total_steps - last_ckpt_step >= 50:
             last_ckpt_step = total_steps
