@@ -484,6 +484,7 @@ try:
     dyn_blocked = set()      # 2026-09-01 改法三: 本局动态障碍格 (敌方英雄堵路时实探记录) — BFS 绕行用
     # 2026-08-29 II.3 调优: 每次执行小额奖励的计数器 (保险丝 每档/局上限 5 次)
     econ_recruit_count = {16: 0, 17: 0, 18: 0}
+    econ_movearmy_count = {13: 0, 14: 0, 15: 0}  # 09-25: 搬兵观测计数 (每码每局打点上限 3)
     econ_build2_count = 0
     # 2026-08-31 回城取兵引导: 英雄 visit 己方城 → 强制 RECRUIT 窗 (兵直上英雄部队)
     # 机制: C++ RECRUIT dst = town->getUpperArmy() = visiting hero → visit 状态招兵直接进英雄 5 槽
@@ -744,7 +745,9 @@ try:
             elif (traj["steps"] - args.economy_force) % 40 < 4:
                 econ_force_now = True  # "每日提醒": 每 40 步 4 步经济窗 (~10% 体验占比)
             if econ_force_now:
-                econ_acts = [16, 17, 18, 19, 20, 21]  # RECRUIT_1/2/3, BUILD_1/2/3 轮换
+                # 09-25 扩表: 13/14/15 (SPLIT_ALL/MERGE_FROM/SWAP_ARMY) 轮进强制窗 —
+                # 方案B 开了掩码但无样本无引导, 148 份 traj 0 选中; 无友方英雄时 C++ noTarget 安全 no-op
+                econ_acts = [13, 14, 15, 16, 17, 18, 19, 20, 21]  # 搬兵 3 + RECRUIT_1/2/3 + BUILD_1/2/3 轮换
                 a = econ_acts[traj["steps"] % len(econ_acts)]
         # 2026-08-31 回城取兵窗 (最高优先覆盖): 强制 RECRUIT 轮换 — visit 己方城时招兵直上英雄部队
         if visit_econ_steps > 0:
@@ -1720,6 +1723,13 @@ try:
                         print(f"[ECON] closure (resource→recruit {traj['steps']-econ_resource_step}s) step {traj['steps']} +15", flush=True)
             elif _rc_rewarded:
                 print(f"[ECON] recruit tier={a-15} (act{a}) step {traj['steps']} +0.25", flush=True)
+        # --- 09-25 方案B: 搬兵 13/14/15 观测 (扩表进强制窗后能看到出没; 纯观测不发奖励,
+        #     无友方英雄时 C++ noTarget 安全 no-op, 每码每局打点上限 3 防刷屏) ---
+        if a in (13, 14, 15):
+            if econ_movearmy_count[a] < 3:
+                econ_movearmy_count[a] += 1
+                _nm = {13: "SPLIT_ALL", 14: "MERGE_FROM", 15: "SWAP_ARMY"}[a]
+                print(f"[MOVE_ARMY] act{a} {_nm} step {traj['steps']} (observe only)", flush=True)
         # --- 优先级2: BUILD_2 (兵种建筑, 动作20) first +15 + 每次执行小额 ---
         # T7.5 S2 (09-19 部署): 撤梯子 0.75→0.375 (S1 值 0.75 在 09-15~09-18 运行)
         if a == 20:
