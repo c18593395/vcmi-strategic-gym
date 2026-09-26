@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""T14.4 smoke: KTV N=4, T14Blue vs Nullkiller2 baseline (#298 discipline).
-Deployed on server 09-26 as /DATA/hero3/t14smoke.py (scp'd from local).
-Result JSON: /DATA/hero3/output/t14smoke_ktv_0926.json
-"""
+"""T14.4 smoke: KTV N=4, T14Blue vs Nullkiller2 baseline (#298 discipline)."""
 import sys, os, time, json, subprocess
 R = os.environ.get("HERO3_ROOT", "/DATA/hero3")
 ENV = dict(os.environ)
@@ -43,6 +40,7 @@ for arm in ["T14Blue", "Nullkiller2"]:
         print(json.dumps(rec), flush=True)
         # kill any leaked vcmini
         subprocess.run(["pkill","-f",f"vcmini.*{MP.split('.')[0]}"],capture_output=True)
-json.dump(results, open(R+"/output/t14smoke_ktv_0926.json","w"))
+json.dump(results, open("/DATA/hero3/output/t14smoke_ktv_0926.json","w"))
 bad = sum(1 for r in results if r["rc"]!=0)
 print(f"SMOKE_DONE arm=T14Blue+Nullkiller2 N=4 bad={bad}")
+

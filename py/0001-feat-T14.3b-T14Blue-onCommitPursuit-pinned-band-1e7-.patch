@@ -1,0 +1,480 @@
+From ff79f937bc101524a66ecd6370b1a22976edfd0a Mon Sep 17 00:00:00 2001
+From: Administrator <admin@local>
+Date: Sun, 27 Sep 2026 04:43:02 +0800
+Subject: [PATCH] =?UTF-8?q?feat(T14.3b):=20T14Blue=20=E8=83=BD=E5=8A=9B?=
+ =?UTF-8?q?=E9=9D=A2=E4=B8=89=E4=BB=B6=20=E2=80=94=20=E7=A1=AC=E7=9B=AE?=
+ =?UTF-8?q?=E6=A0=87=E6=B3=A8=E5=85=A5(onCommitPursuit+pinned=20band>=3D1e?=
+ =?UTF-8?q?7)=20+=20Settings=E6=9D=83=E9=87=8D=E8=BD=B4(onAfterInit+setT14?=
+ =?UTF-8?q?Weights=E9=97=A8=E6=8E=A7)=20+=20MMAI=20CMake=20python=E8=B7=A8?=
+ =?UTF-8?q?=E6=9E=B6=E6=9E=84=E5=8C=96(find=5Fpath/find=5Flibrary=E6=9B=BF?=
+ =?UTF-8?q?x86=E7=A1=AC=E7=BC=96=E7=A0=81).=20NK2=E4=BE=A7=E5=85=A8?=
+ =?UTF-8?q?=E9=9B=B6=E9=BB=98=E8=AE=A4=E9=92=A9=E5=AD=90=E9=9B=B6=E8=A1=8C?=
+ =?UTF-8?q?=E4=B8=BA=E5=8F=98=E5=8C=96,=20T14=E9=80=BB=E8=BE=91=E5=85=A8?=
+ =?UTF-8?q?=E5=9C=A8T14BlueMod=E9=97=A8=E6=8E=A7=E5=86=85.=20WSL=20rel=20E?=
+ =?UTF-8?q?NABLE=5FT14=5FBLUE=3DON=20=E5=85=A8=E7=9B=AE=E6=A0=87BUILD=5FRC?=
+ =?UTF-8?q?=3D0(MMAI=20find=5Fpath=E5=91=BD=E4=B8=ADpython3.12).?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ AI/MMAI/CMakeLists.txt               |  19 ++-
+ AI/Nullkiller2/Engine/Nullkiller.cpp |  14 ++
+ AI/Nullkiller2/Engine/Nullkiller.h   |   7 +
+ AI/Nullkiller2/Engine/Settings.cpp   |   8 +
+ AI/Nullkiller2/Engine/Settings.h     |   5 +
+ AI/T14BlueMod/T14Nullkiller.cpp      | 215 +++++++++++++++++++++------
+ AI/T14BlueMod/T14Nullkiller.h        |  26 +++-
+ 7 files changed, 245 insertions(+), 49 deletions(-)
+
+diff --git a/AI/MMAI/CMakeLists.txt b/AI/MMAI/CMakeLists.txt
+index 087563ae96..7aac6a21ea 100644
+--- a/AI/MMAI/CMakeLists.txt
++++ b/AI/MMAI/CMakeLists.txt
+@@ -201,13 +201,28 @@ endif()
+ target_link_libraries(MMAI PRIVATE BattleAI StupidAI)
+ 
+ # PyGILState_Ensure/Release used in AAI::yourTurn
+-target_link_libraries(MMAI PRIVATE /usr/lib/x86_64-linux-gnu/libpython3.12.so)
++# T14.3b (09-27): cross-arch python3 dev discovery — replaces the hardcoded
++# /usr/lib/x86_64-linux-gnu/libpython3.12.so (c80796a17) that broke the ARM build
++# (had been papered over with /usr symlink bridges on 172.16.2.40).
++find_path(T14_PYTHON3_INCLUDE_DIR NAMES Python.h
++  HINTS /usr/include /usr/local/include
++  PATH_SUFFIXES python3.12 python3.11 python3.10 python3
++)
++find_library(T14_PYTHON3_LIBRARY NAMES python3.12 python3.11 python3.10 python3
++  HINTS /usr/lib /usr/lib64 /usr/lib/x86_64-linux-gnu /usr/local/lib
++)
++if(T14_PYTHON3_INCLUDE_DIR AND T14_PYTHON3_LIBRARY)
++  message(STATUS "MMAI python3 dev: ${T14_PYTHON3_INCLUDE_DIR} + ${T14_PYTHON3_LIBRARY}")
++  target_link_libraries(MMAI PRIVATE ${T14_PYTHON3_LIBRARY})
++  target_include_directories(MMAI PRIVATE ${T14_PYTHON3_INCLUDE_DIR})
++else()
++  message(FATAL_ERROR "python3 development files not found (need Python.h + libpython3.x); install python3-devel")
++endif()
+ 
+ # Used in schema/base.h to determine if it is imported by MMAI or vcmi-gym
+ target_compile_definitions(MMAI PRIVATE MMAI_DLL=1)
+ target_include_directories(MMAI
+   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+-  PRIVATE "/usr/include/python3.12"
+ )
+ 
+ if(ENABLE_MMAI_TEST)
+diff --git a/AI/Nullkiller2/Engine/Nullkiller.cpp b/AI/Nullkiller2/Engine/Nullkiller.cpp
+index 7d60c24aa9..544f5d45a7 100644
+--- a/AI/Nullkiller2/Engine/Nullkiller.cpp
++++ b/AI/Nullkiller2/Engine/Nullkiller.cpp
+@@ -135,6 +135,9 @@ void Nullkiller::init(const std::shared_ptr<CCallback> & cbInput, AIGateway * ai
+ 	heroManager.reset(new HeroManager(cc.get(), this));
+ 	decomposer.reset(new DeepDecomposer(this));
+ 	armyFormation.reset(new ArmyFormation(cc, this));
++
++	// T14.3b (09-27): post-init hook — NK2 empty default (zero behavior change).
++	onAfterInit();
+ }
+ 
+ TaskPlanItem::TaskPlanItem(const TSubgoal & task)
+@@ -258,6 +261,13 @@ Goals::TTaskVec Nullkiller::buildPlanAndFilter(
+ 			for(size_t i = r.begin(); i != r.end(); i++)
+ 			{
+ 				const auto & task = tasks[i];
++#ifdef ENABLE_T14_BLUE
++				// T14.3b (09-27) pinned band: committed T14 march tasks carry a priority
++				// >= 1e7 — above NK2's organic cap (DEFENSIVE_EMERGENCY_PRIORITY = 1e6) —
++				// so they keep it verbatim and always lead the tier pass.
++				if(task->asTask()->priority >= 10000000.0f)
++					continue;
++#endif
+ 				if(task->asTask()->priority <= 0 || priorityTier != PriorityEvaluator::PriorityTier::BUILDINGS)
+ 					task->asTask()->priority = evaluator->evaluate(
+ 						task,
+@@ -588,6 +598,10 @@ void Nullkiller::makeTurn()
+ 			return a->priority > b->priority;
+ 		});
+ 
++		// T14.3b (09-27): post-selection hard-goal-injection hook — NK2 empty default
++		// (zero behavior change); T14Nullkiller splices a committed march task in.
++		onCommitPursuit(selectedTasks);
++
+ 		if(selectedTasks.empty())
+ 		{
+ 			selectedTasks.push_back(taskptr(Goals::Invalid()));
+diff --git a/AI/Nullkiller2/Engine/Nullkiller.h b/AI/Nullkiller2/Engine/Nullkiller.h
+index 9122242b25..b6ea1d5ce9 100644
+--- a/AI/Nullkiller2/Engine/Nullkiller.h
++++ b/AI/Nullkiller2/Engine/Nullkiller.h
+@@ -129,6 +129,13 @@ public:
+ 	/// T14 (09-26): per-turn pursuit hook, called from makeTurn after defender reservation.
+ 	/// NK2 default = empty (zero behavior change); T14Blue::T14Nullkiller overrides it (R13 harvest nudge).
+ 	virtual void onPursueTurn() {}
++	/// T14.3b (09-27): post-selection hard-goal-injection hook, called from makeTurn after
++	/// the selected task vector is sorted; NK2 default = empty (zero behavior change);
++	/// T14Blue::T14Nullkiller overrides it (committed march task spliced into the stream).
++	virtual void onCommitPursuit(Goals::TTaskVec & selectedTasks) {}
++	/// T14.3b (09-27): post-init hook, called at the tail of init(); NK2 default = empty;
++	/// T14Blue::T14Nullkiller overrides it (one-shot archetype Settings weight axis).
++	virtual void onAfterInit() {}
+ 	bool updateStateAndExecutePriorityPass(Goals::TGoalVec& tempResults, int passIndex);
+ 	bool isActive(const CGHeroInstance * hero) const { return activeHero == hero; }
+ 	bool isHeroLocked(const CGHeroInstance * hero) const;
+diff --git a/AI/Nullkiller2/Engine/Settings.cpp b/AI/Nullkiller2/Engine/Settings.cpp
+index fd69aca22a..c8a6ecca16 100644
+--- a/AI/Nullkiller2/Engine/Settings.cpp
++++ b/AI/Nullkiller2/Engine/Settings.cpp
+@@ -66,4 +66,12 @@ namespace NK2AI
+ 		useTroopsFromGarrisons = node["useTroopsFromGarrisons"].Bool();
+ 		useOneWayMonoliths = node["useOneWayMonoliths"].Bool();
+ 	}
++#ifdef ENABLE_T14_BLUE
++	void Settings::setT14Weights(float mGP, float rTRel, int mHeroDist)
++	{
++		maxGoldPressure = mGP;
++		retreatThresholdRelative = rTRel;
++		mainHeroTurnDistanceLimit = mHeroDist;
++	}
++#endif
+ }
+diff --git a/AI/Nullkiller2/Engine/Settings.h b/AI/Nullkiller2/Engine/Settings.h
+index 92d7b6a45b..6567543e95 100644
+--- a/AI/Nullkiller2/Engine/Settings.h
++++ b/AI/Nullkiller2/Engine/Settings.h
+@@ -62,5 +62,10 @@ namespace NK2AI
+ 		bool isOneWayMonolithUsageAllowed() const { return useOneWayMonoliths; }
+ 		bool isUpdateHitmapOnTileReveal() const { return updateHitmapOnTileReveal; }
+ 		bool isOpenMap() const { return openMap; }
++#ifdef ENABLE_T14_BLUE
++		// T14.3b (09-27) weight axis: archetype-weighted overrides. Gated, and never
++		// called by stock Nullkiller -> zero behavior change for the NK2 build.
++		void setT14Weights(float maxGoldPressure, float retreatThresholdRelative, int mainHeroTurnDistanceLimit);
++#endif
+ 	};
+ }
+diff --git a/AI/T14BlueMod/T14Nullkiller.cpp b/AI/T14BlueMod/T14Nullkiller.cpp
+index e9b58fe643..e2f202f514 100644
+--- a/AI/T14BlueMod/T14Nullkiller.cpp
++++ b/AI/T14BlueMod/T14Nullkiller.cpp
+@@ -1,26 +1,36 @@
+ /*
+  * T14Nullkiller.cpp — T14 blue-side strategic planner (layer-2 C++ plugin)
+- * R13 VictoryPursuer harvest nudge (方案_T14规则设计_20260925 层2首件).
+  *
+- * 语义: NK2 本地最优循环常"攒经济不出门" -> 全池 5000 天截断 DRAW (S-7 根因).
+- * 本钩子每回合把 "最强未锁英雄 -> 敌城" re-assert 为规划目标, 破 DRAW 根因.
+- * 目标选择按原型差异化 (P0 龟速20天 / P1 速攻7天 / P2 游击不推进 / P3 飞取最远主城
+- * / P4 均衡最近), 同地图+难度 -> 同原型 (可复现).
++ * T14.3 (09-26): R13 VictoryPursuer harvest NUdGE — onPursueTurn re-asserts
++ *   "strongest unlocked hero -> enemy town" via targetObject (only influences
++ *   the decompose window + blocking-dialog judgement; the target is reset every
++ *   pass by updateState()).
+  *
+- * 边界: nudge 非硬目标注入 -- targetObject 被 NK2 每 pass 的 updateState() 重置,
+- * 本钩子在 makeTurn 的 defender 预留后 re-set, 影响主 decompose 窗 + blocking 判定.
+- * 真·硬目标注入需 decompose 私有面 = T14.3b 另排.
++ * T14.3b (09-27): capability upgrade, NK2 engine side = zero-default hooks only:
++ *   ① onCommitPursuit — HARD goal injection: splice a real ExecuteHeroChain march
++ *      task into the selected task vector (executeTask actually runs it; the
++ *      committed march leads by priority above NK2's organic cap).
++ *   ② onAfterInit    — Settings weight axis: one-shot archetype overrides via
++ *      gated setters (NK2 never calls them -> stock behavior unchanged).
++ *
++ * Archetype: FNV1a(mapname#difficulty#playerID) % 5 — same map+difficulty ->
++ * same behavior (reproducible). P0 turtle 20d / P1 rush 7d / P2 guerrilla
++ * (no central march) / P3 flyer (furthest main town) / P4 balanced (nearest).
+  */
+ #include "StdInc.h"
+ #include "T14Nullkiller.h"
+ #include "../Nullkiller2/Engine/Nullkiller.h"
++#include "../Nullkiller2/Goals/AbstractGoal.h"
++#include "../Nullkiller2/Goals/ExecuteHeroChain.h"
+ #include "../../lib/mapObjects/CGTownInstance.h"
+ #include "../../lib/mapObjects/CGHeroInstance.h"
+ #include "../../lib/StartInfo.h"
+ #include "../../lib/constants/Enumerations.h"
+ 
++#include <algorithm>
+ #include <cstdint>
+ #include <cstdlib>
++#include <limits>
+ 
+ namespace
+ {
+@@ -38,27 +48,24 @@ namespace
+ 
+ namespace T14Blue
+ {
+-	void T14Nullkiller::onPursueTurn()
++	void T14Nullkiller::resolveArchetype()
+ 	{
+-		if(!archetypeResolved)
+-		{
+-			const StartInfo * si = cc->getStartInfo();
+-			std::string key = "T14BLUE";
+-			if(si)
+-				key = si->mapname + "#" + std::to_string((int)si->difficulty) + "#" + std::to_string(playerID.getNum());
+-			const uint32_t hash = fnv1a(key);
+-			archetype  = hash % 5;
+-			aggression = (hash >> 3) % 4;
+-			archetypeResolved = true;
+-			logAi->info("[T14-ACT] T14Blue resolved archetype=P%d aggr=%d seed=%u map=%s",
+-			            (int)archetype, aggression, hash, si ? si->mapname.c_str() : "?");
+-		}
+-
+-		if(archetype == 2)
+-			return; // P2 guerrilla: stay dispersed, no central march
+-
+-		const int day = cc->getCalendar().getCurrentDay();
++		if(archetypeResolved)
++			return;
++		const StartInfo * si = cc->getStartInfo();
++		std::string key = "T14BLUE";
++		if(si)
++			key = si->mapname + "#" + std::to_string((int)si->difficulty) + "#" + std::to_string(playerID.getNum());
++		const uint32_t hash = fnv1a(key);
++		archetype  = hash % 5;
++		aggression = (hash >> 3) % 4;
++		archetypeResolved = true;
++		logAi->info("[T14-ACT] T14Blue resolved archetype=P%d aggr=%d seed=%u map=%s",
++		            (int)archetype, aggression, hash, si ? si->mapname.c_str() : "?");
++	}
+ 
++	int T14Nullkiller::gateDayFor() const
++	{
+ 		int gateDay;
+ 		switch(archetype)
+ 		{
+@@ -67,24 +74,26 @@ namespace T14Blue
+ 		case 3:  gateDay = 10; break; // P3 flyer
+ 		default: gateDay =  0; break; // P4 balanced: keep pushing
+ 		}
+-		gateDay = std::max(0, gateDay - aggression);
+-		if(day < gateDay)
+-			return;
++		return std::max(0, gateDay - aggression);
++	}
++
++	bool T14Nullkiller::pickPursuit(const CGHeroInstance *& hero, const CGTownInstance *& town) const
++	{
++		hero = nullptr;
++		town = nullptr;
+ 
+-		const CGHeroInstance * best = nullptr;
+ 		for(const CGHeroInstance * h : cc->getHeroesInfo())
+ 		{
+ 			if(!h || isHeroLocked(h))
+ 				continue;
+-			if(!best || h->getTotalStrength() > best->getTotalStrength())
+-				best = h;
++			if(!hero || h->getTotalStrength() > hero->getTotalStrength())
++				hero = h;
+ 		}
+-		if(!best)
+-			return;
++		if(!hero)
++			return false;
+ 
+ 		const bool wantFurthest = (archetype == 3);
+-		const CGTownInstance * target = nullptr;
+-		const int3 refPos = best->anchorPos();
++		const int3 refPos = hero->anchorPos();
+ 		si32 bestDist = wantFurthest ? -1 : 1 << 30;
+ 		for(const CGTownInstance * t : cc->getTownsInfo(false)) // all visible towns
+ 		{
+@@ -97,18 +106,140 @@ namespace T14Blue
+ 			if((wantFurthest && d > bestDist) || (!wantFurthest && d < bestDist))
+ 			{
+ 				bestDist = d;
+-				target = t;
++				town = t;
+ 			}
+ 		}
+-		if(!target)
++		return town != nullptr;
++	}
++
++	void T14Nullkiller::onPursueTurn()
++	{
++		// T14.3 R13 harvest nudge (kept as a safety net below the hard commit).
++		resolveArchetype();
++
++		if(archetype == 2)
++			return; // P2 guerrilla: stay dispersed, no central march
++
++		if(cc->getCalendar().getCurrentDay() < gateDayFor())
++			return;
++
++		const CGHeroInstance * best = nullptr;
++		const CGTownInstance * target = nullptr;
++		if(!pickPursuit(best, target))
+ 			return;
+ 
+ 		setActive(best, target->anchorPos());
+ 		setTargetObject(target->id.getNum());
+ 		objectClusterizer->reset();
+ 
+-		logAi->info("[T14-ACT] day=%d P%d aggr=%d pursue->enemyTown obj=%d dist=%d heroStr=%llu",
+-		            day, (int)archetype, aggression, target->id.getNum(), (int)bestDist,
+-		            (unsigned long long)best->getTotalStrength());
++		logAi->info("[T14-ACT] day=%d P%d aggr=%d nudge->enemyTown obj=%d heroStr=%llu",
++		            cc->getCalendar().getCurrentDay(), (int)archetype, aggression,
++		            target->id.getNum(), (unsigned long long)best->getTotalStrength());
++	}
++
++	void T14Nullkiller::onAfterInit()
++	{
++		// T14.3b ②: one-shot archetype Settings weight axis (gated setters; stock
++		// Nullkiller never invokes them -> zero behavior change for NK2).
++		resolveArchetype();
++		switch(archetype)
++		{
++		case 0: // P0 turtle: hoard gold, late push, conservative retreat
++			settings->setT14Weights(/*maxGoldPressure*/0.6f,
++			                        /*retreatThresholdRelative*/0.5f,
++			                        /*mainHeroTurnDistanceLimit*/10);
++			break;
++		case 1: // P1 rush: spend fast, long-range main hero, loose retreat
++			settings->setT14Weights(/*maxGoldPressure*/0.2f,
++			                        /*retreatThresholdRelative*/0.2f,
++			                        /*mainHeroTurnDistanceLimit*/14);
++			break;
++		case 3: // P3 flyer: longest main hero reach
++			settings->setT14Weights(/*maxGoldPressure*/0.3f,
++			                        /*retreatThresholdRelative*/0.3f,
++			                        /*mainHeroTurnDistanceLimit*/20);
++			break;
++		case 4: // P4 balanced: slightly more aggressive than stock
++			settings->setT14Weights(/*maxGoldPressure*/0.4f,
++			                        /*retreatThresholdRelative*/0.4f,
++			                        /*mainHeroTurnDistanceLimit*/12);
++			break;
++		default: // P2 guerrilla: keep stock settings (stay dispersed)
++			break;
++		}
++		logAi->info("[T14-ACT] WEIGHTS P%d goldPressure=%g retreatRel=%g mainDist=%d",
++		            (int)archetype,
++		            (double)settings->getMaxGoldPressure(),
++		            (double)settings->getRetreatThresholdRelative(),
++		            settings->getMainHeroTurnDistanceLimit());
++	}
++
++	void T14Nullkiller::onCommitPursuit(NK2AI::Goals::TTaskVec & selectedTasks)
++	{
++		// T14.3b ①: hard goal injection — splice the committed march into the
++		// selected task vector; executeTask then actually performs it.
++		resolveArchetype();
++
++		if(archetype == 2)
++			return; // P2 guerrilla: no central commit
++
++		const int day = cc->getCalendar().getCurrentDay();
++		if(day < gateDayFor())
++			return;
++
++		const CGHeroInstance * best = nullptr;
++		const CGTownInstance * target = nullptr;
++		if(!pickPursuit(best, target))
++			return;
++
++		// Pick the safest usable path toward the target town (prefer the pursuit
++		// hero, fall back to the cheapest path overall).
++		const auto paths = pathfinder->getPathInfo(target->anchorPos());
++		const NK2AI::AIPath * preferred = nullptr;
++		const NK2AI::AIPath * fallback = nullptr;
++		uint64_t preferredDanger = std::numeric_limits<uint64_t>::max();
++		uint64_t fallbackDanger = std::numeric_limits<uint64_t>::max();
++		for(const auto & p : paths)
++		{
++			if(p.nodes.empty() || !p.targetHero)
++				continue;
++			const uint64_t danger = p.getTotalDanger();
++			if(p.targetHero == best && danger < preferredDanger)
++			{
++				preferredDanger = danger;
++				preferred = &p;
++			}
++			if(danger < fallbackDanger)
++			{
++				fallbackDanger = danger;
++				fallback = &p;
++			}
++		}
++		const NK2AI::AIPath * chosen = preferred ? preferred : fallback;
++		if(!chosen)
++			return;
++
++		// Replace the Invalid placeholder with the committed march, or front-insert
++		// it ahead of weaker tasks.
++		auto commitTask = NK2AI::Goals::taskptr(
++			NK2AI::Goals::ExecuteHeroChain(*chosen, target).setpriority(T14_PURSUIT_PRIORITY));
++
++		for(size_t i = 0; i < selectedTasks.size(); ++i)
++		{
++			if(selectedTasks[i]->getHero() == chosen->targetHero)
++			{
++				selectedTasks[i] = commitTask; // overwrite same-hero task with the commit
++				logAi->info("[T14-ACT] day=%d P%d aggr=%d COMMIT(overw) march->obj=%d danger=%llu hero=%s",
++				            day, (int)archetype, aggression, target->id.getNum(),
++				            (unsigned long long)(chosen == preferred ? preferredDanger : fallbackDanger),
++				            chosen->targetHero->getObjectName().c_str());
++				return;
++			}
++		}
++		selectedTasks.insert(selectedTasks.begin(), commitTask);
++		logAi->info("[T14-ACT] day=%d P%d aggr=%d COMMIT(front) march->obj=%d danger=%llu hero=%s",
++		            day, (int)archetype, aggression, target->id.getNum(),
++		            (unsigned long long)(chosen == preferred ? preferredDanger : fallbackDanger),
++		            chosen->targetHero->getObjectName().c_str());
+ 	}
+ }
+diff --git a/AI/T14BlueMod/T14Nullkiller.h b/AI/T14BlueMod/T14Nullkiller.h
+index 208a75cc86..c6757b0ea0 100644
+--- a/AI/T14BlueMod/T14Nullkiller.h
++++ b/AI/T14BlueMod/T14Nullkiller.h
+@@ -1,22 +1,38 @@
+ /*
+  * T14Nullkiller.h — T14 blue-side strategic planner (layer-2 C++ plugin)
+- * Derives NK2AI::Nullkiller, overrides onPursueTurn() (R13 harvest nudge).
+- * NK2 base default = empty -> zero behavior change for stock Nullkiller.
++ * Derives NK2AI::Nullkiller and overrides three NK2 zero-default hooks:
++ *   - onPursueTurn()      : T14.3 R13 VictoryPursuer harvest nudge (re-assert targetObject)
++ *   - onAfterInit()       : T14.3b ② one-shot archetype Settings weight axis
++ *   - onCommitPursuit()   : T14.3b ① hard goal injection (committed march task)
++ * NK2 base defaults = empty -> zero behavior change for stock Nullkiller.
+  */
+ #pragma once
+ #include "StdInc.h"
+ #include "../Nullkiller2/Engine/Nullkiller.h"
+ 
++class CGHeroInstance;
++class CGTownInstance;
++
+ namespace T14Blue
+ {
++	// T14.3b ①: hard-commit priority. Above DEFENSIVE_EMERGENCY_PRIORITY (1e6,
++	// the highest organic value NK2 produces) so the committed march leads.
++	constexpr float T14_PURSUIT_PRIORITY = 10000000.0f;
++
+ 	class T14Nullkiller : public NK2AI::Nullkiller
+ 	{
+ 	public:
+-		void onPursueTurn() override;
++		void onPursueTurn() override;                                  // T14.3 R13 nudge
++		void onAfterInit() override;                                     // T14.3b ② weight axis
++		void onCommitPursuit(NK2AI::Goals::TTaskVec & selectedTasks) override; // T14.3b ① hard commit
+ 
+ 	private:
++		void resolveArchetype();
++		int  gateDayFor() const;
++		bool pickPursuit(const CGHeroInstance *& hero, const CGTownInstance *& town) const;
++
+ 		bool archetypeResolved = false;
+-		int  archetype   = 4;  // P4 balanced default
+-		int  aggression  = 0;  // 0-3
++		int  archetype   = 4;   // P4 balanced default
++		int  aggression  = 0;   // 0-3
+ 	};
+ }
+-- 
+2.43.0
+
