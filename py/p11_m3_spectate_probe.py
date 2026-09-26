@@ -185,7 +185,7 @@ class P11M3:
         return alt + 1 if self.turn_seq else 0
 
     def run(self):
-        print('=== T13.11 M3 v1: 第 3 连接(观战位)存活验证 ===')
+        print('=== T13.11 M3 v3: 三连接 + 观战位(--spectate)存活验证 ===')
         kill_all()
 
         results = {}
@@ -265,7 +265,7 @@ class P11M3:
                'verdict': 'PASS' if verdict else 'FAIL'}
         rp = f'{TMP}\\p11m3_report.json'
         Path(rp).write_text(json.dumps(rpt, ensure_ascii=False, indent=2))
-        print(f"\n=== T13.11 M3 v1 结果: {rpt['verdict']} ===")
+        print(f"\n=== T13.11 M3 v3 结果: {rpt['verdict']} ===")
         print(f"报告: {rp}")
         return 0 if verdict else 3
 

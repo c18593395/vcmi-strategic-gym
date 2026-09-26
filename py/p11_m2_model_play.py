@@ -160,7 +160,9 @@ class P11M2:
                             self.move_ok += 1
                             print(f'[RECV] TryMoveHero hero={oid} SUCCESS (#{self.move_ok})')
                         else:
-                            print(f'[RECV] TryMoveHero hero={oid} FAILED → 换向')
+                            print(f'[RECV] TryMoveHero hero={oid} FAILED → 回滚 pos + 换向')
+                            if getattr(self, '_pending_from', None):
+                                self.hero_pos = self._pending_from   # v2: 回滚到移动前真实位置
                             self.dir_idx = (self.dir_idx + 1) % len(DIRS)
                 except Exception:
                     pass
@@ -193,7 +195,8 @@ class P11M2:
                       player=MY_COLOR, request_id=self.next_req())
         print(f'[ACT] MoveHero {self.hero_pos[:2]} -> ({nx},{ny},0) dir={self.dir_idx}')
         self.conn.send_frame(mh.to_bytes())
-        self.hero_pos = (nx, ny, 0)   # 乐观更新; FAILED 由 109 回调换向
+        self._pending_from = self.hero_pos   # v2: 记录移动前位置, FAILED 由 109 回调回滚
+        self.hero_pos = (nx, ny, 0)   # 乐观更新
         time.sleep(0.8)
         # 4. EndTurn
         et = EndTurn(player=MY_COLOR, request_id=self.next_req())
