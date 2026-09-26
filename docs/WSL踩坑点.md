@@ -507,3 +507,20 @@
 - **解法（落地）**：python 一次读-4 处替换-写 + `git add` + `commit` 压进**一条命令**（`62052f05`），把窗口缩到对端一轮写回之内；提交后 `grep -cE` 复核条目数 0
 - **教训**：① 双 CLI 场景写共享 md 必须「读-改-写-提交」原子化单命令，禁止多步 patch 后再看 diff ② 写后复核 = 看条目计数/grep 目标串，不看 `git status`（对端可能刚 commit 把脏文件吞了）③ 撞车后先 `git log` 看对端提交内容再决定重打，别盲目 patch（会基于陈旧快照产生覆盖冲突）
 - 状态: ✅ 定谳（`62052f05` 销条落地；后续共享文件改动一律原子化 + 写后 grep 复核）
+
+### #337. hermes CLI 每次启动「source-update 补完」(npm ci node 构建) 卡死子命令 ✅ 已绕过（09-27）
+
+- **现象**：`hermes kanban boards create ...` 先打印 "hermes: finishing an interrupted source update..." 跑 `npm ci`（apps/desktop, ui-tui, web）>240s 未完，前台超时杀掉（rc=124），kanban 子命令根本没跑成
+- **根因**：某次 hermes update 的 node 构建尾巴被中断，留 pending 标记（PM install_state_dir 下 `source-completion-pending`，不在 hermes-agent 根，常规目录 find 不到）；此后每次 CLI 启动 venv_sync._finish_source_update 先跑补完
+- **绕过**：`HERMES_DISABLE_LAZY_INSTALLS=1`（venv_sync.py:232 该 env 置位即跳过补完；venv 本身 current，欠的只是 node 构建尾巴，kanban/terminal 等子命令不受影响）
+- **彻底修复**：后台跑通一次 `hermes update`（npm 慢，给足超时）
+- **教训**：hermes 子命令输出开头出现 "finishing an interrupted source update" 时，别等它——直接 env 绕过，或显式后台补完，别在交互命令里干等
+- 状态: ✅ 已绕过（09-27 kanban smoke 全命令在此 env 下跑通）
+
+### #338. hermes kanban CLI 无 per-command `--board` 旗标 ✅ 定谳（09-27）
+
+- **现象**：`hermes kanban list --board hero3-collab` → `unrecognized arguments: --board`
+- **根因**：选板解析顺序 = context var > `HERMES_KANBAN_BOARD` env > 共享指针 `<root>/kanban/current` > `default`；CLI 只暴露 env 与 `hermes kanban boards switch` 两个入口，无逐命令旗标
+- **用法**：持久 = `hermes kanban boards switch <slug>`（写共享指针，影响本机所有 CLI）；单次 = `HERMES_KANBAN_BOARD=<slug> hermes kanban ...`。板库在共享根（`kanban.db` / `kanban/boards/<slug>/kanban.db`），与 profile 目录无关 → 同机多 CLI 天然共享
+- **教训**：kanban 当留言板用时任务保持 assignee 空（ready 不 assign → dispatcher skipped_unassigned 不碰）；同 profile 下 assignee/created_by 分不清哪个 CLI，comment 带 A:/B: 前缀或分 tenant
+- 状态: ✅ 定谳（hero3-collab 板 + smoke 卡 t_e78796ea，B 侧跨进程验证通过）
