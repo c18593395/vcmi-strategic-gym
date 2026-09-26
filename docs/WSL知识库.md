@@ -136,6 +136,31 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 
 ---
 
+### 09-26 P1 引擎窗口三项收口（298 对照定谳 + #215 守卫重写 + connector 重编）
+
+**结论**：P1 三项全闭环，本地仓 commit `11be8ba34d`（vcmi-native，4 文件）+ `87df8cc`（vcmi_gym，2 文件），均未推。证据目录 `/home/administrator/_298_p1_20260926/`（rootfs 持久）。
+
+**P1-2 298 三套 A/B 对照实验（P0-2 销项）**：
+- 纪律按 #298：同 4 图 × 4 轮 30 步，with-patches 臂（09-24 .so 原态）vs baseline 臂（`py/revert_298.py` 手术式逆向三套 298 → 重编，保留 09-24 的 [ML-time]/force/tradecap）
+- 结果：A 臂 16/16 全 rc=0 零冻结；B 臂 4/16 rc=0 + **12×rc=124 冻结**（judgement_day 4/4、a_viking 4/4、elbow 3/4、g2g 2/4）
+- 定谳：**三套全留**（栈打点当哨兵不撤 / 方案1 网络线程跳过等待 / upgrade 熔断 cap 8），09-23「去留倾向」三选三全留实锤
+- 边界：压制非根治——冻结死锁根因（AI EndTurn realize 死锁 / Mode B 架构级）仍在，根治方向另排（09-23 章三档：服务器查询栈看门狗 / MapObjectVisitQuery 根因 / endTurn waitTillRealize=false）
+- 基线工具关键决策：`.so.bak_*298` 是 09-23 快照，直接 rollback 会误伤 09-24 独立提交 → `revert_298.py` 基于三套 patch 脚本的 EDITS 常量做 `new→anchor` 精确逆向（踩坑 #321）
+
+**P1-3 #215 headless 守卫重写**：
+- 原 commit 65515ef24（09-16，14 处）被 09-19 上游 1160 文件重同步冲掉 + 对象随 09-18 rootfs 事故永久丢失（WSL 仓/D 盘镜像/09-19 备份 tar .git 三处 `cat-file -t` 全灭，踩坑 #320）→ 按 fact_store #215 记录重写为 P8 终局热路径最小 6 处：`py/patch_215_engine_guard.py`（CSH sendRestartGame/sendStartGame CLoadingScreen 双分支 + showHighScores + endGameplay discord + showServerError；Client.cpp removeGUI 二次崩点；备份 .bak_215）
+- 同 commit 修 **vcmiclient 链接失败**（7/26 起欠账）：上游重同步冲掉 mlclient 链接行，`clientapp/CMakeLists.txt` 补 `if(ENABLE_ML) target_link_libraries(vcmiclient PRIVATE mlclient)`——根因 = NetPacksClient.cpp visitPlayerEndsGame 硬引用 `strategic_state_force_game_over` + `g_adventure_allied_ai`（MLClient.cpp L31 定义）
+- 环境件：`data/config/settings.json` 写 `server.ML.statsMode=disabled` + `rel/bin/-`（sqlite）建 stats/stats_md 表 + seed 行 (side=0, n_pools=1, pool_size=2)（踩坑 #323）
+- 验证：P8 p8c_query_reply **VERDICT: PASS**（171KB LobbyStartGame 广播不崩、zero 197 fishy、MY TURN #1 轮转、`grep -c "not allowed|fishy"` = 0）；冻结复验 g2g 重跑 4/4 rc=0（初跑 1×rc=124 定性 flake，N≥4 口径）
+
+**P1-4 connector 重编（开源周 C++ 改动首次生效）**：
+- vcmi_gym/connectors 3 个 .so（v13/14/15）+ 3 exporter 重编：`VCMI_DIR` CACHE PATH（`-DVCMI_DIR` 可覆盖）+ threadconnector XDG_DATA_HOME 取 `$HOME/.local/share`（已设不覆盖，根治 root 侧跑静默拿 /root 地形全零）
+- 验证：cmake 全目标绿 + dlopen OK + trainer 冒烟链路正常；commit `87df8cc`（master，本地仓）
+
+**遗留/下窗**：① 冻结 Mode B 根修（三档方向，见 P1-2 边界）② T13 §六 遗留①「#215 待 commit」销项（本次即销，守卫 6 处已入 11be8ba34d）③ p8c 脚本 exit 语义统一（踩坑 #325，开源周顺路）④ `py/ep_runner_one.py` 横跳 P0 修正仍挂账（奖励面改动，引擎窗口验证后再提）
+
+---
+
 ### 09-25 PPO-DNA 并行化（N_SUBPROC=4 灰度上线）
 
 **动机**：串行 1 局 5-600s + GPU 利用率近 0（更新 <1s vs 子进程 500s），24/7 训练日吞吐仅 15-180 局。

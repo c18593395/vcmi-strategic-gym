@@ -344,3 +344,47 @@
 - **定谳（字节级四方一致）**：合法 JSON key = `weeklyBonusesAI`（**带 es**）——`config/schemas/gameSettings.json`、官方 `gameConfig.json`、`GameSettings.cpp` L120 三元组、mod.json 四处全带 es；**仅 C++ 枚举名无 es（官方 typo）**，两侧本来就不一致
 - **坑点**：`mod.json settings` 走 schema 校验（`additionalProperties:false`），错一个字母不报任何错、只是该字段被丢弃 → 表现为「mod 加载 OK 但通道 B 无效果」，极易误判为「mod 没生效」（与 #316 log1p 假象叠加成双重误判源）
 - **判据/防再踩**：改 mod settings 后必跑 ridiculous 值探针（临时拉满数值看 obs 反算 raw 是否原样进引擎）——本次 weekly 通道 s29 income 8.16→10.24 即靠此坐实 key 被正确消费
+
+---
+
+## 09-26 P1 引擎窗口三项收口（298 对照定谳 / #215 守卫重写 / connector 重编）新增踩坑
+
+### #320. 09-19 上游 1160 文件重同步冲掉 #215 全部 headless 守卫，且原 commit 65515ef24 随 rootfs 事故永久丢失 ⚠️ 已重写（09-26）
+
+- **现象**：P1-3 排期写「#215 13 处 `if(ENGINE)` 守卫待 commit」，实际核树发现工作树 `client/` 对 HEAD 干净且守卫只剩上游自带的 9+1 处——09-16 的 14 处守卫（commit 65515ef24）被 09-19/09-23 上游全量重同步（`375fba919e` 1160 文件）整段冲掉
+- **丢失坐实**：65515ef24 对象在 WSL 仓 / D 盘全部镜像仓 / 09-19 rootfs 备份 tar 的 .git 里均 `cat-file -t` 失败（随 09-18 WSL 引擎 2.7.10 自建 distreg、旧 rootfs 丢弃而灭失，#269 同族）；09-19 备份树同样只剩 9+1 处 → 原始 diff 无法捞回
+- **处置**：按 fact_store #215 记录语义重做，收敛为 P8 终局热路径**最小 6 处**（CSH sendRestartGame / sendStartGame CLoadingScreen 双分支 + showHighScores + endGameplay discord + showServerError；Client.cpp removeGUI 二次崩点），工具 `py/patch_215_engine_guard.py`（幂等 + 锚点校验 + .bak_215 rollback）
+- **通用教训**：上游全量重同步 = 未入库的补丁全灭；守卫类修复必须当窗 commit，不能留「待正式 commit」——本次跨仓欠账挂了 10 天就是反例。核守卫存活不能只信任务清单，要 `grep -c 'if (ENGINE)'` 对文件实读（注意带空格的 `if (ENGINE)`，无空格 grep 会假阴性）
+
+### #321. .so 级 .bak 快照（libmlclient.so.bak_*298）是 09-23 的，直接 rollback 会误伤 09-24 提交 → 改用源码手术式逆向 ✅ 已用（09-26）
+
+- **现象**：P0-2 对照实验要「回退三套 298 重编」，树里现成的 `.so.bak_stk298/.bak_netfix298/.bak_298_0923` 全是 09-23 快照——回退到 09-23 会连带丢 09-24 的 [ML-time] trade cap / force game_over 独立提交，且 09-24 之后源码（AIGateway）又改过，.so 快照与源码树不对齐
+- **修复**：新工具 `py/revert_298.py`——import 三套 patch_298_*.py 的 EDITS 常量（与正向同一份 anchor/new 字符串），对每项做 `new→anchor` 精确逆向，不碰其他改动；`apply` 子命令可重放恢复。预检（revert check）19 项中 18 项可逆，BR 那 1 项 stk 锚点在 09-19 上游同步里被改动过当时就没打上 → 跳过即正确
+- **通用教训**：竞态类对照实验的「基线」必须 = 现树精确逆向目标改动，不能用旧快照；每次用旧 .bak/.so 前先核 mtime 对应的提交
+
+### #322. 298 三套 A/B 对照定谳 = 全留（压制，非根修）⚠️ 定案（09-26，N=4 + 基线对照）
+
+- **实验**：同 4 图（good_to_go / judgement_day / elbow_room / a_viking）× 4 轮 30 步，A 臂 with-patches（09-24 .so 原态）vs B 臂 baseline（revert_298.py 逆向三套 → 重编 libvcmi/libmlclient，保留 [ML-time]/force/tradecap）
+- **结果（复现率口径，#298 纪律）**：A 臂 16/16 全 rc=0 零冻结；B 臂 4/16 rc=0 + **12×rc=124 超时冻结**（judgement_day 4/4、a_viking 4/4、elbow 3/4、g2g 2/4）→ 与 09-23「基线即 4/6 异常」A/B 记录方向一致且大幅强化
+- **定谳**：三套 298（栈打点 / 方案1 跳过等待 / upgrade 熔断 cap 8）**全留**——打点不撤（当哨兵），方案1 + 熔断留（A 臂健康局 0 误触发 = 只在真死锁才动手）
+- **边界**：这是**压制非根治**——with-patches 臂 16 局零冻结是采样证据，冻结根因（AI EndTurn realize 死锁 / Mode B 架构级）仍在，终局后你的 turn 永不再来类问题靠 force game_over 兜底；根治方向另排（知识库 09-23 章三档）
+- 证据目录：`/home/administrator/_298_p1_20260926/`（arm_a.txt / arm_b.txt + 32 份逐局 log + build log，rootfs 持久）
+
+### #323. stats db 三连环：statsStorage 默认 "-" + rootfs 事故丢表 + P8 冒烟卡开局 ⚠️ 已解锁（09-26）
+
+- **现象**：#215 重编后 P8 p8c_query_reply 冒烟 `game_started=False`（exit=2 或 0），server 日志 `Failed to launch game: no such table: stats`；建表后又报 `side check failed: no rows in stats_md` → seed 行；再报 `side in DB is 1, want 0` / `npools want 1`
+- **根因链**：server ML 插件 `Config.h` 默认 `statsStorage="-"`（cwd 开名为 `-` 的空 sqlite）+ `statsMode="red"` 默认开启 → 09-18 rootfs 事故（#269）把 db 文件/表全丢 → 每次开局 verify 挂死。`rel/bin/-` 是 0 字节空文件，表结构在 `server/ML/sql/structure.sql`
+- **修复（双保险）**：① python sqlite3 对 `rel/bin/-` 执行 structure.sql 建 `stats` + `stats_md` + seed 行 `(side=0, n_pools=1, pool_size=2)`（seed 值必须与 InitStats 的 npools/poolsize/side 参数一致，跑一次看 server 报错 `want: X` 回填）② `data/config/settings.json` 写 `server.ML.statsMode=disabled`（P8/训练链路都不用 Stats，彻底关）
+- **通用教训**：`statsMode` 默认 "red" 是隐雷，任何 rootfs/db 重置后 P8 类冒烟首跑先查 `no such table`；seed 行参数别猜，跟报错抄
+
+### #324. WSL idle shutdown 4 连重启带走后台实验 + /tmp 输出（踩坑 #201 重犯）⚠️ 已拉 keepalive（09-26）
+
+- **现象**：P1 开工时 P1-2 A 臂后台 16 局跑到第 3 局（09:18）被 WSL 重启全清，09:18/09:20/09:22/09:35 连重启 4 次，`/tmp/_298_p1_20260926/` 输出目录整个消失，`last reboot` 铁证
+- **根因**：keepalive `wsl --exec sleep infinity` 未拉起（踩坑 #201/#267 勘误：idle 判定只看 Windows 侧客户端，WSL 内进程再忙也照关）
+- **修复**：① 立即拉 keepalive ② 重跑脚本输出改 **rootfs 持久路径**（`/home/administrator/_298_p1_20260926/`，/tmp 虽在 rootfs 但重启时 WSL 有清理行为，用 home 下目录最稳）③ nohup + flag 文件收尾
+- **通用教训**：WSL 内任何 >30min 的后台任务，启动前必拉 keepalive；证据/输出文件落 `/home/<user>/` 不落 `/tmp`
+
+### #325. p8c_query_reply.py exit code 打点不一致（game_started=False 分支时 2 时 0）🟡 登记（09-26）
+
+- **现象**：同一脚本 5 次运行，`game_started=False` 时 run2 EXIT=2、run3/4/5 EXIT=0（stats 修复前后各不同）；判定只能靠日志 `VERDICT:` 行，exit code 侧面不可靠
+- **处置**：不阻塞（判定口径=日志 VERDICT PASS/FAIL + `grep -c fishy`），列入开源周脚本打磨清单（P8 脚本 exit 语义统一：连接失败 1 / 未开局 2 / fishy 3 / PASS 0）
