@@ -179,7 +179,15 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 
 **工具链（/py，全可复跑）**：`patch_recruit_fix_wsl.py/v2/v3/v5/v6.py`（补丁链带备份回滚）、`recruit_fix_verify_smoke.sh`（验证冒烟）、`rfix_trace.py`（traj 时间线解剖）、`t06_town_dwellings_check.py`（城镇字段对照）、`server_recruit_probe.sh`（服务器 ep 日志扫描）。
 
-**遗留**：① 服务器侧同步（AAI.cpp 终版 + 6 张改图 + 重编）待网络窗口；② WSL vcmi-native 仓需把 AAI.cpp 终版 commit 入库（本次事故根源 = 修复未入库）；③ H3M 城若有预置 garrison，拍首合并会一并并入英雄（首次窗，T06/已验证 H3M 初始 garrison 均 0，暂不设防）；④城上出生对 duel 难度轴 avg_r 的影响属环境变更，训练窗观察。
+**遗留**：① ~~服务器侧同步~~ **✅ 09-27 闭环**（P-029）：AAI.cpp 终版 md5 `ece8308a` + 6 图双位置 + libvcmi.so 重编 `931f3918` + 服务重启（MainPID 3018380）。验证：16 slot RECRUITED=8-11/局、duel 图 11/局、TOWN_RETRY=0。备份：服务器 `AAI.cpp.bak_prev1_0927` + 地图 `.bak_spawn_0927`。② ~~WSL vcmi-native 仓 AAI.cpp commit~~ **✅ 09-27 闭环**（P-030）：commit `bdcc8db81c`。③ H3M 城若有预置 garrison，拍首合并会一并并入英雄（首次窗，T06/已验证 H3M 初始 garrison 均 0，暂不设防）。④ ~~城上出生对 duel 轴 avg_r 影响~~ **✅ 09-27 销项**（P-031，见下）。
+
+**部署后观察（P-031 销项判读）**：城上出生 + dwellings 环境变更判**通过——无恶化且显著改善**。
+- duel 新窗（step≥1655053）三桶：桶1 avg_r +0.25（正局 68%）→ 桶2 +0.47（84%）→ 桶3 +0.42（81%），**单调上升后高位稳定，大负局（<-2）= 0**
+- 前后 10 局对比 +0.21 → +0.31（趋势向上）
+- 口径说明：桶 avg_r 是短局口径（duel 局多为 50-120 步，取兵窗 10 拍 + 开局探索）；T7.5 S2 基线 +50.6 是长局含完整取兵链路口径，**同口径对比需 T7.8 撤梯子后**
+- 回滚备份保留 30 天（`.bak_spawn_0927`/`.bak_pre_dwell_0927`），之后可删
+
+**工具链补充**：`py/p031_duel_snapshot.py`（duel 时间桶，STEP_NEW=1655053 可改）。
 
 ---
 
@@ -368,3 +376,32 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 - **smoke 已通**：hero3-collab 板 + 卡 `t_e78796ea`（ready、assignee 空）+ A 侧 comment；B 侧全新进程 `hermes kanban show` 跨进程验证卡/正文/comment/事件流全可见。
 - **使用约定**：当留言板用 = 任务保持 assignee 空（ready 不 assign → dispatcher skipped_unassigned 不碰）；同 profile 下 comment 的 assignee/created_by 分不清哪个 CLI，正文带 A:/B: 前缀或分 tenant。
 - **环境坑**：每次起 hermes CLI 先跑 source-update 补完尾巴（npm ci desktop/tui/web >240s）卡死子命令（踩坑 #337）；绕过 `HERMES_DISABLE_LAZY_INSTALLS=1`，根治 = 后台跑通一次 `hermes update`。
+
+### 09-27 T13.11 M1.5 Nullkiller2.dll 补编（vs 真 NK2 对战底座）
+
+**背景**: T13.11（模型 vs NK2 + 用户观战）M1 拓扑闭环后发现蓝方现役 = PpoModelAI 非 NK2；bin/AI 缺 Nullkiller2.dll（历史坑: build.ninja 只有 NK2 obj 编译规则无链接目标, LoadLibraryW error 126）。
+
+**补编全记录（踩坑 #68 BattleAI 手链范式同款）**:
+1. Nullkiller2 是 OBJECT 库（libFacade 把其 obj 静态吸收进 VCMI_lib.dll, 但 CDynLibHandler::getNewAI 走 LoadLibrary 需要 bin/AI/Nullkiller2.dll 独立文件）。
+2. 恢复官方 main.cpp 入口（fork 删了; 37 行: GetGlobalAiVersion/GetAiName/GetNewAI 三 C 导出, GetNewAI = make_shared<NK2AI::AIGateway>）。
+3. 手工链接: 70 obj（69 NK2 + main）+ libFacade/.../server/strategic_state.cpp.obj（解析 adventure_capture_turn 钩子; 蓝方 playerID!=0 不进采集路径, 状态副本无实际影响, VCMI_lib.dll 不动 = ModelAI/训练实验面零影响）+ -lVCMI_lib -ltbb12 -lboost_filesystem-mt -static-libstdc++。脚本 py/_m15_extract_link_cmd.py。
+4. settings.json adventureEnemyAI: ModelAI→Nullkiller2（只切 Enemy, Allied 保持 ModelAI; 备份 .bak_pre_nk2_0927）。
+5. 验证: M1 探针复跑 PASS — 蓝方身份=Nullkiller2, 动作包 281, 3 场真实战斗（BattleStart+BattleResult）, 8 轮交替, 无崩。
+
+**新踩坑①**: mingw GCC「编译零输出 exit=1」（hello world 都挂）= PATH 污染——默认 PATH 有冲突 dll 使 cc1plus 加载失败无声死; 解法 = 前置 C:/msys64/mingw64/bin（ninja 的 cmd /c 继承, 构建前 export）。
+**新踩坑②**: CMake 4.4.2 re-run 生成 build.ninja 漏求值 genex（LINK_LIBRARIES 出现字面 $<LINK_ONLY:ws2_32>）→ ninja bad $-escape 全构建瘫痪; 解法 = python 删三个 genex（py/_m15_fix_ninja_genex.py; -lws2_32 等明文仍在命令行, 功能等价）; 每次 cmake re-run 复发。
+**附带**: .d 依赖文件全丢（0911 后清过）→ ninja 强制重编; re-run CMake 再生 Version.h 触发 AIGateway 重编——修 PATH 后正常可编, depfile hack 不再需要。
+
+**回切口径**: 要回 PpoModelAI 蓝方 = 还原 settings.json.bak_pre_nk2_0927; Nullkiller2.dll 留 bin/AI 无副作用（不被加载）。
+
+
+
+### 09-27 T13.11 M2 红方真实决策环 PASS + M3 观战半程
+
+**M2 ✅（py/p11_m2_model_play.py PASS）**: Twins 红方资产 SRV-DIAG 实锤（HERO OI=350 @(1,8,0) + TOWN OI=347, 蓝方 HERO 732/TOWN 740 在 z=1 地下）。决策链 Build(DWELL_LVL_1=30) 受理 → RecruitCreatures(pikeman 试探) 发出 → **MoveHero (1,8)→(2,8) TryMoveHero SUCCESS**（后续 3 次 FAILED = 地形校验真实工作, 换向逻辑触发; v2 待改: FAILED 回滚 pos——乐观更新会漂移）。9 轮 vs Nullkiller2 无崩。**模型推理受数据源墙限制留 S-2**（外挂 client 建 3464 obs 不全, 备料已确认; 规则驱动现状）。
+
+**M3 🔄 半程（py/p11_m3_spectate_probe.py v2）**:
+- **第 3 连接协议层全通**: Python(红)+client1(蓝NK2)+client3(testmap 同款第 3 连接) 三 CC 全成 → 14LobbyStartGame → 对局正常开始红蓝交替。**P8-E (09-15) 的 server NEW_GAME 崩已不复现**（09-16 #205 robustness 副作用/时序差异）。
+- **剩 client spectate 界面崩溃**: client3 无 slot → Client.cpp L238-249 hasHumanPlayer=false 自动 spectate → 装界面后 `Attempt to read from 0x98` 空指针崩（fork client SPECTATOR 路径又一处未判空; 与 09-10 已修 `getPlayerState()->quests` 0x6d8 同族）。dmp: `My Games/vcmi/logs/VCMI_client.exe_crashinfo.dmp`。候选 7 处: NetPacksClient.cpp L410-411 / CPlayerInterface.cpp L373 / CResDataBar L110 / AdventureMapShortcuts L652 / CKingdomInterface L649-650（getPlayerState 直链）。
+- **无 --testmap 的 client 不连 server**（headless 空转主菜单, 无 CLI 直连 lobby 参数）→ 观战位必须 testmap 同款形态 join。
+- 深修路径: 定位 0x98 → 判空修 → 重编 VCMI_client.exe（链接链未验证, client 依赖 VCMI_lib.dll 链接同 NK2 手链范式可参考）。
