@@ -839,5 +839,122 @@
     "verify": "underground OK l!=0对象=635/1625",
     "ts": "2026-09-26 23:43:27",
     "hold_reason": "09-27 条件5/6 实测定谳: ckpt1615372 带训练同款引导 N=4 局, 全在31~40步HERO_DEATH早收(0满250步), meanR全负(-7.6~-64.3), 正局率<=25% (dense_neutral怪太密, 英雄31步被打爆). 不满足 meanR>=0 且正局>=50%. OBS同层本身成立(gate=0+spawn l=0). 回退=99->3 待ckpt能力提升"
+  },
+  "all_for_one_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "all_for_one_ug_h3m.vmap",
+    "reduce": "地表中性怪 77 删38留39 (怪物族 ['creaturegeneratorcommon', 'randommonsterlevel1', 'randommonsterlevel2', 'monster', 'randommonsterlevel3'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "buried_treasure_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "buried_treasure_ug_h3m.vmap",
+    "reduce": "地表中性怪 91 删45留46 (怪物族 ['randommonsterlevel2', 'randommonsterlevel1', 'monster', 'randommonsterlevel3', 'randommonsterlevel4', 'creaturegeneratorcommon'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "crimson_and_clover_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "crimson_and_clover_ug_h3m.vmap",
+    "reduce": "地表中性怪 34 删17留17 (怪物族 ['randommonsterlevel4', 'randommonsterlevel1', 'randommonsterlevel3'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "dwarven_gold_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "dwarven_gold_ug_h3m.vmap",
+    "reduce": "地表中性怪 28 删14留14 (怪物族 ['randommonsterlevel1', 'randommonsterlevel2', 'monster', 'randommonsterlevel3', 'creaturegeneratorcommon'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "hoard_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "hoard_ug_h3m.vmap",
+    "reduce": "地表中性怪 89 删44留45 (怪物族 ['creaturegeneratorcommon', 'randommonsterlevel3', 'randommonsterlevel2', 'monster', 'randommonsterlevel1'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "manifest_destiny_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "manifest_destiny_ug_h3m.vmap",
+    "reduce": "地表中性怪 20 删10留10 (怪物族 ['randommonsterlevel3', 'randommonsterlevel1', 'randommonsterlevel4', 'randommonsterlevel2'])",
+    "ts": "2026-09-27 01:32:49"
+  },
+  "ready_or_not_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "ready_or_not_ug_h3m.vmap",
+    "reduce": "地表中性怪 62 删31留31 (怪物族 ['randommonsterlevel3', 'randommonsterlevel4', 'randommonsterlevel1', 'creaturegeneratorcommon', 'randommonsterlevel2'])",
+    "ts": "2026-09-27 01:32:50"
+  },
+  "rise_of_the_phoenix_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "rise_of_the_phoenix_ug_h3m.vmap",
+    "reduce": "地表中性怪 168 删84留84 (怪物族 ['randommonsterlevel3', 'randommonsterlevel4', 'randommonsterlevel1', 'creaturegeneratorcommon', 'randommonsterlevel2', 'randommonsterlevel5', 'monster'])",
+    "ts": "2026-09-27 01:32:50"
+  },
+  "the_newcomers_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "the_newcomers_ug_h3m.vmap",
+    "reduce": "地表中性怪 24 删12留12 (怪物族 ['randommonsterlevel1', 'randommonsterlevel2', 'randommonsterlevel3', 'randommonsterlevel4'])",
+    "ts": "2026-09-27 01:32:50"
+  },
+  "time_s_up_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "time_s_up_ug_h3m.vmap",
+    "reduce": "地表中性怪 7 删3留4 (怪物族 ['randommonsterlevel5', 'randommonsterlevel3', 'randommonsterlevel4', 'randommonsterlevel2'])",
+    "ts": "2026-09-27 01:32:50"
+  },
+  "undead_unrest_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "undead_unrest_ug_h3m.vmap",
+    "reduce": "地表中性怪 76 删38留38 (怪物族 ['monster', 'randommonsterlevel1', 'creaturegeneratorcommon', 'randommonsterlevel2', 'randommonsterlevel5', 'randommonsterlevel3', 'randommonsterlevel4'])",
+    "ts": "2026-09-27 01:32:50"
+  },
+  "unexpected_inheritance_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "unexpected_inheritance_ug_h3m.vmap",
+    "reduce": "地表中性怪 50 删25留25 (怪物族 ['creaturegeneratorcommon', 'randommonsterlevel4', 'randommonsterlevel1', 'randommonsterlevel3', 'randommonsterlevel2', 'randommonsterlevel5'])",
+    "ts": "2026-09-27 01:32:51"
+  },
+  "valleys_of_war_ug_low_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "low_density": true,
+    "based_on": "valleys_of_war_ug_h3m.vmap",
+    "reduce": "地表中性怪 49 删24留25 (怪物族 ['randommonsterlevel2', 'randommonsterlevel4', 'randommonsterlevel3', 'creaturegeneratorcommon', 'monster', 'randommonsterlevel1', 'randommonsterlevel5'])",
+    "ts": "2026-09-27 01:32:51"
   }
 }
