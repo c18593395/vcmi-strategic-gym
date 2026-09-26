@@ -444,3 +444,13 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 **P-015 12h 复测机制（14:25 = 02:25:06+12h，机器级不走 gateway）**：远程 `/root/p015_probe.sh`（unit/NRestarts/start/runners/log tail）→ 本地 `py/p015_recheck.ps1`（SSH 调探测 → 落 `cache/scratch/p015_recheck.log` → 自动 kanban 留言 t_816a46bf）→ Windows 计划任务 `p015_recheck_1425` @14:25 触发。判据 = NRestarts 仍 0 + step 明显在爬；runners 瞬采 8~17 波动是 slot 收割/重开正常循环，**以 NRestarts+step 为主判据，勿瞬采误读**。05:51 手动全链路跑通。
 
 **SSH 钥匙勘误（09-27 实证，服务器知识库 §5.0 + 服务器踩坑点 §1.11 已同步）**：`~/.ssh/config` 钉的 id_ed25519 未注册进服务器 authorized_keys，`ssh xm-server` 直接 Permission denied；可用钥匙 = `~/.ssh/id_rsa`（显式 `-i` + `IdentitiesOnly=yes`）。密码通道当时 faillock/全拒，别碰。
+
+## 2026-09-27 本机 hermes 网关修复 + 微信渠道停用 + P 系列批量入看板（h3_32b_homm3 侧）
+
+**网关启动即死根因 + 修复**：`Hermes_Gateway` 计划任务（wscript → `gateway-service\Hermes_Gateway.vbs/cmd`）原用裸 `tools\python`（依赖未 committed 到该解释器，启动即报 `no dependency environment is committed; run hermes pm repair` 死掉）→ 改指向 venv `Scripts\python.exe` + `VIRTUAL_ENV=<venv路径>`；`pm repair` 本身因 uv.lock 缺失也跑不通，勿依赖。手动恢复 = `schtasks /Run /TN Hermes_Gateway`（绕 Job Object #91675 坑）。
+
+**微信（iLink）渠道彻底停用（用户拍板）**：default/.env 10 个 WEIXIN_* 键已删（备份 .env.bak-20260927）、`$HERMES_HOME/weixin/` 账户目录 + `platforms/pairing/weixin-pending.json` 已删、h3_32b_homm3 cron `8a6379037015`（training-report 每 20m，投递 origin→weixin 一直失败）已 disable（jobs.json.bak-20260927）。网关现状 = 仅 api_server(8642) 1 平台，multiplex 全 7 profile（`gateway.multiplex_profiles: true`，各 profile api_server 走 `/p/<profile>/`）。核心源码 weixin 代码保留不 patch（update 不冲突）。「cma 与 default 同 token」告警 = standalone 时代误报（cma 无 WEIXIN_TOKEN），multiplex 后已消。
+
+**P 系列批量入 hero3-collab 看板**：docs/当前任务清单.md 的 P 系列活跃 25 条（P1×7 / P2×15 / P3×3）批量建成 unassigned ready 卡（body 带判据/工具/错窗纪律，T 系列远期未入池）。建卡只能走 CLI（`kanban_create` agent 工具强制 assignee，「先囤后挑」需 assignee 空 = CLI 通路）；批量脚本 `cache/scratch/kanban_p_series.sh` 可重放。**⚠️ 曾发生库被重置：06:22 建入 → 06:33 25 张全丢（踩坑 #348，根因未明）→ 06:43 重放恢复。纪律：批量建卡后必须 sqlite 直读核验，不信 create 回显。**
+
+**双 profile 抢共享文件的 kanban 防护三层（踩坑 #349 定谳）**：kanban 原生只护「任务图内」——①worktree 隔离（project + workspace_kind）②依赖门控（互斥对建 parents 边，错窗纪律机器强制）③外部共享资源（服务器部署槽/共享文档）看板管不到，须建串行链/gate 卡 + `kanban_block`/`unblock` 处置；跨机 db 无锁。

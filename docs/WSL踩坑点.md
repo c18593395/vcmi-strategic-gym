@@ -561,3 +561,20 @@
 - **根因**：cron 调度器跑在 hermes gateway 进程里；本机 CLI-only 部署没起 gateway，scheduler 无宿主。
 - **纪律**：需要「准点自动跑 + 无人值守」的验收/巡检，本机走 Windows 计划任务（`schtasks /create /sc once`，机器级不依赖 hermes）；触发体用独立 ps1（SSH 探测 + 落日志 + kanban 留言），别依赖 LLM 会话。判据数据自动回写共享板 card，人看结果即可。
 - **状态**：✅ 已绕过（P-015 12h 复测 = schtasks `p015_recheck_1425` @14:25 → `py/p015_recheck.ps1` → 远程 `/root/p015_probe.sh`，05:51 手动全链路跑通）。
+
+### #347. kanban CLI 的 board 注册与磁盘 boards/ 目录不同步：`--board hero3-collab` 报「board 不存在」⚠️ 已绕过（09-27，h3_32b_homm3）
+
+- **现象**：磁盘 `kanban/boards/hero3-collab/`（board.json + kanban.db）完好，但 `hermes kanban --board hero3-collab ...` 报「board does not exist. Create it with `boards create`」，`boards list` 只显示 default；而会话内 kanban 工具（agent 侧）仍能正常读写该板——两条通路的 board 发现机制不一致。
+- **绕过**：`hermes kanban boards create <slug>`（幂等，库已存在时只补注册，数据无损），之后 CLI 正常读写。
+- **纪律**：CLI 报「board 不存在」先查磁盘 boards/ 目录再决定 create，别信报错就重建；agent 工具侧 board 参数与 CLI 指针互不继承（同 #345 一族）。
+
+### #348. 批量建卡入库后被重置丢失：25 张 P 系列卡 06:22 建入 → 06:33 库变 5 张旧卡态 ⚠️ 根因未明（09-27，h3_32b_homm3）
+
+- **现象**：批量 CLI `kanban create` 回显 25 个新卡 ID 全部成功 → 10 分钟后直读 db 只剩 5 张既有卡（新建 25 张 id 全库任何表搜不到，无归档/事件残留）。时间线：06:22 建卡成功 → 06:33 kanban.db mtime/大小跳变（167KB→143KB）→ 06:41 `boards create` 报 already exists 但 board.json 仍被重写。期间有 `gateway stop`（06:17）+ 多次 CLI 启动。
+- **定性**：疑似某 CLI 启动路径对 board 库执行了 re-init/模板重置（5 张旧卡保留、25 张新卡抹掉，行为类似「按 board.json 重建」）。根因未定位，hermes 侧查。
+- **纪律**：①批量建卡/批量改库后**必须 sqlite3 直读 db 核验**，CLI `create` 回显的成功不算落库证据；②批量脚本保留在可重放位置（`cache/scratch/kanban_p_series.sh`），漂移后重放即可恢复（06:43 已重放，库内 P 卡现 25+6 张）；③共享看板库无 git 无备份——建卡前先评估丢失可接受性。
+
+### #349. 双 profile 抢共享文件的 kanban 防护三层 ⚠️ 定谳（09-27，h3_32b_homm3）
+
+- **规则**：不同 assignee（不同 profile）的卡会并行，抢文件风险 = 外部共享资源（本地仓工作树 / 服务器部署槽：.so、图池 index、停训窗、共享文档）。kanban 原生防护只覆盖「任务图内」：①工作区隔离——`project` + `workspace_kind: worktree` 每卡独立 worktree/分支，同仓并行不撞工作树；②依赖门控——`parents=`/`kanban_link` 把互斥对建成边（后一张全绿才 ready），错窗纪律（难度轴 vs 图池变更不同窗、评测与训练抢 CPU）落成依赖边即机器强制；③看板管不到外部资源——服务器窗口当独占资源建模（串行链或 gate 卡）；跨机 kanban db 无锁（库是本机的），跨机互斥仍靠任务清单纸条 + 用户转达。
+- **纪律**：建卡时 body 写一行「互斥对象」；撞车处置 = 一方 `kanban_block`（reason 写等谁/等哪个窗口），另一方干完 `kanban_unblock`。
