@@ -360,3 +360,11 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 **P-023 `py/reorder_wslpit_engine.py` 定性入库（commit `8f5ec9eb`）**：09-11 归档时的一次性 doc 重排工具（WSL踩坑点-引擎-VCMI-API.md 条目升序 + 格式统一 + 空行压缩），目标 doc 现有序（137 条目末号 #309 无乱序），定性为**可复用维护工具**保留入库。硬编码 `d:\Bigdata\hero3_fresh\docs\...` 绝对路径，跑前须在仓根执行。
 
 **日志时间桶方法论（本会话新定）**：train_full.log 含多次 `Loaded train state` restart（21 个段），行号跨段不可比——**时间桶必须按 restart 边界切段再算**。09-27 用此法坐实：King 95 局 / elbow 69 局全落在 09-26 22:59 trainer 更新前旧段，新 3 段全 0 → #326 摘除真生效（"近 1000 行还在采样"= 跨重启行号假象）。同理 P-001 判据只用当前 epoch 16 局（mean -608.7），旧 78 局跨 4 个 PPO epoch 混算不作判据。
+
+### 09-27 双 CLI 协作 kanban 通道（hero3-collab 板，本会话落地）
+
+- **结论**：hermes kanban = 跨 profile/多 CLI 共享 SQLite 工作队列，板库在共享根（`C:\Users\Administrator\AppData\Local\hermes\kanban\boards\hero3-collab\kanban.db`；default 板在根 `kanban.db`），**与 profile 目录无关** → 同机多 CLI 默认同库；WAL + BEGIN IMMEDIATE + 状态/claim_lock CAS，并发写安全。
+- **选板**：解析顺序 = context var > `HERMES_KANBAN_BOARD` env > 共享指针 `<root>/kanban/current` > default。CLI 无 per-command `--board` 旗标（踩坑 #338）：持久切板 `hermes kanban boards switch <slug>`，单次 `HERMES_KANBAN_BOARD=<slug> hermes kanban ...`。
+- **smoke 已通**：hero3-collab 板 + 卡 `t_e78796ea`（ready、assignee 空）+ A 侧 comment；B 侧全新进程 `hermes kanban show` 跨进程验证卡/正文/comment/事件流全可见。
+- **使用约定**：当留言板用 = 任务保持 assignee 空（ready 不 assign → dispatcher skipped_unassigned 不碰）；同 profile 下 comment 的 assignee/created_by 分不清哪个 CLI，正文带 A:/B: 前缀或分 tenant。
+- **环境坑**：每次起 hermes CLI 先跑 source-update 补完尾巴（npm ci desktop/tui/web >240s）卡死子命令（踩坑 #337）；绕过 `HERMES_DISABLE_LAZY_INSTALLS=1`，根治 = 后台跑通一次 `hermes update`。
