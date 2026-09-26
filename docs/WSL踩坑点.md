@@ -405,3 +405,12 @@
 - **处置**：服务器 train_ppo_server.py MAPS 9→6（T05 三行注释，备份 .bak_0926_t05）+ 主仓 py/train_wsl2_ppo_v2.py 同改（#306 双副本）；**回池条件写死=新 ckpt 评测 T05 4 局 meanR≥0 且正局≥50%**（a_viking 同款）
 - **教训**：① 档位级退化按整档处置不逐图 ② "曾是正图"≠"该留着观察"——4 个月 0 回正 + 参数臂证伪后观察无意义 ③ A/B 先诊断再摘除=摘/留都有证据，不是拍脑袋
 - 状态: ✅ 已摘（重启生效），证据 /DATA/hero3/ab5201_20260926/（8 traj + 8 log + done.flag）
+
+### #328. 纯 ckpt（wsl2_ckpt_*.pt）≠ 续训权威源——优化器+step 只在 STATE_PATH ⚠️ 勘误定谳（09-26）
+
+- **背景**：09-26 服务器→WSL 回切 SOP，先 scp 拉回 3 个纯 ckpt（`checkpoints/wsl2_ckpt_1600426.pt` 等，各 2.91M，model.state_dict 18 tensor）验证"谱系可续"。误以为纯 ckpt 即可续训。
+- **勘误**：trainer `train_wsl2_ppo_v2.py` L939 `torch.save(model.state_dict(), ckpt_path)`——纯 ckpt **只存 model 权重**（不含 optimizer/step）；L549 从纯 ckpt 加载时 `opt = torch.optim.Adam(model.parameters(), lr=LR)` **重建优化器** + L454 `resume_step = 0`（**step 计数归 0**，entc 衰减钟锚 total_steps 断档）。
+- **权威源**：真正全量 state = `STATE_PATH`（`wsl2_model_state.pt`，6.89M，含 model+optimizer+step 三键），由 L514 `save_train_state` 在 SIGTERM 优雅停训（L579 `save_shutdown`）时落盘。**续训必须用 state 文件，纯 ckpt 只作权重备份/对手池候选**。
+- **state 落点再勘误**：服务器 `assets/wsl2_model_state.pt` 实测 `step=1600910`（比最新纯 ckpt 1600426 领先 484 步），由 23:01 SIGTERM→systemd 拉起自动落盘，**无需再 stop 拿新 state**。本地旧版 1016277 已 scp 拉回 1603176。
+- **教训**：① "checkpoint" 两词歧义——纯 ckpt（滚动 50-step，轻量，不含 optimizer）vs 全量 state（SIGTERM 落盘，含 optimizer+step，续训唯一权威源），文档/脚本须显式区分 ② 接手训练先验 `STATE_PATH` 的 step，不是 `checkpoints/` 目录 ③ 拉回 ckpt 后必跑 `py/verify_server_ckpts.py` 验 NaN/step 谱系。
+- 状态: ✅ 定谳，SOP 已按 state 文件修正。指针：知识库「09-26 服务器→WSL 回切训练 SOP」章 + `py/restore_train_to_wsl.sh` 第 2 步 torch 验证。

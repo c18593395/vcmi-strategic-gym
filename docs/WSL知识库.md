@@ -164,6 +164,28 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 
 ---
 
+### 09-26 服务器→WSL 回切训练 SOP（无损接手，只丢最后一轮 PPO 询价 buffer）
+
+**目标（用户 09-26 拍板）**：服务器 172.16.2.40 挂掉时 WSL 能无缝接手训练，**只丢最后一轮 PPO 询价来的数据（~4-16 局 obs/act/rew，秒级），模型+优化器+step 全无损**。N_SUBPROC 维持 4（不上 16，比服务器慢 4x 但模型质量无损）。
+
+**数据语义（trainer 源码坐实）**：`train_wsl2_ppo_v2.py` L456-461 加载 `STATE_PATH`（`wsl2_model_state.pt`，含 model+optimizer+step）→ `model.load_state_dict(sd["model"])` + `opt.load_state_dict(sd["optimizer"])` + `resume_step = sd["step"]` 全恢复；L587 `buffer = {...}` 全新初始化 → 服务器那次 PPO 更新未消费完的 buffer 局数据丢弃。纯 `checkpoints/wsl2_ckpt_*.pt` 是 model.state_dict（不含 optimizer/step），**续训用 state 文件，不用纯 ckpt**（纯 ckpt 会 optimizer 重建 + step 归 0）。
+
+**state 文件落点勘误**：服务器 `assets/wsl2_model_state.pt` 实测 `step=1600910` 含 optimizer，**比最新纯 ckpt 1600426 还领先 484 步**——由 23:01 那次 SIGTERM 优雅停训→systemd 拉起时 `save_shutdown`（L579）自动落盘写出。**无需再触发 stop**，目标进度全量 state 已存在。本地旧版 1016277（迁移起点），09-26 已 scp 拉回新版 1603176（拉取时服务器已推进 ~2266 步）。
+
+**6 步 SOP（`py/restore_train_to_wsl.sh`，前 5 步只读已实跑通过）**：
+1. scp 拉服务器 `assets/wsl2_model_state.pt` → 本地 `HERMES_ROOT/wsl2_model_state.pt`（服务器不可达时用本地兜底）
+2. venv torch 验证 `torch.load` + 无 NaN + step>0（断言失败即终止）
+3. 前置检查：`systemctl is-enabled homm3-train-v5`（disabled 则补 enable）+ XDG Maps dir（#308）+ 课程图 16 张（`vcmi-native/rel/bin/data/Maps`，T05/T06/King）
+4. keepalive 提示（WSL 内拉不了 Windows 进程，需 PowerShell `Start-Process wsl.exe -ArgumentList '-d','Ubuntu','sleep','infinity' -WindowStyle Hidden`）
+5. 清 `py/__pycache__`（项目铁律）
+6. `systemctl start homm3-train-v5`（checkpoint resume）+ 验证 active + tail 确认 resume step
+
+**验证脚本**：`py/verify_server_ckpts.py`（纯 ckpt 谱系 + state 验证，可复跑；改 PULLED 列表即可验新 ckpt）。
+
+**遗留/风险**：① 服务器在跑时**勿双启**（第 6 步会起 WSL unit，与服务器 N=16 训练双写同一仓 `train_loop.log`/state，数据污染）② WSL `maps/training/` 权威源缺失（改图前需 `py/sync_maps_to_runtime.py --strict`，本次只读核实发现 `vcmi-workspace/maps/` 为空，课程图实际落在 `vcmi-native/rel/bin/data/Maps`）③ N_SUBPROC=4 前置 `.wslconfig memory=12GB` 需确认已就位（N=4 占 38%，留 6GB 安全垫）。
+
+---
+
 ### 09-26 P1 引擎窗口三项收口（298 对照定谳 + #215 守卫重写 + connector 重编）
 
 **结论**：P1 三项全闭环，本地仓 commit `11be8ba34d`（vcmi-native，4 文件）+ `87df8cc`（vcmi_gym，2 文件），均未推。证据目录 `/home/administrator/_298_p1_20260926/`（rootfs 持久）。
