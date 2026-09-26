@@ -54,7 +54,7 @@
       "risk": "ally_chaos"
     }
   ],
-  "batch3_water_island": [
+  "batch4_water_island": [
     {
       "vmap": "all_for_one_h3m.vmap",
       "h3m": "All for One.h3m",
@@ -248,7 +248,7 @@
       "ug": true
     }
   ],
-  "batch_ug_underground": [
+  "batch3_underground": [
     {
       "vmap": "all_for_one_h3m.vmap",
       "h3m": "All for One.h3m",
@@ -361,7 +361,7 @@
   "mix_ratios": {
     "first5": 0.1,
     "after_first5_green": 0.15,
-    "batch3": "WIN-5 轴后（需造船激励）",
-    "batch_ug": "地下轴（--keep-underground）落地后"
+    "batch4": "WIN-5 轴后（需造船激励）",
+    "batch3": "地下轴（--keep-underground）落地后"
   }
 }

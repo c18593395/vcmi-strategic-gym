@@ -1,6 +1,6 @@
 """生成 _pool_batches.json — 入池节奏三批（09-21 定稿）
 修正: ①逗号→下划线 ②survey匹配key与h3m文件名对齐（去后缀/小写/空格→下划线）
-判定: water_touched OR has_island OR risk==open_water_isolation → batch3(水/岛图, WIN-5轴后)
+判定: water_touched OR has_island OR risk==open_water_isolation → batch4(水/岛图, WIN-5轴后)
       risk==ally_chaos → batch2(联盟图, 二批)
       其余 → batch1(安全图) 按include降序, 首批取前5
 """
@@ -25,7 +25,7 @@ def sanitize(h3m_name):
 
 name2row = {_key(row["name"]): row for row in survey["rows"]}
 
-batches = {"batch1": [], "batch2": [], "batch3": [], "batch_ug": []}
+batches = {"batch1": [], "batch2": [], "batch4": [], "batch3": []}
 unmatched_survey = []   # survey未匹配的h3m名
 
 for h3m_name, info in rank.items():
@@ -40,17 +40,17 @@ for h3m_name, info in rank.items():
         unmatched_survey.append(h3m_name)
 
     if water or island or risk == "open_water_isolation":
-        # 水/岛图全部推后 WIN-5 轴后；有地下的也一并归入 batch_ug 标签
+        # 水/岛图全部推后 WIN-5 轴后；有地下的也一并归入 batch3 标签
         reason = "water" if water else ("island" if island else "open_water_risk")
         entry = {"vmap": vmap, "h3m": h3m_name, "include": info["include"],
                  "risk": risk, "reason": reason}
         if ug:
             entry["ug"] = True
-            batches["batch_ug"].append(entry)
-        batches["batch3"].append(entry)
+            batches["batch3"].append(entry)
+        batches["batch4"].append(entry)
     elif ug:
-        # 无水无岛但有地下层 → batch_ug（等 --keep-underground 轴落地）
-        batches["batch_ug"].append({
+        # 无水无岛但有地下层 → batch3（等 --keep-underground 轴落地）
+        batches["batch3"].append({
             "vmap": vmap, "h3m": h3m_name, "include": info["include"],
             "risk": risk, "reason": "underground"
         })
@@ -68,20 +68,20 @@ batches["batch1"].sort(key=lambda x: -x["include"])
 first5 = batches["batch1"][:5]
 rest   = batches["batch1"][5:]
 
-# 修正: manifest_destiny 等有水地下的图已在 batch3/batch_ug，首批5张应该只有纯水无岛无地下的
+# 修正: manifest_destiny 等有水地下的图已在 batch4/batch3，首批5张应该只有纯水无岛无地下的
 # 若首批里还有 UG 图（batch1 误入），在结果里标出
 result = {
     "desc": "入池节奏四批（09-21 定稿）",
     "first5": first5,
     "batch1_rest": rest,
     "batch2_ally": batches["batch2"],
-    "batch3_water_island": batches["batch3"],
-    "batch_ug_underground": batches["batch_ug"],
+    "batch4_water_island": batches["batch4"],
+    "batch3_underground": batches["batch3"],
     "mix_ratios": {
         "first5": 0.10,
         "after_first5_green": 0.15,
-        "batch3": "WIN-5 轴后（需造船激励）",
-        "batch_ug": "地下轴（--keep-underground）落地后",
+        "batch4": "WIN-5 轴后（需造船激励）",
+        "batch3": "地下轴（--keep-underground）落地后",
     },
 }
 
@@ -99,13 +99,13 @@ for m in rest:
 for m in batches["batch2"]:
     print(f"    [ALLY] {m['vmap']}  include={m['include']:.2f}")
 
-print(f"\n=== 三批（WIN-5轴后，水/岛图 {len(batches['batch3'])} 张）===")
-for m in batches["batch3"]:
+print(f"\n=== 三批（WIN-5轴后，水/岛图 {len(batches['batch4'])} 张）===")
+for m in batches["batch4"]:
     extra = " [+UG]" if m.get("ug") else ""
     print(f"    {m['vmap']}  reason={m['reason']}  include={m['include']:.2f}{extra}")
 
-print(f"\n=== 地下层图（batch_ug，--keep-underground 轴落地后 {len(batches['batch_ug'])} 张）===")
-for m in batches["batch_ug"]:
+print(f"\n=== 地下层图（batch3，--keep-underground 轴落地后 {len(batches['batch3'])} 张）===")
+for m in batches["batch3"]:
     print(f"    {m['vmap']}  reason={m['reason']}  include={m['include']:.2f}  risk={m['risk']}")
 
 if unmatched_survey:
