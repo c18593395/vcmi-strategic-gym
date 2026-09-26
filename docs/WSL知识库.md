@@ -280,3 +280,21 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 - **obs 资源槽 log1p 压缩**（详见踩坑 #316）：`_LOG1P_COLS` 槽位（strategic_env.py L454-462：players gold/total_power/weekly_income）读 raw 必须 `np.exp(obs)-1`，int() 直比 = 假曲线重合误判
 
 **部署态**：preset 默认关（`keepDisabled=true`，零干扰）；启用 = `modSettings.json` `default.mods` 加 `"t14-handicap"` 一行；数值定稿 = core king 档 ×1.5（gold 全档 7500/11250/15000/15000/15000，weekly king gold=525）。仓内 `vcmi/Mods/t14-handicap/{mod.json,Content/config/difficulty.json}`。commit 主仓 f21c192c + vcmi 仓 27f2c9714。
+
+---
+
+### 09-27 batch3 地下图全密度定谳 + 减怪重转（ug_low）
+
+**全密度 13/13 张定谳（ckpt 1615372，带 21 引导参数，13×4=52 局，err=0，JSON `/DATA/hero3/output/batch3_ug_20260927_010301.json`）**：
+- **OBS 同层假设成立**（条件4）：13 张全图 gate 类对象（subterraneanGate/labyrinth）=0 + 英雄 spawn l=0 → 英雄永远地表作战，地下层（344~635 对象：资源/矿/巢穴）英雄到不了。
+- **满 250 步准入 0/13 达成**（条件5）：52 局全在 31~40 步 HERO_DEATH 早收（中性怪太密，英雄穿越即战死，death_penalty -50 砸出 -7~-64 全负 meanR）。
+- **评测口径 13/13 未达标**（条件6）：meanR 全负（-7.6~-64.3），正局率最高 25%（the_newcomers 4 局 1 局 +45.9），全 52 局 go=0。
+- **处置**：全密度 `_ug` 13 张双侧 index batch:3→99 + hold_reason（主仓 `b3d95a43` + 服务器备份 `.bak_0927_batch3hold`），`HOMM3_H3M_BATCH` 维持 =2，图留盘上不采样，训练零影响。
+
+**减怪重转路线（用户 09-27 拍板："地下图减怪重转+地图重编号，全密度图以后还要用"）**：
+- **工具**：`py/_make_ug_low.py` —— 从全密度 `_ug` zip 读出 objects.json，只删**地表层（l=0）中性怪物族对象 50%**（`monster/randommonster*/randomcreature*/creaturegenerator*` 且 owner∈{None,"","neutral"}，按文件序交替删=确定性可复现），保留玩家 owner 兵（开局军队）+ 资源/矿/巢穴 + 地下层全保留。zip 重建仅重写 objects.json 条目，其余字节原样（testzip + 地下层存在 + players 非空 三自检）。
+- **命名**：`<safe>_ug_low_h3m.vmap` 新编号系列，与全密度 `_ug` 并存互不覆盖（L534 图名断言认 `h3m` 关键字，可过；全密度原图 batch:99 保留待 ckpt 提升回评）。
+- **结果**：13/13 张生成，删减 3~84 中性怪/图（manifest_destiny 20→10 最轻 / rise_of_the_phoenix 168→84 最重），对象数 645~3055。双侧部署（WSL pool_dir+运行时 vcmi_maps / 服务器 pool_dir+vcmi/data/Maps，md5 13/13 一致，index `_ug_low` 标 batch:3 + low_density，备份 `.bak_0927_uglow`）。commit `b7da8749` + 任务清单 `1e28036a`。
+- **边界（要记）**：减的是**中性怪密度**不是消除——巢穴/巢门还在，英雄路过巢穴仍会遇怪群，低密度只降遭遇频率。若 `_ug_low` 重测仍全 hold，下一档 = 减巢穴 或 降 neutral guard，别只盯着 neutral monster 一类。
+- **下一步**：服务器错窗跑 `_ug_low` 13 张 × N≥4 局（driver 复用 `py/batch_eval_batch3_ug.py`，文件名换 `_ug_low`），满 250 步 + meanR≥0/正局≥50% 判据达标才开 `HOMM3_H3M_BATCH=3`（前置：duel 窗收口错窗纪律）。
+- 状态: ✅ 全密度定谳 + 减怪重转落地；⏳ `_ug_low` 重测未跑。

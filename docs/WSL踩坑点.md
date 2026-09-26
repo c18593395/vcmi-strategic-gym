@@ -414,3 +414,29 @@
 - **state 落点再勘误**：服务器 `assets/wsl2_model_state.pt` 实测 `step=1600910`（比最新纯 ckpt 1600426 领先 484 步），由 23:01 SIGTERM→systemd 拉起自动落盘，**无需再 stop 拿新 state**。本地旧版 1016277 已 scp 拉回 1603176。
 - **教训**：① "checkpoint" 两词歧义——纯 ckpt（滚动 50-step，轻量，不含 optimizer）vs 全量 state（SIGTERM 落盘，含 optimizer+step，续训唯一权威源），文档/脚本须显式区分 ② 接手训练先验 `STATE_PATH` 的 step，不是 `checkpoints/` 目录 ③ 拉回 ckpt 后必跑 `py/verify_server_ckpts.py` 验 NaN/step 谱系。
 - 状态: ✅ 定谳，SOP 已按 state 文件修正。指针：知识库「09-26 服务器→WSL 回切训练 SOP」章 + `py/restore_train_to_wsl.sh` 第 2 步 torch 验证。
+
+---
+
+## 09-27 batch3 全密度定谳 + 减怪重转（ug_low）新增踩坑
+
+### #329. 评测 driver 漏训练同款引导参数 → 裸跑 fuse 底噪作废整批数据 ✅ 已修（09-27）
+
+- **现象**：`batch_eval_batch3_ug.py` 首跑只传 `--model --blue_ai`，漏 21 个训练同款引导参数（move_to_force 60 / economy_force 24 / nk2_shaping 0.45 / target_chain=scorer 等）→ 52 局全在 35~49 步 ENDTURN_FUSE，meanR -266~-286 窄带、同图 4 局 steps/rew 完全一致 → **零区分度，整批作废**
+- **判别**：带引导单局 smoke（all_for_one_ug → 31 步 HERO_DEATH r=-58.5）与裸跑首跑数据形态完全不同 → 证首跑无效，必须带引导重跑
+- **修复**：21 引导参数内置进 `py/batch_eval_batch3_ug.py`（已留档主仓）；此后任何评测先核对「引导参数 = 训练同款」再跑，判数据有效性的前置 = 同图 4 局有细微差异（有随机性）
+- **教训**：评测不是「模型裸跑」——训练分布里的策略只在同款引导参数下有意义，漏引导 = 跨分布外泛化测试，数据无价值
+- 状态: ✅ 已修（guided 全量重跑 52 局有效）
+
+### #330. 后台轮询器 `grep 'DONE maps='` 被本地 shell 引号剥 → 撞 C++ 打桩行假完成 ⚠️ 已识破（09-27）
+
+- **现象**：轮询器 `ssh root@172.16.2.40 "grep -q 'DONE maps=' log"` 经本地 git-bash 嵌套后单引号被吞 → 服务器实际执行 `grep -q DONE` → 撞到 VCMI C++ 打桩日志行 `mi_loop DONE`（引擎循环每轮都打）→ 轮询器提前退出报「GUIDED_RUN_DONE」，**实际 13 张才出 4 张**
+- **判别**：真完成标记 = driver 末行精确串 `DONE maps=N promo=x hold=y`；假完成的特征 = 报完成时 `ps -ef | grep driver | wc -l` 仍 >0
+- **教训**：① ssh 内嵌 grep 模式别依赖嵌套引号保真（本地 git-bash 会吃引号），关键串用 `grep -a 'DONE maps='` 前先验证本地引号存活，或写成服务器侧脚本再调用 ② 轮询器报「完成」必须三件套交叉验：`ps`=0 + 日志精确完成行 + JSON 时间戳/落盘
+- 状态: ✅ 已识破（靠精确串 `DONE maps=` + ps 交叉验确认真完成）
+
+### #331. 双 CLI 共享工作树：`git add` 整文件误带另一 CLI 未 commit 重构 ⚠️ 纪律定谳（09-27）
+
+- **现象**：本地 `git add docs/当前任务清单.md` 整文件时，把另一 CLI 未 commit 的 P-001~P-026 重构一起带进了 commit `b3d95a43` / `1e28036a`（内容一致无损坏，但归属混淆——对方的重构记在我的提交里）
+- **根因**：双 CLI 同工作树（dual-cli-collab 铁律①要求「git add 只带自己碰的文件/行」），`git add <file>` 整文件 = 无法区分文件内哪些 hunk 是自己的
+- **纪律**：共享工作树 add 前先 `git diff <file>` 核对 hunk 全属自己；有对方未 commit 改动在文件内时：优先 `git add -p` 逐 hunk 选，或等对方先 commit 再加，实在无法分离就 add 后**向用户报备**（本次已报备）
+- 状态: ⚠️ 纪律定谳（b3d95a43/1e28036a 归属混淆不可逆，无数据损坏；后续按 `git add -p` 执行）
