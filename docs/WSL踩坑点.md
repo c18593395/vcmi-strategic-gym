@@ -388,3 +388,12 @@
 
 - **现象**：同一脚本 5 次运行，`game_started=False` 时 run2 EXIT=2、run3/4/5 EXIT=0（stats 修复前后各不同）；判定只能靠日志 `VERDICT:` 行，exit code 侧面不可靠
 - **处置**：不阻塞（判定口径=日志 VERDICT PASS/FAIL + `grep -c fishy`），列入开源周脚本打磨清单（P8 脚本 exit 语义统一：连接失败 1 / 未开局 2 / fishy 3 / PASS 0）
+
+### #326. 30 步冒烟判 H3M 池图准入不可靠——满步大负图 30 步看不出来 ✅ 定谳（09-26）
+
+- **现象**：09-21 池索引 verify 字段全是 `steps=30/250 rew≈-62`（30 步冒烟），据此 09-25 午后把 batch2（too_many_monsters + elbow_room_allies）提进训练池。全量 2135 局窗实测：两图 09-25 迁移日段就是深度负（elbow n=14 **14/14 全大负** mean -436 / too_many mean -387），当前窗 91%/98% 大负、0 正局、满步 85-96%——**30 步冒烟根本进不了 250 步满步负区，rew=-62 看着正常、整局其实是 -400~-700**
+- **教训**：图池准入必须跑**满 250 步整局 N≥4**，30 步冒烟只能验"能开局不崩"，不能验奖励面
+- **对照反例**：judgement_day 迁移日段 -612，54 局后翻正 +391——大负≠学不会，判留/摘看**时间桶趋势**（每 25 局均值改善 >10% 或出正局=留；平/恶化 + 0 正局 + 满步率>80% 不降、跨 2 窗=摘），不看瞬时值
+- **09-26 处置**：① elbow_room_allies batch 2→99（恶化 -440→-474→-497 + 竞态 rc=124 史 09-23）= 热生效（trainer 600s 重读 _pool_index.json 刷新池，不杀训练）；② King_of_Pain 移出课程 MAPS（09-13 加入；duel focus 挤压 + 分桶恶化 -705→-746 + 0 正局；地图 md5 两侧相同已排除文件因素；WSL 尾段本就 -212~-263）= 改 train_ppo_server.py 注释掉，自然重启生效；③ too_many_monsters **保留留观 1 窗**（分桶改善中 -616→-585，~50 局后复核：改善 >20% 或正局 ≥5% 留，否则摘）
+- **双副本**：`/DATA/hero3/train_server/pool/_pool_index.json`（服务器热生效）+ 主仓 `maps/h3m_to_vmap/_pool_index.json` 同改（#306 防漂移）；King 摘除同步改主仓 `py/train_wsl2_ppo_v2.py`（WSL 真相源）
+- 状态: ✅ elbow/King 已摘，too_many 挂 1 窗观察

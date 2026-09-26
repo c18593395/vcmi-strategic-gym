@@ -1,703 +1,704 @@
 {
- "a_viking_we_shall_go_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:42:32",
-  "batch": 99,
-  "hold_reason": "a_viking 两局 -934/-891 act3 刷墙 250 步满步, 大图无近目标能力真空 (09-22 50 局判定摘除)"
- },
- "a_warm_and_familiar_place_h3m.vmap": {
-  "blue_ai": "skip",
-  "reason": "地下城",
-  "detail": "blue.mainTown 锚点是地下层 town_404(l=1,17,16)，去地下层删城后蓝方无任何 mainTown，generateHero 无锚点 → HEROSEG_EMPTY → engine stuck",
-  "ts": "2026-09-21"
- },
- "all_for_one_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:43:21"
- },
- "and_one_for_all_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:44:07"
- },
- "a_viking_we_shall_go_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:41:58",
-  "batch": 99,
-  "hold_reason": "a_viking 两局 -934/-891 act3 刷墙 250 步满步, 大图无近目标能力真空 (09-22 50 局判定摘除)"
- },
- "arrogance_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:44:41"
- },
- "arrogance_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:45:15"
- },
- "ascension_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:45:50"
- },
- "back_for_revenge_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:46:25"
- },
- "back_for_revenge_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:47:00"
- },
- "barbarian_breakout_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:47:34"
- },
- "barbarian_breakouta_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:48:09"
- },
- "battle_of_the_sexes_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:48:43"
- },
- "battle_of_the_sexes_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:49:17"
- },
- "brave_new_world_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:49:48"
- },
- "brave_new_world_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:50:23"
- },
- "buried_treasure_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:50:58"
- },
- "carpe_diem_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:51:33"
- },
- "carpe_diem_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:52:09"
- },
- "caught_in_the_middle_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:52:43"
- },
- "chasing_a_dream_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:53:18"
- },
- "crimson_and_clover_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:53:52"
- },
- "crimson_and_clovera_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:54:23"
- },
- "darwin_s_prize_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:54:57"
- },
- "darwin_s_prize_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:55:32"
- },
- "dawn_of_war_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:56:06"
- },
- "deluge_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 05:56:55"
- },
- "divided_loyalties_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:57:29"
- },
- "divided_loyaltiesa_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:58:03"
- },
- "dragon_orb_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:58:34"
- },
- "dragon_pass_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:59:09"
- },
- "dragon_pass_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 05:59:45"
- },
- "dungeon_keeper_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:00:21"
- },
- "dwarven_gold_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:00:55"
- },
- "dwarven_tunnels_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:01:30"
- },
- "dwarven_tunnels_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:02:04"
- },
- "elbow_room_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:02:39",
-  "batch": 2
- },
- "elbow_room_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:03:13",
-  "batch": 99,
-  "hold_reason": "A/B 实测 ~33% 偶发 rc=124/139 (基线 4/6 异常, 与 09-23 修复无关), 400s 看门狗全进程重启风险; 保留为冻结复现专用探针图 (09-24 摘除)"
- },
- "emerald_isles_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:03:47"
- },
- "emerald_islesa_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:04:21"
- },
- "faeries_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-61.625",
-  "ts": "2026-09-21 06:04:52"
- },
- "for_sale_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:05:27"
- },
- "free_for_all_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=164/250 rew=-13.084999999999994",
-  "ts": "2026-09-21 06:10:07"
- },
- "gelea_s_champions_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:10:56"
- },
- "gelea_s_champions_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:11:30"
- },
- "goblins_in_the_pantry_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:12:01"
- },
- "golems_aplenty_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:12:35"
- },
- "golems_aplenty_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:13:10"
- },
- "good_to_go_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:13:44",
-  "batch": 1
- },
- "good_witch_bad_witch_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:14:19"
- },
- "gorlam_s_tentacle_swampland_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:14:54"
- },
- "hatchet_axe_and_saw_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:15:28"
- },
- "heroes_of_might_not_magic_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:16:02"
- },
- "heroes_of_might_not_magic_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:16:37"
- },
- "hoard_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:17:11"
- },
- "hoard_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:17:46"
- },
- "hold_the_middle_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:18:20"
- },
- "irrational_hostility_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:18:55"
- },
- "island_king_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:19:29"
- },
- "island_king_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:20:04"
- },
- "jihad_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:21:13"
- },
- "judgement_day_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:21:47",
-  "batch": 1
- },
- "just_a_visit_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:22:22"
- },
- "key_to_victory_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:22:56"
- },
- "king_of_pain_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=57/250 rew=24.677500000000002",
-  "ts": "2026-09-21 06:23:51"
- },
- "kingdom_for_sale_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:24:25"
- },
- "kingdom_for_sale_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:25:00"
- },
- "knight_of_darkness_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:37:03"
- },
- "land_of_titans_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:37:38"
- },
- "land_of_titans_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:38:13"
- },
- "last_chance_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:38:47"
- },
- "last_chance_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:39:21"
- },
- "loss_of_innocence_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:39:56"
- },
- "loss_of_innocence_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:40:30"
- },
- "manifest_destiny_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:41:05"
- },
- "marshland_menace_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:41:39"
- },
- "meeting_in_muzgob_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:42:14"
- },
- "meeting_in_muzgob_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:42:48"
- },
- "merchant_princes_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:43:23"
- },
- "merchant_princes_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:43:57"
- },
- "middletown_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:44:32"
- },
- "monk_s_retreat_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:45:06"
- },
- "monk_s_retreat_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 06:45:41"
- },
- "noahs_ark_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:46:15"
- },
- "one_bad_day_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:46:50"
- },
- "overthrow_thy_neighbors_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:47:24"
- },
- "peaceful_ending_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:48:10"
- },
- "peaceful_ending_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:48:44"
- },
- "peacemaker_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 06:49:19"
- },
- "pestilence_lake_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=100/250 rew=-271.8925",
-  "ts": "2026-09-21 06:51:00"
- },
- "pestilence_lake_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=96/250 rew=-273.54327645051194",
-  "ts": "2026-09-21 06:52:28"
- },
- "race_for_ardintinny_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.292500000000004",
-  "ts": "2026-09-21 07:04:32"
- },
- "race_for_the_town_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:05:06"
- },
- "ready_or_not_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:05:41"
- },
- "realm_of_chaos_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:06:15"
- },
- "realm_of_chaosa_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:06:49"
- },
- "reclamation_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=250/250 rew=-476.8175",
-  "ts": "2026-09-21 07:14:38"
- },
- "reclamation_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=250/250 rew=-434.495",
-  "ts": "2026-09-21 07:22:16"
- },
- "rediscovery_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:22:51"
- },
- "resource_war_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:23:27"
- },
- "resource_war_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:24:01"
- },
- "rise_of_the_phoenix_allied_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:24:37"
- },
- "rise_of_the_phoenix_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:25:25"
- },
- "rumble_in_the_bogsa_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:26:11"
- },
- "sands_of_blood_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:26:45"
- },
- "serpents_treasure_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:27:58"
- },
- "shadow_valleys_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:28:33"
- },
- "south_of_hell_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=222/250 rew=-490.1620095693779",
-  "ts": "2026-09-21 07:33:46"
- },
- "south_of_hell_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=243/250 rew=-559.5809917873614",
-  "ts": "2026-09-21 07:39:22"
- },
- "southern_cross_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:39:58"
- },
- "step_by_step_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-44.75",
-  "ts": "2026-09-21 07:40:32"
- },
- "step_by_step_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-44.75",
-  "ts": "2026-09-21 07:41:06"
- },
- "tale_of_two_lands_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:41:41"
- },
- "tale_of_two_lands_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:42:16"
- },
- "terrible_rumor_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:42:50"
- },
- "the_battle_of_daeyan_s_ford_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:43:24"
- },
- "the_gauntlet_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:44:20"
- },
- "the_great_race_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:44:55"
- },
- "the_mandate_of_heaven_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:45:29"
- },
- "the_newcomers_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:46:04"
- },
- "thousand_islands_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:46:38"
- },
- "thousand_islands_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=250/250 rew=-1238.325",
-  "ts": "2026-09-21 07:51:51"
- },
- "time_s_up_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:52:26"
- },
- "titans_winter_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:53:00"
- },
- "too_many_monsters_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-62.75",
-  "ts": "2026-09-21 07:53:35",
-  "batch": 2
- },
- "tovar_s_fortress_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:54:09"
- },
- "tovar_s_fortress_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:54:44"
- },
- "treasure_hunt_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:55:19"
- },
- "undead_unrest_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:56:15"
- },
- "unexpected_inheritance_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:56:49"
- },
- "valleys_of_war_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:57:34"
- },
- "vial_of_life_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 07:58:09"
- },
- "war_of_the_mighty_allies_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=250/250 rew=-449.4098628824013",
-  "ts": "2026-09-21 08:03:03"
- },
- "war_of_the_mighty_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=250/250 rew=-546.3",
-  "ts": "2026-09-21 08:07:53"
- },
- "warlords_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 08:08:27"
- },
- "warlordsa_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 08:09:02"
- },
- "warmongers_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 08:09:32"
- },
- "xathras_prize_h3m.vmap": {
-  "blue_ai": "MMAI_RANDOM",
-  "verify": "steps=30/250 rew=-59.75",
-  "ts": "2026-09-21 08:10:32"
- }
+  "a_viking_we_shall_go_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:42:32",
+    "batch": 99,
+    "hold_reason": "a_viking 两局 -934/-891 act3 刷墙 250 步满步, 大图无近目标能力真空 (09-22 50 局判定摘除)"
+  },
+  "a_warm_and_familiar_place_h3m.vmap": {
+    "blue_ai": "skip",
+    "reason": "地下城",
+    "detail": "blue.mainTown 锚点是地下层 town_404(l=1,17,16)，去地下层删城后蓝方无任何 mainTown，generateHero 无锚点 → HEROSEG_EMPTY → engine stuck",
+    "ts": "2026-09-21"
+  },
+  "all_for_one_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:43:21"
+  },
+  "and_one_for_all_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:44:07"
+  },
+  "a_viking_we_shall_go_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:41:58",
+    "batch": 99,
+    "hold_reason": "a_viking 两局 -934/-891 act3 刷墙 250 步满步, 大图无近目标能力真空 (09-22 50 局判定摘除)"
+  },
+  "arrogance_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:44:41"
+  },
+  "arrogance_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:45:15"
+  },
+  "ascension_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:45:50"
+  },
+  "back_for_revenge_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:46:25"
+  },
+  "back_for_revenge_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:47:00"
+  },
+  "barbarian_breakout_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:47:34"
+  },
+  "barbarian_breakouta_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:48:09"
+  },
+  "battle_of_the_sexes_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:48:43"
+  },
+  "battle_of_the_sexes_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:49:17"
+  },
+  "brave_new_world_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:49:48"
+  },
+  "brave_new_world_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:50:23"
+  },
+  "buried_treasure_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:50:58"
+  },
+  "carpe_diem_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:51:33"
+  },
+  "carpe_diem_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:52:09"
+  },
+  "caught_in_the_middle_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:52:43"
+  },
+  "chasing_a_dream_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:53:18"
+  },
+  "crimson_and_clover_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:53:52"
+  },
+  "crimson_and_clovera_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:54:23"
+  },
+  "darwin_s_prize_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:54:57"
+  },
+  "darwin_s_prize_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:55:32"
+  },
+  "dawn_of_war_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:56:06"
+  },
+  "deluge_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 05:56:55"
+  },
+  "divided_loyalties_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:57:29"
+  },
+  "divided_loyaltiesa_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:58:03"
+  },
+  "dragon_orb_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:58:34"
+  },
+  "dragon_pass_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:59:09"
+  },
+  "dragon_pass_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 05:59:45"
+  },
+  "dungeon_keeper_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:00:21"
+  },
+  "dwarven_gold_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:00:55"
+  },
+  "dwarven_tunnels_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:01:30"
+  },
+  "dwarven_tunnels_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:02:04"
+  },
+  "elbow_room_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-26",
+    "batch": 99,
+    "hold_reason": "09-26 双窗证伪入池: 迁移日段 n=14 全大负(mean -436), 当前窗 n=54 meanR=-461 分桶恶化, 0 正局, 满步 85%; 入池依据 30 步冒烟 rew=-62.75 不可靠; 竞态 rc=124 史(09-23)。回退=99->2"
+  },
+  "elbow_room_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:03:13",
+    "batch": 99,
+    "hold_reason": "A/B 实测 ~33% 偶发 rc=124/139 (基线 4/6 异常, 与 09-23 修复无关), 400s 看门狗全进程重启风险; 保留为冻结复现专用探针图 (09-24 摘除)"
+  },
+  "emerald_isles_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:03:47"
+  },
+  "emerald_islesa_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:04:21"
+  },
+  "faeries_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-61.625",
+    "ts": "2026-09-21 06:04:52"
+  },
+  "for_sale_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:05:27"
+  },
+  "free_for_all_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=164/250 rew=-13.084999999999994",
+    "ts": "2026-09-21 06:10:07"
+  },
+  "gelea_s_champions_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:10:56"
+  },
+  "gelea_s_champions_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:11:30"
+  },
+  "goblins_in_the_pantry_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:12:01"
+  },
+  "golems_aplenty_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:12:35"
+  },
+  "golems_aplenty_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:13:10"
+  },
+  "good_to_go_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:13:44",
+    "batch": 1
+  },
+  "good_witch_bad_witch_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:14:19"
+  },
+  "gorlam_s_tentacle_swampland_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:14:54"
+  },
+  "hatchet_axe_and_saw_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:15:28"
+  },
+  "heroes_of_might_not_magic_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:16:02"
+  },
+  "heroes_of_might_not_magic_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:16:37"
+  },
+  "hoard_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:17:11"
+  },
+  "hoard_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:17:46"
+  },
+  "hold_the_middle_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:18:20"
+  },
+  "irrational_hostility_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:18:55"
+  },
+  "island_king_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:19:29"
+  },
+  "island_king_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:20:04"
+  },
+  "jihad_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:21:13"
+  },
+  "judgement_day_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:21:47",
+    "batch": 1
+  },
+  "just_a_visit_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:22:22"
+  },
+  "key_to_victory_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:22:56"
+  },
+  "king_of_pain_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=57/250 rew=24.677500000000002",
+    "ts": "2026-09-21 06:23:51"
+  },
+  "kingdom_for_sale_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:24:25"
+  },
+  "kingdom_for_sale_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:25:00"
+  },
+  "knight_of_darkness_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:37:03"
+  },
+  "land_of_titans_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:37:38"
+  },
+  "land_of_titans_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:38:13"
+  },
+  "last_chance_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:38:47"
+  },
+  "last_chance_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:39:21"
+  },
+  "loss_of_innocence_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:39:56"
+  },
+  "loss_of_innocence_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:40:30"
+  },
+  "manifest_destiny_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:41:05"
+  },
+  "marshland_menace_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:41:39"
+  },
+  "meeting_in_muzgob_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:42:14"
+  },
+  "meeting_in_muzgob_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:42:48"
+  },
+  "merchant_princes_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:43:23"
+  },
+  "merchant_princes_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:43:57"
+  },
+  "middletown_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:44:32"
+  },
+  "monk_s_retreat_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:45:06"
+  },
+  "monk_s_retreat_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 06:45:41"
+  },
+  "noahs_ark_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:46:15"
+  },
+  "one_bad_day_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:46:50"
+  },
+  "overthrow_thy_neighbors_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:47:24"
+  },
+  "peaceful_ending_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:48:10"
+  },
+  "peaceful_ending_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:48:44"
+  },
+  "peacemaker_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 06:49:19"
+  },
+  "pestilence_lake_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=100/250 rew=-271.8925",
+    "ts": "2026-09-21 06:51:00"
+  },
+  "pestilence_lake_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=96/250 rew=-273.54327645051194",
+    "ts": "2026-09-21 06:52:28"
+  },
+  "race_for_ardintinny_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.292500000000004",
+    "ts": "2026-09-21 07:04:32"
+  },
+  "race_for_the_town_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:05:06"
+  },
+  "ready_or_not_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:05:41"
+  },
+  "realm_of_chaos_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:06:15"
+  },
+  "realm_of_chaosa_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:06:49"
+  },
+  "reclamation_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=250/250 rew=-476.8175",
+    "ts": "2026-09-21 07:14:38"
+  },
+  "reclamation_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=250/250 rew=-434.495",
+    "ts": "2026-09-21 07:22:16"
+  },
+  "rediscovery_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:22:51"
+  },
+  "resource_war_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:23:27"
+  },
+  "resource_war_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:24:01"
+  },
+  "rise_of_the_phoenix_allied_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:24:37"
+  },
+  "rise_of_the_phoenix_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:25:25"
+  },
+  "rumble_in_the_bogsa_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:26:11"
+  },
+  "sands_of_blood_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:26:45"
+  },
+  "serpents_treasure_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:27:58"
+  },
+  "shadow_valleys_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:28:33"
+  },
+  "south_of_hell_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=222/250 rew=-490.1620095693779",
+    "ts": "2026-09-21 07:33:46"
+  },
+  "south_of_hell_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=243/250 rew=-559.5809917873614",
+    "ts": "2026-09-21 07:39:22"
+  },
+  "southern_cross_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:39:58"
+  },
+  "step_by_step_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-44.75",
+    "ts": "2026-09-21 07:40:32"
+  },
+  "step_by_step_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-44.75",
+    "ts": "2026-09-21 07:41:06"
+  },
+  "tale_of_two_lands_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:41:41"
+  },
+  "tale_of_two_lands_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:42:16"
+  },
+  "terrible_rumor_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:42:50"
+  },
+  "the_battle_of_daeyan_s_ford_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:43:24"
+  },
+  "the_gauntlet_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:44:20"
+  },
+  "the_great_race_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:44:55"
+  },
+  "the_mandate_of_heaven_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:45:29"
+  },
+  "the_newcomers_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:46:04"
+  },
+  "thousand_islands_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:46:38"
+  },
+  "thousand_islands_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=250/250 rew=-1238.325",
+    "ts": "2026-09-21 07:51:51"
+  },
+  "time_s_up_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:52:26"
+  },
+  "titans_winter_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:53:00"
+  },
+  "too_many_monsters_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-62.75",
+    "ts": "2026-09-21 07:53:35",
+    "batch": 2
+  },
+  "tovar_s_fortress_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:54:09"
+  },
+  "tovar_s_fortress_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:54:44"
+  },
+  "treasure_hunt_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:55:19"
+  },
+  "undead_unrest_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:56:15"
+  },
+  "unexpected_inheritance_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:56:49"
+  },
+  "valleys_of_war_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:57:34"
+  },
+  "vial_of_life_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 07:58:09"
+  },
+  "war_of_the_mighty_allies_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=250/250 rew=-449.4098628824013",
+    "ts": "2026-09-21 08:03:03"
+  },
+  "war_of_the_mighty_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=250/250 rew=-546.3",
+    "ts": "2026-09-21 08:07:53"
+  },
+  "warlords_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 08:08:27"
+  },
+  "warlordsa_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 08:09:02"
+  },
+  "warmongers_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 08:09:32"
+  },
+  "xathras_prize_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "verify": "steps=30/250 rew=-59.75",
+    "ts": "2026-09-21 08:10:32"
+  }
 }

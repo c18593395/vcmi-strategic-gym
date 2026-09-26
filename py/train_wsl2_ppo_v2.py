@@ -84,7 +84,10 @@ MAPS = [
     # py/vcmi_full_to_slim.py 转换: 1657→173 对象 (hero_0 + town_5 + mine_38 + resource_68 + monster_61)
     # 地形 gr57_ 系列 (gr24_ 变体), 无 rc/wa 前缀 → passable_grid 全通 (单层无桥无船一致)
     # 文件名加 _h3m 后缀 (strategic_env.py 强制要求 mapname 含 s1/mini/adventure/h3m)
-    "King_of_Pain_h3m.vmap",
+    # 09-26 移出课程: duel focus 挤压下 King 回归(09-13 入池时 WSL n=472 51% 正, 尾段已 -212~-263;
+    #   服务器窗 n=72 meanR=-716 分桶恶化 -705->-746, 0 正局, 满步 89%; 地图 md5 两侧相同已排除文件因素)
+    # 回退 = 取消下行注释
+    # "King_of_Pain_h3m.vmap",
     # 09-13 地图轴扩展: T04 2 张移除, 加 T06 3 张 (72X72_02 / 108X108_02_duel / 108X108_02)
     # 09-14 修复回池: 同 header 缺字段根因 (patch_t06_02_header_0914.py, 13字段 + 双副本部署);
     #   完整局: 72_02 110步/432s/r=217.0, 108_02 93步/400s/r=416.4, 108_02_duel 30步/328s/r=36.2, 均 rc0 零致命错误
@@ -725,7 +728,10 @@ def _harvest_slots():
         ep_count += 1
         total_steps += d["steps"]
         ep_rew = np.mean(d["rew"]) if d["steps"] > 0 else 0.0
-        print(f"  [SLOT] step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} map={s['map']} rc={rc}", flush=True)
+        # 09-25 用户要求: 每局 R= (该 ep 总奖励 total_rew) 显式进日志; 缺字段回退 n/a
+        _r_tot = d.get("total_rew")
+        _r_str = f"R={_r_tot:.1f}" if _r_tot is not None else "R=n/a"
+        print(f"  [SLOT] step{total_steps:>5d} {_r_str} avg_r={ep_rew:.1f} nsteps={d['steps']} ep={ep_count} map={s['map']} rc={rc}", flush=True)
 
 
 for ep in range(N_EPISODES):
@@ -773,7 +779,9 @@ for ep in range(N_EPISODES):
 
         # 每局一行日志
         ep_rew = np.mean(traj["rew"]) if traj["steps"] > 0 else 0.0
-        print(f"  step{total_steps:>5d} avg_r={ep_rew:.1f} ep={ep_count} time={time.time()-t0:.0f}s", flush=True)
+        _r_tot = traj.get("total_rew")
+        _r_str = f"R={_r_tot:.1f}" if _r_tot is not None else "R=n/a"
+        print(f"  step{total_steps:>5d} {_r_str} avg_r={ep_rew:.1f} nsteps={traj['steps']} ep={ep_count} time={time.time()-t0:.0f}s", flush=True)
     else:
         # === 09-25 并行路径: slot 池化 (N_SUBPROC>1) ===
         # 模型: Popen N 局 (当前模型权重) → 阻塞 poll 直到 buffer≥BATCH → 跳出进 PPO 更新块
