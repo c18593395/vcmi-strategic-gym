@@ -423,6 +423,38 @@
 - **教训**：① 文档双权威必漂移（同 #306 unit 双副本）——规范改一处，他处只留指针；② "先写清单后归档"的顺序必膨胀——正确顺序 = 归档先行、清单只写增量；③ 新编号前缀 = 新债，开新编号前先看存量能否承载。
 - 状态: ✅ 已治理（清单 420+ → ~250 行结构化）。指针：`docs/项目管理.md` §一§二 + 已完成任务.md「09-27 文档体系重构」条。
 
+### #333. R5 双树漂移兑现——892343da 取兵修复只在 Windows 子模块+服务器工作树，WSL 树从未同步 ⚠️ 已修（09-27）
+
+- **现象**：服务器 1929 局 duel RECRUITED=0 + WSL 冒烟 0，而 09-25 晚验证明明 RECRUITED=9。
+- **根因**：09-25 晚 dst=cur 修复 commit 在 **Windows vcmi 子模块**（892343da），服务器以 **untracked 工作树改动**部署（`git checkout/clean` 即丢）；**WSL vcmi-native 树从未同步**（reflog 铁证：09-24 tradecap → 直接跳 09-26 #215，09-25 全天零提交）。09-26 引擎窗口重编 libvcmi.so 用的是未修复 WSL 树 → 二进制退回旧代码。
+- **修复**：`py/recruit_fix_aai.patch`（3d3cab7c5+892343da0 累积 diff，仅 AAI.cpp +34/-2）+ `patch_recruit_fix_wsl.py` 移植应用（锚点替换+备份+回滚），libvcmi.so 重编。
+- **教训**：① R5"双源码树不同步"不是理论风险，是必然事故——修复落几棵树就必须同步几棵树，且**必须当窗 commit 入库**（未入库修复 = 下次重编即丢）② 三树（Windows 子模块 / WSL vcmi-native / 服务器 /DATA/hero3/vcmi）各自的 git 状态要定期对账 ③ md5 对照是最快漂移探针（服务器 589cf0b3 vs WSL 3a50626b 一眼定性）。
+- 状态: ✅ WSL 树已修+重编（libvcmi.so fe659ec5 线）；服务器侧同步待网络窗口。指针：知识库「09-27 duel 图取兵链路五层修复」章。
+
+### #334. train_full.log 的 RECRUITED/GUARD 全 0 是白名单假象——真实打点只在 ep 明细日志 ⚠️ 定案（09-27）
+
+- **现象**：服务器 train_full.log grep RECRUITED/GUARD/TOWN_RETRY/ECON = 0 → 误判"取兵/接战链路全断"。
+- **根因**：trainer `train_wsl2_ppo_v2.py` L381-389 转储白名单只含 [EP298_SWALLOW]/[BHERO_*]/Assertion 等崩溃类模式；ep_runner 的 [RECRUITED]/[GUARD]/[TOWN_RETRY]/[ECON]/[TOWN_EMPTY] 全部**不转发**主日志，只写 /tmp/hermes_ep_*.log。
+- **实锤**：直扫服务器 ep 明细日志 → judgement_day RECRUITED=33、slot_4=11（H3M 修复生效实锤）；duel/T06 才是真 0（另有根因 #331）。
+- **教训**：① 判据统计前先核数据管道（打点→日志→聚合每一跳都可能丢）② "主日志 grep=0"≠"机制=0"③ 能力类打点（RECRUITED/GUARD）值得加进转储白名单或单独聚合，否则 T7.5/T7.8 判据永远靠手工扫 ep 日志。
+- 状态: ✅ 定案。指针：知识库「09-27 duel 图取兵链路五层修复」章勘误段。
+
+### #335. T06 生成图城镇无 built dwellings——无兵可招是地图层缺陷非引擎问题 ✅ 已修（09-27）
+
+- **现象**：duel/T06 图取兵窗正常发 act16/17/18 但 RECRUITED 恒 0，连 09-25 dst=cur 修复都不管用（服务器 H3M 图 33/11 vs duel/T06 全 0）。
+- **根因**：gen_t06 系列生成图城镇 options 只有 formations+owner，**无 buildings 字段** → 引擎默认零兵巢 → `town->creatures[i].second` 全空 → case16-18 recruit 循环整段跳过。
+- **修复**：`py/fix_t06_town_buildings.py` 给 6 图全部城镇（红蓝对称）补 `buildings.allOf: ["core:dwellingLvl1","core:dwellingLvl2"]`（参照 judgement_day_h3m 已验证 schema；最小集不动 hall/fort/tavern）；`fix_t06_hero_spawn.py` 英雄出生移到己方城格（visiting from init）；`sync_maps_to_runtime.py --strict` 同步。RECDBG 实测 day-1 availability L0:14/L1:8 充足。
+- **教训**：① 生成图校验（check_t06_maps 7 维）没覆盖城镇建筑面——生成器产出=可开局≠有完整玩法要素 ② "RECRUITED=0"要分引擎层/地图层/日志层三向归因，单层修复无效不代表方向错 ③ 红蓝对称补丁防单向开挂污染。
+- 状态: ✅ 已修（6 图 + spawn + sync 全绿，duel 冒烟 3/3 RECRUITED=9）。指针：知识库「09-27 duel 图取兵链路五层修复」章。
+
+### #336. visitablePos 几何死路 + ArrangeStacks 空槽语义——visiting 路线双层暗礁，garrison 中转终解 ✅ 定案（09-27）
+
+- **暗礁一（几何）**：`town->visitablePos()` 对 T06 城 (2,2) 返回 **(0,2)**（x=0 图边缘外，RECDBG 实锤）→ dst=cur 修复依赖的"moveHero 进城→visiting"路线根本走不通（v1 盲 moveHero 被引擎拒 "Tiles not neighboring"、v2/v3 走格回退也到不了）。**暗礁二（语义）**：ArrangeStacks what=2 merge 要求**目标槽非空同型**——英雄只有 slot3 有兵，新兵目标槽全空 → merge 静默无效（无 complaint 无报错）。
+- **v5/v6 终解（零几何）**：① `dst=town` 招进 garrison（引擎恒合法）② 合并挪**拍首**（sendRequest 异步一拍延迟，拍内快照对比永远零增量——v5 实测 [MERGEDBG] 零输出而 garrison 权威态在涨）③ **`mergeOrSwapStacks`** 替代 mergeStacks（同型 merge/空槽 swap，CCallback L407 现成）。④ runner 窗长 4→10（远距图走格+招兵拍数）。
+- **教训**：① "复用 case22 同款范式"要验前提——case22 在 runner 被 mask 从未实战，抄它=抄未测代码 ② VCMI 引擎调用失败多为静默（返回 false/异步丢弃），必须仪器化（RECDBG/MERGEDBG 打点）才能定位 ③ 引擎 pack 语义细节（merge vs swap、交换位）读服务端源码比试错快。
+- 状态: ✅ 定案（duel 冒烟 3/3 RECRUITED=9/局，权威轨迹兵上英雄）。指针：知识库「09-27 duel 图取兵链路五层修复」章 + py/patch_recruit_fix_wsl_v5.py/v6.py。
+
+
 ---
 
 ## 09-27 batch3 全密度定谳 + 减怪重转（ug_low）新增踩坑

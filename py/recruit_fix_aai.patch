@@ -1,0 +1,61 @@
+diff --git a/AI/MMAI/AAI/AAI.cpp b/AI/MMAI/AAI/AAI.cpp
+index b0cee4100f..d76da171e6 100644
+--- a/AI/MMAI/AAI/AAI.cpp
++++ b/AI/MMAI/AAI/AAI.cpp
+@@ -243,7 +243,33 @@ int3 executeAdvancedAction(CCallback * cb, int a, const CGHeroInstance * cur)
+ 	{
+ 		auto town = nearestOwnTown(cb, cur);
+ 		if (!town) return noTarget;
+-		const CArmedInstance * dst = town->getUpperArmy();
++		// 09-25 取兵链路根因修复: dst=town->getUpperArmy() 只在英雄 "驻守/visiting" 本城时
++		// 返回英雄, 否则返回城本身 → 兵全落城 garrison, 英雄部队恒 0, py 侧 [RECRUITED]
++		// (英雄部队 power 增量) 结构性恒 0 (94 次 RECRUIT 实锤 0/16 局涨幅)。
++		// 修法 = 复用 case 22 同款进城范式 (moveHero→visitablePos 触发进城, query 自动应答,
++		// 锁内等待 getVisitedTown 生效); 引擎校验 CGameHandler::recruitCreatures L2463:
++		// dst 须 = town / garrisonHero / visitingHero 三者之一 → 进城后 dst=英雄 合法。
++		// 单英雄 1v1 场景无 garrison 敌将, moveHero 进城无副作用 (英雄原地驻守, 下回合照常动)。
++		if (!cur->getVisitedTown() || cur->getVisitedTown() != town)
++		{
++			int3 tp = town->visitablePos();
++			int3 standPos = cur->convertFromVisitablePos(tp);
++			cb->moveHero(cur, standPos, false);
++			// 锁内等 2s 让进城完成 (query 自动应答, 同 case 22)
++			for (int i = 0; i < 20; i++) {
++				std::this_thread::sleep_for(std::chrono::milliseconds(100));
++				if (cur->getVisitedTown() == town)
++					break;
++			}
++			if (!cur->getVisitedTown())
++				return noTarget;  // 仍未进城, 放弃 (本拍 no-op, 不扣资源)
++		}
++		// 英雄已 visiting 本城: 引擎校验 CGameHandler::recruitCreatures L2463 接受
++		// dst ∈ {town, garrisonHero, visitingHero}。dst=cur (执行英雄=visiting hero) → 兵直上
++		// 英雄部队 (py [RECRUITED] 实测口径 = 英雄 army power 增量)。
++		// ⚠ 不能退回 town->getUpperArmy(): 它只在英雄 garrison(驻守)时返回英雄,
++		//   visiting(进城访问)时返回城本身 → 兵落城 garrison, 英雄部队恒 0 (本 bug 根因)。
++		const CArmedInstance * dst = cur;
+ 		const auto & creatures = town->creatures; // creatures[level(0-based)] -> {count, {base, upgrades}}
+ 		if (a == 16 || a == 17)
+ 		{
+@@ -694,7 +720,7 @@ void AAI::showBlockingDialog(
+ 	fprintf(stderr, "[AAI DBG] showBlockingDialog: cb=%p askID=%d\n", (void*)cb.get(), askID.getNum()); if(cb) cb->selectionMade(0, askID);
+ }
+ 
+-void AAI::showGarrisonDialog(const CArmedInstance * up, const CGHeroInstance * down, bool removableUnits, QueryID queryID)
++void AAI::showGarrisonDialog(const CArmedInstance * up, const CGHeroInstance * down, bool removableUnits, QueryID queryID, const MetaString & customTitle)
+ {
+ 	debug("*** showGarrisonDialog ***");
+ 	fprintf(stderr, "[AAI DBG] showGarrisonDialog: cb=%p queryID=%d\n", (void*)cb.get(), queryID.getNum());
+@@ -711,6 +737,12 @@ void AAI::showGarrisonDialog(const CArmedInstance * up, const CGHeroInstance * d
+ 	if(cb) cb->selectionMade(0, queryID);
+ }
+ 
++void AAI::onNewSystemMessageReceived(const std::string & msg) const
++{
++	// 客户端系统消息 (chat/系统提示) — 训练场景无游戏逻辑, 仅留诊断 (同 BAI::Router 实现)
++	fprintf(stderr, "[AAI DBG] onNewSystemMessageReceived: %s\n", msg.c_str());
++}
++
+ void AAI::showMapObjectSelectDialog(
+ 	QueryID askID,
+ 	const Component & icon,

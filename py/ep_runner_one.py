@@ -722,7 +722,11 @@ try:
                         if abs(_hx0 - int(obs[_tb0+2])) <= 1 and abs(_hy0 - int(obs[_tb0+3])) <= 1:
                             _rm0 = int(obs[_tb0+14]) | int(obs[_tb0+15])
                             if _rm0 > 0:
-                                visit_econ_steps = 4
+                                # 09-27 v3: 窗长 4→10 — C++ case16-18 v2 远距分支把招兵拍降级为走格
+                                # (duel 图英雄距城 3 格: 走 3-5 拍 + moveHero 进城 1 拍 + 招兵 2-4 拍);
+                                # 4 拍在远距图全耗在走路 (引擎 ERROR "not neighboring" 实锤)。
+                                # H3M 邻接图第 1 拍即进城招兵, 多余拍 = 多招几只 (0.25 小奖, 每档上限 5 封顶)。
+                                visit_econ_steps = 10
                                 # A3 (09-17): 记窗城 id + 兵力快照 (空撞判定基线, L1245 同口径读 obs)
                                 # ⚠ pending 不在此设 — 窗开启帧 army 段立即复核会误判 (RECRUIT 尚未发出必零增量,
                                 #   09-17 实证 25/25 局开局窗全误拉黑废掉 START_HOME); 改窗结束帧设 (见下方窗结束分支)

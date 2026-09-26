@@ -164,6 +164,25 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 
 ---
 
+### 09-27 duel 图取兵链路五层修复（RECRUITED 首非零，WSL 冒烟 3/3 全绿）
+
+**结论**：duel/T06 图 RECRUITED=0 = 五层叠加，全层修复后 **108_02_duel 冒烟 3/3 局 RECRUITED=9/局**（dp +10/+40/+50），权威 obs 轨迹 `hero_army [0,0,0,15]→[1,0,0,15]→[6,6,0,15]` 实锤兵上英雄部队，0.03×dp 奖励轴在 duel 图复活。最终 libvcmi.so md5 `fe659ec5`（WSL 树）。
+
+**五层根因与修复**：
+1. **地图·兵源**：T06 生成图城镇 options 只有 formations+owner，无 `buildings` → 无兵可招。修 = 6 图全部城镇（红蓝对称）补 `buildings.allOf: ["core:dwellingLvl1","core:dwellingLvl2"]`（参照 judgement_day_h3m 已验证 schema；最小集不动 hall/fort/tavern 经济防御平衡）。工具 `py/fix_t06_town_buildings.py`（幂等+备份 .bak_pre_dwell_0927+原子写）。
+2. **地图·出生**：英雄 (5,5) 距城 (2,2) 3 格 → 永远进不了 visiting。修 = 英雄出生移到己方城格（引擎 init 直接置 visiting；T7.5 S2 时代 T05"出生在城上"约定，RECRUITED=13.2/局 已验证路径）。工具 `py/fix_t06_hero_spawn.py`（.bak_spawn_0927）。两图改后 `sync_maps_to_runtime.py --strict` 全绿。
+3. **引擎·漂移**：WSL vcmi-native 树缺 892343da（dst=cur 修复只在 Windows vcmi 子模块 + 服务器工作树；reflog 铁证 09-25 全天零提交），09-26 重编把旧代码编进 .so。修 = `py/recruit_fix_aai.patch` + `patch_recruit_fix_wsl.py` 移植。
+4. **引擎·几何死路**：`town->visitablePos()` 对 T06 城 (2,2) 算出 **(0,2) 图边缘外**（RECDBG 实锤），visiting 路线根本走不通（v1-v4 全卡死于此）。**v5 终解 = 放弃 visiting**：`dst=town` 招进 garrison（引擎 dst 三选一恒合法）+ `mergeStacks` 并入英雄（showGarrisonDialog 08-27 同款原语）。
+5. **引擎·时序+语义**：① sendRequest 异步一拍延迟 → 拍内"快照→招→合并"永远看不到增量（garrison 权威态在涨实锤）→ **v6 合并挪拍首**（上一拍 recruit 此刻已应用）；② ArrangeStacks what=2 merge 对**空目标槽静默无效**（英雄只有 slot3，新兵槽空）→ 换 `mergeOrSwapStacks`（同型 merge/空槽 swap）。另 runner 窗长 4→10（`ep_runner_one.py` L725）。
+
+**顺带勘误**：① train_full.log 的 RECRUITED/GUARD/TOWN_RETRY/ECON 全 0 是**白名单假象**（trainer 转储白名单不含这些打点，真实数据在 /tmp/hermes_ep_*.log；服务器侧直扫 ep 日志实锤 H3M 修复生效 judgement_day RECRUITED=33/11）。② 09-25 晚"duel slot5 RECRUITED=9"归属存疑——今日数据（duel 全 0 / H3M 33/11）指向当时 slot5 实跑 H3M 池图。③ 服务器 AAI.cpp 修复是 untracked 工作树改动（仓里无 commit），`git checkout/clean` 会丢。
+
+**工具链（/py，全可复跑）**：`patch_recruit_fix_wsl.py/v2/v3/v5/v6.py`（补丁链带备份回滚）、`recruit_fix_verify_smoke.sh`（验证冒烟）、`rfix_trace.py`（traj 时间线解剖）、`t06_town_dwellings_check.py`（城镇字段对照）、`server_recruit_probe.sh`（服务器 ep 日志扫描）。
+
+**遗留**：① 服务器侧同步（AAI.cpp 终版 + 6 张改图 + 重编）待网络窗口；② WSL vcmi-native 仓需把 AAI.cpp 终版 commit 入库（本次事故根源 = 修复未入库）；③ H3M 城若有预置 garrison，拍首合并会一并并入英雄（首次窗，T06/已验证 H3M 初始 garrison 均 0，暂不设防）；④城上出生对 duel 难度轴 avg_r 的影响属环境变更，训练窗观察。
+
+---
+
 ### 09-27 文档体系重构落地 + 架构演进时机分析（T5.9/T6.3/T12，用户问询定谳）
 
 **一、文档体系重构（用户拍板执行完毕，登记见已完成任务 09-27 条）**：
