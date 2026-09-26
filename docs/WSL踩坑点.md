@@ -481,7 +481,7 @@
 - **纪律**：共享工作树 add 前先 `git diff <file>` 核对 hunk 全属自己；有对方未 commit 改动在文件内时：优先 `git add -p` 逐 hunk 选，或等对方先 commit 再加，实在无法分离就 add 后**向用户报备**（本次已报备）
 - 状态: ⚠️ 纪律定谳（b3d95a43/1e28036a 归属混淆不可逆，无数据损坏；后续按 `git add -p` 执行）
 
-### #332. 「已摘除图还在采样」是跨 restart 行号假象——日志时间桶必须按 `Loaded train state` 分段切 ✅ 定谳（09-27）
+### #341. 「已摘除图还在采样」是跨 restart 行号假象——日志时间桶必须按 `Loaded train state` 分段切 ✅ 定谳（09-27）
 
 - **现象**：P-001 复核时 `grep` 近 1000 行见 King_of_Pain 18 局 + elbow 9 局「还在采」，一度怀疑 09-26 #326 摘除没生效
 - **根因**：`train_full.log` 含 21 个 `Loaded train state (step=N)` restart 段（systemd 重启/崩溃拉起都重开 epoch），行号 13337 里跨段混着；「近 N 行」计数窗横跨多个 epoch，把旧 epoch 尾段的采样算成「当前还在采」
@@ -489,7 +489,7 @@
 - **教训**：① 任何「图 X 还在被采样吗」判定必须按 restart 边界切段（段=epoch），行号近 N 行不可跨段 ② 摘除类操作生效验证 = 看**最后一个 restart 之后**的段计数，不看全日志 ③ 判据数据（P-001 too_many 当前 epoch 16 局 mean -608.7）同样只取当前 epoch 段，旧 78 局跨 4 个 PPO epoch 混算作废
 - 状态: ✅ 定谳（工具：服务器侧 `_sampler_audit4.py` restart 分段法，逻辑可复用）
 
-### #333. 部分 vmap 的 objects.json 带 `// game` 注释行，Python json 直接解析炸 ⚠️ 已容错（09-27）
+### #342. 部分 vmap 的 objects.json 带 `// game` 注释行，Python json 直接解析炸 ⚠️ 已容错（09-27）
 
 - **现象**：`json.loads(zip.read("objects.json"))` 在 thousand_islands_h3m.vmap 上 `JSONDecodeError: line 2 column 3`（内容形如 `[
 	 // game
@@ -500,27 +500,50 @@
 - **教训**：读 vmap 内 JSON 一律先做注释剥离（幂等、干净文件不受影响），别裸 `json.loads` 假设全池格式一致
 - 状态: ✅ 已容错（vcmi 上游 C++ 侧修注释输出不在本项目范围）
 
-### #334. 双 CLI 并发同写 `当前任务清单.md`：P 删除被对端 3 次还原，最终原子化才落地 ✅ 定谳（09-27）
+### #343. 双 CLI 并发同写 `当前任务清单.md`：P 删除被对端 3 次还原，最终原子化才落地 ✅ 定谳（09-27）
 
 - **现象**：本会话 patch 删 P-001/P-006/P-010/P-023 四条 3 次，前两次完成后 diff 查空、条目复现——对端 CLI 在同写该文件（其并发提交 `fe84486e` P-029/030/031 销项），中间把文件整体还原覆盖
 - **根因**：两 agent 共享同一工作树同一文件，patch 非原子（读-改-写有时间窗），对端在其窗口内整体写回 = 我的删除被静默撤销；且 `git status` 一度显示 clean，极易误判「改成功了」
 - **解法（落地）**：python 一次读-4 处替换-写 + `git add` + `commit` 压进**一条命令**（`62052f05`），把窗口缩到对端一轮写回之内；提交后 `grep -cE` 复核条目数 0
 - **教训**：① 双 CLI 场景写共享 md 必须「读-改-写-提交」原子化单命令，禁止多步 patch 后再看 diff ② 写后复核 = 看条目计数/grep 目标串，不看 `git status`（对端可能刚 commit 把脏文件吞了）③ 撞车后先 `git log` 看对端提交内容再决定重打，别盲目 patch（会基于陈旧快照产生覆盖冲突）
 - 状态: ✅ 定谳（`62052f05` 销条落地；后续共享文件改动一律原子化 + 写后 grep 复核）
-
-### #337. hermes CLI 每次启动「source-update 补完」(npm ci node 构建) 卡死子命令 ✅ 已绕过（09-27）
-
-- **现象**：`hermes kanban boards create ...` 先打印 "hermes: finishing an interrupted source update..." 跑 `npm ci`（apps/desktop, ui-tui, web）>240s 未完，前台超时杀掉（rc=124），kanban 子命令根本没跑成
-- **根因**：某次 hermes update 的 node 构建尾巴被中断，留 pending 标记（PM install_state_dir 下 `source-completion-pending`，不在 hermes-agent 根，常规目录 find 不到）；此后每次 CLI 启动 venv_sync._finish_source_update 先跑补完
-- **绕过**：`HERMES_DISABLE_LAZY_INSTALLS=1`（venv_sync.py:232 该 env 置位即跳过补完；venv 本身 current，欠的只是 node 构建尾巴，kanban/terminal 等子命令不受影响）
-- **彻底修复**：后台跑通一次 `hermes update`（npm 慢，给足超时）
-- **教训**：hermes 子命令输出开头出现 "finishing an interrupted source update" 时，别等它——直接 env 绕过，或显式后台补完，别在交互命令里干等
-- 状态: ✅ 已绕过（09-27 kanban smoke 全命令在此 env 下跑通）
-
-### #338. hermes kanban CLI 无 per-command `--board` 旗标 ✅ 定谳（09-27）
-
-- **现象**：`hermes kanban list --board hero3-collab` → `unrecognized arguments: --board`
-- **根因**：选板解析顺序 = context var > `HERMES_KANBAN_BOARD` env > 共享指针 `<root>/kanban/current` > `default`；CLI 只暴露 env 与 `hermes kanban boards switch` 两个入口，无逐命令旗标
-- **用法**：持久 = `hermes kanban boards switch <slug>`（写共享指针，影响本机所有 CLI）；单次 = `HERMES_KANBAN_BOARD=<slug> hermes kanban ...`。板库在共享根（`kanban.db` / `kanban/boards/<slug>/kanban.db`），与 profile 目录无关 → 同机多 CLI 天然共享
-- **教训**：kanban 当留言板用时任务保持 assignee 空（ready 不 assign → dispatcher skipped_unassigned 不碰）；同 profile 下 assignee/created_by 分不清哪个 CLI，comment 带 A:/B: 前缀或分 tenant
-- 状态: ✅ 定谳（hero3-collab 板 + smoke 卡 t_e78796ea，B 侧跨进程验证通过）
+
+
+### #337. hermes CLI 每次启动「source-update 补完」(npm ci node 构建) 卡死子命令 ✅ 已绕过（09-27）
+
+
+
+- **现象**：`hermes kanban boards create ...` 先打印 "hermes: finishing an interrupted source update..." 跑 `npm ci`（apps/desktop, ui-tui, web）>240s 未完，前台超时杀掉（rc=124），kanban 子命令根本没跑成
+
+- **根因**：某次 hermes update 的 node 构建尾巴被中断，留 pending 标记（PM install_state_dir 下 `source-completion-pending`，不在 hermes-agent 根，常规目录 find 不到）；此后每次 CLI 启动 venv_sync._finish_source_update 先跑补完
+
+- **绕过**：`HERMES_DISABLE_LAZY_INSTALLS=1`（venv_sync.py:232 该 env 置位即跳过补完；venv 本身 current，欠的只是 node 构建尾巴，kanban/terminal 等子命令不受影响）
+
+- **彻底修复**：后台跑通一次 `hermes update`（npm 慢，给足超时）
+
+- **教训**：hermes 子命令输出开头出现 "finishing an interrupted source update" 时，别等它——直接 env 绕过，或显式后台补完，别在交互命令里干等
+
+- 状态: ✅ 已绕过（09-27 kanban smoke 全命令在此 env 下跑通）
+
+
+
+### #338. hermes kanban CLI 无 per-command `--board` 旗标 ✅ 定谳（09-27）
+
+
+
+- **现象**：`hermes kanban list --board hero3-collab` → `unrecognized arguments: --board`
+
+- **根因**：选板解析顺序 = context var > `HERMES_KANBAN_BOARD` env > 共享指针 `<root>/kanban/current` > `default`；CLI 只暴露 env 与 `hermes kanban boards switch` 两个入口，无逐命令旗标
+
+- **用法**：持久 = `hermes kanban boards switch <slug>`（写共享指针，影响本机所有 CLI）；单次 = `HERMES_KANBAN_BOARD=<slug> hermes kanban ...`。板库在共享根（`kanban.db` / `kanban/boards/<slug>/kanban.db`），与 profile 目录无关 → 同机多 CLI 天然共享
+
+- **教训**：kanban 当留言板用时任务保持 assignee 空（ready 不 assign → dispatcher skipped_unassigned 不碰）；同 profile 下 assignee/created_by 分不清哪个 CLI，comment 带 A:/B: 前缀或分 tenant
+
+- 状态: ✅ 定谳（hero3-collab 板 + smoke 卡 t_e78796ea，B 侧跨进程验证通过）
+
+### #344. 02 图（1v3）长局大负四层叠加——不可达目标 × 全程引导残留 × 死亡反转 ⚠️ 观察中（09-27，P-032）
+
+- **现象**：72X72_02 部署后后 10 局 avg_r -1.14（前 10 -0.13，后 < 前×0.8 判恶化）；单局 R=-334.4（225 步长局）；同期 duel 1v1 +0.53 正收益——1v1/1v3 必须分桶。
+- **根因四层**：① 1v3 结构不可达（蓝 3 城 3 将 67+ 格对角远端，红跨全图推不动）② 非 duel T06 `move_to_force=250` 全程引导奔蓝城——09-03 已验证坏模式（"200 版 13/32 挂死局 r=-429 全程引导拖英雄撞墙"）只在 duel/小图分支回滚到 60，非 duel 分支残留 250 ③ NK2 平台期流血（ep 日志 `[NK2]` 实测 Φ=49.35 delta=0.000 纯步罚；R≈-200 蓝胜终局 -22 终结Φ修正 -22.5 步罚 -60~90 循环罚）④ 死亡反转（速死 58 步 avg +0.39 vs 强撑 -1.5——取兵修复红变强 → 速死模式消失局变长 → 1v3 赢不了长存活=长流血）。
+- **教训**：① 参数分支修复必须审计全部同类分支（09-03 教训只落在 duel 分支，非 duel 残留）② "提升能力"的修复可能通过改变局长分布暴露新负 signature——部署后恶化先问局长分布变没变，别急着回滚修复本身 ③ 1v1/1v3 图型分桶统计，混算互相掩盖 ④ 处置按数据分流非参数手术（决策树见知识库 09-27 章：自愈关案 / 恶化无正局三档治理 / 有正局改 250→60 搭车；②平局化 ③death_penalty 加深已否决）。
+- 状态: ⚠️ 观察中（P-032，攒 ≥30 局分流；duel 1v1 主线不受拖累）。
