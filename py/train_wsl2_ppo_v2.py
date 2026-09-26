@@ -65,9 +65,14 @@ MAPS = [
     # 09-13 减 T05 MIR 3 张（去 36X36_01_mir / 52X52_01_mir / 52X52_02_mir），加 T04 2 张（36X36_01 + 30X30_01）
     # 目的：T05 难度上移 + T04 死路密集为 T7.4 判据 1（ZOMBIE 样本）提供触发条件
     # T04 已退役存档 09-04，但 T7.4 方向纠正后确认"高障碍图"是判据 1 唯一样本源
-    "T05_adventure_36X36_01.vmap",
-    "T05_adventure_52X52_01.vmap",
-    "T05_adventure_52X52_02.vmap",
+    # 09-26 T05 三图移出课程(A/B 定谳能力真空, 踩坑#327): WSL 449k-695k 曾是最好正图(+128~+200,
+    #   弱蓝方环境), 696k 拐点(#283 蓝方变更)后 4 个月 0 回正; 服务器窗 3 张 T05 n=243 meanR=-102~-113,
+    #   0 正局 0 大负, 满步 63-70%; A/B(gd=15 vs gd=0, 各4局)两臂 -77.5 vs -78.5 等效 → 非机械问题
+    # 回池条件: 新 ckpt 评测 T05 4 局 meanR>=0 且正局>=50% (a_viking 同款)
+    # 回退 = 取消下行注释
+    # "T05_adventure_36X36_01.vmap",
+    # "T05_adventure_52X52_01.vmap",
+    # "T05_adventure_52X52_02.vmap",
     # 09-06 T06 前置 (方案 A, 只加大图轴不加多敌轴): 72X72 1v1 duel 变体 (fix_t06_maps.py 去 hero_2/3+town_2/3)
     # identifier 三类修复同 T05 套路 (inham→edric/iona/alchemist / resourceGold→gold / monster→三兽集), inspect 5 图全绿
     # 09-06 晚 1v3 上线 (判据 4/4 达标: 32 局 后1/3 avg 83.0 vs 前1/3 65.1 比值 1.27 上行 / 自发 100% / 200步局 0% / 守卫胜 96.9%):

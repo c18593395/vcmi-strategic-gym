@@ -397,3 +397,11 @@
 - **09-26 处置**：① elbow_room_allies batch 2→99（恶化 -440→-474→-497 + 竞态 rc=124 史 09-23）= 热生效（trainer 600s 重读 _pool_index.json 刷新池，不杀训练）；② King_of_Pain 移出课程 MAPS（09-13 加入；duel focus 挤压 + 分桶恶化 -705→-746 + 0 正局；地图 md5 两侧相同已排除文件因素；WSL 尾段本就 -212~-263）= 改 train_ppo_server.py 注释掉，自然重启生效；③ too_many_monsters **保留留观 1 窗**（分桶改善中 -616→-585，~50 局后复核：改善 >20% 或正局 ≥5% 留，否则摘）
 - **双副本**：`/DATA/hero3/train_server/pool/_pool_index.json`（服务器热生效）+ 主仓 `maps/h3m_to_vmap/_pool_index.json` 同改（#306 防漂移）；King 摘除同步改主仓 `py/train_wsl2_ppo_v2.py`（WSL 真相源）
 - 状态: ✅ elbow/King 已摘，too_many 挂 1 窗观察
+
+### #327. T05 三图（36_01/52_01/52_02）移出课程 MAPS——A/B 双臂定谳能力真空 ✅ 已摘（09-26）
+
+- **判读数据链**：52_01 全历史 606 局 77% 正（449k-695k 曾是最好正图 meanR +128~+200）→ 696k 拐点（#283 蓝方 STATIC_AI 变更）后 4 个月 0 回正 → 服务器窗 3 张 T05 n=243 meanR -102~-113、**0 正局 0 大负**、满步 63-70%（温和负=磨满步+偶战死+shaping 流血，区别于 King 的 -716 灾难负）
+- **A/B 定谳（N=4/臂，#298 纪律，/DATA/hero3/ab5201_20260926/）**：B1=T05 现行配置（move_to_force=60 + guard_done=15）vs B2=T06-duel 同款（gd=0），两臂 meanR **-77.5 vs -78.5 等效、0/4 正局** → 补 T06 机械参数救不回 = **能力真空非机械问题**
+- **处置**：服务器 train_ppo_server.py MAPS 9→6（T05 三行注释，备份 .bak_0926_t05）+ 主仓 py/train_wsl2_ppo_v2.py 同改（#306 双副本）；**回池条件写死=新 ckpt 评测 T05 4 局 meanR≥0 且正局≥50%**（a_viking 同款）
+- **教训**：① 档位级退化按整档处置不逐图 ② "曾是正图"≠"该留着观察"——4 个月 0 回正 + 参数臂证伪后观察无意义 ③ A/B 先诊断再摘除=摘/留都有证据，不是拍脑袋
+- 状态: ✅ 已摘（重启生效），证据 /DATA/hero3/ab5201_20260926/（8 traj + 8 log + done.flag）
