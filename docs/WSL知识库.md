@@ -342,3 +342,21 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 - **边界（要记）**：减的是**中性怪密度**不是消除——巢穴/巢门还在，英雄路过巢穴仍会遇怪群，低密度只降遭遇频率。若 `_ug_low` 重测仍全 hold，下一档 = 减巢穴 或 降 neutral guard，别只盯着 neutral monster 一类。
 - **下一步**：服务器错窗跑 `_ug_low` 13 张 × N≥4 局（driver 复用 `py/batch_eval_batch3_ug.py`，文件名换 `_ug_low`），满 250 步 + meanR≥0/正局≥50% 判据达标才开 `HOMM3_H3M_BATCH=3`（前置：duel 窗收口错窗纪律）。
 - 状态: ✅ 全密度定谳 + 减怪重转落地；⏳ `_ug_low` 重测未跑。
+
+---
+
+### 09-27 P 系列四任务收官（P-001/P-010/P-006/P-023）
+
+**P-001 too_many_monsters 留观窗收官摘除（commit `bcf15fea`）**：旧窗 78 局 mean -585 / 0 正局 + 当前 epoch（1565581 起）16 局 mean -608.7 / 0 正局 / 最差 -671 恶化 → #326 判据（改善>20% 或正局≥5%）双不达标 → 双侧 index batch:2→99（服务器备份 `.bak_0927_p001_tmm`）。回评条件 = 新 ckpt 4 局 meanR≥0 且正局≥50%（T05 回池同款口径）。
+
+**P-010 duel 难度轴观察窗收口判定达标**：`HOMM3_DUEL_FOCUS=1` 108_02_duel 当前 epoch 295 局 mean +34.4 / 正率 72%，前 147 局 +39.6 → 后 148 局 +29.1（回落但仍为正，无连续恶化）→ 收口达标。**关 `DUEL_FOCUS` 的动作留到 P-005 批转同窗一起做（错窗纪律）**，判定本身只改任务清单不改 unit。
+
+**P-006 batch4 数据层 5 维标签 + 分型（commit `7dc471ac`，工具 `py/_p006_batch4_labels.py`）**：
+- 判型方法 = 读 vmap zip 内 `surface_terrain.json`（144×144 级瓦片网格），水瓦片前缀 `wt*`，陆地 = 非 `wt*`，BFS 连通块；`water` = 水瓦片占比。gate = objects.json 有 subterraneanGate/labyrinth/openGate。underground = header.mapLevels 有 underground 层。
+- **mainTown 判定三分型**：① mainTown 坐标在 header.players 可解析（多数图）→ 落在非最大块 = 小岛 / 双 mainTown 一岛一陆 = open_water_isolation；② 群岛兜底（块≥2 且最大块<50% 陆地）→ 无论主镇固定/随机必在岛上；③ **部分图 players.* = 空 dict（主镇开局随机摆放，island_king 系 / thousand_islands_allies / hoard / reclamation / treasure_hunt 等）**，mainTown 判据不适用，只能靠群岛兜底判。
+- **OWI 命中 9 张 → batch:99 水堵 hold**：brave_new_world（群岛+随机主镇）、buried_treasure（主镇双落小岛）、emerald_isles/emerald_islesa（红落小岛）、loss_of_innocence×2（双落小岛）、thousand_islands×2（69 块群岛，主镇一边随机一边在小岛）、valleys_of_war（红落 7% 小岛）。**island_king ×2 最大块 87% 有主大陆 → 不水堵放行**。
+- 双侧 index 同步：本地 `maps/h3m_to_vmap/_pool_index.json`（29 张全打 5 维标签 + archipelago/random_town/land_components/island_note 扩展字段）→ 服务器 `/DATA/hero3/train_server/pool/`（.new 校验后 mv，备份 `.bak_0927_p006`）。9 张 99 图在 BATCH=2 下本就不采样，纯记录性标注、训练零影响。
+
+**P-023 `py/reorder_wslpit_engine.py` 定性入库（commit `8f5ec9eb`）**：09-11 归档时的一次性 doc 重排工具（WSL踩坑点-引擎-VCMI-API.md 条目升序 + 格式统一 + 空行压缩），目标 doc 现有序（137 条目末号 #309 无乱序），定性为**可复用维护工具**保留入库。硬编码 `d:\Bigdata\hero3_fresh\docs\...` 绝对路径，跑前须在仓根执行。
+
+**日志时间桶方法论（本会话新定）**：train_full.log 含多次 `Loaded train state` restart（21 个段），行号跨段不可比——**时间桶必须按 restart 边界切段再算**。09-27 用此法坐实：King 95 局 / elbow 69 局全落在 09-26 22:59 trainer 更新前旧段，新 3 段全 0 → #326 摘除真生效（"近 1000 行还在采样"= 跨重启行号假象）。同理 P-001 判据只用当前 epoch 16 局（mean -608.7），旧 78 局跨 4 个 PPO epoch 混算不作判据。

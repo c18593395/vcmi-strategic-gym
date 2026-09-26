@@ -480,3 +480,30 @@
 - **根因**：双 CLI 同工作树（dual-cli-collab 铁律①要求「git add 只带自己碰的文件/行」），`git add <file>` 整文件 = 无法区分文件内哪些 hunk 是自己的
 - **纪律**：共享工作树 add 前先 `git diff <file>` 核对 hunk 全属自己；有对方未 commit 改动在文件内时：优先 `git add -p` 逐 hunk 选，或等对方先 commit 再加，实在无法分离就 add 后**向用户报备**（本次已报备）
 - 状态: ⚠️ 纪律定谳（b3d95a43/1e28036a 归属混淆不可逆，无数据损坏；后续按 `git add -p` 执行）
+
+### #332. 「已摘除图还在采样」是跨 restart 行号假象——日志时间桶必须按 `Loaded train state` 分段切 ✅ 定谳（09-27）
+
+- **现象**：P-001 复核时 `grep` 近 1000 行见 King_of_Pain 18 局 + elbow 9 局「还在采」，一度怀疑 09-26 #326 摘除没生效
+- **根因**：`train_full.log` 含 21 个 `Loaded train state (step=N)` restart 段（systemd 重启/崩溃拉起都重开 epoch），行号 13337 里跨段混着；「近 N 行」计数窗横跨多个 epoch，把旧 epoch 尾段的采样算成「当前还在采」
+- **坐实（audit4 分段法）**：按 restart 行切 21 段逐段计数——King 95 局全落在 1156385 旧段（09-26 22:59 trainer 更新前的 MAPS），1565581/1600910/1655020 三个新段**全 0 局** → 摘除真生效，index=99 过滤正确工作
+- **教训**：① 任何「图 X 还在被采样吗」判定必须按 restart 边界切段（段=epoch），行号近 N 行不可跨段 ② 摘除类操作生效验证 = 看**最后一个 restart 之后**的段计数，不看全日志 ③ 判据数据（P-001 too_many 当前 epoch 16 局 mean -608.7）同样只取当前 epoch 段，旧 78 局跨 4 个 PPO epoch 混算作废
+- 状态: ✅ 定谳（工具：服务器侧 `_sampler_audit4.py` restart 分段法，逻辑可复用）
+
+### #333. 部分 vmap 的 objects.json 带 `// game` 注释行，Python json 直接解析炸 ⚠️ 已容错（09-27）
+
+- **现象**：`json.loads(zip.read("objects.json"))` 在 thousand_islands_h3m.vmap 上 `JSONDecodeError: line 2 column 3`（内容形如 `[
+	 // game
+	{
+`）
+- **根因**：VCMI C++ json 序列化器（CMapService 导出路径）部分图写出带 `// game` 注释行的 objects.json，Python `json` 标准解析器不支持注释；同批 vmap 里多数是干净 JSON、少数带注释，**逐图不统一**
+- **容错**：`re.sub(r"^\s*//.*$", "", raw, flags=re.M)` 剥行首注释再 `json.loads`（P-006 工具 `_p006_batch4_labels.py` 已内置；header.json/surface_terrain.json 未见过注释，同法保险）
+- **教训**：读 vmap 内 JSON 一律先做注释剥离（幂等、干净文件不受影响），别裸 `json.loads` 假设全池格式一致
+- 状态: ✅ 已容错（vcmi 上游 C++ 侧修注释输出不在本项目范围）
+
+### #334. 双 CLI 并发同写 `当前任务清单.md`：P 删除被对端 3 次还原，最终原子化才落地 ✅ 定谳（09-27）
+
+- **现象**：本会话 patch 删 P-001/P-006/P-010/P-023 四条 3 次，前两次完成后 diff 查空、条目复现——对端 CLI 在同写该文件（其并发提交 `fe84486e` P-029/030/031 销项），中间把文件整体还原覆盖
+- **根因**：两 agent 共享同一工作树同一文件，patch 非原子（读-改-写有时间窗），对端在其窗口内整体写回 = 我的删除被静默撤销；且 `git status` 一度显示 clean，极易误判「改成功了」
+- **解法（落地）**：python 一次读-4 处替换-写 + `git add` + `commit` 压进**一条命令**（`62052f05`），把窗口缩到对端一轮写回之内；提交后 `grep -cE` 复核条目数 0
+- **教训**：① 双 CLI 场景写共享 md 必须「读-改-写-提交」原子化单命令，禁止多步 patch 后再看 diff ② 写后复核 = 看条目计数/grep 目标串，不看 `git status`（对端可能刚 commit 把脏文件吞了）③ 撞车后先 `git log` 看对端提交内容再决定重打，别盲目 patch（会基于陈旧快照产生覆盖冲突）
+- 状态: ✅ 定谳（`62052f05` 销条落地；后续共享文件改动一律原子化 + 写后 grep 复核）
