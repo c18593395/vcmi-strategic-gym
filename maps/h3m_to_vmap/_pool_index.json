@@ -700,5 +700,131 @@
     "blue_ai": "MMAI_RANDOM",
     "verify": "steps=30/250 rew=-59.75",
     "ts": "2026-09-21 08:10:32"
+  },
+  "all_for_one_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "All for One.h3m",
+    "based_on": "all_for_one_h3m.vmap",
+    "verify": "underground OK l!=0对象=344/1478",
+    "ts": "2026-09-26 23:43:26"
+  },
+  "buried_treasure_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Buried Treasure.h3m",
+    "based_on": "buried_treasure_h3m.vmap",
+    "verify": "underground OK l!=0对象=486/1649",
+    "ts": "2026-09-26 23:43:26"
+  },
+  "crimson_and_clover_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Crimson and Clover.h3m",
+    "based_on": "crimson_and_clover_h3m.vmap",
+    "verify": "underground OK l!=0对象=450/1435",
+    "ts": "2026-09-26 23:43:26"
+  },
+  "darwin_s_prize_allies_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 99,
+    "hold_reason": "underground_empty(0对象0城, 无地下训练价值)",
+    "h3m": "Darwin's Prize(Allies).h3m",
+    "verify": "objects 无 l!=0 对象 (total=1484)",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "dwarven_gold_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Dwarven Gold.h3m",
+    "based_on": "dwarven_gold_h3m.vmap",
+    "verify": "underground OK l!=0对象=211/762",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "hoard_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Hoard.h3m",
+    "based_on": "hoard_h3m.vmap",
+    "verify": "underground OK l!=0对象=492/1547",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "manifest_destiny_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Manifest Destiny.h3m",
+    "based_on": "manifest_destiny_h3m.vmap",
+    "verify": "underground OK l!=0对象=388/768",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "ready_or_not_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Ready or Not.h3m",
+    "based_on": "ready_or_not_h3m.vmap",
+    "verify": "underground OK l!=0对象=59/1145",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "rise_of_the_phoenix_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Rise of the Phoenix.h3m",
+    "based_on": "rise_of_the_phoenix_h3m.vmap",
+    "verify": "underground OK l!=0对象=51/3139",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "the_newcomers_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "The Newcomers.h3m",
+    "based_on": "the_newcomers_h3m.vmap",
+    "verify": "underground OK l!=0对象=396/933",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "time_s_up_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Time's Up.h3m",
+    "based_on": "time_s_up_h3m.vmap",
+    "verify": "underground OK l!=0对象=176/648",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "undead_unrest_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Undead Unrest.h3m",
+    "based_on": "undead_unrest_h3m.vmap",
+    "verify": "underground OK l!=0对象=359/1726",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "unexpected_inheritance_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Unexpected Inheritance.h3m",
+    "based_on": "unexpected_inheritance_h3m.vmap",
+    "verify": "underground OK l!=0对象=288/1598",
+    "ts": "2026-09-26 23:43:27"
+  },
+  "valleys_of_war_ug_h3m.vmap": {
+    "blue_ai": "MMAI_RANDOM",
+    "layer": "underground",
+    "batch": 3,
+    "h3m": "Valleys of War.h3m",
+    "based_on": "valleys_of_war_h3m.vmap",
+    "verify": "underground OK l!=0对象=635/1625",
+    "ts": "2026-09-26 23:43:27"
   }
 }
