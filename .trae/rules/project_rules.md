@@ -18,7 +18,7 @@ VCMI 沙盒 PPO 训练战略模型 (1v7) → 真实 HoMM3 部署对战。当前�
 ## 硬约束（全量见项目管理.md §三）
 - OBS(3464) / 动作空间冻结：禁增删维度；扩展只走预留位或旁路
 - 训练地图 = VMAP；H3M 已停用；改/生成 .vmap 后必跑 `py/sync_maps_to_runtime.py --strict`（rc≠0 禁训）
-- 改动流向：本地仓 commit → 服务器；禁在服务器侧直接改源树；**服务器 vcmi 仓每次 patch apply 后必须自己 git commit（部署副本也入库，注明真相源锚），WSL 仓与服务器仓保持同步**；知识库/踩坑点文档以服务器为权威侧改完 scp 回本地
+- 改动流向：本地仓 commit → 服务器；禁在服务器侧直接改源树；**服务器 vcmi 仓每次 patch apply 后必须自己 git commit（部署副本也入库，注明真相源锚），WSL 仓与服务器仓保持同步**；知识库/踩坑点文档以 **WSL 侧为权威**（`/mnt/d/Bigdata/hero3_fresh/docs/`，勘误 09-27：原写"服务器权威侧"系笔误，服务器 `/DATA/hero3/docs/` 为 7 月陈旧副本不作依据）
 - 训练 unit 一律 system 级（WSL `homm3-train-v5` / 服务器 `homm3-train-server`），**禁用 `systemctl --user`**；unit 双副本（/etc 与 py/ 仓内）必须同步改（踩坑 #306）
 - 改 Python 后清 `__pycache__`；动构建树前备份 .so + 源码；.so 多副本改后同步
 - 代码文件保存到 /py 目录下（用户规则）；全程中文回复
