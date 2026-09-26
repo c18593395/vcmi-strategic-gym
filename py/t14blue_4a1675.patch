@@ -1,0 +1,441 @@
+From 4a1675c6a278cf2766febd05596290ab014b23c6 Mon Sep 17 00:00:00 2001
+From: Administrator <admin@local>
+Date: Sat, 26 Sep 2026 15:16:36 +0800
+Subject: [PATCH] feat(T14.3): T14Blue blue-side strategic AI plugin
+ (NK2-derived harvest layer R13 nudge)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+层2 C++ 插件 (方案_T14规则设计_20260925 §十 两层架构), 治 S-7 全池 DRAW 根因.
+接入架构定谳 (fact #64): 本 fork = STATIC_AI 构建, 蓝方走 CDynLibHandler::getNewAI
+createAny 特化 stem==libT14Blue, 非 dlopen 通路.
+- AI/T14BlueMod/: T14BlueGateway (薄派生 NK2AI::AIGateway) + T14Nullkiller
+  (覆盖 onPursueTurn 收割钩子 R13: 最强英雄->敌城推进 nudge, 原型 FNV1a seed
+  P0龟20天/P1速攻7天/P2游击不推进/P3飞取最远主城/P4均衡最近, [T14-ACT] 打点)
+- Nullkiller: 加 virtual onPursueTurn(){} 空钩子 (makeTurn defender 预留后调用,
+  NK2 默认空实现=存量零行为变化)
+- 门控 ENABLE_T14_BLUE option 默认 OFF = 存量构建字节零 diff (7 处门控编辑
+  + py/patch_t14blue_engine.py 幂等可回滚, .bak_t14blue 全在)
+边界: R13 为 nudge 非硬目标注入 (targetObject 每 pass 被 updateState 重置);
+真·硬注入 + Settings 权重轴 (字段 private 无 setter) = T14.3b 另排.
+本地 commit 不推.
+---
+ AI/CMakeLists.txt                    |   4 +
+ AI/Nullkiller2/Engine/Nullkiller.cpp |   4 +
+ AI/Nullkiller2/Engine/Nullkiller.h   |   3 +
+ AI/T14BlueMod/CMakeLists.txt         |  23 ++++++
+ AI/T14BlueMod/StdInc.h               |   8 ++
+ AI/T14BlueMod/T14BlueGateway.cpp     |  19 +++++
+ AI/T14BlueMod/T14BlueGateway.h       |  21 +++++
+ AI/T14BlueMod/T14Nullkiller.cpp      | 114 +++++++++++++++++++++++++++
+ AI/T14BlueMod/T14Nullkiller.h        |  22 ++++++
+ CMakeLists.txt                       |   4 +
+ lib/callback/AIFactory.cpp           |  22 +++++-
+ lib/callback/CDynLibHandler.cpp      |   9 +++
+ libFacade/CMakeLists.txt             |   3 +
+ 13 files changed, 255 insertions(+), 1 deletion(-)
+ create mode 100644 AI/T14BlueMod/CMakeLists.txt
+ create mode 100644 AI/T14BlueMod/StdInc.h
+ create mode 100644 AI/T14BlueMod/T14BlueGateway.cpp
+ create mode 100644 AI/T14BlueMod/T14BlueGateway.h
+ create mode 100644 AI/T14BlueMod/T14Nullkiller.cpp
+ create mode 100644 AI/T14BlueMod/T14Nullkiller.h
+
+diff --git a/AI/CMakeLists.txt b/AI/CMakeLists.txt
+index df873b241e..d2501eb5fa 100644
+--- a/AI/CMakeLists.txt
++++ b/AI/CMakeLists.txt
+@@ -21,3 +21,7 @@ add_subdirectory(EmptyAI)
+ if(ENABLE_NULLKILLER2_AI)
+ 	add_subdirectory(Nullkiller2)
+ endif()
++
++if(ENABLE_T14_BLUE)
++	add_subdirectory(T14BlueMod)
++endif()
+diff --git a/AI/Nullkiller2/Engine/Nullkiller.cpp b/AI/Nullkiller2/Engine/Nullkiller.cpp
+index bbccf31c90..7d60c24aa9 100644
+--- a/AI/Nullkiller2/Engine/Nullkiller.cpp
++++ b/AI/Nullkiller2/Engine/Nullkiller.cpp
+@@ -544,6 +544,10 @@ void Nullkiller::makeTurn()
+ 
+ 		reserveRequiredTownDefenders();
+ 
++		// T14 (09-26): per-turn pursuit hook — NK2 empty default (zero behavior change);
++		// T14Nullkiller overrides it to re-assert strongest-hero -> enemy-town march target.
++		onPursueTurn();
++
+ 		tasks.clear();
+ 		decompose(tasks, sptr(CaptureObjectsBehavior()), 1);
+ 		decompose(tasks, sptr(ClusterBehavior()), MAX_DEPTH);
+diff --git a/AI/Nullkiller2/Engine/Nullkiller.h b/AI/Nullkiller2/Engine/Nullkiller.h
+index a27b5b8c89..9122242b25 100644
+--- a/AI/Nullkiller2/Engine/Nullkiller.h
++++ b/AI/Nullkiller2/Engine/Nullkiller.h
+@@ -126,6 +126,9 @@ public:
+ 	virtual ~Nullkiller();
+ 	void init(const std::shared_ptr<CCallback> & cbInput, AIGateway * aiGwInput);
+ 	virtual void makeTurn();
++	/// T14 (09-26): per-turn pursuit hook, called from makeTurn after defender reservation.
++	/// NK2 default = empty (zero behavior change); T14Blue::T14Nullkiller overrides it (R13 harvest nudge).
++	virtual void onPursueTurn() {}
+ 	bool updateStateAndExecutePriorityPass(Goals::TGoalVec& tempResults, int passIndex);
+ 	bool isActive(const CGHeroInstance * hero) const { return activeHero == hero; }
+ 	bool isHeroLocked(const CGHeroInstance * hero) const;
+diff --git a/AI/T14BlueMod/CMakeLists.txt b/AI/T14BlueMod/CMakeLists.txt
+new file mode 100644
+index 0000000000..617913cb87
+--- /dev/null
++++ b/AI/T14BlueMod/CMakeLists.txt
+@@ -0,0 +1,23 @@
++cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
++
++set(T14BlueMod_SRCS
++	T14Nullkiller.cpp
++	T14BlueGateway.cpp
++)
++
++set(T14BlueMod_HEADERS
++	StdInc.h
++	T14Nullkiller.h
++	T14BlueGateway.h
++)
++
++assign_source_group(${T14BlueMod_SRCS} ${T14BlueMod_HEADERS})
++
++add_library(T14BlueMod OBJECT ${T14BlueMod_SRCS} ${T14BlueMod_HEADERS})
++target_compile_definitions(T14BlueMod PRIVATE VCMI_DLL=1)
++
++target_include_directories(T14BlueMod PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
++target_link_libraries(T14BlueMod PUBLIC vcmiMain TBB::tbb)
++
++vcmi_set_output_dir(T14BlueMod "AI")
++enable_pch(T14BlueMod)
+diff --git a/AI/T14BlueMod/StdInc.h b/AI/T14BlueMod/StdInc.h
+new file mode 100644
+index 0000000000..b3c5b324a6
+--- /dev/null
++++ b/AI/T14BlueMod/StdInc.h
+@@ -0,0 +1,8 @@
++/*
++ * StdInc.h, part of VCMI engine (T14Blue strategic blue-side AI)
++ *
++ * License: GNU General Public License v2.0 or later
++ */
++#pragma  once
++#include "../../Global.h"
++VCMI_LIB_USING_NAMESPACE
+diff --git a/AI/T14BlueMod/T14BlueGateway.cpp b/AI/T14BlueMod/T14BlueGateway.cpp
+new file mode 100644
+index 0000000000..e35db48e3b
+--- /dev/null
++++ b/AI/T14BlueMod/T14BlueGateway.cpp
+@@ -0,0 +1,19 @@
++/*
++ * T14BlueGateway.cpp — T14 blue-side strategic AI gateway (layer-2 C++ plugin)
++ * Base AIGateway ctor creates a stock Nullkiller; we swap in T14Nullkiller.
++ * Safe: init() has not run yet (it runs later in initGameInterface).
++ */
++#include "StdInc.h"
++#include "T14BlueGateway.h"
++#include "T14Nullkiller.h"
++#include "../Nullkiller2/Engine/Nullkiller.h"
++
++#include <memory>
++
++namespace T14Blue
++{
++	T14BlueGateway::T14BlueGateway()
++	{
++		nullkiller = std::make_unique<T14Nullkiller>();
++	}
++}
+diff --git a/AI/T14BlueMod/T14BlueGateway.h b/AI/T14BlueMod/T14BlueGateway.h
+new file mode 100644
+index 0000000000..4840627e09
+--- /dev/null
++++ b/AI/T14BlueMod/T14BlueGateway.h
+@@ -0,0 +1,21 @@
++/*
++ * T14BlueGateway.h — T14 blue-side strategic AI gateway (layer-2 C++ plugin)
++ * Thin derivative of NK2AI::AIGateway: whole planning/event skeleton reused,
++ * only the planner swapped to T14Nullkiller (onPursueTurn harvest hook).
++ * R6 battle routing / R17 skill pick = inherited from NK2, zero override.
++ */
++#pragma once
++#include "StdInc.h"
++#include "../Nullkiller2/AIGateway.h"
++
++namespace T14Blue
++{
++	class T14Nullkiller; // fwd
++
++	class T14BlueGateway : public NK2AI::AIGateway
++	{
++	public:
++		T14BlueGateway();
++		~T14BlueGateway() = default;
++	};
++}
+diff --git a/AI/T14BlueMod/T14Nullkiller.cpp b/AI/T14BlueMod/T14Nullkiller.cpp
+new file mode 100644
+index 0000000000..e9b58fe643
+--- /dev/null
++++ b/AI/T14BlueMod/T14Nullkiller.cpp
+@@ -0,0 +1,114 @@
++/*
++ * T14Nullkiller.cpp — T14 blue-side strategic planner (layer-2 C++ plugin)
++ * R13 VictoryPursuer harvest nudge (方案_T14规则设计_20260925 层2首件).
++ *
++ * 语义: NK2 本地最优循环常"攒经济不出门" -> 全池 5000 天截断 DRAW (S-7 根因).
++ * 本钩子每回合把 "最强未锁英雄 -> 敌城" re-assert 为规划目标, 破 DRAW 根因.
++ * 目标选择按原型差异化 (P0 龟速20天 / P1 速攻7天 / P2 游击不推进 / P3 飞取最远主城
++ * / P4 均衡最近), 同地图+难度 -> 同原型 (可复现).
++ *
++ * 边界: nudge 非硬目标注入 -- targetObject 被 NK2 每 pass 的 updateState() 重置,
++ * 本钩子在 makeTurn 的 defender 预留后 re-set, 影响主 decompose 窗 + blocking 判定.
++ * 真·硬目标注入需 decompose 私有面 = T14.3b 另排.
++ */
++#include "StdInc.h"
++#include "T14Nullkiller.h"
++#include "../Nullkiller2/Engine/Nullkiller.h"
++#include "../../lib/mapObjects/CGTownInstance.h"
++#include "../../lib/mapObjects/CGHeroInstance.h"
++#include "../../lib/StartInfo.h"
++#include "../../lib/constants/Enumerations.h"
++
++#include <cstdint>
++#include <cstdlib>
++
++namespace
++{
++	uint32_t fnv1a(const std::string & s)
++	{
++		uint32_t h = 2166136261u;
++		for(char c : s)
++		{
++			h ^= static_cast<uint32_t>(static_cast<unsigned char>(c));
++			h *= 16777619u;
++		}
++		return h;
++	}
++}
++
++namespace T14Blue
++{
++	void T14Nullkiller::onPursueTurn()
++	{
++		if(!archetypeResolved)
++		{
++			const StartInfo * si = cc->getStartInfo();
++			std::string key = "T14BLUE";
++			if(si)
++				key = si->mapname + "#" + std::to_string((int)si->difficulty) + "#" + std::to_string(playerID.getNum());
++			const uint32_t hash = fnv1a(key);
++			archetype  = hash % 5;
++			aggression = (hash >> 3) % 4;
++			archetypeResolved = true;
++			logAi->info("[T14-ACT] T14Blue resolved archetype=P%d aggr=%d seed=%u map=%s",
++			            (int)archetype, aggression, hash, si ? si->mapname.c_str() : "?");
++		}
++
++		if(archetype == 2)
++			return; // P2 guerrilla: stay dispersed, no central march
++
++		const int day = cc->getCalendar().getCurrentDay();
++
++		int gateDay;
++		switch(archetype)
++		{
++		case 0:  gateDay = 20; break; // P0 turtle
++		case 1:  gateDay =  7; break; // P1 rush
++		case 3:  gateDay = 10; break; // P3 flyer
++		default: gateDay =  0; break; // P4 balanced: keep pushing
++		}
++		gateDay = std::max(0, gateDay - aggression);
++		if(day < gateDay)
++			return;
++
++		const CGHeroInstance * best = nullptr;
++		for(const CGHeroInstance * h : cc->getHeroesInfo())
++		{
++			if(!h || isHeroLocked(h))
++				continue;
++			if(!best || h->getTotalStrength() > best->getTotalStrength())
++				best = h;
++		}
++		if(!best)
++			return;
++
++		const bool wantFurthest = (archetype == 3);
++		const CGTownInstance * target = nullptr;
++		const int3 refPos = best->anchorPos();
++		si32 bestDist = wantFurthest ? -1 : 1 << 30;
++		for(const CGTownInstance * t : cc->getTownsInfo(false)) // all visible towns
++		{
++			if(!t)
++				continue;
++			if(cc->getPlayerRelations(playerID, t->getOwner()) != PlayerRelations::ENEMIES)
++				continue;
++			const int3 tp = t->anchorPos();
++			const si32 d = std::abs(tp.x - refPos.x) + std::abs(tp.y - refPos.y);
++			if((wantFurthest && d > bestDist) || (!wantFurthest && d < bestDist))
++			{
++				bestDist = d;
++				target = t;
++			}
++		}
++		if(!target)
++			return;
++
++		setActive(best, target->anchorPos());
++		setTargetObject(target->id.getNum());
++		objectClusterizer->reset();
++
++		logAi->info("[T14-ACT] day=%d P%d aggr=%d pursue->enemyTown obj=%d dist=%d heroStr=%llu",
++		            day, (int)archetype, aggression, target->id.getNum(), (int)bestDist,
++		            (unsigned long long)best->getTotalStrength());
++	}
++}
+diff --git a/AI/T14BlueMod/T14Nullkiller.h b/AI/T14BlueMod/T14Nullkiller.h
+new file mode 100644
+index 0000000000..208a75cc86
+--- /dev/null
++++ b/AI/T14BlueMod/T14Nullkiller.h
+@@ -0,0 +1,22 @@
++/*
++ * T14Nullkiller.h — T14 blue-side strategic planner (layer-2 C++ plugin)
++ * Derives NK2AI::Nullkiller, overrides onPursueTurn() (R13 harvest nudge).
++ * NK2 base default = empty -> zero behavior change for stock Nullkiller.
++ */
++#pragma once
++#include "StdInc.h"
++#include "../Nullkiller2/Engine/Nullkiller.h"
++
++namespace T14Blue
++{
++	class T14Nullkiller : public NK2AI::Nullkiller
++	{
++	public:
++		void onPursueTurn() override;
++
++	private:
++		bool archetypeResolved = false;
++		int  archetype   = 4;  // P4 balanced default
++		int  aggression  = 0;  // 0-3
++	};
++}
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1711d97007..43bb8b5b2a 100755
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -56,6 +56,7 @@ option(ENABLE_NULLKILLER2_AI "Enable compilation of Nullkiller2AI library" ON)
+ option(ENABLE_STUPID_AI "Enable compilation of StupidAI library" ON)
+ option(ENABLE_BATTLE_AI "Enable compilation of BattleAI library" ON)
+ option(ENABLE_MMAI "Enable compilation of MMAI AI library" ON)
++option(ENABLE_T14_BLUE "Enable compilation of T14Blue blue-side strategic AI (NK2-derived)" OFF)
+ 
+ # Compilation options
+ 
+@@ -363,6 +364,9 @@ endif()
+ if(ENABLE_MMAI)
+ 	add_definitions(-DENABLE_MMAI)
+ endif()
++if(ENABLE_T14_BLUE)
++	add_definitions(-DENABLE_T14_BLUE)
++endif()
+ 
+ 
+ if(IOS)
+diff --git a/lib/callback/AIFactory.cpp b/lib/callback/AIFactory.cpp
+index 067b3bc2ca..d1cf25e1a4 100755
+--- a/lib/callback/AIFactory.cpp
++++ b/lib/callback/AIFactory.cpp
+@@ -24,6 +24,9 @@
+ #ifdef ENABLE_MMAI
+ #  include "../../AI/MMAI/MMAI.h"
+ #endif
++#ifdef ENABLE_T14_BLUE
++#  include "../../AI/T14BlueMod/T14BlueGateway.h"
++#endif
+ // Note: MMAI not instantiated here - it's loaded at runtime via the AI plugin system
+ // The MMAI::AAI::AAI class is available but not directly created in libvcmiMain
+ #include "../../AI/EmptyAI/CEmptyAI.h"
+@@ -58,7 +61,20 @@ std::shared_ptr<CGlobalAI> AIFactory::createAdventureAI(const std::string & name
+ 	}
+ #endif
+ 
+-	auto ret = std::make_shared<CEmptyAI>();
++#ifdef ENABLE_T14_BLUE
++	if(name == "T14Blue")
++	{
++#ifdef ENABLE_NULLKILLER2_AI
++		auto ret = std::make_shared<T14Blue::T14BlueGateway>();
++		ret->dllName = name;
++		return ret;
++#else
++		throw std::runtime_error("T14Blue requires ENABLE_NULLKILLER2_AI in this build!");
++#endif
++	}
++#endif
++
++auto ret = std::make_shared<CEmptyAI>();
+ 	ret->dllName = name;
+ 	return ret;
+ }
+@@ -98,6 +114,10 @@ bool AIFactory::isAvailableAdventureAI(const std::string & name)
+ #ifdef ENABLE_NULLKILLER2_AI
+ 	if(name == "Nullkiller2")
+ 		return true;
++#endif
++#ifdef ENABLE_T14_BLUE
++	if(name == "T14Blue")
++		return true;
+ #endif
+ 	return false;
+ }
+diff --git a/lib/callback/CDynLibHandler.cpp b/lib/callback/CDynLibHandler.cpp
+index f7c51a54c6..8fa87635ef 100755
+--- a/lib/callback/CDynLibHandler.cpp
++++ b/lib/callback/CDynLibHandler.cpp
+@@ -32,6 +32,9 @@
+ #  ifdef ENABLE_MMAI
+ #    include "../../AI/MMAI/MMAI.h"
+ #  endif
++#  ifdef ENABLE_T14_BLUE
++#    include "../../AI/T14BlueMod/T14BlueGateway.h"
++#  endif
+ #  include "../../AI/EmptyAI/CEmptyAI.h"
+ #else
+ # ifdef VCMI_WINDOWS
+@@ -143,6 +146,12 @@ std::shared_ptr<CGlobalAI> createAny(const boost::filesystem::path & libpath, co
+ 	}
+ #endif
+ 
++#ifdef ENABLE_T14_BLUE
++	// T14 blue-side strategic AI (NK2-derived harvest layer, 09-26 T14.3)
++	if(libpath.stem() == "libT14Blue")
++		return std::make_shared<T14Blue::T14BlueGateway>();
++#endif
++
+ 	return std::make_shared<CEmptyAI>();
+ }
+ 
+diff --git a/libFacade/CMakeLists.txt b/libFacade/CMakeLists.txt
+index 40c16154e0..2e310130bf 100755
+--- a/libFacade/CMakeLists.txt
++++ b/libFacade/CMakeLists.txt
+@@ -52,6 +52,9 @@ if(NOT ENABLE_MINIMAL_LIB)
+ 		if(ENABLE_MMAI)
+ 			target_link_libraries(vcmi PRIVATE MMAI)
+ 		endif()
++		if(ENABLE_T14_BLUE)
++			target_link_libraries(vcmi PRIVATE T14BlueMod)
++		endif()
+ 	endif()
+ endif()
+ 
+-- 
+2.43.0
+
