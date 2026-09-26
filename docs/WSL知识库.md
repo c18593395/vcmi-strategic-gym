@@ -434,3 +434,13 @@ vmap town template 实测 (六图一致): `mask=["VVVVV","VVAVV","VVVVV"]` — �
 **附带勘误（P8-E 旧结论作废）**: P8-E（09-15）「3 客户端 join Twins → server NEW_GAME 崩」在当前 server 已**不复现**（09-16 #205 robustness 后）；M3 v2/v3 三连接对局正常开始。
 
 **settings.json 状态**: `adventureEnemyAI=Nullkiller2`（M1.5 切，备份 `.bak_pre_nk2_0927`）；M3 未再动。蓝方身份以 server log `Player color 1 will be controlled from connection 2` 为准（client 自身 log 摘 slot 后可能无 `will be lead by` 行）。
+
+## 2026-09-27 hero3 双 CLI 合作落地 + P-015 N=16 长稳基线（hero3 侧）
+
+**双 profile 分工定版（hero3-collab 板 t_9932e45f）**：按物理侧切——hero3 = 服务器 172.16.2.40 侧（P-015 长稳 / P-003·P-004 `_ug_low` 13 张错窗重测 / OBS·R 观察）；h3_32b_homm3 = 本机 Windows+WSL 侧（T13.11/T14 线 / P-032 观察 / V15 冒烟）。错峰纪律 = 服务器 N=16 在训（load≈30）时 hero3 不上 CPU 密集 batch。
+
+**P-015 基线（09-27 05:35 实采，窗口 02:25:06 起 MainPID 3018380）**：unit active / NRestarts=0 / runner=16 / step1710891 ep=339 / `R=` 总奖励行在位（09-25 要求实证）。§2.18 语义坐实：`HERMES_N_EP` 覆盖 `N_EPISODES` = **PPO 更新 cycle 上限非局数**（源 L38-40 + L742 并行路径每 ep = spawn N slot + poll 攒满 BATCH=2048 步 → 1 次 update）。
+
+**P-015 12h 复测机制（14:25 = 02:25:06+12h，机器级不走 gateway）**：远程 `/root/p015_probe.sh`（unit/NRestarts/start/runners/log tail）→ 本地 `py/p015_recheck.ps1`（SSH 调探测 → 落 `cache/scratch/p015_recheck.log` → 自动 kanban 留言 t_816a46bf）→ Windows 计划任务 `p015_recheck_1425` @14:25 触发。判据 = NRestarts 仍 0 + step 明显在爬；runners 瞬采 8~17 波动是 slot 收割/重开正常循环，**以 NRestarts+step 为主判据，勿瞬采误读**。05:51 手动全链路跑通。
+
+**SSH 钥匙勘误（09-27 实证，服务器知识库 §5.0 + 服务器踩坑点 §1.11 已同步）**：`~/.ssh/config` 钉的 id_ed25519 未注册进服务器 authorized_keys，`ssh xm-server` 直接 Permission denied；可用钥匙 = `~/.ssh/id_rsa`（显式 `-i` + `IdentitiesOnly=yes`）。密码通道当时 faillock/全拒，别碰。

@@ -547,3 +547,17 @@
 - **根因四层**：① 1v3 结构不可达（蓝 3 城 3 将 67+ 格对角远端，红跨全图推不动）② 非 duel T06 `move_to_force=250` 全程引导奔蓝城——09-03 已验证坏模式（"200 版 13/32 挂死局 r=-429 全程引导拖英雄撞墙"）只在 duel/小图分支回滚到 60，非 duel 分支残留 250 ③ NK2 平台期流血（ep 日志 `[NK2]` 实测 Φ=49.35 delta=0.000 纯步罚；R≈-200 蓝胜终局 -22 终结Φ修正 -22.5 步罚 -60~90 循环罚）④ 死亡反转（速死 58 步 avg +0.39 vs 强撑 -1.5——取兵修复红变强 → 速死模式消失局变长 → 1v3 赢不了长存活=长流血）。
 - **教训**：① 参数分支修复必须审计全部同类分支（09-03 教训只落在 duel 分支，非 duel 残留）② "提升能力"的修复可能通过改变局长分布暴露新负 signature——部署后恶化先问局长分布变没变，别急着回滚修复本身 ③ 1v1/1v3 图型分桶统计，混算互相掩盖 ④ 处置按数据分流非参数手术（决策树见知识库 09-27 章：自愈关案 / 恶化无正局三档治理 / 有正局改 250→60 搭车；②平局化 ③death_penalty 加深已否决）。
 - 状态: ⚠️ 观察中（P-032，攒 ≥30 局分流；duel 1v1 主线不受拖累）。
+
+### #345. 会话内 kanban 工具不继承 CLI 的 board 指针，建卡静默落 default 板 ⚠️ 已绕过（09-27，hero3）
+
+- **现象**：hero3 侧 `hermes kanban boards switch hero3-collab` 后，会话内 kanban 工具 `kanban_create` 建卡，CLI 侧 `HERMES_KANBAN_BOARD=hero3-collab hermes kanban list` 看不到——卡落进了 `default` 板；对端（共享 hero3-collab 板）不可见。
+- **根因**：会话工具与 CLI 子命令的板解析时机/来源不一致——工具侧解析发生在会话建立时（早于 switch 写指针），CLI 每次子命令重读共享指针；`switch` 写的指针文件工具侧不实时认。
+- **纪律**：会话内每个 kanban 工具调用**显式传 `board='<共享板slug>'`**；建完立刻 `kanban_list(board=...)` 核验卡真在共享板上；误落的杂卡用 CLI `hermes kanban archive <id>`（该 CLI 无 delete 子命令）清掉，有效卡重建在共享板。
+- **状态**：✅ 已绕过（09-27，hero3-collab 板 3 有效卡：t_e78796ea smoke / t_9932e45f 分工 / t_816a46bf P-015；误落的 t_69a52df3/t_0c311d15 已归档）。
+
+### #346. cron 任务保存 ≠ 会触发：本机 gateway 未跑时 cron 永不执行，定时验收改机器级 schtasks ⚠️ 已绕过（09-27，hero3）
+
+- **现象**：`cronjob_manage` 建 14:25 复测任务成功返回 job_id，但 `gateway_running: false` + warning「saved but will NOT fire until the gateway is started」——CLI 会话里的 cron 只保存不触发，定时验收会静默落空。
+- **根因**：cron 调度器跑在 hermes gateway 进程里；本机 CLI-only 部署没起 gateway，scheduler 无宿主。
+- **纪律**：需要「准点自动跑 + 无人值守」的验收/巡检，本机走 Windows 计划任务（`schtasks /create /sc once`，机器级不依赖 hermes）；触发体用独立 ps1（SSH 探测 + 落日志 + kanban 留言），别依赖 LLM 会话。判据数据自动回写共享板 card，人看结果即可。
+- **状态**：✅ 已绕过（P-015 12h 复测 = schtasks `p015_recheck_1425` @14:25 → `py/p015_recheck.ps1` → 远程 `/root/p015_probe.sh`，05:51 手动全链路跑通）。
