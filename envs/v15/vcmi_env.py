@@ -442,6 +442,23 @@ class VcmiEnv(gym.Env):
         super().reset(seed=seed)
 
         obs = self.connector.reset()
+        if not obs:
+            # T12-PRE.1.5e (09-29): 引擎收局 / state 未就绪时 connector.reset() 返回空 dict,
+            # 标记 episode 已终止 (terminated=True), 返回最小 obs 让上层训练/评测链路可继续,
+            # 而非在 __init__ 阶段因缺 obs 结构崩溃。
+            self.terminated = True
+            self.truncated = False
+            self.steps_this_episode = 0
+            self.reward = 0.0
+            self.reward_total = 0.0
+            empty_obs = {
+                "nodes": {k: np.array([], dtype=v.dtype) for k, v in self.observation_space["nodes"].spaces.items()},
+                "edges": {k: np.array([], dtype=v.dtype) for k, v in self.observation_space["edges"].spaces.items()},
+                "active_action_ids": np.array([], dtype=np.int64),
+            }
+            self.obs = empty_obs
+            info = {"side": -1, "round": -1, "shut_down": True}
+            return empty_obs, info
 
         self._reset_vars(obs)
         if self.render_each_step:

@@ -172,7 +172,12 @@ class PyConnector():
         try:
             assert self.thread.is_alive(), "VCMI thread is dead."
             code, res = self._connector.reset(self.side)
-            assert code == 0, "bad return code: %s" % code
+            if code != 0:
+                # T12-PRE.1.5e (09-29): 引擎收局 / state 未就绪时 reset 返回 SHUTDOWN(2),
+                # 返回空 dict 让上层 (vcmi_env.reset) 自行判定 (如标记 episode 终止),
+                # 而非 assert 失败 → 防悬空 state 指针 segfault。
+                self.logger.warning(f"reset returned code={code}, returning empty obs")
+                return {}
             return res
         except Exception as e:
             self.logger.error(f"Exception caught: {str(e)}\nConnector log dump:")

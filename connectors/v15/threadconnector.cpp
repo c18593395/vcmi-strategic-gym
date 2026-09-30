@@ -16,6 +16,7 @@
 
 #include "threadconnector.h"
 #include "ML/model_wrappers/function.h"
+#include "ML/MLClient.h"
 #include "common.h"
 #include "schema/base.h"
 #include "schema/v15/constants.h"
@@ -312,11 +313,22 @@ namespace Connector::V15::Thread {
         auto &m = side ? m1 : m0;
         auto &cond = side ? cond1 : cond0;
 
-        ASSERT_STATE(funcname, expstate);
-
         LOGFMT("obtain lock%d", side);
         std::unique_lock lock(m);
         LOGFMT("obtain lock%d: done", side);
+
+        // T12-PRE.1.5e-fix (09-29): 持锁校验 connstate 进入态 (替代无锁 ASSERT_STATE)。
+        // 原 ASSERT_STATE 在锁外读 connstate, 与引擎线程 start() 持锁写 connstate=AWAITING_STATE
+        // 形成跨线程数据竞争 → 读到中间态 → 误判 throw。现改为锁内读 connstate 校验,
+        // 消除竞争; 若进入态不符 (如引擎线程已置 AWAITING_STATE), 记录 _error 供后续 throw,
+        // 而非直接中断 (getAction 持锁检查会二次确认)。
+        if (connstate != expstate) {
+            LOGFMT("%s: connstate=%d, expected %d (entering getState)",
+                funcname % EI(connstate) % EI(expstate));
+            SET_ERROR(boost::str(boost::format(
+                "%s: unexpected connector state at entry: want: %d, have: %d") \
+                % funcname % EI(expstate) % EI(connstate)));
+        }
 
         LOGFMT("set this->action = %d", action_);
         action = action_;
@@ -358,16 +370,49 @@ namespace Connector::V15::Thread {
     }
 
     std::tuple<int, py::dict> Connector::reset(int side) {
-        SHUTDOWN_PYTHON_RETURN(buildObsDict(state)); // reuse last state if shutting down
+        SHUTDOWN_PYTHON_RETURN({}); // 引擎收局后不读悬空 state, 返回空 dict
+        if (state == nullptr) {
+            LOG("reset: state is null (engine not started or state not filled), returning empty dict");
+            return {static_cast<int>(ReturnCode::SHUTDOWN), py::dict()};
+        }
         auto code = getState(__func__, side, MMAI::Schema::ACTION_RESET);
+        // getState 的 pred (connstate==expstate || _shutdown) 满足后, 引擎侧 getAction 可能
+        // 已随引擎线程收局 (runServer EXIT) 而不再更新 state; 引擎自然收局路径下
+        // shutdown_vcmi 释放 GAME/BAI state 前 connstate 可能停留在 AWAITING_STATE。
+        // 若 _error 非空 (getState 持锁校验发现状态竞争) 或 code 为 TIMEOUT/SHUTDOWN,
+        // 不读 state (可能已释放) → 直接返回 SHUTDOWN, 防悬空指针 segfault。
+        if (!_error.empty() || code == ReturnCode::TIMEOUT || code == ReturnCode::SHUTDOWN) {
+            LOG("reset: getState returned code=" + std::to_string(static_cast<int>(code))
+                + " or _error set; not reading state (may be dangling after engine shutdown)");
+            return {static_cast<int>(code), py::dict()};
+        }
+        if (state == nullptr) {
+            LOG("reset: state became null after getState, returning empty dict");
+            return {static_cast<int>(code), py::dict()};
+        }
         const auto p_dict = buildObsDict(state);
         LOG("return p_dict");
         return {static_cast<int>(code), p_dict};
     }
 
     std::tuple<int, py::dict> Connector::step(int side, MMAI::Schema::Action a) {
-        SHUTDOWN_PYTHON_RETURN(buildObsDict(state)); // reuse last state if shutting down
+        SHUTDOWN_PYTHON_RETURN({}); // 引擎收局后不读悬空 state, 返回空 dict
+        if (state == nullptr) {
+            LOG("step: state is null (engine not started or state not filled), returning empty dict");
+            return {static_cast<int>(ReturnCode::SHUTDOWN), py::dict()};
+        }
         auto code = getState(__func__, side, a);
+        // 同 reset: getState 返回 TIMEOUT/SHUTDOWN 或 _error 非空时, state 可能已释放,
+        // 不读 state → 直接返回 code + 空 dict, 防悬空指针 segfault。
+        if (!_error.empty() || code == ReturnCode::TIMEOUT || code == ReturnCode::SHUTDOWN) {
+            LOG("step: getState returned code=" + std::to_string(static_cast<int>(code))
+                + " or _error set; not reading state (may be dangling after engine shutdown)");
+            return {static_cast<int>(code), py::dict()};
+        }
+        if (state == nullptr) {
+            LOG("step: state became null after getState, returning empty dict");
+            return {static_cast<int>(code), py::dict()};
+        }
         const auto p_dict = buildObsDict(state);
         LOG("return p_dict");
         return {static_cast<int>(code), p_dict};
@@ -483,6 +528,37 @@ namespace Connector::V15::Thread {
             LOGFMT("cond%1%.wait(lock%1%)", side);
             res = cond_wait(__func__, side, cond, lock, bootTimeout, pred);
             LOGFMT("cond%1%.wait(lock%1%): done", side);
+        }
+
+        if (res == ReturnCode::TIMEOUT) {
+            // T12-PRE.1.3: enhance guard with diagnostic hint
+            auto logs_snapshot = getLogs();
+            std::string tail;
+            for (size_t i = std::max<size_t>(0, logs_snapshot.size() - 10); i < logs_snapshot.size(); ++i)
+                tail += logs_snapshot[i] + "\n";
+            throw VCMIConnectorException(boost::str(boost::format(
+                "connect side=%d TIMEOUT after %ds (connstate=%d, expstate=%d, shutdown=%d, loglines=%d)\n"
+                "hint: engine likely failed init or map path missing; check VCMI_Client_log.txt + rel/bin/Maps/\n"
+                "last log lines:\n%s") \
+                % side % bootTimeout % EI(connstate) % EI(expstate) \
+                % _shutdown.load() % static_cast<int>(logs_snapshot.size()) % tail.c_str()));
+        } else if (res == ReturnCode::SHUTDOWN) {
+            LOG("connector is shutting down...");
+            throw VCMIConnectorException("connector shutdown while waiting for state (side:" + std::to_string(side) + ")");
+        }
+
+        // T12-PRE.1.5e-fix (09-29): connect 完成时校验 state 指针,
+        // 防止 buildObsDict 读坏指针 (引擎侧 battleStart 回调未填 state 时)。
+        if (state == nullptr) {
+            // 引擎线程 start() 收局路径 (start_vcmi 正常返回) 下, 引擎已释放 BAI state,
+            // 但 connector 侧 state 指针仍指向已释放内存。此时不再读 state → 返回空 dict,
+            // 让 python 侧 __init__ 的 reset() 拿到 SHUTDOWN 码而非悬空指针 → 防 segfault。
+            // 正常 boot 路径 (引擎未收局) 下 state 由首场 battle 的 getAction 填充, 非 null。
+            LOG("connect: state is nullptr (engine already shut down or state not filled), "
+                "returning empty dict to avoid reading dangling pointer");
+            auto py_dict = py::dict();
+            LOGFMT("release lock%d (return)", side);
+            return {static_cast<int>(ReturnCode::SHUTDOWN), py_dict};
         }
 
         auto py_dict = buildObsDict(state);
@@ -612,23 +688,73 @@ namespace Connector::V15::Thread {
             _statsPersistFreq,
             true                    // headless
         );
+        // T12-PRE.2.1 (09-29): 显式写 red/blue 进 InitArgs。
+        // 不写则引擎侧拿成员默认值 red="MMAI"/blue="Nullkiller2" (全仓无赋值点),
+        // MLClient V15 分支 if(a.blue=="MMAI_USER") 永不触发 → 蓝方落 NK2 (C++ 自主 AI,
+        // 不走 connector getAction(1)) → side=1 connstate 永停 AWAITING_STATE → connect 死等。
+        // 对真 C++ 对手档 (NK2/StupidAI 等) 行为零变化 (写进去的就是同名默认值)。
+        initargs->red = red;
+        initargs->blue = blue;
         LOG("call init_vcmi(...)");
-        ML::init_vcmi((void*)initargs.get());
+        try {
+            // T12-PRE.1.5e (09-29, V15 门控): 注册引擎收局通知钩子。
+            // 引擎 start_vcmi 收局后调 shutdown_vcmi → 触发此回调,
+            // 在 GAME.reset (释放 BAI state) 之前置 _shutdown=true + notify_all,
+            // 使后续 python 侧 reset/step 走 SHUTDOWN_PYTHON_RETURN 兜底路径,
+            // 不再读悬空 state 指针 (防 segfault)。
+            ML::registerShutdownCallback([this]() {
+                LOG("[shutdown-hook] engine gameOver, setting _shutdown + notify");
+                _shutdown = true;
+                cond0.notify_all();
+                cond1.notify_all();
+                cond2.notify_all();
+            });
+
+            ML::init_vcmi((void*)initargs.get());
+        } catch (const std::exception &e) {
+            // T12-PRE.1.3: engine init failure -> propagate shutdown to all waiting threads
+            LOG(std::string("init_vcmi failed: ") + e.what());
+            _shutdown = true;
+            cond0.notify_all();
+            cond1.notify_all();
+            cond2.notify_all();
+            throw VCMIConnectorException(std::string("init_vcmi failed: ") + e.what());
+        }
 
         LOG("set connstate = AWAITING_STATE");
-        connstate = ConnectorState::AWAITING_STATE;
+        // T12-PRE.1.5e-fix (09-29): 引擎线程 start() 的 connstate 写点原为无锁,
+        // 与 getState/getAction 的 ASSERT_STATE 检查竞争 (getState 要求进入态
+        // AWAITING_ACTION_0, 引擎线程无锁写 AWAITING_STATE 破坏状态机时序)。
+        // 改持 m0 锁 + notify_all, 与 getState/getAction 锁协议一致, 消除无锁写竞争。
+        {
+            std::unique_lock lock0(m0);
+            connstate = ConnectorState::AWAITING_STATE;
+        }
+        cond0.notify_all();
 
         LOG("release lock2");
         lock2.unlock();
 
         LOG("launch VCMI (will never return)");
-        ML::start_vcmi();
+        try {
+            ML::start_vcmi();
+        } catch (const std::exception &e) {
+            LOG(std::string("start_vcmi raised: ") + e.what());
+            _shutdown = true;
+            cond0.notify_all();
+            cond1.notify_all();
+            throw VCMIConnectorException(std::string("start_vcmi failed: ") + e.what());
+        }
 
         if (!_shutdown)
             std::cerr << "ERROR: ML::start_vcmi() returned, but shutdown is false";
     }
 
     void Connector::shutdown() {
+        if (_shutdown) {
+            LOG("shutdown: already in shutdown state, skipping duplicate ML::shutdown_vcmi call");
+            return;
+        }
         _shutdown = true;
         ML::shutdown_vcmi();
     }

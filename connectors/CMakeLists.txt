@@ -23,7 +23,7 @@ endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(DEBUG_BUILD 1)
-    set(VCMI_BIN_PATH "${VCMI_DIR}/build/bin")
+    set(VCMI_BIN_PATH "${VCMI_DIR}/rel/bin")  # fix 09-27 V15: engine artifacts always in rel/bin (build/bin is stale)
 else()
     set(VCMI_BIN_PATH "${VCMI_DIR}/rel/bin")
 endif()
